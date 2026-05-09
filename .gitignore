@@ -11,8 +11,8 @@ htmlcov/
 .venv/
 venv/
 
-# Local runtime data (never commit)
-data/
+# Local runtime data (never commit) — root only (do not ignore src/invis_alpha_os/data/)
+/data/
 
 # Secrets / env
 .env
