@@ -1,0 +1,6 @@
+weights:
+  quality: 0.35
+  growth: 0.25
+  valuation: 0.2
+  risk_adjustment: 0.2
+

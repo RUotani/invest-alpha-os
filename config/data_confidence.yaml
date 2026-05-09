@@ -1,0 +1,12 @@
+data_confidence:
+  levels:
+    low:
+      score: 0.3
+      description: "single source, low verification"
+    mid:
+      score: 0.6
+      description: "multiple sources or moderate verification"
+    high:
+      score: 0.9
+      description: "high-quality source with cross-check"
+

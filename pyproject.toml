@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invis-alpha-os"
+version = "0.0.0"
+description = "Laputa Alpha OS (InvisAlphaOS): long-term investing decision support OS (Observation Only)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "typer>=0.12",
+  "pydantic>=2.7",
+  "PyYAML>=6.0.1",
+  "yfinance>=0.2.40",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+alpha-os = "invis_alpha_os.cli.main:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

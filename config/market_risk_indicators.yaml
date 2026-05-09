@@ -1,0 +1,8 @@
+market_risk_indicators:
+  - name: "vix"
+    source: "prototype"
+  - name: "credit_spread"
+    source: "prototype"
+  - name: "usd_jpy_volatility"
+    source: "prototype"
+

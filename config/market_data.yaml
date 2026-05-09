@@ -1,0 +1,13 @@
+market_data:
+  default_adapter: "yfinance"
+  adapters:
+    yfinance:
+      mode: "fallback_prototype"
+      note: "Phase 0 only"
+    edinet:
+      mode: "metadata_stub"
+      note: "Future metadata integration"
+    sec:
+      mode: "metadata_stub"
+      note: "Future metadata integration"
+

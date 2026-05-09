@@ -1,0 +1,18 @@
+hard_veto:
+  - id: "hard_market_heat"
+    metric: "market_heat"
+    threshold: 0.9
+    message: "Market overheat exceeds hard threshold"
+
+soft_veto:
+  - id: "soft_valuation_stretch"
+    metric: "valuation_stretch"
+    threshold: 0.65
+    message: "Valuation stretch exceeds soft threshold"
+
+fomo_veto:
+  - id: "fomo_chase_warning"
+    metric: "price_spike_5d"
+    threshold: 0.15
+    message: "Possible FOMO chase setup"
+

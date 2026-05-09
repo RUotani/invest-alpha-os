@@ -1,0 +1,35 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+.venv/
+venv/
+
+# Local runtime data (never commit)
+data/
+
+# Secrets / env
+.env
+.env.*
+*.env
+credentials.json
+token.json
+secrets/
+credentials/
+*.key
+*.pem
+
+# Editor
+.vscode/
+.idea/
+
+outputs/**
+!outputs/**/
+!outputs/**/.gitkeep
+

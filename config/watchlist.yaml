@@ -1,0 +1,18 @@
+jp_watchlist:
+  - "7011"
+  - "7203"
+  - "8035"
+
+us_watchlist:
+  tier_1_core:
+    - "MSFT"
+    - "AAPL"
+    - "GOOGL"
+  tier_2_theme_peers:
+    - "NVDA"
+    - "AMD"
+    - "ASML"
+  tier_3_optional:
+    - "PLTR"
+    - "SOFI"
+
