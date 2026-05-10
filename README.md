@@ -55,6 +55,13 @@ make verify
 - risks
 - git status --short
 
+### AI 開発運用（Phase 0 完了後）
+
+複数の AI / ツールと協働する際の役割分担と標準フローは [docs/07_ai_development_workflow.md](docs/07_ai_development_workflow.md) を参照してください。
+
+- **`git add` / `commit` / `push`** は **人間のレビューと明示承認のうえでのみ**行う。
+- `.env`、`credentials.json`、`token.json`、`outputs/` の実行生成物（実データ）は **Git 管理しない**（セキュリティ節とも整合）。
+
 ### セキュリティ
 
 - **APIキー・token・credentials・`.env` は絶対にコミットしません**（`.gitignore` 済み）。
