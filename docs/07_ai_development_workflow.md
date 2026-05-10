@@ -66,7 +66,7 @@ Observation Only・No Auto Trading、`outputs/` 実行生成物の Git 非管理
 
 - **`make codex-review`**  
   - `codex` が PATH に無い場合は **エラー終了とはせず**、説明付きで `.ai/reviews/latest.md` にスキップ理由を書き、`make` は続行できる（終了コード 0）。
-  - ある場合は **`codex exec` を read-only サンドボックス、`--ask-for-approval never`、`--ephemeral` で実行**（標準どおりモデル実行は OpenAI 側との通信となる）。`.env` は **読み込まず**、`git status --short` と `git diff --stat` だけをプロンプトコンテキストに含める。
+  - ある場合は **`codex --sandbox read-only --ask-for-approval never exec --ephemeral`**（Codex CLI v0.130+ では承認／サンドボックスは `exec` の**前**、`--ephemeral` は **`exec` の後**）で実行
   - 結果は **`.ai/reviews/latest.md`**（**Git 管理外**: `.gitignore` で `.ai/reviews/*.md` を無視）。
 - **`make ai-check`**  
   - **`PYTHON=...` をサブ Makefile に明示渡し**したうえで **`make verify`** → **`make codex-review`** → **`git status --short`** の順。
