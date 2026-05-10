@@ -1,4 +1,4 @@
-"""J-Quants API placeholder: Phase 1a Task 1 has no HTTP calls or secrets."""
+"""J-Quants API placeholder: integrates with JQuantsClient skeleton (Phase 1a Task 2)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from ..market_data_adapter import MarketDataAdapter, QuoteSnapshot
+from .jquants_client import JQuantsClient
 
 
 def _truthy_env(name: str, default: str = "false") -> bool:
@@ -29,14 +30,19 @@ class JQuantsStubAdapter(MarketDataAdapter):
                 "mode": self.mode,
                 "enabled": False,
                 "status": "disabled_not_configured",
-                "note": "Set JQUANTS_ENABLED=true for stub-only exploration; no HTTP in Phase 1a Task 1.",
+                "client": JQuantsClient.from_env().safe_auth_status(),
+                "note": "JQUANTS_ENABLED=false — stub only; no HTTP (CI / make verify safe).",
             }
         return {
             "adapter": self.name,
             "mode": self.mode,
             "enabled": True,
-            "status": "stub_no_http",
-            "note": "Phase 1a: enabled flag set but live API calls are still not implemented.",
+            "status": "real_mode_skeleton",
+            "client": JQuantsClient.from_env().safe_auth_status(),
+            "note": (
+                "`debug jquants-status` は HTTP しない。ライブは `debug jquants-daily-quotes --live` かつ "
+                "`JQUANTS_ALLOW_LIVE_HTTP=true`。daily/pack/risks は HTTP-free。"
+            ),
         }
 
     def get_quote(self, symbol: str) -> QuoteSnapshot:

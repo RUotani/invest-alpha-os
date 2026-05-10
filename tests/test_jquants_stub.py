@@ -7,6 +7,7 @@ def test_jquants_disabled_by_default(monkeypatch):
     assert a.is_enabled() is False
     h = a.health()
     assert h.get("enabled") is False
+    assert "client" in h
     assert a.get_daily_quotes_stub()["status"] == "disabled"
     assert a.get_listed_info_stub()["status"] == "disabled"
 

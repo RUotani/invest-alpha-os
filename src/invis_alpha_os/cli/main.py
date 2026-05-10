@@ -4,11 +4,14 @@ from datetime import date
 
 from typing import Optional
 
+import json
+
 import typer
 
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
+    JQuantsClient,
     JQuantsStubAdapter,
     SecStubAdapter,
     YFinanceFallbackAdapter,
@@ -167,6 +170,58 @@ def debug_adapters() -> None:
     adapters = [YFinanceFallbackAdapter(), JQuantsStubAdapter(), EdinetStubAdapter(), SecStubAdapter()]
     for adapter in adapters:
         typer.echo(str(adapter.health()))
+
+
+@debug_app.command("jquants-status")
+def debug_jquants_status() -> None:
+    client = JQuantsClient.from_env()
+    typer.echo(json.dumps(client.safe_auth_status(), ensure_ascii=False, indent=2))
+    typer.echo("(never performs HTTP)")
+
+
+@debug_app.command("jquants-daily-quotes")
+def debug_jquants_daily_quotes(
+    code: str = typer.Option(..., "--code"),
+    from_date: str = typer.Option(..., "--from-date"),
+    to_date: str = typer.Option(..., "--to-date"),
+    date: Optional[str] = typer.Option(None, "--date"),
+    live: bool = typer.Option(False, "--live", help="Allow live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true)"),
+) -> None:
+    client = JQuantsClient.from_env()
+    if not client.is_enabled():
+        typer.echo(
+            json.dumps(
+                {"status": "disabled", "reason": "JQUANTS_ENABLED=false", "raw_response_included": False},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        raise typer.Exit(0)
+
+    result = client.get_daily_quotes(
+        code,
+        date=date,
+        from_date=from_date,
+        to_date=to_date,
+        attempt_live=live,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    if not live:
+        raise typer.Exit(0)
+    st = result.get("status")
+    if st == "live_blocked":
+        raise typer.Exit(0)
+    if st == "dry_run":
+        raise typer.Exit(0)
+    if st == "success":
+        raise typer.Exit(0)
+    if st == "not_configured":
+        raise typer.Exit(1)
+    if st == "failed":
+        raise typer.Exit(1)
+    if st == "http_error":
+        raise typer.Exit(1)
+    raise typer.Exit(0)
 
 
 def main() -> None:

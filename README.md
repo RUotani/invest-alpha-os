@@ -11,10 +11,13 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 - Bot output is for observation and review only during the first 12 weeks
 - Do not commit `.env`, `credentials.json`, `token.json`, API keys
 
-### Phase 1a — J-Quants 接続準備（Task 1）
+### Phase 1a — J-Quants（Task 1 & 2）
 
-- 日本株 watchlist と **J-Quants 用 stub adapter** を追加（**実 API・認証は未実装**）。
-- 環境変数は `.env.example` のプレースホルダのみ。**`JQUANTS_ENABLED=false`** のとき HTTP なしで動作。
+- **既定**: **`JQUANTS_ENABLED=false`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=false`**。`make verify`・`daily`・`pack`・`risks` は **J-Quants へ接続しない**。
+- **Task 2**: **`JQuantsClient`**（real-mode skeleton + **二重ゲート**）。
+  - **`debug jquants-status`**: **HTTP 禁止**（状態フラグと `token_preview: "***"` のみ）。
+  - **`debug jquants-daily-quotes`**: **既定は dry-run**。**実 HTTP** は **`--live` と `JQUANTS_ALLOW_LIVE_HTTP=true` の両方**が必要。
+- **AI Agent に認証情報を渡さない**。`.env.example` は **変数名のみ**。
 - 計画書: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
 
 ### クイックスタート
@@ -38,6 +41,8 @@ alpha-os --help
 - `alpha-os snapshot shadow-portfolio`
 - `alpha-os log outcome`
 - `alpha-os debug adapters`
+- `alpha-os debug jquants-status`（HTTP なし）
+- `alpha-os debug jquants-daily-quotes --code ... --from-date ... --to-date ... [--live]`
 
 ### 一括検証
 
@@ -67,6 +72,13 @@ make verify
 
 - **`git add` / `commit` / `push`** は **人間のレビューと明示承認のうえでのみ**行う。
 - `.env`、`credentials.json`、`token.json`、`outputs/` の実行生成物（実データ）は **Git 管理しない**（セキュリティ節とも整合）。
+
+#### Codex レビュー（半自動）
+
+- **`make codex-review`**: Codex CLI（`codex exec`・read-only サンドボックス・非対話）でレビューし、結果を `.ai/reviews/latest.md` に保存。`.env` は参照しない。このファイル種別は `.gitignore` で **コミット対象外**。
+- **`make ai-check`**: `PYTHON` を **`make verify` に明示的に渡し**、その後 `codex-review` と `git status --short` を実行。
+
+Codex 未インストール時は `codex-review` が **親切なスキップメッセージ**で終了（`make` は続行できる）します。
 
 ### セキュリティ
 

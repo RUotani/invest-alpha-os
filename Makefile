@@ -1,6 +1,18 @@
 PYTHON ?= python
 
-.PHONY: setup test status config-check daily pack risks verify
+# Prefer `.venv/bin/python` when Makefile left PYTHON at default; respect command line / env.
+VENVP := $(CURDIR)/.venv/bin/python
+ifeq ($(origin PYTHON),default)
+  ifneq ($(wildcard $(VENVP)),)
+    PYTHON := $(VENVP)
+  else ifneq ($(shell command -v python3 2>/dev/null),)
+    PYTHON := python3
+  else
+    PYTHON := python
+  endif
+endif
+
+.PHONY: setup test status config-check daily pack risks verify codex-review ai-check
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -40,5 +52,13 @@ verify:
 	@echo "==> [7/8] risks"
 	$(PYTHON) -m invis_alpha_os.cli.main risks
 	@echo "==> [8/8] git status --short"
+	git status --short
+
+codex-review:
+	bash scripts/codex_review.sh
+
+ai-check:
+	$(MAKE) verify PYTHON="$(PYTHON)"
+	$(MAKE) codex-review
 	git status --short
 

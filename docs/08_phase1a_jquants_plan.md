@@ -4,54 +4,63 @@
 
 - 日本株ウォッチリストを **テーマ付きで整理**し、将来のシグナル・日次レポートに載せられる形にする。
 - **J-Quants API** を日本株の **primary source 候補**として組み込むための **adapter・設定・環境変数の器**を用意する。
-- **このタスク（Task 1）では実 API 接続・認証フローは行わない**。キーなしでも `make verify` が通る状態を維持する。
+- **Task 1** では stub のみ。**Task 2** で **real-mode skeleton**（`JQuantsClient`）を追加し、**実 HTTP は明示的な debug CLI のみ**で可能にする。
 
 ## J-Quants 接続の段階設計
 
 | 段階 | 内容 |
 |------|------|
-| **Task 1（今回）** | `JQuantsStubAdapter`、`config/market_data.yaml` の `jp_equity`、`config/watchlist.yaml` 整備、`.env.example` のプレースホルダ、daily レポートの **Japan Signals** 枠（stub） |
-| **Task 2（次）** | リフレッシュトークン取得・ID トークン更新・`Authorization` ヘッダー付与の **HTTP クライアント実装**（ローカル `.env` のみ、Git 非管理） |
-| **Task 3 以降** | 取得データの正規化・キャッシュ・エラーハンドリング・レート制限 |
+| **Task 1** | `JQuantsStubAdapter`、`jp_equity`、`watchlist`、`.env.example`、daily **Japan Signals**（stub） |
+| **Task 2** | `JQuantsClient`（認証・`daily_quotes` の内部 HTTP 骨格）。**`debug jquants-status` は HTTP 禁止**。**実 HTTP** は `debug jquants-daily-quotes --live` **かつ** **`JQUANTS_ALLOW_LIVE_HTTP=true`** の **二重ゲート**のみ |
+| **Task 3 以降** | レスポンス正規化・キャッシュ・レート制限・トークン期限の自動更新 |
 
-認証で想定する要素（**実装は次タスク以降**）:
+### Task 2 で追加したこと（要約）
 
-- リフレッシュトークン
-- ID トークン
-- `Authorization` ヘッダー（ベアラ等）
+- **`safe_auth_status()`**: プレゼンスフラグと `token_preview: "***"` のみ（**トークン実値・パスワード・raw を出さない**）。
+- **`JQuantsClient`**: 公開戻り値に **refresh / id 実値・raw JSON を含めない**。ライブチェーンで得た機密は **メモリ内のみ**。
+- **`debug jquants-status`**: **プローブ無し**。標準出力に秘密を載せない。
+- **`debug jquants-daily-quotes`**: 既定 **dry-run**。`**--live` + `JQUANTS_ALLOW_LIVE_HTTP=true`** のときのみ実 HTTP を試行。
+- **`make verify` / `daily` / `pack` / `risks`**: **変更なしで J-Quants へ接続しない**。CI と同様。
+
+### ライブ HTTP の前提（Codex / 安全運用）
+
+- **`JQUANTS_ENABLED=true`** は必要だが **それ単体では不十分**。**`--live`** と **`JQUANTS_ALLOW_LIVE_HTTP=true`** を **両方**満たすこと。
+- 認証情報は **GitHub Secrets に置かず**、**ローカル `.env` のみ**（運用規約）。
+
+### 認証フロー（公式想定）
+
+- `POST /v1/token/auth_user` — mailaddress / password → refreshToken
+- `POST /v1/token/auth_refresh` — refreshToken → idToken
+- `GET /v1/prices/daily_quotes` 等 — `Authorization: Bearer <idToken>`
+
+※ ベース URL は `JQUANTS_API_BASE_URL`（既定 `https://api.jquants.com/v1`）。パスは実装で `/token/...` のように **ベース直下**を結合。
 
 ## 認証情報を Git に載せない方針
 
-- **メール・パスワード・リフレッシュトークン・ID トークン**は **コミット禁止**。
-- `.env` は個人環境のみ。リポジトリには **`.env.example` に空キーのみ**置く。
-- CI でも **Secrets を使わない**構成を維持し、stub のみでグリーンにする。
+- **実メール・パスワード・refresh / id トークン**は **`.env` にのみ**置く（**Git にコミットしない**）。
+- **`.env.example` には変数名だけ**。**実値を書かない**。
+- **`JQUANTS_ID_TOKEN` / `JQUANTS_REFRESH_TOKEN` は期限付き**。失効時は再取得または `auth_refresh`。運用では期限とローテーションをドキュメント化する。
 
 ## API キーなしでも stub で動く方針
 
-- 環境変数 `JQUANTS_ENABLED=false`（デフォルト相当）では **`JQuantsStubAdapter.is_enabled()` が false**。
-- アダプタは **HTTP を発行せず**、`disabled / not configured` あるいは空の stub ペイロードを返す。
-- アプリ本体・テスト・`make verify` は **認証情報なし**で完走する。
+- **`JQUANTS_ENABLED=false`**（既定）では `JQuantsStubAdapter` / `JQuantsClient` ともに **ネットワークに出ない**経路のみ。
+- **GitHub Actions** でも **Secrets を使わず**、**実接続は行わない**。
 
 ## 将来取得したいデータ（J-Quants API）
 
-- `listed/info` — 銘柄属性・上場情報
-- `prices/daily_quotes` — 日足
-- `fins/statements` — 財務諸表
-- `fins/announcement` — 適時開示等
+- `listed/info`
+- `prices/daily_quotes`
+- `fins/statements`
+- `fins/announcement`
 
-※ エンドポイント名・パスは実装フェーズで公式仕様と照合する。
+## AI / 開発者向け注意
 
-## 今回やらないこと
+- **AI Agent にメール・パスワード・トークンを渡さない**（[07_ai_development_workflow.md](./07_ai_development_workflow.md)）。
+- 実接続を試す場合は **ローカルのみ**、`JQUANTS_ENABLED=true` と **自分の `.env`** を人間が管理する。
 
-- J-Quants への **実接続・ログイン・トークン取得**
-- **`curl` での生産 API 叩き**
-- **自動売買・注文**
+## 次タスク（Task 3 候補）
 
-## 次タスクで実 API へ進む条件
-
-- 「認証トークンの取得・更新・失効時の扱い」がドキュメント化されている。
-- **ローカル `.env`**（Git 管理外）だけに実値が置かれる運用が合意されている。
-- **単体テスト**で HTTP をモックし、キー無し CI が引き続き通る設計になっている。
-- **Observation Only + No Auto Trading** が変わらないこと。
+- ID トークン期限検知・自動 refresh
+- `listed/info` / `fins/*` のクライアントメソッドとテストモック強化
 
 関連: [07_ai_development_workflow.md](./07_ai_development_workflow.md) · [06_phase0_completion_report.md](./06_phase0_completion_report.md)

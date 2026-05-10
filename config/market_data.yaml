@@ -16,5 +16,12 @@ market_data:
       mode: "metadata_stub"
       note: "Future metadata integration"
     jquants:
-      mode: "stub_phase1a"
-      note: "Japan equity primary candidate; Phase 1a Task 1 has no HTTP"
+      enabled: false
+      mode: stub
+      primary_source_for: jp_equity
+      endpoints_planned:
+        - /listed/info
+        - /prices/daily_quotes
+        - /fins/statements
+        - /fins/announcement
+      note: "Live HTTP: debug jquants-daily-quotes --live AND env JQUANTS_ALLOW_LIVE_HTTP=true (not jquants-status)"

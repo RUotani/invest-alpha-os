@@ -23,21 +23,23 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## Phase 1a — 進行中
 
-### Task 1 — 完了内容（J-Quants 準備・stub）
+### Task 1 — 完了（J-Quants stub・watchlist・Japan Signals）
 
-- `docs/08_phase1a_jquants_plan.md`: J-Quants の段階設計・非 Git 運用・取得したいデータの整理
-- `JQuantsStubAdapter`（`src/invis_alpha_os/data/adapters/jquants_stub.py`）: **`JQUANTS_ENABLED=false` で HTTP なし・落ちない**
-- `config/market_data.yaml`: トップレベル **`jp_equity`**（primary: jquants, `enabled: false`）
-- `config/watchlist.yaml`: 日本株 11 銘柄＋ **`themes`** 付き
-- `.env.example`: J-Quants 関連プレースホルダ（**実値なし**）
-- **daily report**: 「**## Japan Signals**」セクション追加（stub）
-- まだ **J-Quants に実 API 接続しない**／**自動売買なし**
+- `docs/08_phase1a_jquants_plan.md` baseline
+- `JQuantsStubAdapter`、`jp_equity`、`themes` 付き watchlist、daily「Japan Signals」
 
-**計画詳細**: [08_phase1a_jquants_plan.md](./08_phase1a_jquants_plan.md)
+### Task 2 — 完了（real-mode skeleton + 安全ゲート）
 
-### Task 2 以降（未着手）
+- **`JQuantsClient`** + **`safe_auth_status()`**（**トークン実値・パスワード・raw を CLI に出さない**）
+- **`debug jquants-status`**: **HTTP しない**
+- **`debug jquants-daily-quotes --live`**: 実 HTTP は **`JQUANTS_ALLOW_LIVE_HTTP=true` とセット**の二重ゲート
+- **`make verify` / GitHub Actions**: 実接続なし
 
-- 実トークン取得・HTTP 実装・テストでのモック化（運用・セキュリティ合意後）
+**計画・運用詳細**: [08_phase1a_jquants_plan.md](./08_phase1a_jquants_plan.md)
+
+### Task 3 以降（未着手）
+
+- トークン期限・自動 refresh、レスポンス正規化、追加エンドポイント
 
 ---
 

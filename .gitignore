@@ -34,3 +34,6 @@ outputs/**
 !outputs/**/
 !outputs/**/.gitkeep
 
+# Local AI/Codex review artifacts (never commit)
+.ai/reviews/*.md
+
