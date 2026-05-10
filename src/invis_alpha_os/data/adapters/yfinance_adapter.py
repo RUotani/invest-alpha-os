@@ -1,3 +1,5 @@
+"""Global fallback prototype; JP primary candidate is J-Quants (see jquants_stub)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

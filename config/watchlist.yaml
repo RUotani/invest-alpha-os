@@ -1,7 +1,47 @@
 jp_watchlist:
-  - "7011"
-  - "7203"
-  - "8035"
+  - ticker: "7011"
+    name: "三菱重工"
+    themes: ["defense", "energy", "industrials"]
+
+  - ticker: "6501"
+    name: "日立製作所"
+    themes: ["ai_infra", "industrials", "digital"]
+
+  - ticker: "6506"
+    name: "安川電機"
+    themes: ["factory_automation", "ai_infra", "industrials"]
+
+  - ticker: "5803"
+    name: "フジクラ"
+    themes: ["ai_infra", "communications", "cables"]
+
+  - ticker: "5802"
+    name: "住友電気工業"
+    themes: ["energy", "automotive_wire", "industrials"]
+
+  - ticker: "5801"
+    name: "古河電気工業"
+    themes: ["energy", "communications", "cables"]
+
+  - ticker: "6504"
+    name: "富士電機"
+    themes: ["factory_automation", "energy", "industrials"]
+
+  - ticker: "5411"
+    name: "JFEホールディングス"
+    themes: ["steel", "materials", "energy"]
+
+  - ticker: "285A"
+    name: "キオクシアホールディングス"
+    themes: ["memory", "semiconductors", "ai_infra"]
+
+  - ticker: "7203"
+    name: "トヨタ自動車"
+    themes: ["autos", "mobility", "industrials"]
+
+  - ticker: "7267"
+    name: "本田技研工業"
+    themes: ["autos", "mobility", "industrials"]
 
 us_watchlist:
   tier_1_core:
@@ -15,4 +55,3 @@ us_watchlist:
   tier_3_optional:
     - "PLTR"
     - "SOFI"
-

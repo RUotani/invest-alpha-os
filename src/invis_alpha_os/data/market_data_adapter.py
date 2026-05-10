@@ -16,7 +16,11 @@ class QuoteSnapshot:
 
 
 class MarketDataAdapter(ABC):
-    """Abstract interface for future high-quality market data providers."""
+    """Abstract interface for future high-quality market data providers.
+
+    Japan equities: Phase 1a introduces `JQuantsStubAdapter` as the primary-source
+    candidate (see ``data/adapters/jquants_stub.py``); live HTTP arrives in a later task.
+    """
 
     name: str = "abstract"
     mode: str = "prototype"

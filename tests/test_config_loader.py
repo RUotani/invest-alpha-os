@@ -10,4 +10,9 @@ def test_load_watchlist_has_required_keys():
     assert "tier_1_core" in us
     assert "tier_2_theme_peers" in us
     assert "tier_3_optional" in us
+    jp = data["jp_watchlist"]
+    assert isinstance(jp, list)
+    assert len(jp) >= 11
+    assert isinstance(jp[0], dict)
+    assert jp[0].get("ticker")
 

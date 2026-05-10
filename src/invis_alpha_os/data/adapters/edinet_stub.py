@@ -1,3 +1,5 @@
+"""EDINET metadata stub; Japan listed prices path defers to J-Quants adapter (Phase 1a+)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

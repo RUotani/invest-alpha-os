@@ -11,6 +11,12 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 - Bot output is for observation and review only during the first 12 weeks
 - Do not commit `.env`, `credentials.json`, `token.json`, API keys
 
+### Phase 1a — J-Quants 接続準備（Task 1）
+
+- 日本株 watchlist と **J-Quants 用 stub adapter** を追加（**実 API・認証は未実装**）。
+- 環境変数は `.env.example` のプレースホルダのみ。**`JQUANTS_ENABLED=false`** のとき HTTP なしで動作。
+- 計画書: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
+
 ### クイックスタート
 
 ```bash

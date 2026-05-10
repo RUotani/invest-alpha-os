@@ -1,3 +1,8 @@
+jp_equity:
+  primary: jquants
+  fallback: local_csv
+  enabled: false
+
 market_data:
   default_adapter: "yfinance"
   adapters:
@@ -10,4 +15,6 @@ market_data:
     sec:
       mode: "metadata_stub"
       note: "Future metadata integration"
-
+    jquants:
+      mode: "stub_phase1a"
+      note: "Japan equity primary candidate; Phase 1a Task 1 has no HTTP"

@@ -1,3 +1,5 @@
+"""SEC metadata stub; US-focused; JP flow uses J-Quants stub in Phase 1a planning."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

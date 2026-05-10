@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
+
 from typing import Optional
 
 import typer
 
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
-from invis_alpha_os.data.adapters import EdinetStubAdapter, SecStubAdapter, YFinanceFallbackAdapter
+from invis_alpha_os.data.adapters import (
+    EdinetStubAdapter,
+    JQuantsStubAdapter,
+    SecStubAdapter,
+    YFinanceFallbackAdapter,
+)
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.risk.veto_rules import VetoEngine
@@ -27,6 +32,18 @@ def _obs_service() -> ObservationService:
         observation_path=OUTPUTS_DIR / "observation_log" / "observation_log.jsonl",
         outcome_path=OUTPUTS_DIR / "outcome_log" / "outcome_log.jsonl",
     )
+
+
+def _jp_watchlist_count(jp_rows: object) -> int:
+    if not isinstance(jp_rows, list):
+        return 0
+    total = 0
+    for row in jp_rows:
+        if isinstance(row, str) and row.strip():
+            total += 1
+        elif isinstance(row, dict) and str(row.get("ticker", "")).strip():
+            total += 1
+    return total
 
 
 @app.command("status")
@@ -59,6 +76,14 @@ def daily() -> None:
     today = date.today().isoformat()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
+    watchlist = load_yaml(CONFIG_DIR / "watchlist.yaml")
+    jp_n = _jp_watchlist_count(watchlist.get("jp_watchlist", []))
+    jquants = JQuantsStubAdapter()
+    if jquants.is_enabled():
+        jq_line = "J-Quants stub enabled (Phase 1a; no live API yet)"
+    else:
+        jq_line = "J-Quants disabled / not configured"
+
     out.write_text(
         "\n".join(
             [
@@ -67,6 +92,11 @@ def daily() -> None:
                 "Phase 0 dummy report.",
                 "- Observation only",
                 "- No auto trading",
+                "",
+                "## Japan Signals",
+                "- Phase 1a stub",
+                f"- {jq_line}",
+                f"- Watchlist count: {jp_n}",
             ]
         ),
         encoding="utf-8",
@@ -107,7 +137,7 @@ def risks() -> None:
 @snapshot_app.command("watchlist")
 def snapshot_watchlist() -> None:
     watchlist = load_yaml(CONFIG_DIR / "watchlist.yaml")
-    jp_count = len(watchlist.get("jp_watchlist", []))
+    jp_count = _jp_watchlist_count(watchlist.get("jp_watchlist", []))
     us = watchlist.get("us_watchlist", {})
     t1 = len(us.get("tier_1_core", []))
     t2 = len(us.get("tier_2_theme_peers", []))
@@ -134,7 +164,7 @@ def log_outcome(
 
 @debug_app.command("adapters")
 def debug_adapters() -> None:
-    adapters = [YFinanceFallbackAdapter(), EdinetStubAdapter(), SecStubAdapter()]
+    adapters = [YFinanceFallbackAdapter(), JQuantsStubAdapter(), EdinetStubAdapter(), SecStubAdapter()]
     for adapter in adapters:
         typer.echo(str(adapter.health()))
 
