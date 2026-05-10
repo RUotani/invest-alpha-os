@@ -1,17 +1,19 @@
-"""J-Quants API client skeleton (Phase 1a Task 2–3, safety-hardened).
+"""J-Quants API client (Phase 1a Task 2–4.2, safety-hardened).
 
-Live HTTP occurs only when **both**:
+Live HTTP for **Version 2** (primary) occurs only when **all** of:
 
-- The caller passes ``attempt_live=True`` (e.g. ``--live`` on the debug CLI).
-- Environment variable ``JQUANTS_ALLOW_LIVE_HTTP=true``.
+- ``JQUANTS_ENABLED=true``
+- Caller passes ``attempt_live=True`` (e.g. ``--live`` on the debug CLI)
+- Environment variable ``JQUANTS_ALLOW_LIVE_HTTP=true``
+- ``JQUANTS_API_BASE_URL`` is set (non-empty)
+- ``JQUANTS_API_KEY`` is set (non-empty): request uses ``x-api-key`` header (**never** surfaced in CLI dict)
 
-``JQUANTS_API_BASE_URL`` must be set (non-empty after trim) for any code path that builds
-HTTP URLs; otherwise the client returns ``not_configured`` with ``reason: base_url_missing`` (no fallback URL).
+Version **1** (legacy) retains refresh/id bearer flows behind ``JQUANTS_API_VERSION=v1`` only.
 
-``JQUANTS_API_VERSION`` must resolve to **v1** or **v2** (aliases: ``1``, ``version1``, etc.). Any other
-value yields ``unsupported_version`` responses and **no HTTP** (Phase 1a Task 3.1).
+Public return dicts **omit secrets** (API key, tokens, passwords, raw auth bodies).
 
-Public return dicts intentionally **omit secrets** (tokens, passwords, raw auth bodies).
+For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: responses must be JSON **objects**
+with at least one of ``daily_quotes``, ``bars``, ``data``, or ``results`` (Phase 1a Task 4.2).
 
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
@@ -25,12 +27,12 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlencode
 
+_V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("daily_quotes", "bars", "data", "results")
+_V2_DAILY_QUOTES_BODY_KEYS_SET: frozenset[str] = frozenset(_V2_DAILY_QUOTES_BODY_KEYS)
+
 
 def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
-    """Return ``(display_str, effective_label)`` where ``effective_label`` is ``v1``, ``v2``, or ``None``.
-
-    Unset / blank env → ``("v2", "v2")`` (default). Unknown strings → ``(trimmed, None)``.
-    """
+    """Return ``(display_str, effective_label)`` where ``effective_label`` is ``v1``, ``v2``, or ``None``."""
 
     s = _blank_to_none(raw)
     if s is None:
@@ -45,23 +47,26 @@ def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
 
 
 def _paths_for_version(version_label: str) -> dict[str, str]:
-    """Relative paths under ``base_url``. Task 4: align keys with official Version2 spec."""
+    """Relative paths under ``base_url`` (official V2 shape for primary)."""
 
-    # Provisional identical layout; split so V2 can diverge without a V1-hardcoded code path.
-    v1 = {
-        "auth_user": "/token/auth_user",
-        "auth_refresh": "/token/auth_refresh",
-        "daily_quotes": "/prices/daily_quotes",
-    }
-    v2 = {
+    v1_legacy = {
+        "listed_master": "/listed/info",
         "auth_user": "/token/auth_user",
         "auth_refresh": "/token/auth_refresh",
         "daily_quotes": "/prices/daily_quotes",
     }
     if version_label == "v1":
-        return v1
+        return v1_legacy
     if version_label == "v2":
-        return v2
+        return {
+            "listed_master": "/equities/master",
+            "auth_user": "/token/auth_user",
+            "auth_refresh": "/token/auth_refresh",
+            "daily_quotes": "/equities/bars/daily",
+            "bars_daily_am": "/equities/bars/daily/am",
+            "investor_types": "/equities/investor-types",
+            "margin_interest": "/markets/margin-interest",
+        }
     raise ValueError(f"unexpected J-Quants API version label: {version_label!r}")
 
 
@@ -77,7 +82,7 @@ def _blank_to_none(value: str | None) -> str | None:
 
 
 class JQuantsClient:
-    """Real-mode skeleton with strict live-http gating and configurable API version / base URL."""
+    """J-Quants client: Version 2 primary (API Key + ``x-api-key``), Version 1 legacy (bearer tokens)."""
 
     def __init__(
         self,
@@ -86,6 +91,7 @@ class JQuantsClient:
         api_version: str,
         api_version_effective: str | None,
         enabled: bool,
+        api_key: str | None = None,
         email: str | None = None,
         password: str | None = None,
         refresh_token: str | None = None,
@@ -96,6 +102,7 @@ class JQuantsClient:
         self.api_version_effective = api_version_effective
         self._paths = _paths_for_version(api_version_effective) if api_version_effective else {}
         self.enabled = enabled
+        self.api_key = api_key
         self.email = email
         self.password = password
         self.refresh_token = refresh_token
@@ -110,6 +117,7 @@ class JQuantsClient:
             api_version=api_disp,
             api_version_effective=api_eff,
             enabled=_truthy_flag(os.getenv("JQUANTS_ENABLED"), default="false"),
+            api_key=_blank_to_none(os.getenv("JQUANTS_API_KEY")),
             email=_blank_to_none(os.getenv("JQUANTS_EMAIL")),
             password=_blank_to_none(os.getenv("JQUANTS_PASSWORD")),
             refresh_token=_blank_to_none(os.getenv("JQUANTS_REFRESH_TOKEN")),
@@ -118,6 +126,9 @@ class JQuantsClient:
 
     def is_enabled(self) -> bool:
         return bool(self.enabled)
+
+    def has_api_key(self) -> bool:
+        return bool(self.api_key)
 
     def has_mail_password(self) -> bool:
         return bool(self.email and self.password)
@@ -132,18 +143,31 @@ class JQuantsClient:
         return _truthy_flag(os.getenv("JQUANTS_ALLOW_LIVE_HTTP"), default="false")
 
     def is_configured(self) -> bool:
+        """V2: configured when ``JQUANTS_API_KEY`` is set; V1 legacy: tokens or mail/password."""
+
+        if self.api_version_effective == "v2":
+            return self.has_api_key()
         return self.has_id_token() or self.has_refresh_token() or self.has_mail_password()
 
     def has_base_url(self) -> bool:
         return bool(self.base_url)
 
+    def auth_method_safe(self) -> str:
+        if self.api_version_effective == "v2":
+            return "api_key"
+        if self.api_version_effective == "v1":
+            return "token"
+        return "unknown"
+
     def safe_auth_status(self) -> dict[str, Any]:
-        """Opaque status for stderr-free `debug jquants-status` (no secrets, no HTTP)."""
+        """Opaque status for ``debug jquants-status`` (no secrets, no HTTP)."""
 
         return {
             "api_version": self.api_version,
             "api_version_effective": self.api_version_effective,
             "unsupported_api_version": self.api_version_effective is None,
+            "auth_method": self.auth_method_safe(),
+            "api_key_present": self.has_api_key(),
             "base_url_present": self.has_base_url(),
             "enabled": self.is_enabled(),
             "configured": self.is_configured(),
@@ -153,6 +177,7 @@ class JQuantsClient:
             "id_token_present": bool(self.id_token),
             "allow_live_http": self.allow_live_http_from_env(),
             "token_preview": "***",
+            "api_key_preview": "***",
             "raw_response_included": False,
         }
 
@@ -174,6 +199,21 @@ class JQuantsClient:
             missing=["JQUANTS_API_BASE_URL"],
             reason="base_url_missing",
         )
+
+    def _missing_api_key_reply(self) -> dict[str, Any]:
+        return self._not_configured(
+            missing=["JQUANTS_API_KEY"],
+            reason="api_key_missing",
+        )
+
+    def _legacy_not_used_on_v2(self, *, endpoint: str) -> dict[str, Any]:
+        return {
+            "status": "not_applicable",
+            "reason": "v2_uses_api_key",
+            "endpoint": endpoint,
+            "detail": "Legacy token flows require JQUANTS_API_VERSION=v1",
+            "raw_response_included": False,
+        }
 
     def _live_gate_denied_reason(self, *, cli_live_requested: bool) -> str | None:
         if not cli_live_requested:
@@ -200,6 +240,7 @@ class JQuantsClient:
             "endpoint_key": endpoint_key,
             "api_version": self.api_version,
             "api_version_effective": self.api_version_effective,
+            "auth_method": self.auth_method_safe(),
             "detail": detail,
             "raw_response_included": False,
         }
@@ -219,7 +260,7 @@ class JQuantsClient:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
-    def _get_json_uncached(self, url: str, bearer: str) -> dict[str, Any]:
+    def _get_json_bearer(self, url: str, bearer: str) -> dict[str, Any]:
         req = urllib.request.Request(
             url,
             headers={"Authorization": f"Bearer {bearer}", "Accept": "application/json"},
@@ -231,6 +272,59 @@ class JQuantsClient:
             return json.loads(raw)
         except json.JSONDecodeError:
             return {}
+
+    def _http_get_body(self, url: str, headers: dict[str, str]) -> str:
+        req = urllib.request.Request(url, headers=headers, method="GET")
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.read().decode("utf-8")
+
+    def _v2_daily_quotes_live_shape_error(
+        self,
+        *,
+        status: str,
+        reason: str | None = None,
+        endpoint_path: str,
+        code: str,
+    ) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "status": status,
+            "endpoint_path": endpoint_path,
+            "code": code,
+            "raw_response_included": False,
+            "detail": "***",
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
+        }
+        if reason is not None:
+            out["reason"] = reason
+        return out
+
+    def _v2_parse_daily_quotes_live_body(
+        self, raw_text: str
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+        """Returns ``(body_dict, None)`` on OK, or ``(None, {kind:..., reason?:...})`` on validation failure."""
+
+        try:
+            obj: Any = json.loads(raw_text)
+        except json.JSONDecodeError:
+            return None, {"kind": "non_json_response"}
+        if isinstance(obj, list):
+            return None, {"kind": "invalid_response", "reason": "top_level_array"}
+        if not isinstance(obj, dict):
+            return None, {"kind": "invalid_response", "reason": "not_json_object"}
+        if not _V2_DAILY_QUOTES_BODY_KEYS_SET.intersection(obj.keys()):
+            return None, {"kind": "invalid_response", "reason": "missing_expected_keys"}
+        return obj, None
+
+    def _summarize_v2_daily_quotes_payload(self, parsed: dict[str, Any]) -> tuple[str, int]:
+        """Row count from the first recognized body key (list length, or 0 if present but not a list)."""
+
+        for k in _V2_DAILY_QUOTES_BODY_KEYS:
+            if k not in parsed:
+                continue
+            val = parsed[k]
+            return f"{k}_row_count", len(val) if isinstance(val, list) else 0
+        return "parsed_keys_count", len(parsed)
 
     def _extract_refresh_secret(self, body: dict[str, Any]) -> str | None:
         return (
@@ -285,7 +379,7 @@ class JQuantsClient:
         id_tok = self._extract_id_secret(body)
         return str(id_tok) if id_tok else None
 
-    # --- Safe public APIs (no token values returned) ---
+    # --- Legacy V1 token APIs (still supported when ``api_version_effective == v1``) ---
     def get_refresh_token(self, *, attempt_live: bool = False) -> dict[str, Any]:
         if not self.is_enabled():
             return self._disabled(hint="JQUANTS_ENABLED=false")
@@ -293,6 +387,9 @@ class JQuantsClient:
         bad_ver = self._maybe_unsupported_api_version()
         if bad_ver is not None:
             return bad_ver
+
+        if self.api_version_effective == "v2":
+            return self._legacy_not_used_on_v2(endpoint="token/auth_user")
 
         miss = self._require_base_for_network()
         if miss is not None:
@@ -330,6 +427,9 @@ class JQuantsClient:
         if bad_ver is not None:
             return bad_ver
 
+        if self.api_version_effective == "v2":
+            return self._legacy_not_used_on_v2(endpoint="token/auth_refresh")
+
         miss = self._require_base_for_network()
         if miss is not None:
             return miss
@@ -361,8 +461,6 @@ class JQuantsClient:
         }
 
     def _resolve_bearer_secret_for_quotes_live(self) -> str | None:
-        """Bearer for daily_quotes; never surfaced in CLI dict."""
-
         if self.id_token:
             return self.id_token
         if self.refresh_token:
@@ -373,6 +471,19 @@ class JQuantsClient:
                 return None
             return self._http_fetch_id_secret_from_refresh(r)
         return None
+
+    def _summarize_quotes_like_payload(self, parsed: dict[str, Any]) -> tuple[str, int]:
+        keys_to_try = ("daily_quotes", "quotes", "bars", "data", "items")
+        for k in keys_to_try:
+            val = parsed.get(k)
+            if isinstance(val, list):
+                row_key = (
+                    "daily_quotes_row_count"
+                    if k == "daily_quotes"
+                    else ("quotes_row_count" if k == "quotes" else f"{k}_row_count")
+                )
+                return row_key, len(val)
+        return "parsed_keys_count", len(parsed)
 
     def get_daily_quotes(
         self,
@@ -398,8 +509,8 @@ class JQuantsClient:
             return self._dry_run(
                 endpoint_key="daily_quotes",
                 detail=(
-                    "Default is dry-run. Pass --live on debug jquants-daily-quotes AND "
-                    "set JQUANTS_ALLOW_LIVE_HTTP=true to perform HTTP."
+                    "V2 default dry-run (/equities/bars/daily). Live needs --live, "
+                    "JQUANTS_ALLOW_LIVE_HTTP=true, JQUANTS_API_BASE_URL, and JQUANTS_API_KEY."
                 ),
             )
 
@@ -407,14 +518,72 @@ class JQuantsClient:
         if denial:
             return self._live_blocked(reason=denial)
 
-        if not self.is_configured():
+        if self.api_version_effective == "v2":
+            if not self.has_api_key():
+                return self._missing_api_key_reply()
+            dq_path = self._paths["daily_quotes"]
+            params: dict[str, str] = {"code": code}
+            if date:
+                params["date"] = date.replace("-", "")
+            if from_date:
+                params["from"] = from_date.replace("-", "")
+            if to_date:
+                params["to"] = to_date.replace("-", "")
+            query = urlencode(params)
+            url = f"{self.base_url}{dq_path}?{query}"
+            key_secret = self.api_key
+            if not key_secret:
+                return self._missing_api_key_reply()
+            try:
+                raw_body = self._http_get_body(
+                    url,
+                    {"x-api-key": key_secret, "Accept": "application/json"},
+                )
+            except urllib.error.HTTPError as e:
+                return {
+                    "status": "http_error",
+                    "code": int(e.code),
+                    "detail": "***",
+                    "raw_response_included": False,
+                }
+            except OSError:
+                return {"status": "error", "detail": "***", "raw_response_included": False}
+
+            parsed, shape_err = self._v2_parse_daily_quotes_live_body(raw_body)
+            if shape_err is not None:
+                k = shape_err.get("kind")
+                stat = "non_json_response" if k == "non_json_response" else "invalid_response"
+                raw_rsn = shape_err.get("reason")
+                rsn = raw_rsn if isinstance(raw_rsn, str) else None
+                return self._v2_daily_quotes_live_shape_error(
+                    status=stat,
+                    reason=rsn,
+                    endpoint_path=dq_path,
+                    code=code,
+                )
+
+            assert parsed is not None
+            count_key, count_val = self._summarize_v2_daily_quotes_payload(parsed)
+            return {
+                "status": "success",
+                "endpoint_path": dq_path,
+                "code": code,
+                count_key: count_val,
+                "raw_response_included": False,
+                "api_key_preview": "***",
+                "api_version": self.api_version,
+                "api_version_effective": self.api_version_effective,
+            }
+
+        # Legacy V1: bearer tokens
+        if not (self.has_id_token() or self.has_refresh_token() or self.has_mail_password()):
             return self._not_configured(
                 missing=["JQUANTS_ID_TOKEN", "JQUANTS_REFRESH_TOKEN", "(JQUANTS_EMAIL+PASSWORD)"],
             )
 
         bearer: str | None = self._resolve_bearer_secret_for_quotes_live()
 
-        params: dict[str, str] = {"code": code}
+        params = {"code": code}
         if date:
             params["date"] = date.replace("-", "")
         if from_date:
@@ -430,7 +599,7 @@ class JQuantsClient:
         url = f"{self.base_url}{dq_path}?{query}"
 
         try:
-            parsed = self._get_json_uncached(url, bearer)
+            parsed = self._get_json_bearer(url, bearer)
         except urllib.error.HTTPError as e:
             return {
                 "status": "http_error",
@@ -442,18 +611,18 @@ class JQuantsClient:
             return {"status": "error", "detail": "***", "raw_response_included": False}
 
         daily = parsed.get("daily_quotes")
-        quotes = parsed.get("quotes") if isinstance(parsed.get("quotes"), list) else None
-        rows = len(daily) if isinstance(daily, list) else (len(quotes) if quotes is not None else None)
+        quotes_list = parsed.get("quotes") if isinstance(parsed.get("quotes"), list) else None
+        rows = len(daily) if isinstance(daily, list) else (len(quotes_list) if quotes_list is not None else None)
         key = (
             "daily_quotes_row_count"
             if isinstance(daily, list)
-            else ("quotes_row_count" if quotes is not None else "parsed_keys_count")
+            else ("quotes_row_count" if quotes_list is not None else "parsed_keys_count")
         )
         count_val = rows if rows is not None else len(parsed)
 
         return {
             "status": "success",
-            "endpoint": "prices/daily_quotes",
+            "endpoint_path": dq_path,
             "code": code,
             key: count_val,
             "raw_response_included": False,

@@ -9,15 +9,16 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 - Current Mode: Observation Only + Shadow Portfolio
 - No Auto Trading
 - Bot output is for observation and review only during the first 12 weeks
-- Do not commit `.env`, `credentials.json`, `token.json`, API keys
+- Do not commit `.env`, `credentials.json`, `token.json`, API keys (including **J-Quants `JQUANTS_API_KEY`**)
 
-### Phase 1a — J-Quants（stub → skeleton → Task 3 設定）
+### Phase 1a — J-Quants（stub → skeleton → **V2 API Key primary**）
 
-- **既定**: **`JQUANTS_ENABLED=false`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=false`**。**`JQUANTS_API_BASE_URL` も未設定が既定**。`make verify`・GitHub Actions・`daily` / `pack` / `risks` は **J-Quants へ実接続しない**。
-- **Version2 前提**: 公式では **Version2 が標準・Version1 は閉鎖予定**。**`JQUANTS_API_VERSION` は実装上 `v1` / `v2` のみ許可**（ほかは `unsupported_version` で実 HTTP なし）。**`JQUANTS_API_BASE_URL`** は **公式確認後にローカル `.env`** で設定（テンプレは空・実値なし）。**BASE URL が空ならライブ許可・`--live` があっても実 HTTP しない**。
-- **`JQuantsClient`**: real-mode skeleton。**二重ゲート**: **`debug jquants-daily-quotes --live`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=true`**、`v1`/`v2` と **BASE URL が揃ったときのみ**実 HTTP を試せる。**`debug jquants-status` は HTTP 禁止**（バージョン・設定プレゼンスとマスクのみ）。
-- **実接続の手順（人間のみ）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。
-- **AI Agent に認証情報を渡さない**。`.env` は Git 管理外、`.env.example` は **変数名のみ**。
+- **既定**: **`JQUANTS_ENABLED=false`**、**`JQUANTS_ALLOW_LIVE_HTTP=false`**、**`JQUANTS_API_BASE_URL` / `JQUANTS_API_KEY` は未設定が既定**。※`make verify`・GitHub Actions・`daily` / `pack` / `risks` は **実接続しない**。
+- **Version 2**: **`JQUANTS_API_KEY`** を **`x-api-key`** で送る方式がプライマリ。**実 API Key は Git にコミットしない**（`.gitignore` / `.env` はローカルのみ）。
+- **ライブ実 HTTP（デバッグのみ）**: **`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + API Key**（すべて必須）。欠落時は `live_blocked` または `not_configured`。**`HTTP 200` でも** V2 の返却形が最小要件を満たさなければ **`success` にならない**（[09](docs/09_jquants_local_manual_test.md)・Task 4.2）。**`debug jquants-status` は常に HTTP しない**。
+- **Version 1**: **`JQUANTS_API_VERSION=v1`** のときだけ refresh / Bearer による legacy 経路。**閉鎖予定・非推奨**。
+- **実接続（人間のみ・手順）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。
+- **AI Agent に API Key・認証情報を渡さない**。`.env.example` は変数名のみ。
 - 計画: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
 
 ### クイックスタート

@@ -37,3 +37,6 @@ def test_jquants_health_client_has_safe_status_fields(monkeypatch):
     assert "unsupported_api_version" in c
     assert "base_url_present" in c
     assert "allow_live_http" in c
+    assert c.get("auth_method") == "api_key"
+    assert "api_key_present" in c
+    assert "configured" in c

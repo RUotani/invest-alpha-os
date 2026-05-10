@@ -13,6 +13,228 @@ def _patch_base(monkeypatch) -> None:
     monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v0")
 
 
+def test_paths_for_version_v2_daily_quotes():
+    from invis_alpha_os.data.adapters.jquants_client import _paths_for_version
+
+    p = _paths_for_version("v2")
+    assert p["daily_quotes"] == "/equities/bars/daily"
+    assert p["listed_master"] == "/equities/master"
+
+
+def test_v2_safe_auth_status_auth_method_and_api_key_present(monkeypatch):
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    monkeypatch.setenv("JQUANTS_API_KEY", "fake-key-for-test-only")
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    s = JQuantsClient.from_env().safe_auth_status()
+    assert s["api_version_effective"] == "v2"
+    assert s["auth_method"] == "api_key"
+    assert s["api_key_present"] is True
+    assert s["configured"] is True
+
+
+def test_v2_safe_auth_status_no_api_key(monkeypatch):
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    monkeypatch.delenv("JQUANTS_API_KEY", raising=False)
+    s = JQuantsClient.from_env().safe_auth_status()
+    assert s["auth_method"] == "api_key"
+    assert s["api_key_present"] is False
+    assert s["configured"] is False
+
+
+def test_v2_get_refresh_token_not_applicable(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    c = JQuantsClient.from_env()
+    assert c.get_refresh_token(attempt_live=False)["status"] == "not_applicable"
+
+
+def test_v2_get_daily_quotes_live_missing_api_key(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.delenv("JQUANTS_API_KEY", raising=False)
+    _patch_base(monkeypatch)
+    out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "not_configured"
+    assert out.get("reason") == "api_key_missing"
+
+
+def test_v2_get_daily_quotes_live_success_x_api_key_header(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "PLACEHOLDER_KEY_FOR_CI_TEST")
+    _patch_base(monkeypatch)
+    captured: dict[str, str | None] = {}
+
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"bars": [{"open": 1}]}).encode("utf-8")
+    cm.__exit__.return_value = None
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        hdrs = {k.lower(): v for k, v in req.header_items()}
+        captured["x-api-key"] = hdrs.get("x-api-key")
+        return cm
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", from_date="2024-01-02", attempt_live=True)
+    assert out["status"] == "success"
+    assert captured["x-api-key"] == "PLACEHOLDER_KEY_FOR_CI_TEST"
+    assert "bars_row_count" in out
+    assert json.dumps(out).count("PLACEHOLDER") == 0  # preview only ***
+
+
+def test_v2_get_daily_quotes_live_non_json_not_success(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "PLACEHOLDER_KEY_FOR_CI_TEST")
+    _patch_base(monkeypatch)
+    leaked = "SECRET_RAW_BODY_MARKER_XYZ987"
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = f"<html>{leaked}</html>".encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "7011",
+            from_date="2024-01-02",
+            attempt_live=True,
+        )
+    assert out["status"] == "non_json_response"
+    assert leaked not in json.dumps(out)
+    assert out.get("raw_response_included") is False
+
+
+def test_v2_get_daily_quotes_live_json_array_invalid(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps([{"foo": 1}]).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "invalid_response"
+    assert out.get("reason") == "top_level_array"
+
+
+def test_v2_get_daily_quotes_live_dict_missing_expected_keys(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"quotes": [], "items": []}).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "invalid_response"
+    assert out.get("reason") == "missing_expected_keys"
+
+
+def test_v2_get_daily_quotes_live_dict_with_data_key_success(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": [{"Close": 1}]}).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "success"
+    assert out.get("data_row_count") == 1
+    blob = json.dumps(out)
+    assert '"Close"' not in blob
+
+
+def test_v2_get_daily_quotes_live_json_null_invalid(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(None).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "invalid_response"
+    assert out.get("reason") == "not_json_object"
+
+
+def test_debug_daily_quotes_live_non_json_exit_1(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = b"unexpected plain text body"
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-quotes",
+                "--live",
+                "--code",
+                "7011",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-05",
+            ],
+        )
+    assert r.exit_code == 1
+    assert "non_json_response" in r.stdout
+    assert "unexpected plain text body" not in r.stdout
+
+
+def test_v2_api_key_but_base_url_missing_live(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    monkeypatch.delenv("JQUANTS_API_BASE_URL", raising=False)
+    out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "not_configured"
+    assert out.get("reason") == "base_url_missing"
+
+
+def test_debug_jquants_status_includes_auth_method_no_secret(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_SHOW_THIS_KEY_ON_CLI")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_REFRESH_TOKEN", raising=False)
+    r = runner.invoke(app, ["debug", "jquants-status"])
+    assert r.exit_code == 0
+    assert "NEVER_SHOW_THIS_KEY_ON_CLI" not in r.stdout
+    data = json.loads(r.stdout.strip().split("(never")[0].strip())
+    assert data["auth_method"] == "api_key"
+    assert data["api_key_present"] is True
+    assert data.get("api_key_preview") == "***"
+
+
+def test_debug_daily_quotes_live_missing_api_key_exit_1(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.delenv("JQUANTS_API_KEY", raising=False)
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--live",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-05",
+        ],
+    )
+    assert r.exit_code == 1
+    assert "api_key_missing" in r.stdout
+
+
 def test_client_disabled_no_live_http(monkeypatch):
     monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
     _patch_base(monkeypatch)
@@ -69,6 +291,7 @@ def test_daily_quotes_live_blocked_without_allow(monkeypatch):
 
 
 def test_refresh_token_success_no_secret_in_dict(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v1")
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_EMAIL", "user@example.local")
@@ -94,7 +317,8 @@ def test_refresh_token_success_no_secret_in_dict(monkeypatch):
     assert "secret-value" not in serialized
 
 
-def test_get_daily_quotes_live_success_no_body_in_dict(monkeypatch):
+def test_get_daily_quotes_live_success_v1_bearer_no_body_in_dict(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v1")
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_ID_TOKEN", "SECRET_ID_TOKEN_VALUE")
@@ -145,6 +369,8 @@ def test_debug_jquants_status_never_calls_urlopen(monkeypatch):
     assert "ultra-secret-password-123" not in r.stdout
     data = json.loads(r.stdout.strip().split("(never")[0].strip())
     assert "allow_live_http" in data and "configured" in data
+    assert data.get("auth_method") == "api_key"
+    assert data.get("api_key_present") is False
     assert data.get("unsupported_api_version") is False
     assert data.get("raw_response_included") is False
     assert "password" not in data
@@ -158,6 +384,7 @@ def test_debug_jquants_status_output_masked(monkeypatch):
     assert blob.get("token_preview") == "***"
     assert blob.get("base_url_present") is False
     assert blob.get("unsupported_api_version") is False
+    assert blob.get("auth_method") == "api_key"
 
 
 def test_debug_daily_quotes_default_dry_run(monkeypatch):
@@ -190,6 +417,7 @@ def test_debug_daily_quotes_default_dry_run(monkeypatch):
     assert r.exit_code == 0
     assert called == []
     assert "dry_run" in r.stdout
+    assert "equities/bars/daily" in r.stdout
 
 
 def test_debug_daily_quotes_live_without_allow_no_http(monkeypatch):
@@ -219,12 +447,76 @@ def test_debug_daily_quotes_live_without_allow_no_http(monkeypatch):
                 "2024-01-05",
             ],
         )
-    assert r.exit_code == 0
+    assert r.exit_code == 1
     assert called == []
     assert "live_blocked" in r.stdout
 
 
-def test_client_dry_run_when_no_attempt_live(monkeypatch):
+def test_debug_daily_quotes_disabled_no_flag_exit_0(monkeypatch):
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "false")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-05",
+        ],
+    )
+    assert r.exit_code == 0
+    assert r.stdout.count("disabled") >= 1
+
+
+def test_debug_daily_quotes_disabled_with_live_exit_1(monkeypatch):
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--live",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-05",
+        ],
+    )
+    assert r.exit_code == 1
+    assert "disabled" in r.stdout
+
+
+def test_debug_daily_quotes_live_unsupported_version_exit_1(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v3")
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--live",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-05",
+        ],
+    )
+    assert r.exit_code == 1
+    assert "unsupported_version" in r.stdout
+
+
+def test_v1_refresh_token_dry_run_when_no_attempt_live(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v1")
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_EMAIL", "user@example.local")
     monkeypatch.setenv("JQUANTS_PASSWORD", "x")

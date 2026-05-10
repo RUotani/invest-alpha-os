@@ -18,16 +18,26 @@ market_data:
     jquants:
       enabled: false
       api_version: v2
+      auth_method: api_key
+      api_key_env: JQUANTS_API_KEY
+      api_key_header: x-api-key
+      legacy_v1_auth_method: token
       base_url_env: JQUANTS_API_BASE_URL
       enabled_env: JQUANTS_ENABLED
       allow_live_http_env: JQUANTS_ALLOW_LIVE_HTTP
       mode: stub_by_default
       ci_live_http: disabled
-      manual_live_http: double_gate_required
+      manual_live_http: triple_gate_required
       primary_source_for: jp_equity
       endpoints_planned:
         - /listed/info
         - /prices/daily_quotes
         - /fins/statements
         - /fins/announcement
-      note: "Live HTTP: debug jquants-daily-quotes --live AND env JQUANTS_ALLOW_LIVE_HTTP=true (not jquants-status). Use JQUANTS_API_VERSION + JQUANTS_API_BASE_URL per official docs."
+      planned_v2_endpoints:
+        - /equities/master
+        - /equities/bars/daily
+        - /equities/bars/daily/am
+        - /equities/investor-types
+        - /markets/margin-interest
+      note: "V2 live: JQUANTS_ENABLED + --live + JQUANTS_ALLOW_LIVE_HTTP + base URL + JQUANTS_API_KEY (x-api-key). CI / make verify: no live HTTP."

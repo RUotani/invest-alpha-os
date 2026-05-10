@@ -20,25 +20,28 @@
 | 段階 | 内容 |
 |------|------|
 | **Task 1** | `JQuantsStubAdapter`、`jp_equity`、`watchlist`、`.env.example`、daily **Japan Signals**（stub） |
-| **Task 2** | `JQuantsClient`（認証・`daily_quotes` の内部 HTTP 骨格）。**`debug jquants-status` は HTTP 禁止**。**実 HTTP** は `debug jquants-daily-quotes --live` **かつ** **`JQUANTS_ALLOW_LIVE_HTTP=true`** の **二重ゲート**のみ |
+| **Task 2** | `JQuantsClient`（認証・`daily_quotes` の内部 HTTP 骨格）。**`debug jquants-status` は HTTP 禁止**。ライブ経路は **環境＋CLI のゲート**で制御（**Task 4** で **`JQUANTS_ENABLED`・BASE URL・（V2）`JQUANTS_API_KEY` まで必須化**） |
 | **Task 3** | **ローカル手動接続ガイド**（[09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)）、`config/market_data.yaml` の jquants メタ、`JQUANTS_API_VERSION` / `JQUANTS_API_BASE_URL` 対応、`safe_auth_status` 拡張。**このタスクでは実 API 接続や正規レスポンス処理は行わない** |
 | **Task 3.1** | **安全強化**: `JQUANTS_API_VERSION` を **`v1` / `v2` のみ許可**（それ以外は `unsupported_version`・**実 HTTP なし**）。**`JQUANTS_API_BASE_URL` 未設定時はライブ許可があっても `not_configured`（`base_url_missing`）**。CLI / テストで回帰を防ぐ |
-| **Task 4 以降** | 公式 **Version2** 仕様の確定確認、エンドポイント・レスポンス正規化、キャッシュ・レート制限、トークン期限の自動更新、本格的な実接続テスト |
+| **Task 4** | **Version2 プライマリ寄せ**: **`JQUANTS_API_KEY`** と **`x-api-key`**、V2 パス（`/equities/bars/daily` 等）を `JQuantsClient`・設定・ドキュメントへ反映。V1 は **legacy** のまま **`JQUANTS_API_VERSION=v1` のみ**。**本タスクでは実 API 呼び出しは行わない**（テストは mock のみ） |
+| **Task 4.1** | **`debug jquants-daily-quotes --live` の exit を厳格化**: 実 HTTP に至らなかった live 試行は **非ゼロ終了**。`live_blocked` / `not_configured` / `unsupported_version` / `disabled`（live 時）などを **成功と誤認しない**。**`--live` なしの dry-run と `make verify` は従来どおり exit 0** |
+| **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型・最小キー不足は **`non_json_response` / `invalid_response`**。**`daily_quotes` / `bars` / `data` / `results` のいずれかを含む JSON オブジェクト**を暫定合格形とする（**Task 5** で公式レスポンスへ正規化強化） |
+| **Task 5** | **ローカル手動 live の最小確認**（人間・[09](./09_jquants_local_manual_test.md) 準拠）。レスポンスの正規化・追加エンドポイント |
 
 ### Task 2 で追加したこと（要約）
 
 - **`safe_auth_status()`**: プレゼンスフラグと `token_preview: "***"` のみ（**トークン実値・パスワード・raw を出さない**）。
 - **`JQuantsClient`**: 公開戻り値に **refresh / id 実値・raw JSON を含めない**。ライブチェーンで得た機密は **メモリ内のみ**。
 - **`debug jquants-status`**: **プローブ無し**。標準出力に秘密を載せない。
-- **`debug jquants-daily-quotes`**: 既定 **dry-run**。`**--live` + `JQUANTS_ALLOW_LIVE_HTTP=true`** のときのみ実 HTTP を試行。
+- **`debug jquants-daily-quotes`**: 既定 **dry-run**。V2 ライブ実 HTTP は **`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + `JQUANTS_API_KEY`** が揃ったときのみ。
 - **`make verify` / `daily` / `pack` / `risks`**: **変更なしで J-Quants へ接続しない**。CI と同様。
 
 ### Task 3 で追加したこと（要約）
 
-- **[09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** — 人間向けローカル手動確認、二重ゲート、トラブルシュート。
+- **[09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** — 人間向けローカル手動確認、三重ゲート（+ BASE URL・V2 では API Key）、トラブルシュート。
 - **`JQUANTS_API_BASE_URL` 未設定時**はネットワークを伴う処理を **`not_configured`**（**`reason: base_url_missing`**）で止める（フォールバック固定 URL なし）。**`JQUANTS_ALLOW_LIVE_HTTP=true` かつ `--live` が付いていても同様**。
 - **`safe_auth_status()`** に **`api_version` / `api_version_effective` / `unsupported_api_version` / `base_url_present` / `allow_live_http`** を明示。
-- **`config/market_data.yaml`** に `api_version`、`base_url_env`、`ci_live_http: disabled`、`manual_live_http: double_gate_required` 等。
+- **`config/market_data.yaml`** に `api_version`、`base_url_env`、`ci_live_http: disabled`、`manual_live_http: triple_gate_required` 等。
 
 ### Task 3.1 で追加したこと（安全強化）
 
@@ -46,23 +49,42 @@
 - **`debug jquants-status`**: `unsupported_api_version` / `api_version_effective` を表示（**秘密は出さない**）。
 - **テスト**: `base_url` 未設定かつ **full live 意図**でも `urlopen` が呼ばれないこと、未知 version でも HTTP しないことを明示。
 
+### Task 4.1 で追加したこと（exit code）
+
+- **`debug jquants-daily-quotes`**: **`--live` あり**かつ実 HTTP が行われなかった場合（`live_blocked`、`not_configured`、`unsupported_version`、live 時の `disabled`、`failed` / `http_error` / `error` など）は **exit 1**。**`success` のときのみ exit 0**。`--live` なしと `make verify` の挙動は維持。
+
+### Task 4.2 で追加したこと（live response validation）
+
+- **V2 `get_daily_quotes` ライブ**: レスポンスボディを **`JSON オブジェクト`**として解釈でき、かつ **`daily_quotes` / `bars` / `data` / `results` のいずれかのキーがある**場合のみ **`status: success`** とする。非 JSON は **`non_json_response`**。配列ルート・オブジェクトだが期待キーなしなどは **`invalid_response`**。**raw 本文は戻り値に含めない**（**Task 5** で公式 V2 形への正規化・検証強化）。
+
+## Version2 の認証（Task 4 時点）
+
+- **Version2 は API Key 方式**（HTTP ヘッダー **`x-api-key`**）。**refreshToken / idToken 方式は V2 プライマリでは使わない**。
+- **`JQUANTS_API_VERSION=v2`（既定）**のとき、`get_refresh_token` / `get_id_token` は **`not_applicable`**（legacy は `v1` へ切替）。
+- **`JQUANTS_EMAIL` / `JQUANTS_PASSWORD` / `JQUANTS_REFRESH_TOKEN` / `JQUANTS_ID_TOKEN` は V1 legacy** 用として `.env.example` に残すのみ（V2 運用の主軸ではない）。
+
+### Task 4 で追加したこと（V2 設計寄せ）
+
+- **`_paths_for_version("v2")`** を公式例に沿った相対パスへ更新（`/equities/master`、`/equities/bars/daily` 等）。
+- **実 HTTP（`debug jquants-daily-quotes --live`）** の前提を **三重条件＋設定**に拡張:**`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP` + `BASE URL` + `JQUANTS_API_KEY`**（詳細は [09](./09_jquants_local_manual_test.md)）。
+- **API Key 実値・トークン実値は CLI 出力に含めない**（`api_key_preview` / `token_preview` は `***` のみ）。
+
 ### ライブ HTTP の前提（Codex / 安全運用）
 
 - **`JQUANTS_ENABLED=true`** は必要だが **それ単体では不十分**。**`--live`** と **`JQUANTS_ALLOW_LIVE_HTTP=true`** を **両方**満たすこと。
-- さらに **`JQUANTS_API_BASE_URL`** が **非空**で、**`JQUANTS_API_VERSION` が `v1` / `v2` に解決できる**こと、が前提（Task 3.1）。
-- 認証情報は **GitHub Secrets に置かず**、**ローカル `.env` のみ**（運用規約）。
+- **V2 では** さらに **`JQUANTS_API_BASE_URL`**（非空）と **`JQUANTS_API_KEY`**（非空）が必要。欠落時は **`not_configured`**（`base_url_missing` / `api_key_missing`）。
+- **`JQUANTS_API_VERSION` が `v1` / `v2` に解決できる**こと（Task 3.1）。
+- **V1 legacy** の Bearer 実 HTTP は **`JQUANTS_API_VERSION=v1`** のときのみ `get_daily_quotes` のライブ分支で利用可能。
+- 認証情報・API Key は **GitHub Secrets に置かず**、**ローカル `.env` のみ**（運用規約）。
 
-### 認証・エンドポイント（参考・Task 4 で v2 に同期）
+### 認証・エンドポイント
 
-歴史的に V1 では次のようなイメージが知られているが、**Version2 では URL・パス・ペイロードが変わる可能性がある**。実装は `_paths_for_version` を公式仕様で更新すること。
-
-- メールログイン → refresh
-- refresh → id（Bearer）
-- daily quotes 等を GET
+- **V2（primary）**: `GET` 等で **`x-api-key: <JQUANTS_API_KEY>`**。代表パス例は `config/market_data.yaml` の **`planned_v2_endpoints`** と `JQuantsClient._paths_for_version("v2")` を参照。
+- **V1（legacy）**: refresh / id と **`Authorization: Bearer`**。**閉鎖予定**であり新規運用では非推奨。
 
 ## 認証情報を Git に載せない方針
 
-- **実メール・パスワード・refresh / id トークン**は **`.env` にのみ**置く（**Git にコミットしない**）。
+- **API Key・実メール・パスワード・refresh / id トークン**は **`.env` にのみ**置く（**Git にコミットしない**）。
 - **`.env.example` には変数名だけ**。**実値を書かない**。
 - **`JQUANTS_ID_TOKEN` / `JQUANTS_REFRESH_TOKEN` は期限付き**。失効時は再取得または refresh。運用では期限とローテーションをドキュメント化する。
 
@@ -80,7 +102,7 @@
 
 ## AI / 開発者向け注意
 
-- **AI Agent にメール・パスワード・トークンを渡さない**（[07_ai_development_workflow.md](./07_ai_development_workflow.md)）。
+- **AI Agent に API Key・メール・パスワード・トークンを渡さない**（[07_ai_development_workflow.md](./07_ai_development_workflow.md)）。
 - 実接続を試す場合は **[09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** に従い、**ローカルのみ**で人間が実施する。
 
 ---

@@ -40,8 +40,9 @@ class JQuantsStubAdapter(MarketDataAdapter):
             "status": "real_mode_skeleton",
             "client": JQuantsClient.from_env().safe_auth_status(),
             "note": (
-                "`debug jquants-status` は HTTP しない。ライブは `debug jquants-daily-quotes --live` かつ "
-                "`JQUANTS_ALLOW_LIVE_HTTP=true`。daily/pack/risks は HTTP-free。"
+                "V2 primary: API Key + x-api-key。`debug jquants-status` は HTTP しない。"
+                "ライブは enabled + `--live` + `JQUANTS_ALLOW_LIVE_HTTP` + BASE URL + `JQUANTS_API_KEY`。"
+                "daily/pack/risks は HTTP-free。"
             ),
         }
 
@@ -75,7 +76,7 @@ class JQuantsStubAdapter(MarketDataAdapter):
             "status": "stub",
             "symbol": symbol,
             "rows": [],
-            "note": "Replace with prices/daily_quotes mapping in a future task.",
+            "note": "Replace with V2 `/equities/bars/daily` mapping in a future task.",
         }
 
     def get_listed_info_stub(self, symbol: str = "7011") -> dict[str, Any]:

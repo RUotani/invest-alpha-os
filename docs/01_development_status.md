@@ -32,21 +32,28 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 - **`JQuantsClient`** + **`safe_auth_status()`**（**トークン実値・パスワード・raw を CLI に出さない**）
 - **`debug jquants-status`**: **HTTP しない**
-- **`debug jquants-daily-quotes --live`**: 実 HTTP は **`JQUANTS_ALLOW_LIVE_HTTP=true` とセット**の二重ゲート
+- **`debug jquants-daily-quotes --live`**: 実 HTTP は **`JQUANTS_ENABLED` + `JQUANTS_ALLOW_LIVE_HTTP=true` + `--live` + BASE URL +（V2）`JQUANTS_API_KEY`** の **三重ゲート**（`allow` 欠落時は `live_blocked`、URL/Key 欠落時は `not_configured`）
 - **`make verify` / GitHub Actions**: 実接続なし
 
 ### Task 3 — 完了（Version2 前提の設定・手動ガイド）
 
-- **[docs/09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** — ローカル手動接続の手順（AI に秘密を渡さない・二重ゲート・トラブルシュート）
+- **[docs/09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** — ローカル手動接続の手順（AI に秘密を渡さない・三重ゲート・トラブルシュート）
 - **`JQUANTS_API_VERSION` / `JQUANTS_API_BASE_URL`**（`.env.example`・`JQuantsClient`）— **BASE URL 未設定時は `not_configured`**、V1 固定デフォルト URL なし
-- **`config/market_data.yaml`** — `api_version`、`ci_live_http: disabled`、`manual_live_http: double_gate_required` 等
-- **実 API 接続・Version2 正式パス確定は Task 4 以降**
+- **`config/market_data.yaml`** — `api_version`、`ci_live_http: disabled`、`manual_live_http: triple_gate_required` 等
+- **実 API の本格確認は Task 5 で段階導入**
 
 **計画・運用詳細**: [08_phase1a_jquants_plan.md](./08_phase1a_jquants_plan.md) · 手動確認: [09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)
 
-### Task 4 以降（未着手）
+### Task 4 — 完了（V2 API Key・`/equities/*` 設計寄せ）
 
-- 公式 Version2 のエンドポイント・レスポンス確定、正規化、トークン自動 refresh、本番的な実接続テスト
+- **`JQUANTS_API_KEY`** + HTTP ヘッダー **`x-api-key`**。**API Key 実値は標準出力・戻り値に含めない**
+- **ライブ実 HTTP** は **`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP`** に加え **`BASE_URL` と `API KEY` が揃ったときのみ**（欠落時は `base_url_missing` / `api_key_missing`）
+- **`_paths_for_version("v2")`** を `/equities/master`、`/equities/bars/daily` 等へ更新。V1 refresh/Bearer は **legacy（`JQUANTS_API_VERSION=v1`）**
+- **本タスクでは実 API 呼び出しは行わない**（テストは mock のみ）
+
+### Task 5 以降（未着手）
+
+- ローカル手動 live の最小確認、レスポンス正規化、追加エンドポイント
 
 ---
 
