@@ -1,9 +1,15 @@
-"""J-Quants API client skeleton (Phase 1a Task 2, safety-hardened).
+"""J-Quants API client skeleton (Phase 1a Task 2–3, safety-hardened).
 
 Live HTTP occurs only when **both**:
 
 - The caller passes ``attempt_live=True`` (e.g. ``--live`` on the debug CLI).
 - Environment variable ``JQUANTS_ALLOW_LIVE_HTTP=true``.
+
+``JQUANTS_API_BASE_URL`` must be set (non-empty after trim) for any code path that builds
+HTTP URLs; otherwise the client returns ``not_configured`` with ``reason: base_url_missing`` (no fallback URL).
+
+``JQUANTS_API_VERSION`` must resolve to **v1** or **v2** (aliases: ``1``, ``version1``, etc.). Any other
+value yields ``unsupported_version`` responses and **no HTTP** (Phase 1a Task 3.1).
 
 Public return dicts intentionally **omit secrets** (tokens, passwords, raw auth bodies).
 
@@ -19,7 +25,44 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlencode
 
-DEFAULT_BASE_URL = "https://api.jquants.com/v1"
+
+def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
+    """Return ``(display_str, effective_label)`` where ``effective_label`` is ``v1``, ``v2``, or ``None``.
+
+    Unset / blank env → ``("v2", "v2")`` (default). Unknown strings → ``(trimmed, None)``.
+    """
+
+    s = _blank_to_none(raw)
+    if s is None:
+        return "v2", "v2"
+    t = raw.strip() if raw is not None else "v2"
+    tl = t.lower()
+    if tl in {"1", "v1", "version1"}:
+        return t, "v1"
+    if tl in {"2", "v2", "version2"}:
+        return t, "v2"
+    return t, None
+
+
+def _paths_for_version(version_label: str) -> dict[str, str]:
+    """Relative paths under ``base_url``. Task 4: align keys with official Version2 spec."""
+
+    # Provisional identical layout; split so V2 can diverge without a V1-hardcoded code path.
+    v1 = {
+        "auth_user": "/token/auth_user",
+        "auth_refresh": "/token/auth_refresh",
+        "daily_quotes": "/prices/daily_quotes",
+    }
+    v2 = {
+        "auth_user": "/token/auth_user",
+        "auth_refresh": "/token/auth_refresh",
+        "daily_quotes": "/prices/daily_quotes",
+    }
+    if version_label == "v1":
+        return v1
+    if version_label == "v2":
+        return v2
+    raise ValueError(f"unexpected J-Quants API version label: {version_label!r}")
 
 
 def _truthy_flag(value: str | None, default: str = "false") -> bool:
@@ -34,18 +77,24 @@ def _blank_to_none(value: str | None) -> str | None:
 
 
 class JQuantsClient:
-    """Real-mode skeleton with strict live-http gating."""
+    """Real-mode skeleton with strict live-http gating and configurable API version / base URL."""
 
     def __init__(
         self,
-        base_url: str,
+        *,
+        base_url: str | None,
+        api_version: str,
+        api_version_effective: str | None,
         enabled: bool,
         email: str | None = None,
         password: str | None = None,
         refresh_token: str | None = None,
         id_token: str | None = None,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("/") if base_url else None
+        self.api_version = api_version
+        self.api_version_effective = api_version_effective
+        self._paths = _paths_for_version(api_version_effective) if api_version_effective else {}
         self.enabled = enabled
         self.email = email
         self.password = password
@@ -54,9 +103,12 @@ class JQuantsClient:
 
     @classmethod
     def from_env(cls) -> JQuantsClient:
-        base = _blank_to_none(os.getenv("JQUANTS_API_BASE_URL")) or DEFAULT_BASE_URL
+        api_disp, api_eff = _resolve_jquants_api_version(os.getenv("JQUANTS_API_VERSION"))
+        base = _blank_to_none(os.getenv("JQUANTS_API_BASE_URL"))
         return cls(
             base_url=base,
+            api_version=api_disp,
+            api_version_effective=api_eff,
             enabled=_truthy_flag(os.getenv("JQUANTS_ENABLED"), default="false"),
             email=_blank_to_none(os.getenv("JQUANTS_EMAIL")),
             password=_blank_to_none(os.getenv("JQUANTS_PASSWORD")),
@@ -82,10 +134,17 @@ class JQuantsClient:
     def is_configured(self) -> bool:
         return self.has_id_token() or self.has_refresh_token() or self.has_mail_password()
 
+    def has_base_url(self) -> bool:
+        return bool(self.base_url)
+
     def safe_auth_status(self) -> dict[str, Any]:
         """Opaque status for stderr-free `debug jquants-status` (no secrets, no HTTP)."""
 
         return {
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
+            "unsupported_api_version": self.api_version_effective is None,
+            "base_url_present": self.has_base_url(),
             "enabled": self.is_enabled(),
             "configured": self.is_configured(),
             "email_present": bool(self.email),
@@ -95,8 +154,26 @@ class JQuantsClient:
             "allow_live_http": self.allow_live_http_from_env(),
             "token_preview": "***",
             "raw_response_included": False,
-            "base_url": self.base_url,
         }
+
+    def _unsupported_api_version_reply(self) -> dict[str, Any]:
+        return {
+            "status": "unsupported_version",
+            "api_version": self.api_version,
+            "detail": "JQUANTS_API_VERSION must be v1 or v2",
+            "raw_response_included": False,
+        }
+
+    def _maybe_unsupported_api_version(self) -> dict[str, Any] | None:
+        if self.api_version_effective is None:
+            return self._unsupported_api_version_reply()
+        return None
+
+    def _missing_base_url_reply(self) -> dict[str, Any]:
+        return self._not_configured(
+            missing=["JQUANTS_API_BASE_URL"],
+            reason="base_url_missing",
+        )
 
     def _live_gate_denied_reason(self, *, cli_live_requested: bool) -> str | None:
         if not cli_live_requested:
@@ -108,13 +185,21 @@ class JQuantsClient:
     def _disabled(self, *, hint: str) -> dict[str, Any]:
         return {"status": "disabled", "reason": hint, "raw_response_included": False}
 
-    def _not_configured(self, *, missing: list[str]) -> dict[str, Any]:
-        return {"status": "not_configured", "missing": missing, "raw_response_included": False}
+    def _not_configured(self, *, missing: list[str], reason: str | None = None) -> dict[str, Any]:
+        out: dict[str, Any] = {"status": "not_configured", "missing": missing, "raw_response_included": False}
+        if reason is not None:
+            out["reason"] = reason
+        return out
 
-    def _dry_run(self, *, endpoint: str, detail: str) -> dict[str, Any]:
+    def _dry_run(self, *, endpoint_key: str, detail: str) -> dict[str, Any]:
+        logical = self._paths.get(endpoint_key, f"/<{endpoint_key}>")
+        ep = f"{self.base_url}{logical}" if self.base_url else logical
         return {
             "status": "dry_run",
-            "endpoint": endpoint,
+            "endpoint": ep,
+            "endpoint_key": endpoint_key,
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
             "detail": detail,
             "raw_response_included": False,
         }
@@ -163,10 +248,20 @@ class JQuantsClient:
             or None
         )
 
+    def _require_base_for_network(self) -> dict[str, Any] | None:
+        if self.has_base_url():
+            return None
+        return self._missing_base_url_reply()
+
     def _http_fetch_refresh_secret(self) -> str | None:
+        if not self._paths:
+            return None
+        if not self.has_base_url():
+            return None
         if not self.has_mail_password():
             return None
-        url = f"{self.base_url}/token/auth_user"
+        path = self._paths["auth_user"]
+        url = f"{self.base_url}{path}"
         payload = {"mailaddress": self.email, "password": self.password}
         try:
             body = self._post_json_uncached(url, payload)
@@ -176,7 +271,12 @@ class JQuantsClient:
         return str(refresh) if refresh else None
 
     def _http_fetch_id_secret_from_refresh(self, refresh: str) -> str | None:
-        url = f"{self.base_url}/token/auth_refresh"
+        if not self._paths:
+            return None
+        if not self.has_base_url():
+            return None
+        path = self._paths["auth_refresh"]
+        url = f"{self.base_url}{path}"
         payload = {"refreshtoken": refresh}
         try:
             body = self._post_json_uncached(url, payload)
@@ -189,11 +289,20 @@ class JQuantsClient:
     def get_refresh_token(self, *, attempt_live: bool = False) -> dict[str, Any]:
         if not self.is_enabled():
             return self._disabled(hint="JQUANTS_ENABLED=false")
+
+        bad_ver = self._maybe_unsupported_api_version()
+        if bad_ver is not None:
+            return bad_ver
+
+        miss = self._require_base_for_network()
+        if miss is not None:
+            return miss
+
         if not self.has_mail_password():
             return self._not_configured(missing=["JQUANTS_EMAIL", "JQUANTS_PASSWORD"])
         if not attempt_live:
             return self._dry_run(
-                endpoint=f"{self.base_url}/token/auth_user",
+                endpoint_key="auth_user",
                 detail="Requires --live on CLI AND JQUANTS_ALLOW_LIVE_HTTP=true",
             )
 
@@ -209,11 +318,21 @@ class JQuantsClient:
             "refresh_token_obtained": True,
             "raw_response_included": False,
             "token_preview": "***",
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
         }
 
     def get_id_token(self, *, attempt_live: bool = False, refresh_override: str | None = None) -> dict[str, Any]:
         if not self.is_enabled():
             return self._disabled(hint="JQUANTS_ENABLED=false")
+
+        bad_ver = self._maybe_unsupported_api_version()
+        if bad_ver is not None:
+            return bad_ver
+
+        miss = self._require_base_for_network()
+        if miss is not None:
+            return miss
 
         refresh = refresh_override or self.refresh_token
         if not refresh:
@@ -221,7 +340,7 @@ class JQuantsClient:
 
         if not attempt_live:
             return self._dry_run(
-                endpoint=f"{self.base_url}/token/auth_refresh",
+                endpoint_key="auth_refresh",
                 detail="Requires --live on CLI AND JQUANTS_ALLOW_LIVE_HTTP=true",
             )
 
@@ -237,6 +356,8 @@ class JQuantsClient:
             "id_token_obtained": True,
             "raw_response_included": False,
             "token_preview": "***",
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
         }
 
     def _resolve_bearer_secret_for_quotes_live(self) -> str | None:
@@ -265,9 +386,17 @@ class JQuantsClient:
         if not self.is_enabled():
             return self._disabled(hint="JQUANTS_ENABLED=false")
 
+        bad_ver = self._maybe_unsupported_api_version()
+        if bad_ver is not None:
+            return bad_ver
+
+        miss = self._require_base_for_network()
+        if miss is not None:
+            return miss
+
         if not attempt_live:
             return self._dry_run(
-                endpoint=f"{self.base_url}/prices/daily_quotes",
+                endpoint_key="daily_quotes",
                 detail=(
                     "Default is dry-run. Pass --live on debug jquants-daily-quotes AND "
                     "set JQUANTS_ALLOW_LIVE_HTTP=true to perform HTTP."
@@ -297,7 +426,8 @@ class JQuantsClient:
             return {"status": "failed", "step": "resolve_bearer", "raw_response_included": False}
 
         query = urlencode(params)
-        url = f"{self.base_url}/prices/daily_quotes?{query}"
+        dq_path = self._paths["daily_quotes"]
+        url = f"{self.base_url}{dq_path}?{query}"
 
         try:
             parsed = self._get_json_uncached(url, bearer)
@@ -328,6 +458,8 @@ class JQuantsClient:
             key: count_val,
             "raw_response_included": False,
             "token_preview": "***",
+            "api_version": self.api_version,
+            "api_version_effective": self.api_version_effective,
         }
 
 

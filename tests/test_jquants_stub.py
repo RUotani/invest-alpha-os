@@ -26,3 +26,14 @@ def test_jquants_stub_enabled_flag_still_no_http(monkeypatch):
 def test_jquants_disabled_explicit_false(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "false")
     assert JQuantsStubAdapter().is_enabled() is False
+
+
+def test_jquants_health_client_has_safe_status_fields(monkeypatch):
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    h = JQuantsStubAdapter().health()
+    c = h["client"]
+    assert "api_version" in c
+    assert "api_version_effective" in c
+    assert "unsupported_api_version" in c
+    assert "base_url_present" in c
+    assert "allow_live_http" in c

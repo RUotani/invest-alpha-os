@@ -35,11 +35,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`debug jquants-daily-quotes --live`**: 実 HTTP は **`JQUANTS_ALLOW_LIVE_HTTP=true` とセット**の二重ゲート
 - **`make verify` / GitHub Actions**: 実接続なし
 
-**計画・運用詳細**: [08_phase1a_jquants_plan.md](./08_phase1a_jquants_plan.md)
+### Task 3 — 完了（Version2 前提の設定・手動ガイド）
 
-### Task 3 以降（未着手）
+- **[docs/09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)** — ローカル手動接続の手順（AI に秘密を渡さない・二重ゲート・トラブルシュート）
+- **`JQUANTS_API_VERSION` / `JQUANTS_API_BASE_URL`**（`.env.example`・`JQuantsClient`）— **BASE URL 未設定時は `not_configured`**、V1 固定デフォルト URL なし
+- **`config/market_data.yaml`** — `api_version`、`ci_live_http: disabled`、`manual_live_http: double_gate_required` 等
+- **実 API 接続・Version2 正式パス確定は Task 4 以降**
 
-- トークン期限・自動 refresh、レスポンス正規化、追加エンドポイント
+**計画・運用詳細**: [08_phase1a_jquants_plan.md](./08_phase1a_jquants_plan.md) · 手動確認: [09_jquants_local_manual_test.md](./09_jquants_local_manual_test.md)
+
+### Task 4 以降（未着手）
+
+- 公式 Version2 のエンドポイント・レスポンス確定、正規化、トークン自動 refresh、本番的な実接続テスト
 
 ---
 

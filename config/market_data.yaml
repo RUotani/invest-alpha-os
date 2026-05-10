@@ -17,11 +17,17 @@ market_data:
       note: "Future metadata integration"
     jquants:
       enabled: false
-      mode: stub
+      api_version: v2
+      base_url_env: JQUANTS_API_BASE_URL
+      enabled_env: JQUANTS_ENABLED
+      allow_live_http_env: JQUANTS_ALLOW_LIVE_HTTP
+      mode: stub_by_default
+      ci_live_http: disabled
+      manual_live_http: double_gate_required
       primary_source_for: jp_equity
       endpoints_planned:
         - /listed/info
         - /prices/daily_quotes
         - /fins/statements
         - /fins/announcement
-      note: "Live HTTP: debug jquants-daily-quotes --live AND env JQUANTS_ALLOW_LIVE_HTTP=true (not jquants-status)"
+      note: "Live HTTP: debug jquants-daily-quotes --live AND env JQUANTS_ALLOW_LIVE_HTTP=true (not jquants-status). Use JQUANTS_API_VERSION + JQUANTS_API_BASE_URL per official docs."

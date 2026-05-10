@@ -176,7 +176,10 @@ def debug_adapters() -> None:
 def debug_jquants_status() -> None:
     client = JQuantsClient.from_env()
     typer.echo(json.dumps(client.safe_auth_status(), ensure_ascii=False, indent=2))
-    typer.echo("(never performs HTTP)")
+    typer.echo(
+        "(never performs HTTP; see api_version, api_version_effective, unsupported_api_version, "
+        "base_url_present, allow_live_http, configured)"
+    )
 
 
 @debug_app.command("jquants-daily-quotes")
@@ -216,6 +219,8 @@ def debug_jquants_daily_quotes(
     if st == "success":
         raise typer.Exit(0)
     if st == "not_configured":
+        raise typer.Exit(1)
+    if st == "unsupported_version":
         raise typer.Exit(1)
     if st == "failed":
         raise typer.Exit(1)

@@ -11,14 +11,14 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 - Bot output is for observation and review only during the first 12 weeks
 - Do not commit `.env`, `credentials.json`, `token.json`, API keys
 
-### Phase 1a — J-Quants（Task 1 & 2）
+### Phase 1a — J-Quants（stub → skeleton → Task 3 設定）
 
-- **既定**: **`JQUANTS_ENABLED=false`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=false`**。`make verify`・`daily`・`pack`・`risks` は **J-Quants へ接続しない**。
-- **Task 2**: **`JQuantsClient`**（real-mode skeleton + **二重ゲート**）。
-  - **`debug jquants-status`**: **HTTP 禁止**（状態フラグと `token_preview: "***"` のみ）。
-  - **`debug jquants-daily-quotes`**: **既定は dry-run**。**実 HTTP** は **`--live` と `JQUANTS_ALLOW_LIVE_HTTP=true` の両方**が必要。
-- **AI Agent に認証情報を渡さない**。`.env.example` は **変数名のみ**。
-- 計画書: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
+- **既定**: **`JQUANTS_ENABLED=false`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=false`**。**`JQUANTS_API_BASE_URL` も未設定が既定**。`make verify`・GitHub Actions・`daily` / `pack` / `risks` は **J-Quants へ実接続しない**。
+- **Version2 前提**: 公式では **Version2 が標準・Version1 は閉鎖予定**。**`JQUANTS_API_VERSION` は実装上 `v1` / `v2` のみ許可**（ほかは `unsupported_version` で実 HTTP なし）。**`JQUANTS_API_BASE_URL`** は **公式確認後にローカル `.env`** で設定（テンプレは空・実値なし）。**BASE URL が空ならライブ許可・`--live` があっても実 HTTP しない**。
+- **`JQuantsClient`**: real-mode skeleton。**二重ゲート**: **`debug jquants-daily-quotes --live`** かつ **`JQUANTS_ALLOW_LIVE_HTTP=true`**、`v1`/`v2` と **BASE URL が揃ったときのみ**実 HTTP を試せる。**`debug jquants-status` は HTTP 禁止**（バージョン・設定プレゼンスとマスクのみ）。
+- **実接続の手順（人間のみ）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。
+- **AI Agent に認証情報を渡さない**。`.env` は Git 管理外、`.env.example` は **変数名のみ**。
+- 計画: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
 
 ### クイックスタート
 
