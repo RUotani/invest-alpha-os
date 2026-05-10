@@ -26,7 +26,8 @@ Laputa Alpha OS / InvisAlphaOS で、複数 AI / ツールと人間が協働す�
 
 許可リストは運用単位で拡張してよい。初期の目安：
 
-- `PYTHON=.venv/bin/python make verify`
+- `PYTHON=.venv/bin/python make verify`（または `make verify` — Makefile が `.venv/bin/python` を優先する場合あり）
+- `make codex-review` / `make ai-check`（**`git add` / `commit` は行わない**。レビュー結果は `.ai/reviews/*.md` でローカルのみ）
 - `git status --short`
 - `git diff --stat`
 - `pytest`（またはプロジェクト標準に従ったテスト実行）
@@ -58,6 +59,19 @@ Laputa Alpha OS / InvisAlphaOS で、複数 AI / ツールと人間が協働す�
 5. **GitHub Actions** がグリーンか確認する。
 
 Observation Only・No Auto Trading、`outputs/` 実行生成物の Git 非管理など、プロジェクト規約は常に適用する。
+
+### 6.1 Codex レビューの半自動化（CLI）
+
+手動コピペを減らすため、`codex exec` でレビューを走らせ、結果だけを Markdown ファイルに保存するターゲットを用意している。
+
+- **`make codex-review`**  
+  - `codex` が PATH に無い場合は **エラー終了とはせず**、説明付きで `.ai/reviews/latest.md` にスキップ理由を書き、`make` は続行できる（終了コード 0）。
+  - ある場合は **`codex exec` を read-only サンドボックス、`--ask-for-approval never`、`--ephemeral` で実行**（標準どおりモデル実行は OpenAI 側との通信となる）。`.env` は **読み込まず**、`git status --short` と `git diff --stat` だけをプロンプトコンテキストに含める。
+  - 結果は **`.ai/reviews/latest.md`**（**Git 管理外**: `.gitignore` で `.ai/reviews/*.md` を無視）。
+- **`make ai-check`**  
+  - **`PYTHON=...` をサブ Makefile に明示渡し**したうえで **`make verify`** → **`make codex-review`** → **`git status --short`** の順。
+
+レビュー観点（スクリプト内プロンプトの要約）: Phase 範囲、機密・outputs 混入、Actions 耐性、`make verify` 構造、意図しない API 実接続、トークン／raw のログ出力、config / docs / src の責務分離。**リポジトリの書き換えや `git add` / commit / push はレビューターゲットが行わないこと**を前提とする。
 
 ## Git に載せないもの（人間・AI 共通）
 

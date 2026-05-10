@@ -50,6 +50,8 @@ alpha-os --help
 
 - 通常確認コマンド: `make verify`
 - 仮想環境を明示する安全な確認コマンド: `PYTHON=.venv/bin/python make verify`
+- **`make codex-review`**: `codex exec`（read-only）でレビューし結果を `.ai/reviews/latest.md` へ。**`.ai/reviews/*.md` は Git 無視**。
+- **`make ai-check`**: `make verify` → `codex-review` → `git status`。`Makefile` はデフォルト `PYTHON=python` のとき `.venv/bin/python` があればそちらへ寄せます（明示した `PYTHON=...` は尊重）。
 
 ```bash
 make verify

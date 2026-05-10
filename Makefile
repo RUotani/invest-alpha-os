@@ -1,14 +1,15 @@
 PYTHON ?= python
 
-# Prefer `.venv/bin/python` when Makefile left PYTHON at default; respect command line / env.
+# macOS は `python` が無いことが多く、標準ゲートだけだと CI/ローカルで失敗しやすい。
+# `.venv/bin/python` があれば明示的パスへ寄せる。`PYTHON=... make` で上書きした場合はそのまま尊重する。
 VENVP := $(CURDIR)/.venv/bin/python
-ifeq ($(origin PYTHON),default)
-  ifneq ($(wildcard $(VENVP)),)
+ifneq ($(wildcard $(VENVP)),)
+  ifeq ($(PYTHON),python)
     PYTHON := $(VENVP)
-  else ifneq ($(shell command -v python3 2>/dev/null),)
+  endif
+else
+  ifeq ($(PYTHON),python)
     PYTHON := python3
-  else
-    PYTHON := python
   endif
 endif
 
