@@ -18,12 +18,16 @@ For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: the 
 with ``row_count=0``.
 
 **V2** ``GET …/equities/bars/daily`` query uses only ``code``, ``date``, ``from``, ``to`` (never ``from_date`` /
-``to_date``). Date values are sent as ``YYYY-MM-DD`` (Task 5.1). Base URLs that already end with ``/v2`` are
+``to_date``). **Date values are sent as** ``YYYYMMDD`` **(Task 5.4, per official quick start)**. CLI may pass
+``YYYY-MM-DD`` or ``YYYYMMDD``; invalid calendar dates → ``validation_error`` / ``invalid_date_format``. Base URLs that already end with ``/v2`` are
 joined with paths like ``/equities/bars/daily`` so ``/v2/v2`` is not produced (Task 5.2). Use
 ``build_v2_daily_bars_request_preview`` / ``--preview-request`` to inspect URLs without HTTP or secrets.
 
 **Task 5.3**: CLI accepts **code-only / date-only / code+date / code+range**; ``--date`` is mutually exclusive with
 ``--from-date``/``--to-date``; validation runs before HTTP and before ``--preview-request`` output.
+
+**Task 5.4**: V2 wire dates are **YYYYMMDD** (official quick start); CLI accepts ``YYYY-MM-DD`` or ``YYYYMMDD``;
+invalid calendar dates → ``invalid_date_format``.
 
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
@@ -32,8 +36,10 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
+from datetime import date as _date
 from typing import Any
 from urllib.parse import urlencode
 
@@ -41,18 +47,38 @@ from urllib.parse import urlencode
 _V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("data", "daily_quotes", "bars", "results")
 
 
-def _format_v2_daily_bars_date_query(value: str) -> str:
-    """Format ``date`` / ``from`` / ``to`` query values for V2 daily bars (YYYY-MM-DD).
+def _parse_v2_daily_bars_date(value: str) -> str | None:
+    """Parse a human or compact date into **YYYYMMDD** for V2 wire query, or ``None`` if invalid.
 
-    Accepts ``YYYY-MM-DD`` or a compact ``YYYYMMDD`` string; wire format is always ``YYYY-MM-DD``.
+    Accepted:
+
+    - ``YYYYMMDD`` (8 digits), calendar-valid;
+    - ``YYYY-MM-DD`` with zero-padded month and day, calendar-valid.
+
+    Other shapes (e.g. ``2026-5-8``) are rejected.
     """
 
     s = (value or "").strip()
     if not s:
-        return s
-    digits = "".join(c for c in s if c.isdigit())
-    if len(digits) == 8:
-        return f"{digits[0:4]}-{digits[4:6]}-{digits[6:8]}"
+        return None
+
+    m_iso = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
+    if m_iso:
+        y, mo, day = int(m_iso.group(1)), int(m_iso.group(2)), int(m_iso.group(3))
+        try:
+            _date(y, mo, day)
+        except ValueError:
+            return None
+        return f"{y:04d}{mo:02d}{day:02d}"
+
+    m_compact = re.fullmatch(r"(\d{8})", s)
+    if not m_compact:
+        return None
+    y, mo, day = int(s[0:4]), int(s[4:6]), int(s[6:8])
+    try:
+        _date(y, mo, day)
+    except ValueError:
+        return None
     return s
 
 
@@ -65,6 +91,19 @@ def _strip_optional_str(value: str | None) -> str | None:
 
 def _daily_quotes_cli_validation_error(reason: str) -> dict[str, Any]:
     return {"status": "validation_error", "reason": reason, "raw_response_included": False}
+
+
+def _validate_quote_date_fields_parseable(
+    d: str | None, fd: str | None, td: str | None
+) -> dict[str, Any] | None:
+    """Require each non-empty date field to parse to a calendar-valid ``YYYYMMDD``."""
+
+    for raw in (d, fd, td):
+        if raw is None:
+            continue
+        if _parse_v2_daily_bars_date(raw) is None:
+            return _daily_quotes_cli_validation_error("invalid_date_format")
+    return None
 
 
 def _join_v2_base_and_path(base_url: str, path: str) -> str:
@@ -560,11 +599,17 @@ class JQuantsClient:
         if c is not None:
             params["code"] = c
         if date:
-            params["date"] = _format_v2_daily_bars_date_query(date)
+            wd = _parse_v2_daily_bars_date(date)
+            assert wd is not None
+            params["date"] = wd
         if from_date:
-            params["from"] = _format_v2_daily_bars_date_query(from_date)
+            wf = _parse_v2_daily_bars_date(from_date)
+            assert wf is not None
+            params["from"] = wf
         if to_date:
-            params["to"] = _format_v2_daily_bars_date_query(to_date)
+            wt = _parse_v2_daily_bars_date(to_date)
+            assert wt is not None
+            params["to"] = wt
         return params
 
     def _v2_daily_bars_endpoint_without_query(self) -> str | None:
@@ -603,6 +648,9 @@ class JQuantsClient:
                 return _daily_quotes_cli_validation_error("v1_requires_code")
             if d is not None and (fd is not None or td is not None):
                 return _daily_quotes_cli_validation_error("date_mutually_exclusive_with_from_to")
+            bad_dates = _validate_quote_date_fields_parseable(d, fd, td)
+            if bad_dates is not None:
+                return bad_dates
             return None
 
         assert self.api_version_effective == "v2"
@@ -610,6 +658,9 @@ class JQuantsClient:
             return _daily_quotes_cli_validation_error("missing_all_of_code_date_from_to")
         if d is not None and (fd is not None or td is not None):
             return _daily_quotes_cli_validation_error("date_mutually_exclusive_with_from_to")
+        bad_dates = _validate_quote_date_fields_parseable(d, fd, td)
+        if bad_dates is not None:
+            return bad_dates
         return None
 
     def build_v2_daily_bars_request_preview(
@@ -814,11 +865,17 @@ class JQuantsClient:
 
         params = {"code": code}
         if date:
-            params["date"] = date.replace("-", "")
+            wd = _parse_v2_daily_bars_date(date)
+            assert wd is not None
+            params["date"] = wd
         if from_date:
-            params["from"] = from_date.replace("-", "")
+            wf = _parse_v2_daily_bars_date(from_date)
+            assert wf is not None
+            params["from"] = wf
         if to_date:
-            params["to"] = to_date.replace("-", "")
+            wt = _parse_v2_daily_bars_date(to_date)
+            assert wt is not None
+            params["to"] = wt
 
         if not bearer:
             return {"status": "failed", "step": "resolve_bearer", "raw_response_included": False}

@@ -29,8 +29,8 @@
     - **`--live` あり**で HTTP 成功かつレスポンス正規化 **`success`**（下記 Phase 5）→ **`exit 0`**。
 12. **`make verify` / CI は `--live` を使わない**。
 13. **最小 live smoke**：**1 銘柄・短期間のみ**。**推奨コード例**：`70110` または `86970`。**日付**：公式サンプル・取得可能レンジに合わせる（営業日・データ公開の遅延に留意）。
-14. **日付・クエリ（Task 5.1 + 5.3）**：CLI では **`--code` / `--date` / `--from-date` / `--to-date`** を組み合わせる。**いずれの条件も無い**と **`validation_error`**。**`--date` と `--from-date`/`--to-date` は排他**。V2 で送るクエリ名は **`code` / `date` / `from` / `to`** のみ（**`from_date` / `to_date` は使わない**）。**応答側の公式前提は「`code` または `date` のどちらか」だが、この CLI は切り分けのため、`from` または `to` の片方だけ**を載せたリクエストも許容する（**HTTP 400 になり得る**）。レンジは **`from` と `to` の両方そろえることを推奨**。**HTTP 400** のときは、このドキュメントの **「HTTP 400 と `status: http_error`」** に従って切り分ける。
-15. **`--preview-request`（Task 5.2）**：**実 HTTP は行わない**（`JQUANTS_ALLOW_LIVE_HTTP=true` でも **プレビューのみなら urlopen しない**）。**`full_url_without_secrets` / `query_params` / `endpoint_url_without_query`** を表示し、**API Key 実値・raw body・ヘッダー全体は表示しない**。
+14. **日付・クエリ（Task 5.1 + 5.3 + 5.4）**：CLI では **`--code` / `--date` / `--from-date` / `--to-date`** を組み合わせる（日付は **`YYYY-MM-DD`** または **`YYYYMMDD`** を入力可。**カレンダー無効**は **`validation_error` / `invalid_date_format`**）。**いずれの条件も無い**と **`validation_error`**。**`--date` と `--from-date`/`--to-date` は排他**。V2 の API 送信ではクエリ名 **`code` / `date` / `from` / `to`** のみで、**値は公式クイックスタートに合わせて `YYYYMMDD`（ハイフンなし 8 桁）**（**`from_date` / `to_date` というクエリ名は使わない**）。**`--preview-request`** の **`query_params` / `full_url_without_secrets` は実 HTTP と同じ形式**（例：`date=20260508`）。**応答側の公式前提は「`code` または `date` のどちらか」だが、この CLI は切り分けのため、`from` または `to` の片方だけ**を載せたリクエストも許容する（**HTTP 400 になり得る**）。レンジは **`from` と `to` の両方そろえることを推奨**。**HTTP 400** のときは、このドキュメントの **「HTTP 400 と `status: http_error`」** に従って切り分ける。
+15. **`--preview-request`（Task 5.2）**：**実 HTTP は行わない**（`JQUANTS_ALLOW_LIVE_HTTP=true` でも **プレビューのみなら urlopen しない**）。**`full_url_without_secrets` / `query_params` / `endpoint_url_without_query`** を表示し、**API Key 実値・raw body・ヘッダー全体は表示しない**。**`query_params` の日付は `YYYYMMDD`（Task 5.4）**。
 
 ### 応答検証（Task 5：`normalize_v2_daily_bars_response`）
 
@@ -118,13 +118,13 @@ alpha-os debug jquants-daily-quotes \
 
 共通確認:
 
-1. **`query_params` が `code` / `date` / `from` / `to` の公式名だけ**になっているか、**`from_date` / `to_date` / `date_from` / `date_to` が混ざっていないか**。
+1. **`query_params` が `code` / `date` / `from` / `to` の公式名だけ**で、**日付の値が `YYYYMMDD`（8 桁）**になっているか。**`from_date` / `to_date` / `date_from` / `date_to` が混ざっていないか**。
 2. **`full_url_without_secrets`** に **`/v2/v2/` が含まれていないか**（ベース URL に `/v2` があるときの誤結合ガード）。
 
-それでも 400 の場合は **証券コード形式・データ提供範囲・権限**を公式情報と照合する。
+それでも 400 の場合は **まず日付形式**（プレビューで **`date` / `from` / `to` が `YYYYMMDD` か**）、**対象日が営業日・データ公開があるか**、**証券コード形式**、**プラン・権限**を公式情報と照合する。
 
 **`--live` で `http_error` になったとき**の CLI は **`status` / `http_status` / 銘柄 `code` / `date` / `date_from` / `date_to`** と、上記と同種の送信プレビュー（秘密なし）を **`raw_response_included: false`** のまま出力する。**応答ボディは出ない**。
-- **`--from-date` / `--to-date`** は内部で **`from` / `to`** に変換し、値は **`YYYY-MM-DD`**（Task 5.1）。
+- **`--date` / `--from-date` / `--to-date`** は CLI では読みやすい形でも指定できるが、**V2 のクエリ値は `YYYYMMDD` に正規化されて送られる**（Task 5.4）。
 
 ### 401 / 403（認証）
 

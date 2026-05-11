@@ -50,9 +50,10 @@ def test_build_v2_preview_jquants_style_base_and_no_secret_leak(monkeypatch):
     assert prv["status"] == "ok"
     assert prv["endpoint_url_without_query"] == "https://api.jquants.com/v2/equities/bars/daily"
     assert "/v2/v2/" not in prv["full_url_without_secrets"]
-    assert prv["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    assert prv["query_params"] == {"code": "70110", "from": "20260508", "to": "20260508"}
     q = urlparse(prv["full_url_without_secrets"]).query
     assert "from_date" not in q and "to_date" not in q
+    assert parse_qs(q)["from"] == ["20260508"] and parse_qs(q)["to"] == ["20260508"]
     assert prv["api_key_header_present"] is True
     assert prv["api_key_value_included"] is False
     assert "NEVER_PRINT_THIS_KEY_STRING" not in json.dumps(prv)
@@ -186,7 +187,7 @@ def test_v2_get_daily_quotes_live_success_x_api_key_header(monkeypatch):
     assert json.dumps(out).count("PLACEHOLDER") == 0
 
 
-def test_v2_live_query_uses_official_from_to_hyphen_dates(monkeypatch):
+def test_v2_live_query_hyphen_input_becomes_yyyymmdd(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_API_KEY", "k")
@@ -215,11 +216,11 @@ def test_v2_live_query_uses_official_from_to_hyphen_dates(monkeypatch):
     assert "to_date" not in lowered
     assert "date_from" not in lowered
     assert "date_to" not in lowered
-    assert "20260508" not in q
-    assert parse_qs(q) == {"code": ["70110"], "from": ["2026-05-08"], "to": ["2026-05-08"]}
+    assert "from=20260508" in q and "to=20260508" in q
+    assert parse_qs(q) == {"code": ["70110"], "from": ["20260508"], "to": ["20260508"]}
 
 
-def test_v2_live_query_compact_dates_become_hyphenated(monkeypatch):
+def test_v2_live_query_compact_input_wire_yyyymmdd(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_API_KEY", "k")
@@ -241,8 +242,8 @@ def test_v2_live_query_compact_dates_become_hyphenated(monkeypatch):
             attempt_live=True,
         )
     q = urlparse(captured_url[0]).query
-    assert parse_qs(q)["from"] == ["2026-05-08"]
-    assert parse_qs(q)["to"] == ["2026-05-08"]
+    assert parse_qs(q)["from"] == ["20260508"]
+    assert parse_qs(q)["to"] == ["20260508"]
 
 
 def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
@@ -271,7 +272,7 @@ def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
     assert out["http_status"] == 400
     assert "SECRET_ERROR_BODY" not in json.dumps(out)
     assert out["endpoint_url_without_query"] == "https://jq.test.invalid/v0/equities/bars/daily"
-    assert out["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    assert out["query_params"] == {"code": "70110", "from": "20260508", "to": "20260508"}
     assert "/v2/v2/" not in out.get("full_url_without_secrets", "")
 
 
@@ -311,7 +312,7 @@ def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
     assert blob["http_status"] == 400
     assert blob["code"] == "70110"
     assert blob["date_from"] == "2026-05-08"
-    assert blob["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    assert blob["query_params"] == {"code": "70110", "from": "20260508", "to": "20260508"}
     assert blob["api_key_header_name"] == "x-api-key"
     assert blob["api_key_value_included"] is False
     assert blob["raw_response_included"] is False
@@ -985,7 +986,7 @@ def test_cli_jquants_daily_quotes_date_only(monkeypatch):
     r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--date", "2026-05-08"])
     assert r.exit_code == 0
     qp = json.loads(r.stdout.strip()).get("query_params")
-    assert qp == {"date": "2026-05-08"}
+    assert qp == {"date": "20260508"}
 
 
 def test_cli_jquants_daily_quotes_code_and_date(monkeypatch):
@@ -995,7 +996,7 @@ def test_cli_jquants_daily_quotes_code_and_date(monkeypatch):
     r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--code", "7011", "--date", "2026-05-08"])
     assert r.exit_code == 0
     qp = json.loads(r.stdout.strip()).get("query_params")
-    assert qp == {"code": "7011", "date": "2026-05-08"}
+    assert qp == {"code": "7011", "date": "20260508"}
 
 
 def test_cli_jquants_daily_quotes_date_plus_from_exclusive(monkeypatch):
@@ -1054,7 +1055,7 @@ def test_preview_request_date_only_no_secret_in_output(monkeypatch):
     )
     assert r.exit_code == 0
     blob = json.loads(r.stdout.strip())
-    assert blob["query_params"] == {"date": "2026-05-08"}
+    assert blob["query_params"] == {"date": "20260508"}
     assert blob["api_key_value_included"] is False
     assert "NEVER_LEAK_PREVIEW_KEY_XYZ" not in json.dumps(blob)
 
@@ -1111,7 +1112,7 @@ def test_v2_live_query_from_only(monkeypatch):
     assert out["status"] == "success"
     q = urlparse(captured[0]).query.lower()
     assert "from_date" not in q and "date_from" not in q and "to_date" not in q and "date_to" not in q
-    assert parse_qs(urlparse(captured[0]).query) == {"from": ["2026-05-08"]}
+    assert parse_qs(urlparse(captured[0]).query) == {"from": ["20260508"]}
 
 
 def test_v1_validate_requires_code_even_with_date(monkeypatch):
@@ -1120,3 +1121,42 @@ def test_v1_validate_requires_code_even_with_date(monkeypatch):
     c = JQuantsClient.from_env()
     err = c.validate_daily_quotes_cli_args(None, date="2026-05-08", from_date=None, to_date=None)
     assert err is not None and err["reason"] == "v1_requires_code"
+
+
+def test_parse_v2_daily_bars_date_hyphen_and_compact():
+    from invis_alpha_os.data.adapters.jquants_client import _parse_v2_daily_bars_date
+
+    assert _parse_v2_daily_bars_date("2026-05-08") == "20260508"
+    assert _parse_v2_daily_bars_date("20260508") == "20260508"
+    assert _parse_v2_daily_bars_date("2026-5-8") is None
+    assert _parse_v2_daily_bars_date("20230229") is None
+
+
+def test_cli_jquants_daily_quotes_invalid_calendar_date(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        ["debug", "jquants-daily-quotes", "--code", "7011", "--date", "2026-13-40"],
+    )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "validation_error"
+    assert blob["reason"] == "invalid_date_format"
+
+
+def test_preview_request_code_date_full_url_uses_yyyymmdd(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    r = runner.invoke(
+        app,
+        ["debug", "jquants-daily-quotes", "--preview-request", "--code", "7011", "--date", "2026-05-08"],
+    )
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "ok"
+    assert blob["query_params"] == {"code": "7011", "date": "20260508"}
+    assert blob["full_url_without_secrets"] == (
+        "https://api.jquants.com/v2/equities/bars/daily?code=7011&date=20260508"
+    )

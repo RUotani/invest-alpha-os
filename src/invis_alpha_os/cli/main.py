@@ -265,17 +265,17 @@ def debug_jquants_daily_quotes(
     from_date: Optional[str] = typer.Option(
         None,
         "--from-date",
-        help="Range start (optional); query param name is `from` on V2. Pair with `--to-date` where possible.",
+        help="Range start (YYYY-MM-DD or YYYYMMDD); sent as query `from` on V2 as YYYYMMDD.",
     ),
     to_date: Optional[str] = typer.Option(
         None,
         "--to-date",
-        help="Range end (optional); query param name is `to` on V2.",
+        help="Range end (YYYY-MM-DD or YYYYMMDD); sent as query `to` on V2 as YYYYMMDD.",
     ),
     date: Optional[str] = typer.Option(
         None,
         "--date",
-        help="Single trading day (`date` query on V2). Mutually exclusive with `--from-date`/`--to-date`.",
+        help="Single day (YYYY-MM-DD or YYYYMMDD); query `date` on V2 as YYYYMMDD. Mutually exclusive with from/to.",
     ),
     live: bool = typer.Option(False, "--live", help="Allow live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true)"),
     preview_request: bool = typer.Option(

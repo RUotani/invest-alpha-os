@@ -27,9 +27,10 @@
 | **Task 4.1** | **`debug jquants-daily-quotes --live` の exit を厳格化**: 実 HTTP に至らなかった live 試行は **非ゼロ終了**。`live_blocked` / `not_configured` / `unsupported_version` / `disabled`（live 時）などを **成功と誤認しない**。**`--live` なしの dry-run と `make verify` は従来どおり exit 0** |
 | **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型は **`non_json_response` / `invalid_response`**（一覧キーの中身までの厳密化は **Task 5**） |
 | **Task 5** | **ローカル最小 live smoke の準備**（運用・手順は **[09](./09_jquants_local_manual_test.md)**）。**実 API Key は人間のみ**。`normalize_v2_daily_bars_response` により、`data` / `daily_quotes` / `bars` / `results` のうち **先に見つかったキーの値が list** のときのみ `success` と **`row_count` / `source_key`** を返す（空 list は `success`・`row_count=0`）。**GitHub Actions では live に接続しない** |
-| **Task 5.1** | **V2 daily bars のクエリを公式に整合**：`from` / `to` / `date`（**非 `from_date` / `to_date`**）、日付 **`YYYY-MM-DD`**。`http_error` は **`http_status`** と安全フィールドのみ（raw body なし） |
+| **Task 5.1** | **V2 daily bars のクエリキーを公式に整合**：`from` / `to` / `date`（**非 `from_date` / `to_date`**）。日付の **HTTP 送信値は Task 5.4 で `YYYYMMDD` に統一**（以前の **YYYY-MM-DD 送信**は廃止）。`http_error` は **`http_status`** と安全フィールドのみ（raw body なし） |
 | **Task 5.2** | **安全デバッグ**：`build_v2_daily_bars_request_preview()` と **`debug jquants-daily-quotes --preview-request`**（**実 HTTP を一切しない**）。`http_error` で **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets`** と **`api_key_header_present`（値は不出力）**。BASE が `/v2` でもパス側の重複 **`/v2/v2`** を避ける結合ユーティリティ |
 | **Task 5.3** | **コード／日付の柔軟な切り分け**：`debug jquants-daily-quotes` で **`code`のみ / `date`のみ / `code`+`date` / `code`+`from`〜`to`** を HTTP 前に検証したうえで試せる。**`--date`** と **`--from-date`/`--to-date`** は排他。**公式クエリは `code` / `date` / `from` / `to` のみ**（`from_date` 等は送らない）。**live smoke ではまず `--preview-request` と code-only/date-only で 400 を切り分ける** |
+| **Task 5.4** | **V2 日付クエリを `YYYYMMDD` で送信**（公式クイックスタートの例に合わせる）。CLI は **`YYYY-MM-DD`** または **`YYYYMMDD`** を入力可。**`query_params` と `preview-request` は実送信値**（ハイフンなし 8 桁）。無効な日付は **`invalid_date_format`** |
 | **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
@@ -70,7 +71,7 @@
 ### Task 5.1 で追加したこと（V2 daily bars クエリ整合）
 
 - **`GET …/equities/bars/daily`** のクエリは公式名 **`code` / `date` / `from` / `to`** のみ。**`from_date` / `to_date` を送らない**。
-- **`--from-date` / `--to-date`**（CLI）は **`from` / `to`** に変換し、値は **`YYYY-MM-DD`**（`YYYYMMDD` 入力は正規化可能）。**ライブでの HTTP 400** はクエリ・日付形式・コード形式を優先確認（[09](./09_jquants_local_manual_test.md)）。
+- **`--from-date` / `--to-date`**（CLI）は **`from` / `to`** に変換し、**API 送信値は Task 5.4 とおり `YYYYMMDD`**（CLI は `YYYY-MM-DD` も可。詳細は [09](./09_jquants_local_manual_test.md)）。**ライブでの HTTP 400** はクエリ・日付形式・コード形式を優先確認（[09](./09_jquants_local_manual_test.md)）。
 - **`http_error` 応答**は **`http_status`** と安全フィールドのみ（**raw body なし**）。
 
 ### Task 5.2 で追加したこと（安全リクエストプレビュー・HTTP エラー強化）
@@ -83,6 +84,12 @@
 
 - **`debug jquants-daily-quotes`**：`--code` / **`--date`（新規）** / **`--from-date`** / **`--to-date`** をすべて任意に。**いずれも無い場合**や **`--date` と `--from-date`/`--to-date` の併用**は **`validation_error`**（実 HTTP／プレビュー JSON に進む前）。**`--preview-request`** も同じ検証を通す。**V2 で送るクエリキーは `code`・`date`・`from`・`to` のみ**。**応答側の公式前提と別に、`from`/`to` の片方のみ**による試行も CLI として許す（サーバが 400 を返す切り分け用）。
 - **運用**：**live smoke では、`--preview-request` のあと `--code` のみ、`--date` のみから試し**、`from`〜`to` レンジは切り分けが進んでから。**レンジは `from` と `to` の両方揃えることを推奨**（CLI は片方だけも許容）。
+
+### Task 5.4 で追加したこと（公式どおりの日付 wire **`YYYYMMDD`**)
+
+- **`_parse_v2_daily_bars_date`**: CLI 入力は **`YYYY-MM-DD`（月日ゼロ埋め）** または **`YYYYMMDD`**。カレンダー無効 → **`validation_error` / `invalid_date_format`**。
+- **V2 の `date` / `from` / `to` クエリ値**および **`--preview-request` の `query_params`・`full_url_without_secrets`** は、常に **8 桁 `YYYYMMDD`**（公式クイックスタートの `date="20240104"` 形式に整合）。
+- **Task 5.1** で記載していた **ハイフン付きをそのままクエリに載せる**挙動は **本タスクで置き換え**。
 
 ## Version2 の認証（Task 4 時点）
 
