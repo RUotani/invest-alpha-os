@@ -211,12 +211,33 @@ def _jquants_daily_quotes_cli_snapshot(
         ep = result.get("endpoint")
         if ep:
             snap["endpoint"] = ep
+        for k in (
+            "endpoint_url_without_query",
+            "query_params",
+            "full_url_without_secrets",
+            "api_key_header_name",
+            "api_key_header_present",
+            "api_key_value_included",
+        ):
+            if k in result:
+                snap[k] = result[k]
         return snap
 
     if st == "http_error":
         snap["http_status"] = result.get("http_status")
         if snap["http_status"] is None and isinstance(result.get("code"), int):
             snap["http_status"] = result["code"]
+        for k in (
+            "endpoint_url_without_query",
+            "query_params",
+            "full_url_without_secrets",
+            "api_key_header_present",
+            "api_key_header_name",
+            "api_key_value_included",
+            "raw_response_included",
+        ):
+            if k in result:
+                snap[k] = result[k]
         return snap
 
     for k in ("reason", "endpoint_path", "missing"):
@@ -241,8 +262,20 @@ def debug_jquants_daily_quotes(
     ),
     date: Optional[str] = typer.Option(None, "--date"),
     live: bool = typer.Option(False, "--live", help="Allow live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true)"),
+    preview_request: bool = typer.Option(
+        False,
+        "--preview-request",
+        help="Print V2 safe request preview only (never performs HTTP).",
+    ),
 ) -> None:
     client = JQuantsClient.from_env()
+    if preview_request:
+        prv = client.build_v2_daily_bars_request_preview(
+            code, date=date, from_date=from_date, to_date=to_date
+        )
+        typer.echo(json.dumps(prv, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
     if not client.is_enabled():
         view = _jquants_daily_quotes_cli_snapshot(
             {"status": "disabled", "reason": "JQUANTS_ENABLED=false"},

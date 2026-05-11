@@ -15,7 +15,7 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 
 - **既定**: **`JQUANTS_ENABLED=false`**、**`JQUANTS_ALLOW_LIVE_HTTP=false`**、**`JQUANTS_API_BASE_URL` / `JQUANTS_API_KEY` は未設定が既定**。※`make verify`・GitHub Actions・`daily` / `pack` / `risks` は **実接続しない**。
 - **Version 2**: **`JQUANTS_API_KEY`** を **`x-api-key`** で送る方式がプライマリ。**実 API Key は Git にコミットしない**（`.gitignore` / `.env` はローカルのみ）。
-- **ライブ実 HTTP（デバッグのみ）**: **`GET …/equities/bars/daily`** はクエリ **`code` / `from` / `to` / `date`**（CLI **`--from-date` / `--to-date`** → **`from` / `to`**、値は **`YYYY-MM-DD`**）。詳細・HTTP 400 は [09](docs/09_jquants_local_manual_test.md)。**ゲート**（すべて必須：**`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + API Key**。欠落時 **`live_blocked` / `not_configured`**。**`HTTP 200` でも**返却形が妥当でなければ **`success` にならない**。**`debug jquants-status` は HTTP しない**。
+- **ライブ実 HTTP（デバッグのみ）**: **`GET …/equities/bars/daily`** はクエリ **`code` / `from` / `to` / `date`**（CLI **`--from-date` / `--to-date`** → **`from` / `to`**、値は **`YYYY-MM-DD`**）。詳細・HTTP 400 は [09](docs/09_jquants_local_manual_test.md)。**`--preview-request`** で **送信予定 URL／query のみ**確認（**実 HTTP は行わない**）。**ゲート**（すべて必須：**`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + API Key**。欠落時 **`live_blocked` / `not_configured`**。**`HTTP 200` でも**返却形が妥当でなければ **`success` にならない**。**`debug jquants-status` は HTTP しない**。
 - **Version 1**: **`JQUANTS_API_VERSION=v1`** のときだけ refresh / Bearer による legacy 経路。**閉鎖予定・非推奨**。
 - **J-Quants の最小 live smoke test（コード・運用のみ）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。**API Key はダッシュボードで人間が取得し、`JQUANTS_API_KEY` と `x-api-key` で送る。Git にコミットせず、Chat／Codex にも貼らない。**
 - **実接続（人間のみ・手順）**: 上記 `09`。**通常は `JQUANTS_ALLOW_LIVE_HTTP=false`**。

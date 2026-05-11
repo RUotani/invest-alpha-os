@@ -28,6 +28,7 @@
 | **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型は **`non_json_response` / `invalid_response`**（一覧キーの中身までの厳密化は **Task 5**） |
 | **Task 5** | **ローカル最小 live smoke の準備**（運用・手順は **[09](./09_jquants_local_manual_test.md)**）。**実 API Key は人間のみ**。`normalize_v2_daily_bars_response` により、`data` / `daily_quotes` / `bars` / `results` のうち **先に見つかったキーの値が list** のときのみ `success` と **`row_count` / `source_key`** を返す（空 list は `success`・`row_count=0`）。**GitHub Actions では live に接続しない** |
 | **Task 5.1** | **V2 daily bars のクエリを公式に整合**：`from` / `to` / `date`（**非 `from_date` / `to_date`**）、日付 **`YYYY-MM-DD`**。`http_error` は **`http_status`** と安全フィールドのみ（raw body なし） |
+| **Task 5.2** | **安全デバッグ**：`build_v2_daily_bars_request_preview()` と **`debug jquants-daily-quotes --preview-request`**（**実 HTTP を一切しない**）。`http_error` で **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets`** と **`api_key_header_present`（値は不出力）**。BASE が `/v2` でもパス側の重複 **`/v2/v2`** を避ける結合ユーティリティ |
 | **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
@@ -70,6 +71,12 @@
 - **`GET …/equities/bars/daily`** のクエリは公式名 **`code` / `date` / `from` / `to`** のみ。**`from_date` / `to_date` を送らない**。
 - **`--from-date` / `--to-date`**（CLI）は **`from` / `to`** に変換し、値は **`YYYY-MM-DD`**（`YYYYMMDD` 入力は正規化可能）。**ライブでの HTTP 400** はクエリ・日付形式・コード形式を優先確認（[09](./09_jquants_local_manual_test.md)）。
 - **`http_error` 応答**は **`http_status`** と安全フィールドのみ（**raw body なし**）。
+
+### Task 5.2 で追加したこと（安全リクエストプレビュー・HTTP エラー強化）
+
+- **`build_v2_daily_bars_request_preview`** と **`alpha-os debug jquants-daily-quotes --preview-request`**：**実 HTTP は行わない**（`JQUANTS_ALLOW_LIVE_HTTP=true` でも **preview のみでは urlopen しない**）。出力は **`query_params`**・パス **`/equities/bars/daily`** と結合済み **`full_url_without_secrets`**。**API Key の実値・ヘッダー全体・raw body は出さない**（`api_key_value_included: false`）。
+- **`http_error`（例: 400）**に **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets` / `api_key_header_*` メタのみ** を付加（応答ボディは出さない）。
+- **`_join_v2_base_and_path`**：ベース URL が **`.../v2`** でパスが誤って **`/v2/equities/...`** でも **`/v2/v2`** にならないよう正規化。
 
 ## Version2 の認証（Task 4 時点）
 

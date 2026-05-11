@@ -18,7 +18,9 @@ For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: the 
 with ``row_count=0``.
 
 **V2** ``GET …/equities/bars/daily`` query uses only ``code``, ``date``, ``from``, ``to`` (never ``from_date`` /
-``to_date``). Date values are sent as ``YYYY-MM-DD`` (Task 5.1).
+``to_date``). Date values are sent as ``YYYY-MM-DD`` (Task 5.1). Base URLs that already end with ``/v2`` are
+joined with paths like ``/equities/bars/daily`` so ``/v2/v2`` is not produced (Task 5.2). Use
+``build_v2_daily_bars_request_preview`` / ``--preview-request`` to inspect URLs without HTTP or secrets.
 
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
@@ -49,6 +51,18 @@ def _format_v2_daily_bars_date_query(value: str) -> str:
     if len(digits) == 8:
         return f"{digits[0:4]}-{digits[4:6]}-{digits[6:8]}"
     return s
+
+
+def _join_v2_base_and_path(base_url: str, path: str) -> str:
+    """Join base URL with a path segment, avoiding duplicated ``/v2`` when both include it."""
+
+    base = (base_url or "").rstrip("/")
+    p = path if path.startswith("/") else f"/{path}"
+    if base.endswith("/v2") and p.startswith("/v2/"):
+        p = p[3:]
+        if not p.startswith("/"):
+            p = f"/{p}"
+    return f"{base}{p}"
 
 
 def normalize_v2_daily_bars_response(payload: dict) -> dict[str, Any]:
@@ -359,6 +373,7 @@ class JQuantsClient:
         if not isinstance(obj, dict):
             return None, {"kind": "invalid_response", "reason": "not_json_object"}
         return obj, None
+
     def _extract_refresh_secret(self, body: dict[str, Any]) -> str | None:
         return (
             body.get("refreshToken")
@@ -518,6 +533,78 @@ class JQuantsClient:
                 return row_key, len(val)
         return "parsed_keys_count", len(parsed)
 
+    def _v2_daily_bars_query_params(
+        self,
+        code: str,
+        *,
+        date: str | None,
+        from_date: str | None,
+        to_date: str | None,
+    ) -> dict[str, str]:
+        params: dict[str, str] = {"code": code}
+        if date:
+            params["date"] = _format_v2_daily_bars_date_query(date)
+        if from_date:
+            params["from"] = _format_v2_daily_bars_date_query(from_date)
+        if to_date:
+            params["to"] = _format_v2_daily_bars_date_query(to_date)
+        return params
+
+    def _v2_daily_bars_endpoint_without_query(self) -> str | None:
+        if not self.base_url:
+            return None
+        path = self._paths.get("daily_quotes")
+        if path is None:
+            return None
+        return _join_v2_base_and_path(self.base_url, path)
+
+    def build_v2_daily_bars_request_preview(
+        self,
+        code: str,
+        *,
+        date: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> dict[str, Any]:
+        """Describe the V2 daily-bars GET without HTTP — no secrets, no raw body, no full header mapping."""
+
+        meta: dict[str, Any] = {
+            "api_key_header_name": "x-api-key",
+            "api_key_value_included": False,
+            "api_key_header_present": self.has_api_key(),
+        }
+
+        bad_ver = self._maybe_unsupported_api_version()
+        if bad_ver is not None:
+            out = dict(bad_ver)
+            out.update(meta)
+            return out
+
+        if self.api_version_effective != "v2":
+            out = {
+                "status": "not_applicable",
+                "reason": "v2_daily_bars_preview_only",
+                **meta,
+            }
+            return out
+
+        if not self.has_base_url():
+            return self._missing_base_url_reply() | meta
+
+        endpoint_wo_q = self._v2_daily_bars_endpoint_without_query()
+        if endpoint_wo_q is None:
+            return self._missing_base_url_reply() | meta
+
+        q_params = self._v2_daily_bars_query_params(code, date=date, from_date=from_date, to_date=to_date)
+        qs = urlencode(q_params)
+        return {
+            "status": "ok",
+            "endpoint_url_without_query": endpoint_wo_q,
+            "query_params": dict(q_params),
+            "full_url_without_secrets": f"{endpoint_wo_q}?{qs}",
+            **meta,
+        }
+
     def get_daily_quotes(
         self,
         code: str,
@@ -539,13 +626,25 @@ class JQuantsClient:
             return miss
 
         if not attempt_live:
-            return self._dry_run(
+            out = self._dry_run(
                 endpoint_key="daily_quotes",
                 detail=(
                     "V2 default dry-run (/equities/bars/daily). Live needs --live, "
                     "JQUANTS_ALLOW_LIVE_HTTP=true, JQUANTS_API_BASE_URL, and JQUANTS_API_KEY."
                 ),
             )
+            if self.api_version_effective == "v2":
+                prv = self.build_v2_daily_bars_request_preview(
+                    code, date=date, from_date=from_date, to_date=to_date
+                )
+                if prv.get("status") == "ok":
+                    out["endpoint_url_without_query"] = prv["endpoint_url_without_query"]
+                    out["query_params"] = prv["query_params"]
+                    out["full_url_without_secrets"] = prv["full_url_without_secrets"]
+                    out["api_key_header_name"] = prv["api_key_header_name"]
+                    out["api_key_header_present"] = prv["api_key_header_present"]
+                    out["api_key_value_included"] = False
+            return out
 
         denial = self._live_gate_denied_reason(cli_live_requested=True)
         if denial:
@@ -555,15 +654,12 @@ class JQuantsClient:
             if not self.has_api_key():
                 return self._missing_api_key_reply()
             dq_path = self._paths["daily_quotes"]
-            params: dict[str, str] = {"code": code}
-            if date:
-                params["date"] = _format_v2_daily_bars_date_query(date)
-            if from_date:
-                params["from"] = _format_v2_daily_bars_date_query(from_date)
-            if to_date:
-                params["to"] = _format_v2_daily_bars_date_query(to_date)
+            params = self._v2_daily_bars_query_params(code, date=date, from_date=from_date, to_date=to_date)
             query = urlencode(params)
-            url = f"{self.base_url}{dq_path}?{query}"
+            endpoint_wo_q = self._v2_daily_bars_endpoint_without_query()
+            if endpoint_wo_q is None:
+                return self._missing_base_url_reply()
+            url = f"{endpoint_wo_q}?{query}"
             key_secret = self.api_key
             if not key_secret:
                 return self._missing_api_key_reply()
@@ -573,11 +669,27 @@ class JQuantsClient:
                     {"x-api-key": key_secret, "Accept": "application/json"},
                 )
             except urllib.error.HTTPError as e:
-                return {
+                prv = self.build_v2_daily_bars_request_preview(
+                    code, date=date, from_date=from_date, to_date=to_date
+                )
+                err_out: dict[str, Any] = {
                     "status": "http_error",
                     "http_status": int(e.code),
                     "raw_response_included": False,
+                    "code": code,
+                    "date_from": from_date,
+                    "date_to": to_date,
+                    "api_key_header_name": "x-api-key",
+                    "api_key_value_included": False,
+                    "api_key_header_present": self.has_api_key(),
                 }
+                if date is not None:
+                    err_out["date"] = date
+                if prv.get("status") == "ok":
+                    err_out["endpoint_url_without_query"] = prv["endpoint_url_without_query"]
+                    err_out["query_params"] = prv["query_params"]
+                    err_out["full_url_without_secrets"] = prv["full_url_without_secrets"]
+                return err_out
             except OSError:
                 return {"status": "error", "detail": "***", "raw_response_included": False}
 

@@ -24,6 +24,76 @@ def test_paths_for_version_v2_daily_quotes():
     assert p["listed_master"] == "/equities/master"
 
 
+def test_join_v2_base_path_no_duplicate_v2():
+    from invis_alpha_os.data.adapters.jquants_client import _join_v2_base_and_path
+
+    assert (
+        _join_v2_base_and_path("https://api.jquants.com/v2", "/equities/bars/daily")
+        == "https://api.jquants.com/v2/equities/bars/daily"
+    )
+    assert (
+        _join_v2_base_and_path("https://api.jquants.com/v2/", "/v2/equities/bars/daily")
+        == "https://api.jquants.com/v2/equities/bars/daily"
+    )
+
+
+def test_build_v2_preview_jquants_style_base_and_no_secret_leak(monkeypatch):
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v2")
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_PRINT_THIS_KEY_STRING")
+    prv = JQuantsClient.from_env().build_v2_daily_bars_request_preview(
+        "70110",
+        from_date="2026-05-08",
+        to_date="2026-05-08",
+    )
+    assert prv["status"] == "ok"
+    assert prv["endpoint_url_without_query"] == "https://api.jquants.com/v2/equities/bars/daily"
+    assert "/v2/v2/" not in prv["full_url_without_secrets"]
+    assert prv["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    q = urlparse(prv["full_url_without_secrets"]).query
+    assert "from_date" not in q and "to_date" not in q
+    assert prv["api_key_header_present"] is True
+    assert prv["api_key_value_included"] is False
+    assert "NEVER_PRINT_THIS_KEY_STRING" not in json.dumps(prv)
+
+
+def test_preview_request_cli_never_opens_http(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+
+    called: list[str] = []
+
+    def _boom(*_a, **_k):
+        called.append("http")
+        raise AssertionError("preview must not call urlopen")
+
+    with patch(
+        "invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen",
+        side_effect=_boom,
+    ):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-quotes",
+                "--preview-request",
+                "--code",
+                "70110",
+                "--from-date",
+                "2026-05-08",
+                "--to-date",
+                "2026-05-08",
+            ],
+        )
+    assert r.exit_code == 0
+    assert called == []
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "ok"
+
+
 def test_v2_safe_auth_status_auth_method_and_api_key_present(monkeypatch):
     monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
     monkeypatch.setenv("JQUANTS_API_KEY", "fake-key-for-test-only")
@@ -200,6 +270,9 @@ def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
     assert out["status"] == "http_error"
     assert out["http_status"] == 400
     assert "SECRET_ERROR_BODY" not in json.dumps(out)
+    assert out["endpoint_url_without_query"] == "https://jq.test.invalid/v0/equities/bars/daily"
+    assert out["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    assert "/v2/v2/" not in out.get("full_url_without_secrets", "")
 
 
 def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
@@ -238,8 +311,13 @@ def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
     assert blob["http_status"] == 400
     assert blob["code"] == "70110"
     assert blob["date_from"] == "2026-05-08"
+    assert blob["query_params"] == {"code": "70110", "from": "2026-05-08", "to": "2026-05-08"}
+    assert blob["api_key_header_name"] == "x-api-key"
+    assert blob["api_key_value_included"] is False
+    assert blob["raw_response_included"] is False
+    assert blob["endpoint_url_without_query"].endswith("/equities/bars/daily")
+    assert "/v2/v2/" not in blob.get("full_url_without_secrets", "")
     assert "RAW_SHOULD_NOT_LEAK" not in r.stdout
-    assert "x-api-key" not in r.stdout.lower()
 
 
 def test_v2_get_daily_quotes_live_non_json_not_success(monkeypatch):
