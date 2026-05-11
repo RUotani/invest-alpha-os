@@ -214,7 +214,9 @@ def _jquants_daily_quotes_cli_snapshot(
         return snap
 
     if st == "http_error":
-        snap["http_status"] = result.get("code")
+        snap["http_status"] = result.get("http_status")
+        if snap["http_status"] is None and isinstance(result.get("code"), int):
+            snap["http_status"] = result["code"]
         return snap
 
     for k in ("reason", "endpoint_path", "missing"):
@@ -227,8 +229,16 @@ def _jquants_daily_quotes_cli_snapshot(
 @debug_app.command("jquants-daily-quotes")
 def debug_jquants_daily_quotes(
     code: str = typer.Option(..., "--code"),
-    from_date: str = typer.Option(..., "--from-date"),
-    to_date: str = typer.Option(..., "--to-date"),
+    from_date: str = typer.Option(
+        ...,
+        "--from-date",
+        help="Start date (human-friendly); sent as query param `from` on V2 live HTTP.",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to-date",
+        help="End date (human-friendly); sent as query param `to` on V2 live HTTP.",
+    ),
     date: Optional[str] = typer.Option(None, "--date"),
     live: bool = typer.Option(False, "--live", help="Allow live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true)"),
 ) -> None:

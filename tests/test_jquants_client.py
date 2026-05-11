@@ -1,5 +1,8 @@
 import json
+import urllib.error
+from io import BytesIO
 from unittest.mock import MagicMock, patch
+from urllib.parse import parse_qs, urlparse
 
 from typer.testing import CliRunner
 
@@ -111,6 +114,132 @@ def test_v2_get_daily_quotes_live_success_x_api_key_header(monkeypatch):
     assert out.get("row_count") == 1
     assert out.get("source_key") == "bars"
     assert json.dumps(out).count("PLACEHOLDER") == 0
+
+
+def test_v2_live_query_uses_official_from_to_hyphen_dates(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": []}).encode("utf-8")
+    cm.__exit__.return_value = None
+    captured_url: list[str] = []
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        captured_url.append(req.full_url)
+        return cm
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "70110",
+            from_date="2026-05-08",
+            to_date="2026-05-08",
+            attempt_live=True,
+        )
+    assert out["status"] == "success"
+    assert len(captured_url) == 1
+    q = urlparse(captured_url[0]).query
+    lowered = q.lower()
+    assert "from_date" not in lowered
+    assert "to_date" not in lowered
+    assert "date_from" not in lowered
+    assert "date_to" not in lowered
+    assert "20260508" not in q
+    assert parse_qs(q) == {"code": ["70110"], "from": ["2026-05-08"], "to": ["2026-05-08"]}
+
+
+def test_v2_live_query_compact_dates_become_hyphenated(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": []}).encode("utf-8")
+    cm.__exit__.return_value = None
+    captured_url: list[str] = []
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        captured_url.append(req.full_url)
+        return cm
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        JQuantsClient.from_env().get_daily_quotes(
+            "70110",
+            from_date="20260508",
+            to_date="20260508",
+            attempt_live=True,
+        )
+    q = urlparse(captured_url[0]).query
+    assert parse_qs(q)["from"] == ["2026-05-08"]
+    assert parse_qs(q)["to"] == ["2026-05-08"]
+
+
+def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(
+            req.full_url,
+            400,
+            "Bad Request",
+            {},
+            BytesIO(b"SECRET_ERROR_BODY_XYZ"),
+        )
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "70110",
+            from_date="2026-05-08",
+            to_date="2026-05-08",
+            attempt_live=True,
+        )
+    assert out["status"] == "http_error"
+    assert out["http_status"] == 400
+    assert "SECRET_ERROR_BODY" not in json.dumps(out)
+
+
+def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(
+            req.full_url,
+            400,
+            "Bad Request",
+            {},
+            BytesIO(b"RAW_SHOULD_NOT_LEAK"),
+        )
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-quotes",
+                "--live",
+                "--code",
+                "70110",
+                "--from-date",
+                "2026-05-08",
+                "--to-date",
+                "2026-05-08",
+            ],
+        )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "http_error"
+    assert blob["http_status"] == 400
+    assert blob["code"] == "70110"
+    assert blob["date_from"] == "2026-05-08"
+    assert "RAW_SHOULD_NOT_LEAK" not in r.stdout
+    assert "x-api-key" not in r.stdout.lower()
 
 
 def test_v2_get_daily_quotes_live_non_json_not_success(monkeypatch):

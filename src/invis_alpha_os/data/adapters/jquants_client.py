@@ -17,6 +17,9 @@ For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: the 
 (Phase 1a Task 5). Dict or string bodies under those keys are ``invalid_response``; empty list is ``success``
 with ``row_count=0``.
 
+**V2** ``GET …/equities/bars/daily`` query uses only ``code``, ``date``, ``from``, ``to`` (never ``from_date`` /
+``to_date``). Date values are sent as ``YYYY-MM-DD`` (Task 5.1).
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 
@@ -31,6 +34,21 @@ from urllib.parse import urlencode
 
 # V2 daily bars: scan in this order; first present key must map to a list (Task 5).
 _V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("data", "daily_quotes", "bars", "results")
+
+
+def _format_v2_daily_bars_date_query(value: str) -> str:
+    """Format ``date`` / ``from`` / ``to`` query values for V2 daily bars (YYYY-MM-DD).
+
+    Accepts ``YYYY-MM-DD`` or a compact ``YYYYMMDD`` string; wire format is always ``YYYY-MM-DD``.
+    """
+
+    s = (value or "").strip()
+    if not s:
+        return s
+    digits = "".join(c for c in s if c.isdigit())
+    if len(digits) == 8:
+        return f"{digits[0:4]}-{digits[4:6]}-{digits[6:8]}"
+    return s
 
 
 def normalize_v2_daily_bars_response(payload: dict) -> dict[str, Any]:
@@ -539,11 +557,11 @@ class JQuantsClient:
             dq_path = self._paths["daily_quotes"]
             params: dict[str, str] = {"code": code}
             if date:
-                params["date"] = date.replace("-", "")
+                params["date"] = _format_v2_daily_bars_date_query(date)
             if from_date:
-                params["from"] = from_date.replace("-", "")
+                params["from"] = _format_v2_daily_bars_date_query(from_date)
             if to_date:
-                params["to"] = to_date.replace("-", "")
+                params["to"] = _format_v2_daily_bars_date_query(to_date)
             query = urlencode(params)
             url = f"{self.base_url}{dq_path}?{query}"
             key_secret = self.api_key
@@ -557,8 +575,7 @@ class JQuantsClient:
             except urllib.error.HTTPError as e:
                 return {
                     "status": "http_error",
-                    "code": int(e.code),
-                    "detail": "***",
+                    "http_status": int(e.code),
                     "raw_response_included": False,
                 }
             except OSError:
@@ -631,8 +648,7 @@ class JQuantsClient:
         except urllib.error.HTTPError as e:
             return {
                 "status": "http_error",
-                "code": int(e.code),
-                "detail": "***",
+                "http_status": int(e.code),
                 "raw_response_included": False,
             }
         except OSError:

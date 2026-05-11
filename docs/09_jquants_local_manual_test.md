@@ -28,6 +28,7 @@
     - **`--live` あり**で HTTP 成功かつレスポンス正規化 **`success`**（下記 Phase 5）→ **`exit 0`**。
 12. **`make verify` / CI は `--live` を使わない**。
 13. **最小 live smoke**：**1 銘柄・短期間のみ**。**推奨コード例**：`70110` または `86970`。**日付**：公式サンプル・取得可能レンジに合わせる（営業日・データ公開の遅延に留意）。
+14. **日付・クエリ（Task 5.1）**：CLI では **`--from-date` / `--to-date`**（人間向け）を使う。V2 のライブ HTTP では公式どおりクエリ名 **`from` / `to`**（および必要なら **`date`**）に変換し、値は **`YYYY-MM-DD`** で送る。**`from_date` や `to_date` というクエリ名は使わない**。**HTTP 400** のときは、パラメータ名・証券コード形式・日付形式をまず疑う。
 
 ### 応答検証（Task 5：`normalize_v2_daily_bars_response`）
 
@@ -99,6 +100,12 @@ alpha-os debug jquants-daily-quotes \
 ### 空結果（**`success` で `row_count=0`**）
 
 - ヒットしない日付・コード形式・休場。**エラーとは限らない**。公式のコード桁・クエリ規約と照らす。
+
+### HTTP 400 と `status: http_error`
+
+- CLI は **`status` / `http_status` / 銘柄 `code` / `date_from` / `date_to`** 程度のみ。**raw ボディ・ヘッダー・API Key は出さない**。
+- **`--from-date` / `--to-date`** は内部で **`from` / `to`** クエリに変換し、値は **`YYYY-MM-DD`**（Task 5.1）。**`from_date` / `to_date` をクエリに送らない**。
+- まず **パラメータ名・コード形式・日付形式**を公式ドキュメントと照合する。
 
 ### 401 / 403（認証）
 

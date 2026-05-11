@@ -27,6 +27,7 @@
 | **Task 4.1** | **`debug jquants-daily-quotes --live` の exit を厳格化**: 実 HTTP に至らなかった live 試行は **非ゼロ終了**。`live_blocked` / `not_configured` / `unsupported_version` / `disabled`（live 時）などを **成功と誤認しない**。**`--live` なしの dry-run と `make verify` は従来どおり exit 0** |
 | **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型は **`non_json_response` / `invalid_response`**（一覧キーの中身までの厳密化は **Task 5**） |
 | **Task 5** | **ローカル最小 live smoke の準備**（運用・手順は **[09](./09_jquants_local_manual_test.md)**）。**実 API Key は人間のみ**。`normalize_v2_daily_bars_response` により、`data` / `daily_quotes` / `bars` / `results` のうち **先に見つかったキーの値が list** のときのみ `success` と **`row_count` / `source_key`** を返す（空 list は `success`・`row_count=0`）。**GitHub Actions では live に接続しない** |
+| **Task 5.1** | **V2 daily bars のクエリを公式に整合**：`from` / `to` / `date`（**非 `from_date` / `to_date`**）、日付 **`YYYY-MM-DD`**。`http_error` は **`http_status`** と安全フィールドのみ（raw body なし） |
 | **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
@@ -63,6 +64,12 @@
 - **`normalize_v2_daily_bars_response(payload: dict)`**（**API Key／token／raw を返さない**）。探索順は **`data` → `daily_quotes` → `bars` → `results`**。**最初に現れたキーの値が list でなければ `invalid_response`**。いずれのキーも無ければ `missing_list_field`。**空 list は `success`・`row_count=0`**。
 - **`debug jquants-daily-quotes`**：`--live` なし → dry-run で **exit 0**；成功時出力は **`status` / `row_count` / `source_key` / `code` / 日付**程度。**秘密と raw は出さない**。
 - **実 API Key と実 live 確認は人間のみ**（[09](./09_jquants_local_manual_test.md)）。CI は **変更なしで live に出ない**。
+
+### Task 5.1 で追加したこと（V2 daily bars クエリ整合）
+
+- **`GET …/equities/bars/daily`** のクエリは公式名 **`code` / `date` / `from` / `to`** のみ。**`from_date` / `to_date` を送らない**。
+- **`--from-date` / `--to-date`**（CLI）は **`from` / `to`** に変換し、値は **`YYYY-MM-DD`**（`YYYYMMDD` 入力は正規化可能）。**ライブでの HTTP 400** はクエリ・日付形式・コード形式を優先確認（[09](./09_jquants_local_manual_test.md)）。
+- **`http_error` 応答**は **`http_status`** と安全フィールドのみ（**raw body なし**）。
 
 ## Version2 の認証（Task 4 時点）
 
