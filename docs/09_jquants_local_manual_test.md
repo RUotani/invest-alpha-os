@@ -44,6 +44,22 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 ---
 
+## 記録：最小 live が `success` になった例（Task 5.6）
+
+次の組み合わせで **`success`** が得られた **記録例**（**契約・環境により異なる**）。
+
+- **コマンド（概念）**: `debug jquants-daily-quotes --code 7974 --date 2024-02-16 --live`（BASE URL・API Key は **各自の `.env` のみ**）
+- **結果の要約**: `status: success`, `code: 7974`, `date: 2024-02-16`, `row_count: 1`, `source_key: data`
+
+**契約データ範囲外**の典型（API が返し得る趣旨: *Your subscription covers the following dates: …*）:
+
+- **`2024-01-04`** — 契約開始 **前**
+- **`2026-05-08`** — 契約終了 **後**
+
+**CLI ガード（Task 5.6）**: `.env` に **`JQUANTS_DATA_AVAILABLE_FROM`** / **`JQUANTS_DATA_AVAILABLE_TO`** を **契約レンジに合わせて**設定する（**両方**揃いかつ解釈可能なときだけ有効）。**範囲外**の **`--date` / `--from-date` / `--to-date`** は **HTTP の前に** **`validation_error` / `date_out_of_available_range`** で止まる（**`--preview-request`・dry-run も同様**）。**API Key・raw 応答は出さない**。
+
+---
+
 ## 手順概要
 
 ### 1. `.env` の作成（人間のみ）

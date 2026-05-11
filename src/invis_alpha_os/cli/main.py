@@ -212,6 +212,9 @@ def _jquants_daily_quotes_cli_snapshot(
         r = result.get("reason")
         if isinstance(r, str):
             snap["reason"] = r
+        for k in ("data_available_from", "data_available_to"):
+            if k in result:
+                snap[k] = result[k]
         return snap
 
     if st == "success":

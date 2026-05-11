@@ -31,6 +31,10 @@ invalid calendar dates → ``invalid_date_format``.
 
 **Task 5.5**: On HTTP errors, a short **masked** ``error_body_preview`` (no raw body, no ``x-api-key`` value).
 
+**Task 5.6**: Optional env **``JQUANTS_DATA_AVAILABLE_FROM``** / **``TO``** — when both parse, V2 CLI rejects
+``--date`` / ``--from-date`` / ``--to-date`` outside that inclusive window before HTTP (``validation_error`` /
+``date_out_of_available_range``).
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 
@@ -93,6 +97,60 @@ def _strip_optional_str(value: str | None) -> str | None:
 
 def _daily_quotes_cli_validation_error(reason: str) -> dict[str, Any]:
     return {"status": "validation_error", "reason": reason, "raw_response_included": False}
+
+
+def _yyyymmdd_to_calendar_date(wd: str) -> _date:
+    return _date(int(wd[0:4]), int(wd[4:6]), int(wd[6:8]))
+
+
+def jquants_data_availability_bounds_from_env() -> tuple[_date | None, _date | None]:
+    """Inclusive subscription window from env, or ``(None, None)`` if guard should be off."""
+
+    raw_a = (os.getenv("JQUANTS_DATA_AVAILABLE_FROM") or "").strip() or None
+    raw_b = (os.getenv("JQUANTS_DATA_AVAILABLE_TO") or "").strip() or None
+    if not raw_a or not raw_b:
+        return (None, None)
+    wa = _parse_v2_daily_bars_date(raw_a)
+    wb = _parse_v2_daily_bars_date(raw_b)
+    if wa is None or wb is None:
+        return (None, None)
+    da = _yyyymmdd_to_calendar_date(wa)
+    db = _yyyymmdd_to_calendar_date(wb)
+    if da > db:
+        return (None, None)
+    return (da, db)
+
+
+def _daily_quotes_date_out_of_available_range_error(lo: _date, hi: _date) -> dict[str, Any]:
+    return {
+        "status": "validation_error",
+        "reason": "date_out_of_available_range",
+        "raw_response_included": False,
+        "data_available_from": lo.isoformat(),
+        "data_available_to": hi.isoformat(),
+    }
+
+
+def _validate_v2_dates_within_data_availability(
+    d: str | None, fd: str | None, td: str | None
+) -> dict[str, Any] | None:
+    """Reject wire dates outside ``JQUANTS_DATA_AVAILABLE_*`` when both env vars define an inclusive window."""
+
+    lo, hi = jquants_data_availability_bounds_from_env()
+    if lo is None or hi is None:
+        return None
+    if d is None and fd is None and td is None:
+        return None
+
+    for raw in (d, fd, td):
+        if raw is None:
+            continue
+        wd = _parse_v2_daily_bars_date(raw)
+        assert wd is not None
+        dt = _yyyymmdd_to_calendar_date(wd)
+        if dt < lo or dt > hi:
+            return _daily_quotes_date_out_of_available_range_error(lo, hi)
+    return None
 
 
 def _validate_quote_date_fields_parseable(
@@ -836,6 +894,9 @@ class JQuantsClient:
         bad_dates = _validate_quote_date_fields_parseable(d, fd, td)
         if bad_dates is not None:
             return bad_dates
+        out_range = _validate_v2_dates_within_data_availability(d, fd, td)
+        if out_range is not None:
+            return out_range
         return None
 
     def build_v2_daily_bars_request_preview(

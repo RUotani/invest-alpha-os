@@ -51,16 +51,22 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`_paths_for_version("v2")`** を `/equities/master`、`/equities/bars/daily` 等へ更新。V1 refresh/Bearer は **legacy（`JQUANTS_API_VERSION=v1`）**
 - **本タスクでは実 API 呼び出しは行わない**（テストは mock のみ）
 
-### Task 5 — 完了（live smoke 準備・V2 daily bars 正規化）
+### Task 5 — 完了（live smoke 準備・V2 daily bars 正規化・**成功記録あり**）
 
 - **`normalize_v2_daily_bars_response`**：`data` / `daily_quotes` / `bars` / `results` の順で **list** を検査。**空 list は `success` と `row_count=0`**。list 以外は **`invalid_response`**。
 - **`get_daily_quotes`（V2 live）** の成功判定を上記に集約。**`row_count` / `source_key` / `date_from` / `date_to`** を返す（行データ・API Key は出さない）。
 - **`debug jquants-daily-quotes`**：**`--live` なしは dry-run exit 0**；**一覧キーだけでなく値が配列であること**を確認してから **`success`**。CLI 出力を安全な要約のみに。**実 API は人間のローカル・手順 [09](./09_jquants_local_manual_test.md) のみ**。
+- **最小 live の一例**を [09](./09_jquants_local_manual_test.md) に記録（`code=7974`, `date=2024-02-16`, `row_count=1`, `source_key=data`）。
 - **テスト**：normalize・CLI `--live` exit・標準出力に秘密なし。**CI は live 不使用**。
+
+### Task 5.6 — 完了（データ提供範囲ガード）
+
+- **`JQUANTS_DATA_AVAILABLE_FROM` / `TO`**（任意・両方有効時のみ）で **`--date` / `--from-date` / `--to-date`** を契約ウィンドウと照合。**範囲外は `validation_error` / `date_out_of_available_range`（HTTP 前）**。**`make verify` は env 未設定の既定のまま**。
+- **`config/market_data.yaml`** に env 名、**`.env.example`** に例示。
 
 ### Task 6 以降（未着手）
 
-- Watchlist 向けデータ取得での stub / live 切替、その他エンドポイント
+- Watchlist 銘柄向けデータ取得での stub / live 切替（Task 5／5.6 を利用）、その他エンドポイント
 
 ---
 
