@@ -965,3 +965,158 @@ def test_debug_jquants_status_shows_unsupported_version(monkeypatch):
     assert blob["api_version"] == "nightly"
     assert blob["unsupported_api_version"] is True
     assert blob["api_version_effective"] is None
+
+
+def test_cli_jquants_daily_quotes_code_only_no_missing_option(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--code", "7011"])
+    assert r.exit_code == 0
+    assert "Missing option" not in r.stdout
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "dry_run"
+
+
+def test_cli_jquants_daily_quotes_date_only(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--date", "2026-05-08"])
+    assert r.exit_code == 0
+    qp = json.loads(r.stdout.strip()).get("query_params")
+    assert qp == {"date": "2026-05-08"}
+
+
+def test_cli_jquants_daily_quotes_code_and_date(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--code", "7011", "--date", "2026-05-08"])
+    assert r.exit_code == 0
+    qp = json.loads(r.stdout.strip()).get("query_params")
+    assert qp == {"code": "7011", "date": "2026-05-08"}
+
+
+def test_cli_jquants_daily_quotes_date_plus_from_exclusive(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--date",
+            "2026-05-08",
+            "--from-date",
+            "2026-05-07",
+        ],
+    )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "validation_error"
+    assert blob["reason"] == "date_mutually_exclusive_with_from_to"
+
+
+def test_cli_jquants_daily_quotes_no_args_validation(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    r = runner.invoke(app, ["debug", "jquants-daily-quotes"])
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "validation_error"
+    assert blob["reason"] == "missing_all_of_code_date_from_to"
+
+
+def test_preview_request_code_only_query_params(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.delenv("JQUANTS_API_VERSION", raising=False)
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    r = runner.invoke(app, ["debug", "jquants-daily-quotes", "--preview-request", "--code", "7011"])
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "ok"
+    assert blob["query_params"] == {"code": "7011"}
+    q = urlparse(blob["full_url_without_secrets"]).query.lower()
+    assert "from_date" not in q and "date_from" not in q
+
+
+def test_preview_request_date_only_no_secret_in_output(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_LEAK_PREVIEW_KEY_XYZ")
+    r = runner.invoke(
+        app,
+        ["debug", "jquants-daily-quotes", "--preview-request", "--date", "2026-05-08"],
+    )
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    assert blob["query_params"] == {"date": "2026-05-08"}
+    assert blob["api_key_value_included"] is False
+    assert "NEVER_LEAK_PREVIEW_KEY_XYZ" not in json.dumps(blob)
+
+
+def test_preview_request_date_and_from_exclusive_exit_1(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-quotes",
+            "--preview-request",
+            "--date",
+            "2026-05-08",
+            "--from-date",
+            "2026-05-07",
+            "--code",
+            "7011",
+        ],
+    )
+    assert r.exit_code == 1
+    assert json.loads(r.stdout.strip())["reason"] == "date_mutually_exclusive_with_from_to"
+
+
+def test_v2_get_daily_quotes_rejects_date_with_from(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    out = JQuantsClient.from_env().get_daily_quotes(
+        "7011",
+        date="2026-05-08",
+        from_date="2026-05-07",
+        attempt_live=False,
+    )
+    assert out["status"] == "validation_error"
+
+
+def test_v2_live_query_from_only(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": []}).encode("utf-8")
+    cm.__exit__.return_value = None
+    captured: list[str] = []
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        captured.append(req.full_url)
+        return cm
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes(from_date="2026-05-08", attempt_live=True)
+    assert out["status"] == "success"
+    q = urlparse(captured[0]).query.lower()
+    assert "from_date" not in q and "date_from" not in q and "to_date" not in q and "date_to" not in q
+    assert parse_qs(urlparse(captured[0]).query) == {"from": ["2026-05-08"]}
+
+
+def test_v1_validate_requires_code_even_with_date(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_VERSION", "v1")
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    c = JQuantsClient.from_env()
+    err = c.validate_daily_quotes_cli_args(None, date="2026-05-08", from_date=None, to_date=None)
+    assert err is not None and err["reason"] == "v1_requires_code"

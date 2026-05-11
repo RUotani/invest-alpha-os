@@ -29,6 +29,7 @@
 | **Task 5** | **ローカル最小 live smoke の準備**（運用・手順は **[09](./09_jquants_local_manual_test.md)**）。**実 API Key は人間のみ**。`normalize_v2_daily_bars_response` により、`data` / `daily_quotes` / `bars` / `results` のうち **先に見つかったキーの値が list** のときのみ `success` と **`row_count` / `source_key`** を返す（空 list は `success`・`row_count=0`）。**GitHub Actions では live に接続しない** |
 | **Task 5.1** | **V2 daily bars のクエリを公式に整合**：`from` / `to` / `date`（**非 `from_date` / `to_date`**）、日付 **`YYYY-MM-DD`**。`http_error` は **`http_status`** と安全フィールドのみ（raw body なし） |
 | **Task 5.2** | **安全デバッグ**：`build_v2_daily_bars_request_preview()` と **`debug jquants-daily-quotes --preview-request`**（**実 HTTP を一切しない**）。`http_error` で **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets`** と **`api_key_header_present`（値は不出力）**。BASE が `/v2` でもパス側の重複 **`/v2/v2`** を避ける結合ユーティリティ |
+| **Task 5.3** | **コード／日付の柔軟な切り分け**：`debug jquants-daily-quotes` で **`code`のみ / `date`のみ / `code`+`date` / `code`+`from`〜`to`** を HTTP 前に検証したうえで試せる。**`--date`** と **`--from-date`/`--to-date`** は排他。**公式クエリは `code` / `date` / `from` / `to` のみ**（`from_date` 等は送らない）。**live smoke ではまず `--preview-request` と code-only/date-only で 400 を切り分ける** |
 | **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
@@ -77,6 +78,11 @@
 - **`build_v2_daily_bars_request_preview`** と **`alpha-os debug jquants-daily-quotes --preview-request`**：**実 HTTP は行わない**（`JQUANTS_ALLOW_LIVE_HTTP=true` でも **preview のみでは urlopen しない**）。出力は **`query_params`**・パス **`/equities/bars/daily`** と結合済み **`full_url_without_secrets`**。**API Key の実値・ヘッダー全体・raw body は出さない**（`api_key_value_included: false`）。
 - **`http_error`（例: 400）**に **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets` / `api_key_header_*` メタのみ** を付加（応答ボディは出さない）。
 - **`_join_v2_base_and_path`**：ベース URL が **`.../v2`** でパスが誤って **`/v2/equities/...`** でも **`/v2/v2`** にならないよう正規化。
+
+### Task 5.3 で追加したこと（CLI 切り分け・クエリ妥当性）
+
+- **`debug jquants-daily-quotes`**：`--code` / **`--date`（新規）** / **`--from-date`** / **`--to-date`** をすべて任意に。**いずれも無い場合**や **`--date` と `--from-date`/`--to-date` の併用**は **`validation_error`**（実 HTTP／プレビュー JSON に進む前）。**`--preview-request`** も同じ検証を通す。**V2 で送るクエリキーは `code`・`date`・`from`・`to` のみ**。**応答側の公式前提と別に、`from`/`to` の片方のみ**による試行も CLI として許す（サーバが 400 を返す切り分け用）。
+- **運用**：**live smoke では、`--preview-request` のあと `--code` のみ、`--date` のみから試し**、`from`〜`to` レンジは切り分けが進んでから。**レンジは `from` と `to` の両方揃えることを推奨**（CLI は片方だけも許容）。
 
 ## Version2 の認証（Task 4 時点）
 

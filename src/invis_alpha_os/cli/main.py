@@ -182,12 +182,19 @@ def debug_jquants_status() -> None:
     )
 
 
+def _cli_optional_str(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
 def _jquants_daily_quotes_cli_snapshot(
     result: dict[str, Any],
     *,
-    code: str,
-    from_date: str,
-    to_date: str,
+    code: Optional[str],
+    from_date: Optional[str],
+    to_date: Optional[str],
     date_opt: Optional[str],
 ) -> dict[str, Any]:
     """Public fields only — no raw body, secrets, previews, or password/token values."""
@@ -196,11 +203,16 @@ def _jquants_daily_quotes_cli_snapshot(
     snap: dict[str, Any] = {
         "status": st,
         "code": code,
+        "date": date_opt,
         "date_from": from_date,
         "date_to": to_date,
     }
-    if date_opt:
-        snap["date"] = date_opt
+
+    if st == "validation_error":
+        r = result.get("reason")
+        if isinstance(r, str):
+            snap["reason"] = r
+        return snap
 
     if st == "success":
         snap["row_count"] = result.get("row_count")
@@ -249,18 +261,22 @@ def _jquants_daily_quotes_cli_snapshot(
 
 @debug_app.command("jquants-daily-quotes")
 def debug_jquants_daily_quotes(
-    code: str = typer.Option(..., "--code"),
-    from_date: str = typer.Option(
-        ...,
+    code: Optional[str] = typer.Option(None, "--code", help="Equity code (optional; V2 accepts code-only queries)."),
+    from_date: Optional[str] = typer.Option(
+        None,
         "--from-date",
-        help="Start date (human-friendly); sent as query param `from` on V2 live HTTP.",
+        help="Range start (optional); query param name is `from` on V2. Pair with `--to-date` where possible.",
     ),
-    to_date: str = typer.Option(
-        ...,
+    to_date: Optional[str] = typer.Option(
+        None,
         "--to-date",
-        help="End date (human-friendly); sent as query param `to` on V2 live HTTP.",
+        help="Range end (optional); query param name is `to` on V2.",
     ),
-    date: Optional[str] = typer.Option(None, "--date"),
+    date: Optional[str] = typer.Option(
+        None,
+        "--date",
+        help="Single trading day (`date` query on V2). Mutually exclusive with `--from-date`/`--to-date`.",
+    ),
     live: bool = typer.Option(False, "--live", help="Allow live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true)"),
     preview_request: bool = typer.Option(
         False,
@@ -269,32 +285,36 @@ def debug_jquants_daily_quotes(
     ),
 ) -> None:
     client = JQuantsClient.from_env()
+
+    cn = _cli_optional_str(code)
+    dn = _cli_optional_str(date)
+    fn = _cli_optional_str(from_date)
+    tn = _cli_optional_str(to_date)
+
+    verr = client.validate_daily_quotes_cli_args(cn, date=dn, from_date=fn, to_date=tn)
+    if verr is not None:
+        view = _jquants_daily_quotes_cli_snapshot(verr, code=cn, from_date=fn, to_date=tn, date_opt=dn)
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+        raise typer.Exit(1)
+
     if preview_request:
-        prv = client.build_v2_daily_bars_request_preview(
-            code, date=date, from_date=from_date, to_date=to_date
-        )
+        prv = client.build_v2_daily_bars_request_preview(cn, date=dn, from_date=fn, to_date=tn)
         typer.echo(json.dumps(prv, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
 
     if not client.is_enabled():
         view = _jquants_daily_quotes_cli_snapshot(
             {"status": "disabled", "reason": "JQUANTS_ENABLED=false"},
-            code=code,
-            from_date=from_date,
-            to_date=to_date,
-            date_opt=date,
+            code=cn,
+            from_date=fn,
+            to_date=tn,
+            date_opt=dn,
         )
         typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
         raise typer.Exit(1 if live else 0)
 
-    result = client.get_daily_quotes(
-        code,
-        date=date,
-        from_date=from_date,
-        to_date=to_date,
-        attempt_live=live,
-    )
-    view = _jquants_daily_quotes_cli_snapshot(result, code=code, from_date=from_date, to_date=to_date, date_opt=date)
+    result = client.get_daily_quotes(cn, date=dn, from_date=fn, to_date=tn, attempt_live=live)
+    view = _jquants_daily_quotes_cli_snapshot(result, code=cn, from_date=fn, to_date=tn, date_opt=dn)
     typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
     if not live:
         raise typer.Exit(0)

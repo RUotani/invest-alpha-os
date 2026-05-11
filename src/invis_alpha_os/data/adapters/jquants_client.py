@@ -22,6 +22,9 @@ with ``row_count=0``.
 joined with paths like ``/equities/bars/daily`` so ``/v2/v2`` is not produced (Task 5.2). Use
 ``build_v2_daily_bars_request_preview`` / ``--preview-request`` to inspect URLs without HTTP or secrets.
 
+**Task 5.3**: CLI accepts **code-only / date-only / code+date / code+range**; ``--date`` is mutually exclusive with
+``--from-date``/``--to-date``; validation runs before HTTP and before ``--preview-request`` output.
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 
@@ -51,6 +54,17 @@ def _format_v2_daily_bars_date_query(value: str) -> str:
     if len(digits) == 8:
         return f"{digits[0:4]}-{digits[4:6]}-{digits[6:8]}"
     return s
+
+
+def _strip_optional_str(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped if stripped else None
+
+
+def _daily_quotes_cli_validation_error(reason: str) -> dict[str, Any]:
+    return {"status": "validation_error", "reason": reason, "raw_response_included": False}
 
 
 def _join_v2_base_and_path(base_url: str, path: str) -> str:
@@ -344,7 +358,7 @@ class JQuantsClient:
         status: str,
         reason: str | None = None,
         endpoint_path: str,
-        code: str,
+        code: str | None,
     ) -> dict[str, Any]:
         out: dict[str, Any] = {
             "status": status,
@@ -535,13 +549,16 @@ class JQuantsClient:
 
     def _v2_daily_bars_query_params(
         self,
-        code: str,
+        code: str | None,
         *,
         date: str | None,
         from_date: str | None,
         to_date: str | None,
     ) -> dict[str, str]:
-        params: dict[str, str] = {"code": code}
+        params: dict[str, str] = {}
+        c = _strip_optional_str(code)
+        if c is not None:
+            params["code"] = c
         if date:
             params["date"] = _format_v2_daily_bars_date_query(date)
         if from_date:
@@ -558,9 +575,46 @@ class JQuantsClient:
             return None
         return _join_v2_base_and_path(self.base_url, path)
 
+    def validate_daily_quotes_cli_args(
+        self,
+        code: str | None,
+        *,
+        date: str | None,
+        from_date: str | None,
+        to_date: str | None,
+    ) -> dict[str, Any] | None:
+        """CLI / query validation for daily bars (before HTTP).
+
+        V2 allows ``code`` only, ``date`` only, ``code``+``date``, ``code``+``from``/``to``. ``date`` cannot
+        combine with ``from``/``to``. At least one of ``code``, ``date``, ``from``, ``to`` must be set.
+        V1 requires ``--code`` (legacy bearer path).
+        """
+
+        if self.api_version_effective is None:
+            return None
+
+        c = _strip_optional_str(code)
+        d = _strip_optional_str(date)
+        fd = _strip_optional_str(from_date)
+        td = _strip_optional_str(to_date)
+
+        if self.api_version_effective == "v1":
+            if c is None:
+                return _daily_quotes_cli_validation_error("v1_requires_code")
+            if d is not None and (fd is not None or td is not None):
+                return _daily_quotes_cli_validation_error("date_mutually_exclusive_with_from_to")
+            return None
+
+        assert self.api_version_effective == "v2"
+        if c is None and d is None and fd is None and td is None:
+            return _daily_quotes_cli_validation_error("missing_all_of_code_date_from_to")
+        if d is not None and (fd is not None or td is not None):
+            return _daily_quotes_cli_validation_error("date_mutually_exclusive_with_from_to")
+        return None
+
     def build_v2_daily_bars_request_preview(
         self,
-        code: str,
+        code: str | None = None,
         *,
         date: str | None = None,
         from_date: str | None = None,
@@ -588,6 +642,15 @@ class JQuantsClient:
             }
             return out
 
+        c = _strip_optional_str(code)
+        d = _strip_optional_str(date)
+        fd = _strip_optional_str(from_date)
+        td = _strip_optional_str(to_date)
+
+        verr = self.validate_daily_quotes_cli_args(c, date=d, from_date=fd, to_date=td)
+        if verr is not None:
+            return {**verr, **meta}
+
         if not self.has_base_url():
             return self._missing_base_url_reply() | meta
 
@@ -595,7 +658,7 @@ class JQuantsClient:
         if endpoint_wo_q is None:
             return self._missing_base_url_reply() | meta
 
-        q_params = self._v2_daily_bars_query_params(code, date=date, from_date=from_date, to_date=to_date)
+        q_params = self._v2_daily_bars_query_params(c, date=d, from_date=fd, to_date=td)
         qs = urlencode(q_params)
         return {
             "status": "ok",
@@ -607,19 +670,28 @@ class JQuantsClient:
 
     def get_daily_quotes(
         self,
-        code: str,
+        code: str | None = None,
         *,
         date: str | None = None,
         from_date: str | None = None,
         to_date: str | None = None,
         attempt_live: bool = False,
     ) -> dict[str, Any]:
-        if not self.is_enabled():
-            return self._disabled(hint="JQUANTS_ENABLED=false")
-
         bad_ver = self._maybe_unsupported_api_version()
         if bad_ver is not None:
             return bad_ver
+
+        code = _strip_optional_str(code)
+        date = _strip_optional_str(date)
+        from_date = _strip_optional_str(from_date)
+        to_date = _strip_optional_str(to_date)
+
+        verr = self.validate_daily_quotes_cli_args(code, date=date, from_date=from_date, to_date=to_date)
+        if verr is not None:
+            return verr
+
+        if not self.is_enabled():
+            return self._disabled(hint="JQUANTS_ENABLED=false")
 
         miss = self._require_base_for_network()
         if miss is not None:
