@@ -1348,3 +1348,25 @@ def test_get_daily_quotes_blocked_before_http_when_outside_window(monkeypatch):
     assert out["reason"] == "date_out_of_available_range"
     blob = json.dumps(out)
     assert "NEVER_LEAK_THIS_LIVE_KEY" not in blob
+
+
+def test_jquants_watchlist_smoke_error_statuses_excludes_benign():
+    from invis_alpha_os.data.adapters.jquants_client import JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES
+
+    for s in (
+        "http_error",
+        "validation_error",
+        "invalid_response",
+        "non_json_response",
+        "live_blocked",
+        "not_configured",
+        "api_key_missing",
+        "base_url_missing",
+        "unsupported_version",
+        "failed",
+        "error",
+    ):
+        assert s in JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES
+
+    assert "dry_run" not in JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES
+    assert "success" not in JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES

@@ -90,13 +90,21 @@ JQUANTS_ENABLED=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
   debug jquants-watchlist-bars --date 2024-02-16 --limit 2 --save-summary
 ```
 
-JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_count`** / **`error_count`** / **`skipped_count`** / **銘柄ごとの要約結果**のみが載る設計であり、**.env の内容や応答本文そのものは書き込まない**。
+JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_count`** / **`error_count`** / **`skipped_count`** / **`dry_run_count`** / **`preview_count`** / **銘柄ごとの要約結果**のみが載る設計であり、**.env の内容や応答本文そのものは書き込まない**。
+
+**Task 9.1 のカウンタの意味**:
+
+- **`dry_run_count`**：HTTP を実行していない **dry-run の確認件数**。**エラーではない**。
+- **`error_count`**：**`http_error`** / **`live_blocked`** / **`validation_error`** / **`invalid_response`** など、**異常系 `status`** の行だけ。**`dry_run` はここに入れない**。
+- **`preview_count`**：**`--preview-request` と `--save-summary` は併用しない**。将来や手動で CLI 全体が **`preview`** のとき、`ok` 相当のプレビュー行を数えるカウンタ。
 
 ### 記録の形状例：watchlist limit 3（参考）
 
 次は **J-Quants の日足取得が成功した場合の戻り値の形**を説明するための **代表的な東証コード**（`7011` / `6501` / `6506`）と日付・カウンタの例であり、**いずれの環境の CLI 標準出力をそのまま貼ったものではありません**（契約・環境により結果は異なります）。**raw 本文・API Key は含みません。**
 
-**`--limit 3 --live --date 2024-02-16`** の **想定される要約フィールド**の例: `success_count=3`, `error_count=0`, `raw_response_included=false`。
+**`--limit 3 --date 2024-02-16`（dry-run + `--save-summary`）** の **保存 JSON のカウンタ例**: **`mode`**=`dry_run`, `target_count=3`, **`dry_run_count=3`**, `success_count=0`, **`error_count=0`**, `skipped_count=0`, `preview_count=0`。
+
+**`--limit 3 --live --date 2024-02-16`**（成功時）の **保存 JSON**: **`mode`**=`live`, `success_count=3`, **`dry_run_count=0`**, **`error_count=0`**, `preview_count=0`, **`skipped_count=0`**, `raw_response_included=false`。※CLI 標準出力のトップ `status` が **`completed`** でも **保存側は `mode: live`**。
 
 ### Daily report（Task 7–8）
 

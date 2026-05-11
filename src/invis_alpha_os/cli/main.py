@@ -372,7 +372,7 @@ def debug_jquants_watchlist_bars(
         help="Write sanitized summary JSON under outputs/jquants_smoke/ (not used with --preview-request).",
     ),
 ) -> None:
-    """Batch daily-bars check for ``jp_watchlist`` (Phase 1a Task 6). Default: dry-run."""
+    """Batch daily-bars check for ``jp_watchlist`` (Phase 1a Task 6). Default: dry-run. Task 9.1 smoke JSON splits ``dry_run_count`` vs ``error_count``."""
 
     client = JQuantsClient.from_env()
     dn = _cli_optional_str(date)

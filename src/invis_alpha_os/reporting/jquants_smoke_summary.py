@@ -1,6 +1,7 @@
 """Sanitized watchlist smoke summaries for local ``outputs/jquants_smoke/`` (Task 9).
 
 No API keys, no raw bodies, no full headers — only CLI-safe numeric / status fields.
+Task 9.1 distinguishes **dry_run** / preview-like counts from **error_count**.
 """
 
 from __future__ import annotations
@@ -11,7 +12,10 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
-from invis_alpha_os.data.adapters.jquants_client import _parse_v2_daily_bars_date
+from invis_alpha_os.data.adapters.jquants_client import (
+    JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES,
+    _parse_v2_daily_bars_date,
+)
 
 def _iso_slug_date(raw: str | None) -> str | None:
     if raw is None:
@@ -59,12 +63,42 @@ def sanitize_watchlist_result_rows_for_summary(rows: list[dict[str, Any]]) -> li
     return out
 
 
-def watchlist_counts_from_results(results: list[dict[str, Any]]) -> tuple[int, int, int]:
-    skipped_count = sum(1 for r in results if r.get("status") == "skipped_unsupported_code")
-    non_skip = [r for r in results if r.get("status") != "skipped_unsupported_code"]
-    success_count = sum(1 for r in non_skip if r.get("status") == "success")
-    error_count = len(non_skip) - success_count
-    return success_count, error_count, skipped_count
+def watchlist_smoke_counts_from_results(
+    results: list[Any],
+    *,
+    cli_top_status: str | None,
+) -> dict[str, int]:
+    counts = {
+        "success_count": 0,
+        "error_count": 0,
+        "skipped_count": 0,
+        "dry_run_count": 0,
+        "preview_count": 0,
+    }
+    for raw in results:
+        if not isinstance(raw, dict):
+            continue
+        st = raw.get("status")
+        if st == "skipped_unsupported_code":
+            counts["skipped_count"] += 1
+        elif st == "success":
+            counts["success_count"] += 1
+        elif st == "dry_run":
+            counts["dry_run_count"] += 1
+        elif st == "preview" or (st == "ok" and cli_top_status == "preview"):
+            counts["preview_count"] += 1
+        elif st in JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES:
+            counts["error_count"] += 1
+        else:
+            counts["error_count"] += 1
+    return counts
+
+
+def _summary_mode_from_cli_out(cli_out: dict[str, Any]) -> Any:
+    st = cli_out.get("status")
+    if st == "completed":
+        return "live"
+    return st
 
 
 def build_watchlist_smoke_summary_document(cli_out: dict[str, Any]) -> dict[str, Any]:
@@ -73,7 +107,7 @@ def build_watchlist_smoke_summary_document(cli_out: dict[str, Any]) -> dict[str,
     results_raw = cli_out.get("results")
     rows = results_raw if isinstance(results_raw, list) else []
 
-    ok, bad, skipped = watchlist_counts_from_results(rows)
+    counts = watchlist_smoke_counts_from_results(rows, cli_top_status=cli_out.get("status"))
 
     sanitized = sanitize_watchlist_result_rows_for_summary(
         [r for r in rows if isinstance(r, dict)]
@@ -81,14 +115,12 @@ def build_watchlist_smoke_summary_document(cli_out: dict[str, Any]) -> dict[str,
 
     return {
         "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "mode": cli_out.get("status"),
+        "mode": _summary_mode_from_cli_out(cli_out),
         "date": cli_out.get("date"),
         "date_from": cli_out.get("date_from"),
         "date_to": cli_out.get("date_to"),
         "target_count": cli_out.get("target_count"),
-        "success_count": ok,
-        "error_count": bad,
-        "skipped_count": skipped,
+        **counts,
         "results": sanitized,
         "raw_response_included": False,
         "api_key_displayed": False,

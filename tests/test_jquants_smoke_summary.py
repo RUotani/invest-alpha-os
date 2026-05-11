@@ -9,6 +9,7 @@ from invis_alpha_os.cli.main import app
 from invis_alpha_os.reporting.jquants_smoke_summary import (
     build_watchlist_smoke_summary_document,
     sanitize_watchlist_result_rows_for_summary,
+    watchlist_smoke_counts_from_results,
 )
 
 runner = CliRunner()
@@ -57,7 +58,103 @@ def test_build_summary_document_shapes():
     assert doc["api_key_displayed"] is False
     assert doc["skipped_count"] == 0
     assert doc["success_count"] == 0
+    assert doc["error_count"] == 0
+    assert doc["dry_run_count"] == 1
+    assert doc["preview_count"] == 0
     assert doc["results"][0]["code"] == "7011"
+
+
+def test_dry_run_three_rows_match_task_91_expectation():
+    cli_out = {
+        "status": "dry_run",
+        "date": "2024-02-16",
+        "target_count": 3,
+        "results": [
+            {"code": "7011", "status": "dry_run"},
+            {"code": "6501", "status": "dry_run"},
+            {"code": "6506", "status": "dry_run"},
+        ],
+    }
+    doc = build_watchlist_smoke_summary_document(cli_out)
+    assert doc["mode"] == "dry_run"
+    assert doc["target_count"] == 3
+    assert doc["success_count"] == 0
+    assert doc["error_count"] == 0
+    assert doc["dry_run_count"] == 3
+    assert doc["preview_count"] == 0
+    assert doc["skipped_count"] == 0
+
+
+def test_live_completed_maps_mode_live_and_three_success():
+    cli_out = {
+        "status": "completed",
+        "date": "2024-02-16",
+        "target_count": 3,
+        "results": [
+            {"code": "7011", "status": "success", "row_count": 1, "source_key": "data"},
+            {"code": "6501", "status": "success", "row_count": 1, "source_key": "data"},
+            {"code": "6506", "status": "success", "row_count": 1, "source_key": "data"},
+        ],
+    }
+    doc = build_watchlist_smoke_summary_document(cli_out)
+    assert doc["mode"] == "live"
+    assert doc["success_count"] == 3
+    assert doc["error_count"] == 0
+    assert doc["dry_run_count"] == 0
+    assert doc["preview_count"] == 0
+    assert doc["skipped_count"] == 0
+
+
+def test_http_error_increments_error_count_only():
+    cli_out = {
+        "status": "dry_run",
+        "date": "2024-02-16",
+        "target_count": 1,
+        "results": [{"code": "7011", "status": "http_error", "http_status": 400, "error_body_preview": "x"}],
+    }
+    doc = build_watchlist_smoke_summary_document(cli_out)
+    assert doc["error_count"] == 1
+    assert doc["success_count"] == 0
+    assert doc["dry_run_count"] == 0
+    assert doc["skipped_count"] == 0
+    assert doc["preview_count"] == 0
+
+
+def test_skipped_unsupported_increments_skipped():
+    cli_out = {
+        "status": "dry_run",
+        "date": "2024-02-16",
+        "target_count": 2,
+        "results": [
+            {"code": "285A", "status": "skipped_unsupported_code"},
+            {"code": "7011", "status": "dry_run"},
+        ],
+    }
+    doc = build_watchlist_smoke_summary_document(cli_out)
+    assert doc["skipped_count"] == 1
+    assert doc["dry_run_count"] == 1
+    assert doc["error_count"] == 0
+
+
+def test_preview_top_status_counts_ok_rows_as_preview():
+    cli_out = {
+        "status": "preview",
+        "date": "2024-02-16",
+        "target_count": 2,
+        "results": [
+            {"code": "7011", "status": "ok"},
+            {"code": "6501", "status": "validation_error"},
+        ],
+    }
+    doc = build_watchlist_smoke_summary_document(cli_out)
+    assert doc["preview_count"] == 1
+    assert doc["error_count"] == 1
+    assert doc["dry_run_count"] == 0
+
+
+def test_watchlist_smoke_counts_unknown_status_counts_as_error():
+    c = watchlist_smoke_counts_from_results([{"status": "weird_future"}], cli_top_status="dry_run")
+    assert c["error_count"] == 1
 
 
 def test_watchlist_dry_run_save_summary_writes_json(tmp_path, monkeypatch):
@@ -96,6 +193,9 @@ def test_watchlist_dry_run_save_summary_writes_json(tmp_path, monkeypatch):
     stamped = sorted(smoke_dir.glob("watchlist_bars_*_limit2.json"))
     assert len(stamped) == 1
     payload = json.loads(stamped[0].read_text(encoding="utf-8"))
+    assert payload["error_count"] == 0
+    assert payload["dry_run_count"] == 2
+    assert payload["success_count"] == 0
     text = json.dumps(payload)
     assert secret not in text
     low = text.lower()
@@ -162,4 +262,7 @@ def test_watchlist_live_blocked_save_summary_no_urlopen(monkeypatch, tmp_path):
     assert r.exit_code == 1
     blob = json.loads(r.stdout.strip())
     assert blob["summary_saved_to"]
+    latest_payload = json.loads((tmp_path / "o" / "jquants_smoke" / "latest.json").read_text(encoding="utf-8"))
+    assert latest_payload["error_count"] == 1
+    assert latest_payload["dry_run_count"] == 0
     assert (tmp_path / "o" / "jquants_smoke" / "latest.json").is_file()

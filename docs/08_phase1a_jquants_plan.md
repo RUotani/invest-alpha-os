@@ -37,6 +37,7 @@
 | **Task 7** | **`alpha-os daily`** に **J-Quants Watchlist Bars Check**（**dry_run / 集計のみ、HTTP なし**）。`config/market_data.yaml` の **`adapters.jquants.report`**。**API Key・raw・`x-api-key` 値は出さない**。**CI / `make verify` でも live しない** |
 | **Task 8** | **`alpha-os daily`** に **readiness（Green / Yellow / Red）** と **skipped コード一覧**。**HTTP なし**・設定は **`adapters.jquants.report`**（`readiness_*`）。**実 API は呼ばず**環境ガード可否・ウォッチリスト集計のみ |
 | **Task 9** | **`debug jquants-watchlist-bars --save-summary`**：**sanitized** な要約 JSON を **`outputs/jquants_smoke/`** に保存（**raw・API Key・`x-api-key`・ヘッダー全体は保存禁止**）。**`--preview-request` では保存しない**。**dry-run / live 完了**の両方で保存可。**`daily` / CI / `make verify` は変更なしで live しない** |
+| **Task 9.1** | **Smoke summary カウンタ**：**`dry_run`** を **`error_count` に含めない**。**保存 JSON** に **`dry_run_count`** / **`preview_count`** を追加。ライブ完了時、CLI 出力は **`completed`** でも **保存 `mode` は `live`**（Task 10 の daily 取り込み前提） |
 | **Task 10** | 必要なら **`latest.json`** 等を **`alpha-os daily` の「ローカル記録」行に反映するか**を検討（**自動 live は禁止のまま**） |
 ### Task 2 で追加したこと（要約）
 
@@ -117,6 +118,7 @@
 ### Task 9 で追加したこと（ローカル sanitized smoke ファイル・HTTP は人間の live のみ）
 
 - **`--save-summary`**：`reporting/jquants_smoke_summary.py` 経由で **`outputs/jquants_smoke/watchlist_bars_<slug>_limit<N|all>.json`** と **`latest.json`** を出力。保存内容は **`code` / `status` / `row_count` / `source_key` / `http_status` / `error_body_preview`** 等に限定し、**クエリ・URL・Key・raw body は書かない**。
+- **Task 9.1**：集計 **`success_count` / `error_count`（異常系 `status` のみ） / `skipped_count` / `dry_run_count` / `preview_count`**。**`completed` の保存 **`mode`** は `live`。**
 - **`alpha-os daily`** は引き続き **live しない**。
 
 - **Version2 は API Key 方式**（HTTP ヘッダー **`x-api-key`**）。**refreshToken / idToken 方式は V2 プライマリでは使わない**。

@@ -42,6 +42,8 @@ invalid calendar dates → ``invalid_date_format``.
 **Task 8**: Same section adds **readiness (Green / Yellow / Red)** from config + env + watchlist counts only (still **no HTTP**).
 
 **Task 9**: **`debug jquants-watchlist-bars --save-summary`** writes **sanitized JSON** to **`outputs/jquants_smoke/`** (still **no secrets / no raw** in files; **not** used with `--preview-request`).
+**Task 9.1**: Smoke JSON **counts** split **dry-run / preview-ish / success / skipped / explicit error statuses** (``dry_run`` is not counted as ``error_count``).
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 
@@ -53,8 +55,26 @@ import re
 import urllib.error
 import urllib.request
 from datetime import date as _date
-from typing import Any, Sequence
+from typing import Any, Final, Sequence
 from urllib.parse import urlencode
+
+# Row ``status`` values that contribute to smoke summary ``error_count`` (Task 9.1).
+# Other row statuses either map to ``success_*`` / ``dry_run_*`` / ``skipped_*`` / ``preview_*`` or are counted as errors as a safe fallback.
+JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        "http_error",
+        "validation_error",
+        "invalid_response",
+        "non_json_response",
+        "live_blocked",
+        "not_configured",
+        "api_key_missing",
+        "base_url_missing",
+        "unsupported_version",
+        "failed",
+        "error",
+    }
+)
 
 # V2 daily bars: scan in this order; first present key must map to a list (Task 5).
 _V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("data", "daily_quotes", "bars", "results")
