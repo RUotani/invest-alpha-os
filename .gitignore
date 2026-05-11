@@ -36,4 +36,5 @@ outputs/**
 
 # Local AI/Codex review artifacts (never commit)
 .ai/reviews/*.md
+.ai/reviews/*.json
 

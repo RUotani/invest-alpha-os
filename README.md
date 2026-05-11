@@ -51,7 +51,7 @@ alpha-os --help
 
 - 通常確認コマンド: `make verify`
 - 仮想環境を明示する安全な確認コマンド: `PYTHON=.venv/bin/python make verify`
-- **`make codex-review`**: `codex exec`（read-only）でレビューし結果を `.ai/reviews/latest.md` へ。**`.ai/reviews/*.md` は Git 無視**。
+- **`make codex-review`**: `codex exec`（read-only）でレビューし、人間向けを `.ai/reviews/latest.md`、機械門番を `.ai/reviews/latest.json` へ。**`.ai/reviews/*.md` と `.ai/reviews/*.json` は Git 無視**。
 - **`make ai-check`**: `make verify` → `codex-review` → `git status`。`Makefile` はデフォルト `PYTHON=python` のとき `.venv/bin/python` があればそちらへ寄せます（明示した `PYTHON=...` は尊重）。
 
 ```bash
@@ -73,15 +73,16 @@ make verify
 
 複数の AI / ツールと協働する際の役割分担と標準フローは [docs/07_ai_development_workflow.md](docs/07_ai_development_workflow.md) を参照してください。
 
-- **`git add` / `commit` / `push`** は **人間のレビューと明示承認のうえでのみ**行う。
+- **`git commit` / `git push`** は **`SAFE_PUSH_MSG="your message" PYTHON=.venv/bin/python make safe-push`** を推奨。**`Makefile` はコミットメッセージをレシピ内で展開せず**、**環境変数 `SAFE_PUSH_MSG`** を **`scripts/safe_commit_push.sh` が検証してから `git commit -m` に渡す**設計です。**`make ai-check`（`verify` + `codex-review`）より前に**、`git status` で **危険パス（`.env` など）を検査**し、該当があれば **レビューも含めて即停止**します。通過後も **再検査**と **`.ai/reviews/latest.json` 門番**、**ステージ後の最終検査**で守ります。**`latest.json` が `failed`/`skipped` は `ALLOW_IMPORTANT` でも突破不可**。**Important** は原則停止（**`ALLOW_IMPORTANT=true`** でのみ人間が続行可）。**raw のその場の `git commit` / `git push` は避ける**。
+- **`SAFE_PUSH_MSG="..." PYTHON=.venv/bin/python make safe-push-dry-run`** — commit/push は行わず、追跡差分・ステージ済み・未追跡（除外されないもの）など **Git がコミット候補に含めうるパス**を検査します。実際には `.gitignore` 済みの `.env` は候補に出ずスキャン対象になりません。**Codex JSON 門番も本番同等**です。
 - `.env`、`credentials.json`、`token.json`、`outputs/` の実行生成物（実データ）は **Git 管理しない**（セキュリティ節とも整合）。
 
 #### Codex レビュー（半自動）
 
-- **`make codex-review`**: Codex CLI（`codex exec`・read-only サンドボックス・非対話）でレビューし、結果を `.ai/reviews/latest.md` に保存。`.env` は参照しない。このファイル種別は `.gitignore` で **コミット対象外**。
-- **`make ai-check`**: `PYTHON` を **`make verify` に明示的に渡し**、その後 `codex-review` と `git status --short` を実行。
+- **`make codex-review`**: Codex CLI（read-only サンドボックス・非対話）でレビュー。**`.ai/reviews/latest.md` に全文**、続けて **行マーカーで囲んだ JSON を抽出・検証した結果を `.ai/reviews/latest.json`** に保存します。`.env` は参照しない。いずれも **`.gitignore`** で **コミット対象外**。CLI 未インストール時は `latest.md` に案内を書き、`latest.json` は **`review_run_status: "skipped"`**（`make` は exit 0）。
+- **`make ai-check`**: **`make verify`** → **`codex-review`** → **`git status --short`**（`PYTHON` は `verify` に明示渡し）。**`codex-review` が非ゼロ終了**（例: Codex 失敗・抽出失敗）**だとそこで止まり、`safe-push` に進みません。**
 
-Codex 未インストール時は `codex-review` が **親切なスキップメッセージ**で終了（`make` は続行できる）します。
+**`make safe-push`**: **`latest.json` の `review_run_status` が `executed` でない場合**（未導入 `skipped`・失敗 `failed`・欠損）は **commit/push しません**。**機械判定は `latest.json` のみ**です。
 
 ### セキュリティ
 
