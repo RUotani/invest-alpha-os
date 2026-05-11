@@ -16,3 +16,13 @@ def test_load_watchlist_has_required_keys():
     assert isinstance(jp[0], dict)
     assert jp[0].get("ticker")
 
+
+def test_jp_watchlist_helpers():
+    from invis_alpha_os.config.jp_watchlist import extract_jp_watchlist_tickers, jquants_daily_bars_ticker_kind
+
+    data = load_yaml(CONFIG_DIR / "watchlist.yaml")
+    tickers = extract_jp_watchlist_tickers(data)
+    assert len(tickers) >= 11
+    assert jquants_daily_bars_ticker_kind("6501") == "ok"
+    assert jquants_daily_bars_ticker_kind("285A") == "skipped_unsupported_code"
+

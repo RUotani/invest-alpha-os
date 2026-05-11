@@ -60,6 +60,18 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 ---
 
+## Watchlist 一括確認（Task 6）
+
+単一銘柄の live が成功したら、**`config/watchlist.yaml` の `jp_watchlist`** を **同じ日付・契約レンジ内**で確認する。**API Key や raw 応答はチャットに貼らない**（CLI は要約のみ）。
+
+1. **まず**（HTTP なし）: `alpha-os debug jquants-watchlist-bars --limit 3 --preview-request --date YYYY-MM-DD` — 送信プレビューのみ。
+2. **次**（実 HTTP なし）: `alpha-os debug jquants-watchlist-bars --limit 3 --date YYYY-MM-DD` — **`JQUANTS_ENABLED=true`** が必要（dry-run で `query_params` 等）。
+3. **最後に live**（人間のローカルのみ）: **`--limit 1`** から試す — **`--live`** + **`JQUANTS_ALLOW_LIVE_HTTP=true`** + BASE URL + API Key + **Task 5.6 の範囲内日付**。
+
+**注意**: **`--from-date` / `--to-date` は watchlist コマンドではセットで指定**（片方だけは `validation_error`）。単一銘柄の **`jquants-daily-quotes`** は従来どおり Task 5 の検証のみ。
+
+---
+
 ## 手順概要
 
 ### 1. `.env` の作成（人間のみ）

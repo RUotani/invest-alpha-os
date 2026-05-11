@@ -64,9 +64,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`JQUANTS_DATA_AVAILABLE_FROM` / `TO`**（任意・両方有効時のみ）で **`--date` / `--from-date` / `--to-date`** を契約ウィンドウと照合。**範囲外は `validation_error` / `date_out_of_available_range`（HTTP 前）**。**`make verify` は env 未設定の既定のまま**。
 - **`config/market_data.yaml`** に env 名、**`.env.example`** に例示。
 
-### Task 6 以降（未着手）
+### Task 6 — 完了（watchlist・J-Quants daily bars 一括 CLI）
 
-- Watchlist 銘柄向けデータ取得での stub / live 切替（Task 5／5.6 を利用）、その他エンドポイント
+- **`config/jp_watchlist.py`**：`jp_watchlist` ティッカー抽出。**4 桁数字のみ** J-Quants に送る候補（**`285A` は `skipped_unsupported_code`**、桁埋めはしない）。
+- **`alpha-os debug jquants-watchlist-bars`**：既定 **dry-run**、**`--preview-request`**（HTTP なし）、**live は三重ゲート + Task 5.6**。結果は JSON 配列。**raw・API Key なし**。
+- **Daily レポートへの本文統合は Task 7**（本タスクは CLI のみ）。
+
+### Task 7 以降（未着手）
+
+- **Daily report** に watchlist 由来の J-Quants 取得サマリを反映、その他エンドポイント拡張
 
 ---
 

@@ -44,4 +44,4 @@ market_data:
         - /equities/bars/daily/am
         - /equities/investor-types
         - /markets/margin-interest
-      note: "V2 live: JQUANTS_ENABLED + --live + JQUANTS_ALLOW_LIVE_HTTP + base URL + JQUANTS_API_KEY (x-api-key). CI / make verify: no live HTTP."
+      note: "V2 live: JQUANTS_ENABLED + --live + JQUANTS_ALLOW_LIVE_HTTP + base URL + JQUANTS_API_KEY (x-api-key). CI / make verify: no live HTTP. Task 6: debug jquants-watchlist-bars reads config/watchlist.yaml jp_watchlist."

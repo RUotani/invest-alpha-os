@@ -9,6 +9,10 @@ import json
 import typer
 
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
+from invis_alpha_os.config.jp_watchlist import (
+    jquants_daily_bars_ticker_kind,
+    load_jp_watchlist_tickers,
+)
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -261,6 +265,154 @@ def _jquants_daily_quotes_cli_snapshot(
             snap[k] = result[k]
 
     return snap
+
+
+def _watchlist_preview_row(code: str, prv: dict[str, Any]) -> dict[str, Any]:
+    row: dict[str, Any] = {"code": code}
+    st = prv.get("status")
+    row["status"] = st
+    if st == "validation_error":
+        if isinstance(prv.get("reason"), str):
+            row["reason"] = prv["reason"]
+        for k in ("data_available_from", "data_available_to"):
+            if k in prv:
+                row[k] = prv[k]
+        row["raw_response_included"] = prv.get("raw_response_included", False)
+        return row
+    for k in (
+        "endpoint_url_without_query",
+        "query_params",
+        "full_url_without_secrets",
+        "api_key_header_name",
+        "api_key_header_present",
+        "api_key_value_included",
+        "reason",
+    ):
+        if k in prv:
+            row[k] = prv[k]
+    row["raw_response_included"] = prv.get("raw_response_included", False)
+    return row
+
+
+def _result_row_no_raw(row: dict[str, Any]) -> dict[str, Any]:
+    if "raw_response_included" not in row:
+        row["raw_response_included"] = False
+    return row
+
+
+@debug_app.command("jquants-watchlist-bars")
+def debug_jquants_watchlist_bars(
+    date: Optional[str] = typer.Option(
+        None,
+        "--date",
+        help="Single day YYYY-MM-DD or YYYYMMDD (mutually exclusive with --from-date/--to-date).",
+    ),
+    from_date: Optional[str] = typer.Option(None, "--from-date", help="Range start (requires --to-date for paired use)."),
+    to_date: Optional[str] = typer.Option(None, "--to-date", help="Range end (requires --from-date for paired use)."),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Process only the first N tickers from jp_watchlist (order preserved).",
+    ),
+    live: bool = typer.Option(False, "--live", help="Perform live HTTP when all gates allow it."),
+    preview_request: bool = typer.Option(False, "--preview-request", help="Show V2 request preview per ticker; never HTTP."),
+) -> None:
+    """Batch daily-bars check for ``jp_watchlist`` (Phase 1a Task 6). Default: dry-run."""
+
+    client = JQuantsClient.from_env()
+    dn = _cli_optional_str(date)
+    fn = _cli_optional_str(from_date)
+    tn = _cli_optional_str(to_date)
+
+    if (fn is not None) ^ (tn is not None):
+        view = _jquants_daily_quotes_cli_snapshot(
+            {
+                "status": "validation_error",
+                "reason": "watchlist_range_requires_both_from_and_to",
+                "raw_response_included": False,
+            },
+            code=None,
+            from_date=fn,
+            to_date=tn,
+            date_opt=dn,
+        )
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+        raise typer.Exit(1)
+
+    verr = client.validate_daily_quotes_cli_args(None, date=dn, from_date=fn, to_date=tn)
+    if verr is not None:
+        view = _jquants_daily_quotes_cli_snapshot(verr, code=None, from_date=fn, to_date=tn, date_opt=dn)
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+        raise typer.Exit(1)
+
+    try:
+        tickers_all = load_jp_watchlist_tickers()
+    except (FileNotFoundError, ValueError, OSError) as e:
+        typer.echo(json.dumps({"status": "error", "detail": str(e), "raw_response_included": False}, ensure_ascii=False, indent=2))
+        raise typer.Exit(1) from e
+
+    tickers = tickers_all if limit is None else tickers_all[:limit]
+    base_meta: dict[str, Any] = {
+        "date": dn,
+        "date_from": fn,
+        "date_to": tn,
+        "target_count": len(tickers),
+        "raw_response_included": False,
+    }
+
+    results: list[dict[str, Any]] = []
+
+    if preview_request:
+        for code in tickers:
+            if jquants_daily_bars_ticker_kind(code) != "ok":
+                results.append(
+                    _result_row_no_raw({"code": code, "status": "skipped_unsupported_code", "raw_response_included": False})
+                )
+                continue
+            prv = client.build_v2_daily_bars_request_preview(code, date=dn, from_date=fn, to_date=tn)
+            results.append(_result_row_no_raw(_watchlist_preview_row(code, prv)))
+        out = {"status": "preview", **base_meta, "results": results}
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
+    if not live and not client.is_enabled():
+        out = {
+            "status": "disabled",
+            "reason": "JQUANTS_ENABLED=false",
+            **base_meta,
+            "results": [],
+        }
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
+    for code in tickers:
+        if jquants_daily_bars_ticker_kind(code) != "ok":
+            results.append(_result_row_no_raw({"code": code, "status": "skipped_unsupported_code"}))
+            continue
+        res = client.get_daily_quotes(code, date=dn, from_date=fn, to_date=tn, attempt_live=live)
+        snap = _jquants_daily_quotes_cli_snapshot(res, code=code, from_date=fn, to_date=tn, date_opt=dn)
+        results.append(_result_row_no_raw(snap))
+
+    if not live:
+        out = {"status": "dry_run", **base_meta, "results": results}
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
+    non_skip = [r for r in results if r.get("status") != "skipped_unsupported_code"]
+    success_count = sum(1 for r in non_skip if r.get("status") == "success")
+    error_count = len(non_skip) - success_count
+    out = {
+        "status": "completed",
+        **base_meta,
+        "success_count": success_count,
+        "error_count": error_count,
+        "results": results,
+    }
+    typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    if error_count == 0:
+        raise typer.Exit(0)
+    raise typer.Exit(1)
 
 
 @debug_app.command("jquants-daily-quotes")

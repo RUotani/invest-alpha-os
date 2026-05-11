@@ -33,7 +33,8 @@
 | **Task 5.4** | **V2 日付クエリを `YYYYMMDD` で送信**（公式クイックスタートの例に合わせる）。CLI は **`YYYY-MM-DD`** または **`YYYYMMDD`** を入力可。**`query_params` と `preview-request` は実送信値**（ハイフンなし 8 桁）。無効な日付は **`invalid_date_format`** |
 | **Task 5.5** | **HTTP エラー時の安全プレビュー**：`http_error` に **短いマスク済み `error_body_preview`**（最大約 300 文字、**raw body は返さない**）。`JQUANTS_API_KEY` 等は伏字 |
 | **Task 5.6** | **データ提供範囲ガード**：**`JQUANTS_DATA_AVAILABLE_FROM` / `TO`**（両方とも人間が `.env` で設定）が **解釈可能なときだけ**、**`--date` / `--from-date` / `--to-date`** が **契約ウィンドウ外**なら **HTTP 前に `validation_error` / `date_out_of_available_range`**（`config/market_data.yaml` に env 名メタあり） |
-| **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化・Task 5.6 の範囲ガードを利用） |
+| **Task 6** | **`debug jquants-watchlist-bars`**：**`config/watchlist.yaml` の `jp_watchlist`** を順に **`get_daily_quotes` / preview**。**既定 dry-run**、**`--preview-request`** は HTTP なし、**live は三重ゲート + Task 5.6 の日付範囲**。**4 桁数字のみ J-Quants に送信**；**285A など非数字コードは `skipped_unsupported_code`**（勝手に桁埋めしない） |
+| **Task 7** | **Daily report** に watchlist 由来の J-Quants 取得状況（成否サマリ等）を反映（Task 6 の CLI 確認を前提に段階導入） |
 
 ### Task 2 で追加したこと（要約）
 
@@ -97,6 +98,11 @@
 
 - **環境変数** **`JQUANTS_DATA_AVAILABLE_FROM`** / **`JQUANTS_DATA_AVAILABLE_TO`**（**`YYYY-MM-DD` または `YYYYMMDD`**）を **両方**満たすと解釈できるときだけ、V2 の **`validate_daily_quotes_cli_args`** が **各指定日**を **両端込みの契約ウィンドウ**と照合する。**未設定・片方だけ・解釈不能・`from > to`** のときは **`make verify` 互換のためガード無効**（従来どおり）。
 - 範囲外は **`validation_error` / `date_out_of_available_range`**。応答に **`data_available_from`** / **`data_available_to`**（ISO **日付のみ**）と CLI 側の **`date` / `date_from` / `date_to`**。**API Key / raw は含めない**。**`--preview-request` と dry-run でも** HTTP 前に同じ検証が走る。**`code` のみ**（日付なし）では照合しない。
+
+### Task 6 で追加したこと（watchlist・daily bars 一括確認）
+
+- **`invis_alpha_os.config.jp_watchlist`**：`jp_watchlist` からティッカー列を抽出。**`jquants_daily_bars_ticker_kind`** は **4 桁数字のみ `ok`**（**それ以外はスキップ**；**`285A` は J-Quants wire 向けに送らない**）。
+- **`alpha-os debug jquants-watchlist-bars`**：**`--date`** または **`--from-date`/`--to-date`（レンジは両方必須）** 。**`--limit`**・**`--preview-request`**・**`--live`**。トップレベル **`raw_response_included: false`**。**daily レポート本体には未統合（Task 7）**。
 
 ## Version2 の認証（Task 4 時点）
 
