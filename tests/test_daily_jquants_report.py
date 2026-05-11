@@ -47,8 +47,9 @@ def test_daily_report_readiness_green(jq_data_guard_env):
     assert "- Unsupported codes skipped: 285A" in body
     assert "### Local smoke test record" in body
     assert "Task 7 spec-style field examples" in body
-    assert "7974 / 2024-02-16" in body
-    assert "7011, 6501, 6506" in body
+    assert "7974 / 2024-02-17" in body
+    assert "7011 / 6501 / 6506" in body
+    assert "**Task 9.2**" in body or "Task 9.2" in body
     assert "documented reference" in body.lower()
     assert "Raw response included: false" in body
     assert "api key displayed: false" in body.lower()

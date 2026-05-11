@@ -56,7 +56,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`normalize_v2_daily_bars_response`**：`data` / `daily_quotes` / `bars` / `results` の順で **list** を検査。**空 list は `success` と `row_count=0`**。list 以外は **`invalid_response`**。
 - **`get_daily_quotes`（V2 live）** の成功判定を上記に集約。**`row_count` / `source_key` / `date_from` / `date_to`** を返す（行データ・API Key は出さない）。
 - **`debug jquants-daily-quotes`**：**`--live` なしは dry-run exit 0**；**一覧キーだけでなく値が配列であること**を確認してから **`success`**。CLI 出力を安全な要約のみに。**実 API は人間のローカル・手順 [09](./09_jquants_local_manual_test.md) のみ**。
-- **最小 live の一例**を [09](./09_jquants_local_manual_test.md) に記録（`code=7974`, `date=2024-02-16`, `row_count=1`, `source_key=data`）。
+- **最小 live の一例**を [09](./09_jquants_local_manual_test.md) に記録（単一コード例：**契約内日付**。Task 9.2 記録：`7011`,`6501`,`6506` / `2024-02-19` 等）。
 - **テスト**：normalize・CLI `--live` exit・標準出力に秘密なし。**CI は live 不使用**。
 
 ### Task 5.6 — 完了（データ提供範囲ガード）
@@ -84,10 +84,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`alpha-os debug jquants-watchlist-bars --save-summary`** が **`outputs/jquants_smoke/`** に **sanitized JSON** と **`latest.json`** を出力（**Git 対象外**。**API Key・raw・ヘッダー全体は書かない**）。
 - **`reporting/jquants_smoke_summary.py`**。**`daily` / `make verify` / CI は変更なしで live しない**。
 
+### Task 9.2 — 完了（契約範囲の記録・watchlist smoke 成功のドキュメント化）
+
+- **実契約（API メッセージ要約）**に合わせ、**`.env.example`** と **[09](./09_jquants_local_manual_test.md)** の **`JQUANTS_DATA_AVAILABLE_FROM` / `TO` 例**を **`2024-02-17`〜`2026-02-17`** に更新。**人間はローカル `.env` で各自のプランに合わせて上書き**。
+- **watchlist limit 3** の **`--live --save-summary` 成功**（`7011` / `6501` / `6506`、`date=2024-02-19`、要約フィールドのみ）を [09](./09_jquants_local_manual_test.md) と daily レポート説明用文言に反映。**`outputs/jquants_smoke/*.json`** は **Git に載せず**。**`latest.json` も同上**。
+- **`config/market_data.yaml`** に例示ウィンドウの注記。
+
 ### Task 10 以降（未着手）
 
-- **`latest.json`** を **`daily` が参照して「ローカル記録」として載せるか**の検討（**自動 live は継続禁止**）。
-- Watchlist の小規模 live 運用メモの更新など（[08](./08_phase1a_jquants_plan.md)）。
+- **`daily` が `outputs/jquants_smoke/latest.json`（過去に保存済みの sanitized のみ）を読み込み、本文に載せるか**の検討・実装（**`daily` 中は live に接続しない**）。
 
 ---
 

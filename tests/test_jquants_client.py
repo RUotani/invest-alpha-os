@@ -1264,8 +1264,8 @@ def test_v2_http_error_masks_access_token_in_nested_json(monkeypatch):
 
 
 def _set_jquants_data_window(monkeypatch) -> None:
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-16")
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "2026-02-16")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-17")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "2026-02-17")
 
 
 def test_v2_date_in_data_window_ok(monkeypatch):
@@ -1273,7 +1273,7 @@ def test_v2_date_in_data_window_ok(monkeypatch):
     _set_jquants_data_window(monkeypatch)
     _patch_base(monkeypatch)
     err = JQuantsClient.from_env().validate_daily_quotes_cli_args(
-        "7974", date="2024-02-16", from_date=None, to_date=None
+        "7974", date="2024-02-19", from_date=None, to_date=None
     )
     assert err is None
 
@@ -1286,8 +1286,8 @@ def test_v2_date_before_data_window_validation_error(monkeypatch):
     assert err is not None
     assert err["status"] == "validation_error"
     assert err["reason"] == "date_out_of_available_range"
-    assert err["data_available_from"] == "2024-02-16"
-    assert err["data_available_to"] == "2026-02-16"
+    assert err["data_available_from"] == "2024-02-17"
+    assert err["data_available_to"] == "2026-02-17"
 
 
 def test_v2_date_after_data_window_validation_error(monkeypatch):
@@ -1309,10 +1309,10 @@ def test_v2_from_to_outside_window_validation_error(monkeypatch):
 
 
 def test_v2_data_window_accepts_compact_iso_equivalent(monkeypatch):
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "20240216")
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "20260216")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "20240217")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "20260217")
     err = JQuantsClient.from_env().validate_daily_quotes_cli_args(
-        "7011", date="2024-02-16", from_date=None, to_date=None
+        "7011", date="2024-02-19", from_date=None, to_date=None
     )
     assert err is None
 
@@ -1330,7 +1330,7 @@ def test_cli_preview_request_data_window_no_leaks(monkeypatch):
     blob = json.loads(r.stdout.strip())
     assert blob["status"] == "validation_error"
     assert blob["reason"] == "date_out_of_available_range"
-    assert blob["data_available_from"] == "2024-02-16"
+    assert blob["data_available_from"] == "2024-02-17"
     assert "NEVER_LEAK_SECRET_KEY_999" not in r.stdout
     low = r.stdout.lower()
     assert "password" not in low

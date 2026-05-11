@@ -27,6 +27,8 @@ market_data:
       base_url_env: JQUANTS_API_BASE_URL
       enabled_env: JQUANTS_ENABLED
       allow_live_http_env: JQUANTS_ALLOW_LIVE_HTTP
+      # Subscription window for Task 5.6 validation (optional; both must parse). Local .env only.
+      # Example dates in .env.example (Task 9.2 illustrative): 2024-02-17 .. 2026-02-17 — each user must align to their plan.
       data_available_from_env: JQUANTS_DATA_AVAILABLE_FROM
       data_available_to_env: JQUANTS_DATA_AVAILABLE_TO
       mode: stub_by_default

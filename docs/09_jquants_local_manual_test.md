@@ -48,13 +48,18 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 次は **`success` 応答の形**と **CLI が出す要約フィールド**を説明するための例です。**いずれもコマンド標準出力の転載ではなく**、公式クイックスタートや Task 5 の正規化に沿った **説明用の値**です（契約レンジ・環境により異なります）。
 
-- **コマンド（概念）**: `debug jquants-daily-quotes --code 7974 --date 2024-02-16 --live`（BASE URL・API Key は **各自の `.env` のみ**）
-- **結果の要約**: `status: success`, `code: 7974`, `date: 2024-02-16`, `row_count: 1`, `source_key: data`
+- **コマンド（概念）**: `debug jquants-daily-quotes --code 7974 --date 2024-02-17 --live`（BASE URL・API Key は **各自の `.env` のみ**。日付は **契約ウィンドウ内**にすること）
+- **結果の要約**: `status: success`, `code: 7974`, `date: 2024-02-17`, `row_count: 1`, `source_key: data`
+
+**契約ウィンドウ（人間確認・Task 9.2 の記録一例）**：J-Quants が返したメッセージに基づき、データ提供 **`2024-02-17 ~ 2026-02-17`**（両端込み）。**あなたのプランとは異なる場合は `.env` の `JQUANTS_DATA_AVAILABLE_*` を必ず自分の契約で上書き**すること。
+
+**`2024-02-16`（注記）**：上記契約では **開始日の前日**にあたるため **範囲外**（Task 5.6 のガードを両端 `2024-02-17` / `2026-02-17` に合わせた場合、**`date_out_of_available_range`** になり得る）。
 
 **契約データ範囲外**の典型（API が返し得る趣旨: *Your subscription covers the following dates: …*）:
 
 - **`2024-01-04`** — 契約開始 **前**
-- **`2026-05-08`** — 契約終了 **後**
+- **`2024-02-16`** — **本記録の契約では開始日（2024-02-17）より前**
+- **`2026-05-08`** — 契約終了 **後**（本記録では `2026-02-17` まで）
 
 **CLI ガード（Task 5.6）**: `.env` に **`JQUANTS_DATA_AVAILABLE_FROM`** / **`JQUANTS_DATA_AVAILABLE_TO`** を **契約レンジに合わせて**設定する（**両方**揃いかつ解釈可能なときだけ有効）。**範囲外**の **`--date` / `--from-date` / `--to-date`** は **HTTP の前に** **`validation_error` / `date_out_of_available_range`** で止まる（**`--preview-request`・dry-run も同様**）。**API Key・raw 応答は出さない**。
 
@@ -76,18 +81,18 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 - **`--preview-request`** と **`--save-summary`** の併用では **ファイルは作らない**（プレビュー専用のため）。
 - 手順は **まず `--limit 1`**、問題なければ **`--limit 3`**。**live は人間だけ**・三重ゲート必須（冒頭「前提」節）。
 
-例（環境変数や venv は自分の環境に合わせる）：
+例（環境変数や venv は自分の環境に合わせる）。**日付は契約内**（本メモの例では **`2024-02-19`**）に置き換える：
 
 ```bash
 JQUANTS_ALLOW_LIVE_HTTP=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
-  debug jquants-watchlist-bars --date 2024-02-16 --limit 3 --live --save-summary
+  debug jquants-watchlist-bars --date 2024-02-19 --limit 3 --live --save-summary
 ```
 
-Dry-run のみでの保存：
+Dry-run のみでの保存（**契約内の日付**で）：
 
 ```bash
 JQUANTS_ENABLED=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
-  debug jquants-watchlist-bars --date 2024-02-16 --limit 2 --save-summary
+  debug jquants-watchlist-bars --date 2024-02-19 --limit 2 --save-summary
 ```
 
 JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_count`** / **`error_count`** / **`skipped_count`** / **`dry_run_count`** / **`preview_count`** / **銘柄ごとの要約結果**のみが載る設計であり、**.env の内容や応答本文そのものは書き込まない**。
@@ -102,15 +107,30 @@ JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_coun
 
 次は **J-Quants の日足取得が成功した場合の戻り値の形**を説明するための **代表的な東証コード**（`7011` / `6501` / `6506`）と日付・カウンタの例であり、**いずれの環境の CLI 標準出力をそのまま貼ったものではありません**（契約・環境により結果は異なります）。**raw 本文・API Key は含みません。**
 
-**`--limit 3 --date 2024-02-16`（dry-run + `--save-summary`）** の **保存 JSON のカウンタ例**: **`mode`**=`dry_run`, `target_count=3`, **`dry_run_count=3`**, `success_count=0`, **`error_count=0`**, `skipped_count=0`, `preview_count=0`。
+**`--limit 3 --date 2024-02-19`（dry-run + `--save-summary`）** の **保存 JSON のカウンタ例**: **`mode`**=`dry_run`, `target_count=3`, **`dry_run_count=3`**, `success_count=0`, **`error_count=0`**, `skipped_count=0`, `preview_count=0`。
 
-**`--limit 3 --live --date 2024-02-16`**（成功時）の **保存 JSON**: **`mode`**=`live`, `success_count=3`, **`dry_run_count=0`**, **`error_count=0`**, `preview_count=0`, **`skipped_count=0`**, `raw_response_included=false`。※CLI 標準出力のトップ `status` が **`completed`** でも **保存側は `mode: live`**。
+**`--limit 3 --live --date 2024-02-19`**（成功時）の **保存 JSON**: **`mode`**=`live`, `success_count=3`, **`dry_run_count=0`**, **`error_count=0`**, `preview_count=0`, **`skipped_count=0`**, `raw_response_included=false`。※CLI 標準出力のトップ `status` が **`completed`** でも **保存側は `mode: live`**。
+
+### 記録（Task 9.2）：オペレーション・メモ — 契約ウィンドウと watchlist limit 3（人間のみ）
+
+この節は **開発者の手元環境で行った確認のメモ**です。**環境によって契約レンジ・銘柄・カウントは変わる**ので、値を **普遍的な約束とはみなさない**でください。**API Key・応答本文（raw）・`.env` は書かず、載せません。** **Git にコミットする `outputs/jquants_smoke/*.json`** はなく、実ファイルは **`.gitignore` 済みディレクトリ**にのみ置きます。チャット等へ貼る際も **sanitize 済みか再確認してから**にしてください。
+
+- **契約（API が返した趣旨・要約）**: *Your subscription covers the following dates: 2024-02-17 ~ 2026-02-17.*
+- **`2024-02-16`（記録ベースの注記）**：上記開始日より **前**であり、データガードをこの両端で合わせた場合 **`date_out_of_available_range`** になり得る。
+- **手元での live 試行**：次を **自分の `.env`** で済ませる前提（三重ゲート＋ **`JQUANTS_ENABLED=true`** 等は [前提](#前提必読) 節）。
+  ```bash
+  export JQUANTS_ENABLED=true  # （通常は自分の .env で既にオン）
+  JQUANTS_ALLOW_LIVE_HTTP=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
+    debug jquants-watchlist-bars --date 2024-02-19 --limit 3 --live --save-summary
+  ```
+- **観察された出力の性状（開発者環境／非保証）**：CLI 側は **`completed`** 系の終了となることがあり、`jp_watchlist` 先頭 3 件（例として **`7011` / `6501` / `6506`**）が **`success`** と判定され、`row_count` や `source_key` のような **要約ラベルのみ** が返った。**異常カウントはすべて 0**。**`summary_saved_to` / `latest_summary_saved_to` はコードが生成する POSIX パス**（規約：`outputs/jquants_smoke/watchlist_bars_<date>_limit<N>.json` と `outputs/jquants_smoke/latest.json`）。**この JSON は sanitized でも Git へは入れない。**
 
 ### Daily report（Task 7–8）
 
 - **`alpha-os daily`** は **J-Quants に HTTP 接続しない**。レポート本文の **J-Quants Watchlist Bars Check** は **dry-run の集計・readiness・説明のみ**（`config/market_data.adapters.jquants.report`）。
 - **`Readiness: Green`** は **「その場で live が成功した」意味ではない**。**設定・環境（契約日付ガードの有無）・ウォッチリスト集計**だけから判定する。**実際の live 確認はこのコマンドでは行わない**。
 - **Local smoke test record** の箇条書きは **Task 7 のフィールド例**（**CLI のログ貼り付けではなく**、レポート設定でオンにできる **静的な説明文**）。**毎日の CI や `live` を要求しません**。
+- **Task 10（予定）**：**ローカルの** **`outputs/jquants_smoke/latest.json`** を **`daily`** が読んで本文に載せるか検討（**ファイルは sanitized・Git 対象外**。**`daily` の実行では live は走らせない**）。
 
 ---
 
