@@ -1,16 +1,21 @@
-"""J-Quants watchlist bars **summary** + **readiness** for daily reports (Task 7–8).
+"""J-Quants watchlist bars **summary** + **readiness** for daily reports (Task 7–8, **Task 10**).
 
-This module performs **no HTTP** and never reads API keys; it only uses ``watchlist.yaml`` counts,
-optional env for the data-availability guard, and ``market_data.yaml`` ``report`` flags.
+This module performs **no HTTP**, never calls ``urllib``, does not invoke ``JQuantsClient.get_daily_quotes``,
+and never reads API keys; it only uses ``watchlist.yaml`` counts, **optional local** ``latest.json`` (sanitized
+smoke), optional env for the data-availability guard, and ``market_data.yaml`` ``report`` flags.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any, Mapping
 
 from invis_alpha_os.config.jp_watchlist import jquants_daily_bars_ticker_kind, load_jp_watchlist_tickers
+from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.data.adapters.jquants_client import jquants_data_availability_bounds_from_env
 
 
@@ -39,6 +44,303 @@ def _cfg_bool(cfg: Mapping[str, Any], key: str, default: bool = False) -> bool:
 def _cfg_str(cfg: Mapping[str, Any], key: str, default: str = "") -> str:
     v = cfg.get(key, default)
     return str(v).strip() if v is not None else default
+
+
+_DEFAULT_LATEST_REL = "outputs/jquants_smoke/latest.json"
+
+_SAFE_NAMED_KEYS = frozenset(
+    {
+        "raw_response_included",
+        "api_key_displayed",
+        "source_key",
+    }
+)
+
+
+def _forbidden_smoke_key(name: str) -> bool:
+    """Reject secret-ish keys; allowlisted compound names are OK (e.g. ``source_key``)."""
+
+    if name in _SAFE_NAMED_KEYS:
+        return False
+    n = name.lower().replace("-", "_")
+    if n == "raw_response":
+        return True
+    if n in {"api_key", "authorization", "password", "secret", "credentials", "bearer"}:
+        return True
+    if re.search(r"x[_-]?api[_-]?key", n):
+        return True
+    if n in {"token", "access_token", "refreshtoken", "idtoken", "refresh_token", "id_token"}:
+        return True
+    if n.endswith("_token") or n.endswith("password"):
+        return True
+    return False
+
+
+def _walk_for_forbidden_keys(obj: Any) -> bool:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(k, str) and _forbidden_smoke_key(k):
+                return True
+            if _walk_for_forbidden_keys(v):
+                return True
+    elif isinstance(obj, list):
+        for it in obj:
+            if _walk_for_forbidden_keys(it):
+                return True
+    return False
+
+
+def _analyze_smoke_payload(obj: Any) -> tuple[str, bool | None, bool | None]:
+    """Return ``(status, raw_unsafe, api_unsafe)``.
+
+    ``status`` is ``safe`` | ``blocked`` | ``invalid``.
+    For blocked from unknown structure, raw/api may be ``None`` (shown as unknown in markdown).
+    """
+
+    if not isinstance(obj, dict):
+        return "invalid", None, None
+    ri = obj.get("raw_response_included")
+    ad = obj.get("api_key_displayed")
+    if ri is True:
+        return "blocked", True, True if ad is True else (False if ad is False else None)
+    if ad is True:
+        return "blocked", False if ri is False else None, True
+    if _walk_for_forbidden_keys(obj):
+        return "blocked", None, None
+    return "safe", False, False
+
+
+def _load_latest_smoke_json(path: Path) -> tuple[str, Any | None]:
+    """Read JSON from disk only. Returns ``(ok|missing|bad, payload_or_none)``."""
+
+    try:
+        if not path.is_file():
+            return "missing", None
+        text = path.read_text(encoding="utf-8")
+        payload = json.loads(text)
+        return "ok", payload
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return "bad", None
+
+
+def _fmt_scalar(v: Any) -> str:
+    if isinstance(v, bool):
+        return str(v).lower()
+    if v is None:
+        return "n/a"
+    return str(v)
+
+
+def _collect_safe_result_codes(rows: Any) -> tuple[list[str], bool]:
+    """Collect JP equity codes for display. Sets *bad* if any explicit ``code`` is not wire-safe."""
+
+    codes: list[str] = []
+    if not isinstance(rows, list):
+        return [], False
+    bad = False
+    for row in rows:
+        if not isinstance(row, dict) or "code" not in row:
+            continue
+        c = row.get("code")
+        s = str(c).strip() if c is not None else ""
+        if not s:
+            continue
+        if jquants_daily_bars_ticker_kind(s) != "ok":
+            bad = True
+            continue
+        codes.append(s)
+    return codes, bad
+
+
+_ALLOWED_SMOKE_MODES = frozenset({"dry_run", "live", "completed", "disabled", "preview"})
+
+
+def _safe_iso_date(s: str) -> bool:
+    return bool(re.fullmatch(r"\d{4}-\d{2}-\d{2}", s))
+
+
+def _smoke_display_scalars_ok(p: dict[str, Any]) -> bool:
+    """Reject tainted summaries: wrong types, oversized strings, or unknown mode."""
+
+    m = p.get("mode")
+    if m is not None:
+        if not isinstance(m, str) or m.strip() not in _ALLOWED_SMOKE_MODES:
+            return False
+    d = p.get("date")
+    if d is not None:
+        if not isinstance(d, str) or not _safe_iso_date(d.strip()):
+            return False
+    for k in ("date_from", "date_to"):
+        v = p.get(k)
+        if v is None:
+            continue
+        if not isinstance(v, str) or not _safe_iso_date(v.strip()):
+            return False
+    ca = p.get("created_at")
+    if ca is not None:
+        if not isinstance(ca, str) or len(ca) > 80:
+            return False
+        if any(ord(c) < 32 for c in ca):
+            return False
+    for k in (
+        "target_count",
+        "success_count",
+        "error_count",
+        "skipped_count",
+        "dry_run_count",
+        "preview_count",
+    ):
+        v = p.get(k)
+        if v is None:
+            continue
+        if isinstance(v, bool) or not isinstance(v, int):
+            return False
+        if v < 0 or v > 10_000_000:
+            return False
+    ri, ad = p.get("raw_response_included"), p.get("api_key_displayed")
+    for b in (ri, ad):
+        if b is None:
+            continue
+        if not isinstance(b, bool):
+            return False
+    return True
+
+
+def _resolve_latest_smoke_path(report_cfg: Mapping[str, Any]) -> Path:
+    rel = _cfg_str(report_cfg, "latest_smoke_summary_path", _DEFAULT_LATEST_REL)
+    # Avoid path traversal outside repo when joining.
+    root = ROOT_DIR.resolve()
+    candidate = (root / rel).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return root / _DEFAULT_LATEST_REL
+    return candidate
+
+
+def render_latest_local_smoke_summary_section(report_cfg: Mapping[str, Any] | None) -> str:
+    """Markdown for ``### Latest local smoke summary`` (file read only; **no HTTP**)."""
+
+    cfg = dict(report_cfg or {})
+    if not _cfg_bool(cfg, "include_latest_smoke_summary", True):
+        return ""
+
+    src_display = _cfg_str(cfg, "latest_smoke_summary_path", _DEFAULT_LATEST_REL)
+    path = _resolve_latest_smoke_path(cfg)
+
+    live_line = "- Live HTTP during daily: false"
+    http_gate = _cfg_str(cfg, "latest_smoke_summary_live_http", "disabled")
+    if (http_gate or "").strip().lower() != "disabled":
+        live_line = f"- Live HTTP during daily: not disabled in config ({http_gate!r}; daily must not run live)"
+
+    lines = ["", "### Latest local smoke summary", "", f"- Source: {src_display}"]
+
+    st, payload = _load_latest_smoke_json(path)
+    if st == "missing":
+        lines.extend(
+            [
+                "- Status: not found",
+                "- Note: Run `debug jquants-watchlist-bars ... --save-summary` manually "
+                "to create a local sanitized summary.",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    if st == "bad" or payload is None:
+        lines.extend(
+            [
+                "- Latest local smoke summary: unsafe summary blocked",
+                "- Raw response included: unknown",
+                "- API key displayed: unknown",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    status, raw_u, api_u = _analyze_smoke_payload(payload)
+    if status == "invalid":
+        lines.extend(
+            [
+                "- Latest local smoke summary: unsafe summary blocked",
+                "- Raw response included: unknown",
+                "- API key displayed: unknown",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    if status == "blocked":
+        def _u(b: bool | None) -> str:
+            if b is True:
+                return "true"
+            if b is False:
+                return "false"
+            return "unknown"
+
+        lines.extend(
+            [
+                "- Latest local smoke summary: unsafe summary blocked",
+                f"- Raw response included: {_u(raw_u)}",
+                f"- API key displayed: {_u(api_u)}",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    # safe — only emit whitelisted fields; never echo arbitrary JSON blobs or secrets.
+    p = payload
+    if not _smoke_display_scalars_ok(p):
+        lines.extend(
+            [
+                "- Latest local smoke summary: unsafe summary blocked",
+                "- Raw response included: unknown",
+                "- API key displayed: unknown",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    mode = _fmt_scalar(p.get("mode"))
+    date_s = _fmt_scalar(p.get("date"))
+    target = _fmt_scalar(p.get("target_count"))
+    succ = _fmt_scalar(p.get("success_count"))
+    errc = _fmt_scalar(p.get("error_count"))
+    dry_c = _fmt_scalar(p.get("dry_run_count"))
+    prv_c = _fmt_scalar(p.get("preview_count"))
+    skp_c = _fmt_scalar(p.get("skipped_count"))
+    raw_inc = _fmt_scalar(p.get("raw_response_included", False))
+    api_inc = _fmt_scalar(p.get("api_key_displayed", False))
+
+    codes, bad_codes = _collect_safe_result_codes(p.get("results"))
+    if bad_codes:
+        lines.extend(
+            [
+                "- Latest local smoke summary: unsafe summary blocked",
+                "- Raw response included: unknown",
+                "- API key displayed: unknown",
+                live_line,
+            ]
+        )
+        return "\n".join(lines)
+
+    lines.extend(
+        [
+            f"- Mode: {mode}",
+            f"- Date: {date_s}",
+            f"- Target count: {target}",
+            f"- Success count: {succ}",
+            f"- Error count: {errc}",
+            f"- Dry-run count: {dry_c}",
+            f"- Preview count: {prv_c}",
+            f"- Skipped count: {skp_c}",
+            f"- Raw response included: {raw_inc}",
+            f"- API key displayed: {api_inc}",
+            f"- Result codes: {', '.join(codes) if codes else 'none'}",
+            live_line,
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _load_jp_watchlist_tickers_safe() -> tuple[list[str], str | None]:
@@ -273,4 +575,6 @@ def render_jquants_watchlist_bars_check_section(report_cfg: Mapping[str, Any] | 
             ]
         )
 
-    return "\n".join(lines)
+    body = "\n".join(lines)
+    body += render_latest_local_smoke_summary_section(cfg)
+    return body

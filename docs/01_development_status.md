@@ -90,9 +90,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **watchlist limit 3** の **`--live --save-summary` 成功**（`7011` / `6501` / `6506`、`date=2024-02-19`、要約フィールドのみ）を [09](./09_jquants_local_manual_test.md) と daily レポート説明用文言に反映。**`outputs/jquants_smoke/*.json`** は **Git に載せず**。**`latest.json` も同上**。
 - **`config/market_data.yaml`** に例示ウィンドウの注記。
 
-### Task 10 以降（未着手）
+### Task 10 — 完了（`daily` がローカル `latest.json` を参照）
 
-- **`daily` が `outputs/jquants_smoke/latest.json`（過去に保存済みの sanitized のみ）を読み込み、本文に載せるか**の検討・実装（**`daily` 中は live に接続しない**）。
+- **`reports/jquants_watchlist_daily.py`**：**`latest.json` 読み取りのみ**。**`JQuantsClient.get_daily_quotes` や `urllib` は使わない**。**秘匿っぽいキー・`raw_response` キー・`raw_response_included` / `api_key_displayed` が true の場合は「unsafe summary blocked」表示**。
+- **設定**：**`include_latest_smoke_summary`**、**`latest_smoke_summary_path`**、**`latest_smoke_summary_live_http: disabled`**（`config/market_data.adapters.jquants.report`）。
+
+### Task 11 以降（未着手）
+
+- **readiness** を **`latest.json`** の性状に合わせて **Green+ / Yellow** に細分化するか（**自動 live は禁止のまま**）。
 
 ---
 

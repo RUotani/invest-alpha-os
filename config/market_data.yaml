@@ -52,6 +52,10 @@ market_data:
         mode: dry_run_summary
         live_http_in_daily: disabled
         include_local_smoke_record: true
+        # Task 10: read local sanitized smoke JSON only (no HTTP, no urllib).
+        include_latest_smoke_summary: true
+        latest_smoke_summary_path: outputs/jquants_smoke/latest.json
+        latest_smoke_summary_live_http: disabled
         readiness_enabled: true
         readiness_green_requires_data_guard: true
         readiness_green_requires_smoke_record: true

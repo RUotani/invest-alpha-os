@@ -125,12 +125,12 @@ JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_coun
   ```
 - **観察された出力の性状（開発者環境／非保証）**：CLI 側は **`completed`** 系の終了となることがあり、`jp_watchlist` 先頭 3 件（例として **`7011` / `6501` / `6506`**）が **`success`** と判定され、`row_count` や `source_key` のような **要約ラベルのみ** が返った。**異常カウントはすべて 0**。**`summary_saved_to` / `latest_summary_saved_to` はコードが生成する POSIX パス**（規約：`outputs/jquants_smoke/watchlist_bars_<date>_limit<N>.json` と `outputs/jquants_smoke/latest.json`）。**この JSON は sanitized でも Git へは入れない。**
 
-### Daily report（Task 7–8）
+### Daily report（Task 7–8 / **Task 10**）
 
-- **`alpha-os daily`** は **J-Quants に HTTP 接続しない**。レポート本文の **J-Quants Watchlist Bars Check** は **dry-run の集計・readiness・説明のみ**（`config/market_data.adapters.jquants.report`）。
+- **`alpha-os daily`** は **J-Quants に HTTP 接続しない**（**`urllib` / live を呼ばない**）。レポート本文の **J-Quants Watchlist Bars Check** は **dry-run の集計・readiness・説明**（`config/market_data.adapters.jquants.report`）。
+- **`--save-summary` 後**、同じレポートに **`### Latest local smoke summary`** が付くことがある。これは **ローカルの** `outputs/jquants_smoke/latest.json` **を読むだけ**（**Git 管理外**）。**ファイルが無いときは `not found`**。**秘匿っぽいキーや unsafe フラグのときは `unsafe summary blocked`**。
 - **`Readiness: Green`** は **「その場で live が成功した」意味ではない**。**設定・環境（契約日付ガードの有無）・ウォッチリスト集計**だけから判定する。**実際の live 確認はこのコマンドでは行わない**。
 - **Local smoke test record** の箇条書きは **Task 7 のフィールド例**（**CLI のログ貼り付けではなく**、レポート設定でオンにできる **静的な説明文**）。**毎日の CI や `live` を要求しません**。
-- **Task 10（予定）**：**ローカルの** **`outputs/jquants_smoke/latest.json`** を **`daily`** が読んで本文に載せるか検討（**ファイルは sanitized・Git 対象外**。**`daily` の実行では live は走らせない**）。
 
 ---
 

@@ -39,7 +39,9 @@
 | **Task 9** | **`debug jquants-watchlist-bars --save-summary`**：**sanitized** な要約 JSON を **`outputs/jquants_smoke/`** に保存（**raw・API Key・`x-api-key`・ヘッダー全体は保存禁止**）。**`--preview-request` では保存しない**。**dry-run / live 完了**の両方で保存可。**`daily` / CI / `make verify` は変更なしで live しない** |
 | **Task 9.1** | **Smoke summary カウンタ**：**`dry_run`** を **`error_count` に含めない**。**保存 JSON** に **`dry_run_count`** / **`preview_count`** を追加。ライブ完了時、CLI 出力は **`completed`** でも **保存 `mode` は `live`**（Task 10 の daily 取り込み前提） |
 | **Task 9.2** | **契約データ範囲の実反映**と **watchlist limit 3 live smoke 成功のドキュメント化**：[09](./09_jquants_local_manual_test.md)・**`.env.example`** の **`JQUANTS_DATA_AVAILABLE_*` 例**を **実契約（例：`2024-02-17`〜`2026-02-17`）と整合**。**記録済み**：`7011` / `6501` / `6506`、`date=2024-02-19`、`--save-summary`。**`outputs/jquants_smoke/*.json`** は Git 対象外のまま |
-| **Task 10** | **`alpha-os daily` がローカルの `outputs/jquants_smoke/latest.json` を読んで「記録」を本文に載せる実装・可否の検討**（**`daily` の実行パスで live HTTP はしない**ことを維持。参照するのは **`--save-summary` で過去に残した sanitized ファイルのみ**の想定） |
+| **Task 10** | **`alpha-os daily`** が **`outputs/jquants_smoke/latest.json`**（**ローカルにだけある sanitized**）を **読んで本文に「Latest local smoke summary」を出す**。**ファイル読み取りのみ**。**`daily` / `make verify` / CI は live HTTP しない**（**`include_latest_smoke_summary`**、`latest_smoke_summary_*` は `config/market_data.adapters.jquants.report`） |
+| **Task 11** | 必要なら **readiness を `latest.json` の内容で Green+ / Yellow に細分化**（**自動 live は禁止のまま**） |
+
 ### Task 2 で追加したこと（要約）
 
 - **`safe_auth_status()`**: プレゼンスフラグと `token_preview: "***"` のみ（**トークン実値・パスワード・raw を出さない**）。
@@ -120,7 +122,8 @@
 
 - **`--save-summary`**：`reporting/jquants_smoke_summary.py` 経由で **`outputs/jquants_smoke/watchlist_bars_<slug>_limit<N|all>.json`** と **`latest.json`** を出力。保存内容は **`code` / `status` / `row_count` / `source_key` / `http_status` / `error_body_preview`** 等に限定し、**クエリ・URL・Key・raw body は書かない**。
 - **Task 9.1**：集計は **`success_count` / `error_count`（異常系 `status` のみ） / `skipped_count` / `dry_run_count` / `preview_count`**。ライブ後の CLI トップ **`status`** が **`completed`** でも、保存 JSON の **`mode`** は **`live`**。
-- **Task 9.2**：実契約のデータ適用ウィンドウ（**.env は各ユーザー**。リポでは **`.env.example` のみ例示：2024-02-17〜2026-02-17**）と、[09](./09_jquants_local_manual_test.md) への **watchlist limit 3 live + `--save-summary` 成功の記録**。**smoke の `*.json` は Git にコミットしない**。**Task 10** で **`daily`** が **`latest.json`** を参照する検討（**daily 実行中は live に出ない**）。
+- **Task 9.2**：実契約のデータ適用ウィンドウ（**.env は各ユーザー**。リポでは **`.env.example` のみ例示：2024-02-17〜2026-02-17**）と、[09](./09_jquants_local_manual_test.md) への **watchlist limit 3 live + `--save-summary` 成功の記録**。**smoke の `*.json` は Git にコミットしない**。
+- **Task 10**：**`daily`** が **`outputs/jquants_smoke/latest.json`** を **読むだけ**で **「Latest local smoke summary」**を本文に追加（**unsafe なキーや `raw_response_included` / `api_key_displayed` が true のときは blocked 表示**）。**`urllib` / live HTTP なし**。**`include_latest_smoke_summary`** 等は **`adapters.jquants.report`**。
 - **`alpha-os daily`** は引き続き **live しない**。
 
 - **Version2 は API Key 方式**（HTTP ヘッダー **`x-api-key`**）。**refreshToken / idToken 方式は V2 プライマリでは使わない**。
