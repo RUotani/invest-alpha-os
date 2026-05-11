@@ -50,3 +50,9 @@ market_data:
         mode: dry_run_summary
         live_http_in_daily: disabled
         include_local_smoke_record: true
+        readiness_enabled: true
+        readiness_green_requires_data_guard: true
+        readiness_green_requires_smoke_record: true
+        include_unsupported_codes: true
+        raw_response_included: false
+        api_key_displayed: false

@@ -39,6 +39,8 @@ invalid calendar dates → ``invalid_date_format``.
 
 **Task 7**: Daily report includes a **dry-run / status-only** **J-Quants Watchlist Bars Check** section (no HTTP, no API keys). See ``reports/jquants_watchlist_daily.py``.
 
+**Task 8**: Same section adds **readiness (Green / Yellow / Red)** from config + env + watchlist counts only (still **no HTTP**).
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 

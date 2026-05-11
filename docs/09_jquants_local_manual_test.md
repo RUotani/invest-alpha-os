@@ -76,10 +76,11 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 **`--limit 3 --live --date 2024-02-16`** の **想定される要約フィールド**の例: `success_count=3`, `error_count=0`, `raw_response_included=false`。
 
-### Daily report（Task 7）
+### Daily report（Task 7–8）
 
-- **`alpha-os daily`** は **J-Quants に HTTP 接続しない**。レポート本文に載る **J-Quants Watchlist Bars Check** は **dry-run / 集計・説明のみ**（`config/market_data.adapters.jquants.report`）。
-- **Local smoke test record** の箇条書きは **Task 7 のフィールド例**（**CLI のログ貼り付けではなく**、`config/market_data.adapters.jquants.report` で既定オンにした **静的な説明文**）。**毎日の CI や `live` を要求しません**。
+- **`alpha-os daily`** は **J-Quants に HTTP 接続しない**。レポート本文の **J-Quants Watchlist Bars Check** は **dry-run の集計・readiness・説明のみ**（`config/market_data.adapters.jquants.report`）。
+- **`Readiness: Green`** は **「その場で live が成功した」意味ではない**。**設定・環境（契約日付ガードの有無）・ウォッチリスト集計**だけから判定する。**実際の live 確認はこのコマンドでは行わない**。
+- **Local smoke test record** の箇条書きは **Task 7 のフィールド例**（**CLI のログ貼り付けではなく**、レポート設定でオンにできる **静的な説明文**）。**毎日の CI や `live` を要求しません**。
 
 ---
 

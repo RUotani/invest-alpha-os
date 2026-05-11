@@ -74,9 +74,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`alpha-os daily`** に **J-Quants Watchlist Bars Check** セクション（**集計・`dry_run` モードの説明のみ**）。**J-Quants API には接続しない**。**`make verify` / GitHub Actions でも live しない**。
 - **`reports/jquants_watchlist_daily.py`**、**`config/market_data.adapters.jquants.report`**。
 
-### Task 8 以降（未着手）
+### Task 8 — 完了（daily report の J-Quants readiness・HTTP なし）
 
-- **watchlist の小規模 live 運用検証**（[08](./08_phase1a_jquants_plan.md) Task 8）や、その他エンドポイント拡張
+- **Readiness（Green / Yellow / Red）** と **unsupported コードのみの一覧**。**live HTTP なし**（**Green でもその日に API を叩いたわけではない**）。
+- **`readiness_enabled`**、**`readiness_green_requires_*`**、**`include_unsupported_codes`** 等は **`config/market_data.adapters.jquants.report`**。
+
+### Task 9 以降（未着手）
+
+- **watchlist の小規模 live 運用検証**（[08](./08_phase1a_jquants_plan.md) Task 9、**日次レポート外**で人間のみ）や、その他エンドポイント拡張
 
 ---
 

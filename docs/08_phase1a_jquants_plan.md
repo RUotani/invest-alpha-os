@@ -35,7 +35,8 @@
 | **Task 5.6** | **データ提供範囲ガード**：**`JQUANTS_DATA_AVAILABLE_FROM` / `TO`**（両方とも人間が `.env` で設定）が **解釈可能なときだけ**、**`--date` / `--from-date` / `--to-date`** が **契約ウィンドウ外**なら **HTTP 前に `validation_error` / `date_out_of_available_range`**（`config/market_data.yaml` に env 名メタあり） |
 | **Task 6** | **`debug jquants-watchlist-bars`**：**`config/watchlist.yaml` の `jp_watchlist`** を順に **`get_daily_quotes` / preview**。**既定 dry-run**、**`--preview-request`** は HTTP なし、**live は三重ゲート + Task 5.6 の日付範囲**。**4 桁数字のみ J-Quants に送信**；**285A など非数字コードは `skipped_unsupported_code`**（勝手に桁埋めしない） |
 | **Task 7** | **`alpha-os daily`** に **J-Quants Watchlist Bars Check**（**dry_run / 集計のみ、HTTP なし**）。`config/market_data.yaml` の **`adapters.jquants.report`**。**API Key・raw・`x-api-key` 値は出さない**。**CI / `make verify` でも live しない** |
-| **Task 8** | 必要なら **watchlist の小規模 live 運用検証**（オペレーション手順・限定的な `--live` 試行）へ進む |
+| **Task 8** | **`alpha-os daily`** に **readiness（Green / Yellow / Red）** と **skipped コード一覧**。**HTTP なし**・設定は **`adapters.jquants.report`**（`readiness_*`）。**実 API は呼ばず**環境ガード可否・ウォッチリスト集計のみ |
+| **Task 9** | 必要なら **watchlist の小規模 live 運用検証**（レポート **外**で限定的な `--live` を人間のみ実施）、オペレーション手順の追記 |
 
 ### Task 2 で追加したこと（要約）
 
@@ -105,10 +106,13 @@
 - **`invis_alpha_os.config.jp_watchlist`**：`jp_watchlist` からティッカー列を抽出。**`jquants_daily_bars_ticker_kind`** は **4 桁数字のみ `ok`**（**それ以外はスキップ**；**`285A` は J-Quants wire 向けに送らない**）。
 - **`alpha-os debug jquants-watchlist-bars`**：**`--date`** または **`--from-date`/`--to-date`（レンジは両方必須）** 。**`--limit`**・**`--preview-request`**・**`--live`**。トップレベル **`raw_response_included: false`**。
 
-### Task 7 で追加したこと（daily report のサマリ・HTTP なし）
+### Task 8 で追加したこと（daily readiness・HTTP なし）
 
-- **`reports/jquants_watchlist_daily.render_jquants_watchlist_bars_check_section`**：`jp_watchlist` の **件数・supported/unsupported 集計**、**データ範囲ガードの有無**、**ローカル smoke 記録**（参考）。**API Key / raw / `x-api-key` 値は出さない**。**`alpha-os daily` は J-Quants に接続しない**。
-- **`config/market_data.adapters.jquants.report`** で ON/OFF と smoke 記録の有無。
+- **`render_jquants_watchlist_bars_check_section`**：先頭に **`Readiness`**（緑／黄／赤）。**skipped コード**一覧（URL や全銘柄 URL は出さない）。**`live_http_in_daily` は常に `disabled` を要求**（違反時は Red）。
+- **Green（例）**：supported > 0、（設定どおり）**データ範囲ガード両系有効**、（設定どおり）**smoke 記録オン**、raw/API 表示オフ、ウォッチリスト読込成功。**`285A` のように非 4 桁コードが混ざっても skip 扱いなら Green を維持し得る**。
+- **Yellow**：Red 条件でなく、Green の厳密条件の一部が欠ける（例：ガード未設定で `readiness_green_requires_data_guard: true`）。
+- **Red**：supported 0、ウォッチリスト読込失敗、raw/API 表示オン、**`live_http_in_daily` ≠ disabled** など。
+- **Smoke 状態行**：レポートは **`daily` 中に live smoke を実行しない**ため、**運用合格の `passed` は使わず**、**参照用サブセクションの有無を `documented reference` 等で示す**。
 
 ## Version2 の認証（Task 4 時点）
 
