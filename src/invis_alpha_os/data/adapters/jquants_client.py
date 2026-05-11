@@ -29,6 +29,8 @@ joined with paths like ``/equities/bars/daily`` so ``/v2/v2`` is not produced (T
 **Task 5.4**: V2 wire dates are **YYYYMMDD** (official quick start); CLI accepts ``YYYY-MM-DD`` or ``YYYYMMDD``;
 invalid calendar dates → ``invalid_date_format``.
 
+**Task 5.5**: On HTTP errors, a short **masked** ``error_body_preview`` (no raw body, no ``x-api-key`` value).
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 
@@ -40,7 +42,7 @@ import re
 import urllib.error
 import urllib.request
 from datetime import date as _date
-from typing import Any
+from typing import Any, Sequence
 from urllib.parse import urlencode
 
 # V2 daily bars: scan in this order; first present key must map to a list (Task 5).
@@ -104,6 +106,158 @@ def _validate_quote_date_fields_parseable(
         if _parse_v2_daily_bars_date(raw) is None:
             return _daily_quotes_cli_validation_error("invalid_date_format")
     return None
+
+
+def _read_http_error_body_bytes(exc: urllib.error.HTTPError) -> bytes:
+    try:
+        raw = exc.read()
+    except Exception:
+        return b""
+    if not raw:
+        return b""
+    if isinstance(raw, str):
+        return raw.encode("utf-8", errors="replace")
+    return bytes(raw)
+
+
+def _normalize_error_preview_ws(text: str) -> str:
+    t = text.replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    return " ".join(t.split())
+
+
+def _truncate_error_preview(text: str, max_len: int = 300) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[:max_len]
+
+
+_JSON_ERR_BODY_KEYS_TO_MASK = (
+    "refresh_token",
+    "access_token",
+    "refreshToken",
+    "accessToken",
+    "id_token",
+    "idToken",
+    "authorization",
+    "x-api-key",
+    "password",
+    "api_key",
+    "apikey",
+    "apiKey",
+    "token",
+    "secret",
+    "client_secret",
+    "clientSecret",
+    "session",
+    "cookie",
+)
+_JSON_ERR_BODY_KEY_ALT = "|".join(re.escape(k) for k in sorted(set(_JSON_ERR_BODY_KEYS_TO_MASK), key=len, reverse=True))
+_JSON_ERR_KEY_QUOTED_RE = re.compile(
+    rf'(?i)("(?:{_JSON_ERR_BODY_KEY_ALT})"\s*:\s*")([^"]*)(")'
+)
+
+
+def _mask_sensitive_preview(text: str, secrets: Sequence[str]) -> str:
+    """Mask env/client secrets and common bearer/header patterns (never emit x-api-key values)."""
+
+    out = text
+    ordered = sorted((s for s in secrets if s and len(s) > 0), key=len, reverse=True)
+    seen: set[str] = set()
+    for s in ordered:
+        if s in seen:
+            continue
+        seen.add(s)
+        # Avoid turning every "k" in unrelated text into "***" when env holds a 1-char test key.
+        if len(s) >= 4:
+            out = out.replace(s, "***")
+    for s in ordered:
+        if len(s) < 4:
+            continue
+        try:
+            out = re.sub(re.escape(s), "***", out, flags=re.IGNORECASE)
+        except re.error:
+            pass
+    out = re.sub(r"(?i)\bBearer\s+\S+", "Bearer ***", out)
+    out = _JSON_ERR_KEY_QUOTED_RE.sub(r"\1***\3", out)
+    out = re.sub(
+        r"(?i)\b(x-api-key|authorization|password|token|access_token|refresh_token|id_token|"
+        r"api_key|apikey|secret|client_secret|session|cookie)\s*:\s*\S+",
+        r"\1: ***",
+        out,
+    )
+    return out
+
+
+def _json_http_error_extract_fields(obj: dict[str, Any], secrets: Sequence[str]) -> str | None:
+    """Prefer ``message`` / ``error`` / ``detail`` / ``title`` / ``type`` for a short string."""
+
+    order = ("message", "error", "detail", "title", "type")
+    parts: list[str] = []
+    for k in order:
+        if k not in obj:
+            continue
+        v = obj[k]
+        if isinstance(v, bool):
+            parts.append(f"{k}: {v}")
+        elif isinstance(v, str) and v.strip():
+            parts.append(f"{k}: {_mask_sensitive_preview(v, secrets)}")
+        elif isinstance(v, (int, float)):
+            parts.append(f"{k}: {v}")
+        elif v is None:
+            continue
+        else:
+            try:
+                compact = json.dumps(v, ensure_ascii=False)
+            except (TypeError, ValueError):
+                compact = str(v)
+            compact = _mask_sensitive_preview(compact, secrets)
+            if len(compact) > 160:
+                compact = compact[:157] + "..."
+            parts.append(f"{k}: {compact}")
+    if parts:
+        return "; ".join(parts)
+    return None
+
+
+def summarize_http_error_body_preview(raw: bytes, secrets: Sequence[str]) -> str | None:
+    """Build a short, masked preview of an HTTP error body (never the full raw response)."""
+
+    if not raw:
+        return None
+    try:
+        decoded = raw.decode("utf-8", errors="replace")
+    except Exception:
+        return None
+    stripped = decoded.strip()
+    if not stripped:
+        return None
+
+    extracted: str | None = None
+    json_ok = False
+    json_is_object = False
+    try:
+        parsed: Any = json.loads(stripped)
+        json_ok = True
+        if isinstance(parsed, dict):
+            json_is_object = True
+            extracted = _json_http_error_extract_fields(parsed, list(secrets))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+
+    if json_ok:
+        if json_is_object:
+            if extracted is None:
+                return None
+            preview = extracted
+        else:
+            return None
+    else:
+        preview = stripped
+
+    preview = _normalize_error_preview_ws(preview)
+    preview = _mask_sensitive_preview(preview, list(secrets))
+    preview = _truncate_error_preview(preview, 300)
+    return preview if preview else None
 
 
 def _join_v2_base_and_path(base_url: str, path: str) -> str:
@@ -264,6 +418,27 @@ class JQuantsClient:
 
     def has_base_url(self) -> bool:
         return bool(self.base_url)
+
+    def _secret_strings_for_error_preview(self) -> list[str]:
+        """Strings that must never appear verbatim in ``error_body_preview``."""
+
+        out: list[str] = []
+        env_k = _blank_to_none(os.getenv("JQUANTS_API_KEY"))
+        if env_k:
+            out.append(env_k)
+        if self.api_key and self.api_key not in out:
+            out.append(self.api_key)
+        if self.id_token and self.id_token not in out:
+            out.append(self.id_token)
+        if self.refresh_token and self.refresh_token not in out:
+            out.append(self.refresh_token)
+        if self.password and self.password not in out:
+            out.append(self.password)
+        return out
+
+    def _http_error_body_preview_from_exc(self, exc: urllib.error.HTTPError) -> str | None:
+        raw = _read_http_error_body_bytes(exc)
+        return summarize_http_error_body_preview(raw, self._secret_strings_for_error_preview())
 
     def auth_method_safe(self) -> str:
         if self.api_version_effective == "v2":
@@ -805,6 +980,7 @@ class JQuantsClient:
                     "api_key_header_name": "x-api-key",
                     "api_key_value_included": False,
                     "api_key_header_present": self.has_api_key(),
+                    "error_body_preview": self._http_error_body_preview_from_exc(e),
                 }
                 if date is not None:
                     err_out["date"] = date
@@ -891,6 +1067,7 @@ class JQuantsClient:
                 "status": "http_error",
                 "http_status": int(e.code),
                 "raw_response_included": False,
+                "error_body_preview": self._http_error_body_preview_from_exc(e),
             }
         except OSError:
             return {"status": "error", "detail": "***", "raw_response_included": False}

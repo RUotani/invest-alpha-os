@@ -197,7 +197,7 @@ def _jquants_daily_quotes_cli_snapshot(
     to_date: Optional[str],
     date_opt: Optional[str],
 ) -> dict[str, Any]:
-    """Public fields only — no raw body, secrets, previews, or password/token values."""
+    """Public fields only — no raw body; ``error_body_preview`` is masked/short when present."""
 
     st = result.get("status")
     snap: dict[str, Any] = {
@@ -247,6 +247,7 @@ def _jquants_daily_quotes_cli_snapshot(
             "api_key_header_name",
             "api_key_value_included",
             "raw_response_included",
+            "error_body_preview",
         ):
             if k in result:
                 snap[k] = result[k]

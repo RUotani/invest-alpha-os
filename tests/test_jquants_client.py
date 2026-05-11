@@ -258,7 +258,7 @@ def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
             400,
             "Bad Request",
             {},
-            BytesIO(b"SECRET_ERROR_BODY_XYZ"),
+            BytesIO(b'{"message":"upstream hint"}'),
         )
 
     with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
@@ -270,7 +270,8 @@ def test_v2_get_daily_quotes_http_error_no_response_body_in_dict(monkeypatch):
         )
     assert out["status"] == "http_error"
     assert out["http_status"] == 400
-    assert "SECRET_ERROR_BODY" not in json.dumps(out)
+    assert out.get("error_body_preview") == "message: upstream hint"
+    assert "upstream hint" in json.dumps(out)
     assert out["endpoint_url_without_query"] == "https://jq.test.invalid/v0/equities/bars/daily"
     assert out["query_params"] == {"code": "70110", "from": "20260508", "to": "20260508"}
     assert "/v2/v2/" not in out.get("full_url_without_secrets", "")
@@ -288,7 +289,7 @@ def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
             400,
             "Bad Request",
             {},
-            BytesIO(b"RAW_SHOULD_NOT_LEAK"),
+            BytesIO(b'{"message":"see documentation"}'),
         )
 
     with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
@@ -316,9 +317,10 @@ def test_cli_jquants_daily_quotes_http_error_safe_stdout(monkeypatch):
     assert blob["api_key_header_name"] == "x-api-key"
     assert blob["api_key_value_included"] is False
     assert blob["raw_response_included"] is False
+    assert blob.get("error_body_preview") == "message: see documentation"
     assert blob["endpoint_url_without_query"].endswith("/equities/bars/daily")
     assert "/v2/v2/" not in blob.get("full_url_without_secrets", "")
-    assert "RAW_SHOULD_NOT_LEAK" not in r.stdout
+    assert "see documentation" in r.stdout
 
 
 def test_v2_get_daily_quotes_live_non_json_not_success(monkeypatch):
@@ -1160,3 +1162,102 @@ def test_preview_request_code_date_full_url_uses_yyyymmdd(monkeypatch):
     assert blob["full_url_without_secrets"] == (
         "https://api.jquants.com/v2/equities/bars/daily?code=7011&date=20260508"
     )
+
+
+def test_v2_http_error_json_message_bad_request(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(
+            req.full_url, 400, "Bad Request", {}, BytesIO(b'{"message":"bad request"}')
+        )
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", date="2026-05-08", attempt_live=True)
+    assert out.get("error_body_preview") == "message: bad request"
+
+
+def test_v2_http_error_plain_text_truncated_to_300(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    chunk = "abcdefghijklmnopqrstuvwxyz0123456789\n" * 20
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(
+            req.full_url, 400, "Bad Request", {}, BytesIO(chunk.encode("utf-8"))
+        )
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    prev = out.get("error_body_preview")
+    assert prev is not None
+    assert len(prev) == 300
+    assert "raw_response" not in out
+
+
+def test_v2_http_error_masks_jquants_api_key_in_body(monkeypatch):
+    secret = "MASK_ME_KEY_VALUE_98765"
+    monkeypatch.setenv("JQUANTS_API_KEY", secret)
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    _patch_base(monkeypatch)
+    payload = json.dumps({"message": f"denied for {secret}"})
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, BytesIO(payload.encode()))
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert secret not in json.dumps(out)
+    eb = out.get("error_body_preview") or ""
+    assert "***" in eb
+
+
+def test_v2_http_error_json_without_allowlisted_keys_omits_preview(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    payload = json.dumps({"unexpected": "SHOULD_NOT_LEAK_XYZ998", "other": 1})
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, BytesIO(payload.encode()))
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    assert out["status"] == "http_error"
+    assert out.get("error_body_preview") is None
+    assert "SHOULD_NOT_LEAK_XYZ998" not in json.dumps(out)
+
+
+def test_summarize_http_error_plain_json_array_returns_none():
+    from invis_alpha_os.data.adapters.jquants_client import summarize_http_error_body_preview
+
+    raw = b'[{"a":1}]'
+    assert summarize_http_error_body_preview(raw, []) is None
+
+
+def test_v2_http_error_masks_access_token_in_nested_json(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    payload = json.dumps(
+        {
+            "message": "failed",
+            "error": {"access_token": "NESTED_TOKEN_LEAK_XYZ", "code": 1},
+        }
+    )
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, BytesIO(payload.encode()))
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
+    blob = json.dumps(out)
+    assert "NESTED_TOKEN_LEAK_XYZ" not in blob

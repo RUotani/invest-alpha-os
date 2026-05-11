@@ -105,7 +105,12 @@ alpha-os debug jquants-daily-quotes \
 
 ### HTTP 400 と `status: http_error`
 
-公式の `GET …/equities/bars/daily` では **`code` または `date` のどちらかが必須**です。CLI では **`--code` / `--date` / `--from-date` / `--to-date` はすべて任意**で、**そのいずれも指定がない**と **`validation_error`**（`missing_all_of_code_date_from_to`）で HTTP に進みません。**`--date`** と **`--from-date` または `--to-date` は同時に指定しない**でください（`date_mutually_exclusive_with_from_to`）。日付レンジを使う場合は **`from` と `to` の両方を揃えることを推奨**しますが、CLI としては **`from` または `to` の片方だけ**もクエリに乗せられます。**API Key の実値や raw 応答は表示しません**（`http_error` のプレビューは `full_url_without_secrets` と `query_params` のみ）。
+公式の `GET …/equities/bars/daily` では **`code` または `date` のどちらかが必須**です。CLI では **`--code` / `--date` / `--from-date` / `--to-date` はすべて任意**で、**そのいずれも指定がない**と **`validation_error`**（`missing_all_of_code_date_from_to`）で HTTP に進みません。**`--date`** と **`--from-date` または `--to-date` は同時に指定しない**でください（`date_mutually_exclusive_with_from_to`）。日付レンジを使う場合は **`from` と `to` の両方を揃えることを推奨**しますが、CLI としては **`from` または `to` の片方だけ**もクエリに乗せられます。**API Key の実値や応答本文の生データは出しません**が、**`http_error` 時**は **`error_body_preview`**（**短縮・マスク済み**、Task 5.5）で理由のヒントのみ表示します（**JSON で `message` 等がない応答では項目自体が省略される**こともあります）。それ以外のプレビューは **`full_url_without_secrets`** と **`query_params`** のみ。
+
+#### ChatGPT 等に貼る場合
+
+- 共有してよい例：**`status`** / **`http_status`** / **`error_body_preview`** / **`query_params`** のみ。
+- **API Key・トークン・パスワード・raw 応答本文・`.env` の実値は貼らない**。
 
 #### HTTP 400 の切り分け順（Task 5.3）
 
@@ -115,6 +120,7 @@ alpha-os debug jquants-daily-quotes \
 4. **`--date YYYY-MM-DD` のみ**（date-only）。
 5. **`--code 7011 --date YYYY-MM-DD`**（code + date）。
 6. **`--code 7011 --from-date … --to-date …`**（code + range。`query` 名は **`from` / `to`**）。
+7. **`--live` 実行後**、標準出力の **`error_body_preview`** を確認する（**Task 5.5**・**マスク済み・短縮済み**。**raw 本文や API Key は貼らない**）。
 
 共通確認:
 
@@ -123,7 +129,7 @@ alpha-os debug jquants-daily-quotes \
 
 それでも 400 の場合は **まず日付形式**（プレビューで **`date` / `from` / `to` が `YYYYMMDD` か**）、**対象日が営業日・データ公開があるか**、**証券コード形式**、**プラン・権限**を公式情報と照合する。
 
-**`--live` で `http_error` になったとき**の CLI は **`status` / `http_status` / 銘柄 `code` / `date` / `date_from` / `date_to`** と、上記と同種の送信プレビュー（秘密なし）を **`raw_response_included: false`** のまま出力する。**応答ボディは出ない**。
+**`--live` で `http_error` になったとき**の CLI は **`status` / `http_status` / `error_body_preview`（あれば）** / **`code` / `date` / `date_from` / `date_to`** と、送信プレビュー（**`query_params` / `full_url_without_secrets`**）を **`raw_response_included: false`** のまま出力する。**完全なエラー本文は返しません**（プレビューのみ）。
 - **`--date` / `--from-date` / `--to-date`** は CLI では読みやすい形でも指定できるが、**V2 のクエリ値は `YYYYMMDD` に正規化されて送られる**（Task 5.4）。
 
 ### 401 / 403（認証）

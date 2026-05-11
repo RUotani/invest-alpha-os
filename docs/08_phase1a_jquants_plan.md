@@ -31,6 +31,7 @@
 | **Task 5.2** | **安全デバッグ**：`build_v2_daily_bars_request_preview()` と **`debug jquants-daily-quotes --preview-request`**（**実 HTTP を一切しない**）。`http_error` で **`endpoint_url_without_query` / `query_params` / `full_url_without_secrets`** と **`api_key_header_present`（値は不出力）**。BASE が `/v2` でもパス側の重複 **`/v2/v2`** を避ける結合ユーティリティ |
 | **Task 5.3** | **コード／日付の柔軟な切り分け**：`debug jquants-daily-quotes` で **`code`のみ / `date`のみ / `code`+`date` / `code`+`from`〜`to`** を HTTP 前に検証したうえで試せる。**`--date`** と **`--from-date`/`--to-date`** は排他。**公式クエリは `code` / `date` / `from` / `to` のみ**（`from_date` 等は送らない）。**live smoke ではまず `--preview-request` と code-only/date-only で 400 を切り分ける** |
 | **Task 5.4** | **V2 日付クエリを `YYYYMMDD` で送信**（公式クイックスタートの例に合わせる）。CLI は **`YYYY-MM-DD`** または **`YYYYMMDD`** を入力可。**`query_params` と `preview-request` は実送信値**（ハイフンなし 8 桁）。無効な日付は **`invalid_date_format`** |
+| **Task 5.5** | **HTTP エラー時の安全プレビュー**：`http_error` に **短いマスク済み `error_body_preview`**（最大約 300 文字、**raw body は返さない**）。`JQUANTS_API_KEY` 等は伏字 |
 | **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
@@ -90,6 +91,10 @@
 - **`_parse_v2_daily_bars_date`**: CLI 入力は **`YYYY-MM-DD`（月日ゼロ埋め）** または **`YYYYMMDD`**。カレンダー無効 → **`validation_error` / `invalid_date_format`**。
 - **V2 の `date` / `from` / `to` クエリ値**および **`--preview-request` の `query_params`・`full_url_without_secrets`** は、常に **8 桁 `YYYYMMDD`**（公式クイックスタートの `date="20240104"` 形式に整合）。
 - **Task 5.1** で記載していた **ハイフン付きをそのままクエリに載せる**挙動は **本タスクで置き換え**。
+
+### Task 5.5 で追加したこと（HTTP エラー本文の安全プレビュー）
+
+- **`error_body_preview`**：`HTTPError` の本文から **短い要約**（**`raw_response` / raw body 全体は出さず**、`raw_response_included` は **false** のまま）。**JSON がオブジェクトのとき**は **`message` / `error` / `detail` / `title` / `type`** のいずれかから取れた内容だけ（これらがすべて空・欠如なら **`error_body_preview` は出さない**）。**本文が JSON でない平文**なら先頭約 300 文字、改行はスペース化。**配列だけの JSON**はプレビューしない。**`JQUANTS_API_KEY` の値**およびクライアント保持のトークン類は **マスク**。**`x-api-key` ヘッダー値は出力に含めない**（本文に誤って含まれた場合もマスク対象）。
 
 ## Version2 の認証（Task 4 時点）
 
