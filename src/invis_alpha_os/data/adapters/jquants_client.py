@@ -37,6 +37,8 @@ invalid calendar dates → ``invalid_date_format``.
 
 **Task 6**: **``debug jquants-watchlist-bars``** reads ``jp_watchlist`` tickers; only **4-digit** codes are sent to V2 daily bars (see ``config/jp_watchlist.py``).
 
+**Task 7**: Daily report includes a **dry-run / status-only** **J-Quants Watchlist Bars Check** section (no HTTP, no API keys). See ``reports/jquants_watchlist_daily.py``.
+
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 

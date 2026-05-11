@@ -15,7 +15,8 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 
 - **既定**: **`JQUANTS_ENABLED=false`**、**`JQUANTS_ALLOW_LIVE_HTTP=false`**、**`JQUANTS_API_BASE_URL` / `JQUANTS_API_KEY` は未設定が既定**。※`make verify`・GitHub Actions・`daily` / `pack` / `risks` は **実接続しない**。
 - **Version 2**: **`JQUANTS_API_KEY`** を **`x-api-key`** で送る方式がプライマリ。**実 API Key は Git にコミットしない**（`.gitignore` / `.env` はローカルのみ）。
-- **`debug jquants-watchlist-bars`**（Task 6）: `jp_watchlist` を **dry-run / `--preview-request` / `--live`** で一括確認（**`--date` 単独**、または **`--from-date` と `--to-date` のセット**、**`--limit`**）。**4 桁数字のみ wire**、`285A` 等は **skip**。**daily レポート統合は Task 7**。
+- **`debug jquants-watchlist-bars`**（Task 6）: `jp_watchlist` を **dry-run / `--preview-request` / `--live`** で一括確認（**`--date` 単独**、または **`--from-date` と `--to-date` のセット**、**`--limit`**）。**4 桁数字のみ wire**、`285A` 等は **skip**。
+- **`alpha-os daily`**（Task 7）: レポートに **J-Quants Watchlist Bars Check**（**watchlist 集計・ガード状態・参考 smoke 文の dry-run 説明のみ**）。**J-Quants への HTTP は行わない**（**`make verify` / CI も同様**）。
 - **ライブ実 HTTP（デバッグのみ）**: **`GET …/equities/bars/daily`** はクエリ **`code` / `date` / `from` / `to`** に対応。CLI は **`--code` / `--date` / `--from-date` / `--to-date`** を任意に指定（日付は **`YYYY-MM-DD`** または **`YYYYMMDD`**）。**API 送信値は公式クイックスタートに合わせ `YYYYMMDD`（Task 5.4）**。**`http_error` 時は `error_body_preview` にマスク済みの短いヒントのみ（Task 5.5、raw 本文は出さない）**。**任意の `JQUANTS_DATA_AVAILABLE_FROM` / `TO` が両方有効なとき、契約外日付は HTTP 前に `validation_error`（Task 5.6）**。**レスポンスの公式前提は `code` または `date` のどちらか**だが、この CLI は **400 切り分けのため `from` または `to` のみ**の送信も許容（**API が受理するかは別**）。まず **`--preview-request` → code-only / date-only**（[09](docs/09_jquants_local_manual_test.md)・Task 5.3〜5.4）。**`--preview-request`** で **送信予定 URL／query のみ**（実 HTTP なし）。**ゲート**：**`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + API Key**。欠落時 **`live_blocked` / `not_configured`**。**`HTTP 200` でも**妥当でなければ **`success` にならない**。**`debug jquants-status` は HTTP しない**。
 - **Version 1**: **`JQUANTS_API_VERSION=v1`** のときだけ refresh / Bearer による legacy 経路。**閉鎖予定・非推奨**。
 - **J-Quants の最小 live smoke test（コード・運用のみ）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。**API Key はダッシュボードで人間が取得し、`JQUANTS_API_KEY` と `x-api-key` で送る。Git にコミットせず、Chat／Codex にも貼らない。**
@@ -37,7 +38,7 @@ alpha-os --help
 
 - `alpha-os status`
 - `alpha-os config-check`
-- `alpha-os daily`
+- `alpha-os daily`（Markdown 末尾に **J-Quants Watchlist Bars Check**・**dry-run サマリのみ**・Task 7）
 - `alpha-os pack --ticker 7011`
 - `alpha-os risks`
 - `alpha-os snapshot watchlist`

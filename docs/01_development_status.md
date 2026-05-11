@@ -68,11 +68,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 - **`config/jp_watchlist.py`**：`jp_watchlist` ティッカー抽出。**4 桁数字のみ** J-Quants に送る候補（**`285A` は `skipped_unsupported_code`**、桁埋めはしない）。
 - **`alpha-os debug jquants-watchlist-bars`**：既定 **dry-run**、**`--preview-request`**（HTTP なし）、**live は三重ゲート + Task 5.6**。結果は JSON 配列。**raw・API Key なし**。
-- **Daily レポートへの本文統合は Task 7**（本タスクは CLI のみ）。
 
-### Task 7 以降（未着手）
+### Task 7 — 完了（daily report の J-Quants watchlist サマリ・HTTP なし）
 
-- **Daily report** に watchlist 由来の J-Quants 取得サマリを反映、その他エンドポイント拡張
+- **`alpha-os daily`** に **J-Quants Watchlist Bars Check** セクション（**集計・`dry_run` モードの説明のみ**）。**J-Quants API には接続しない**。**`make verify` / GitHub Actions でも live しない**。
+- **`reports/jquants_watchlist_daily.py`**、**`config/market_data.adapters.jquants.report`**。
+
+### Task 8 以降（未着手）
+
+- **watchlist の小規模 live 運用検証**（[08](./08_phase1a_jquants_plan.md) Task 8）や、その他エンドポイント拡張
 
 ---
 

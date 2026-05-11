@@ -46,7 +46,7 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 ## 記録：最小 live が `success` になった例（Task 5.6）
 
-次の組み合わせで **`success`** が得られた **記録例**（**契約・環境により異なる**）。
+次は **`success` 応答の形**と **CLI が出す要約フィールド**を説明するための例です。**いずれもコマンド標準出力の転載ではなく**、公式クイックスタートや Task 5 の正規化に沿った **説明用の値**です（契約レンジ・環境により異なります）。
 
 - **コマンド（概念）**: `debug jquants-daily-quotes --code 7974 --date 2024-02-16 --live`（BASE URL・API Key は **各自の `.env` のみ**）
 - **結果の要約**: `status: success`, `code: 7974`, `date: 2024-02-16`, `row_count: 1`, `source_key: data`
@@ -69,6 +69,17 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 3. **最後に live**（人間のローカルのみ）: **`--limit 1`** から試す — **`--live`** + **`JQUANTS_ALLOW_LIVE_HTTP=true`** + BASE URL + API Key + **Task 5.6 の範囲内日付**。
 
 **注意**: **`--from-date` / `--to-date` は watchlist コマンドではセットで指定**（片方だけは `validation_error`）。単一銘柄の **`jquants-daily-quotes`** は従来どおり Task 5 の検証のみ。
+
+### 記録の形状例：watchlist limit 3（参考）
+
+次は **J-Quants の日足取得が成功した場合の戻り値の形**を説明するための **代表的な東証コード**（`7011` / `6501` / `6506`）と日付・カウンタの例であり、**いずれの環境の CLI 標準出力をそのまま貼ったものではありません**（契約・環境により結果は異なります）。**raw 本文・API Key は含みません。**
+
+**`--limit 3 --live --date 2024-02-16`** の **想定される要約フィールド**の例: `success_count=3`, `error_count=0`, `raw_response_included=false`。
+
+### Daily report（Task 7）
+
+- **`alpha-os daily`** は **J-Quants に HTTP 接続しない**。レポート本文に載る **J-Quants Watchlist Bars Check** は **dry-run / 集計・説明のみ**（`config/market_data.adapters.jquants.report`）。
+- **Local smoke test record** の箇条書きは **Task 7 のフィールド例**（**CLI のログ貼り付けではなく**、`config/market_data.adapters.jquants.report` で既定オンにした **静的な説明文**）。**毎日の CI や `live` を要求しません**。
 
 ---
 

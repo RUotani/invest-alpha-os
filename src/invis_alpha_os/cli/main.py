@@ -22,6 +22,7 @@ from invis_alpha_os.data.adapters import (
 )
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
+from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchlist_bars_check_section
 from invis_alpha_os.risk.veto_rules import VetoEngine
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
@@ -51,6 +52,21 @@ def _jp_watchlist_count(jp_rows: object) -> int:
         elif isinstance(row, dict) and str(row.get("ticker", "")).strip():
             total += 1
     return total
+
+
+def _jquants_report_settings() -> dict[str, Any]:
+    data = load_yaml(CONFIG_DIR / "market_data.yaml")
+    md = data.get("market_data")
+    if not isinstance(md, dict):
+        return {}
+    adapters = md.get("adapters")
+    if not isinstance(adapters, dict):
+        return {}
+    jq = adapters.get("jquants")
+    if not isinstance(jq, dict):
+        return {}
+    rep = jq.get("report")
+    return dict(rep) if isinstance(rep, dict) else {}
 
 
 @app.command("status")
@@ -91,6 +107,11 @@ def daily() -> None:
     else:
         jq_line = "J-Quants disabled / not configured"
 
+    rep_cfg = _jquants_report_settings()
+    jq_watchlist_section = ""
+    if rep_cfg.get("include_watchlist_bars_check", True):
+        jq_watchlist_section = "\n\n" + render_jquants_watchlist_bars_check_section(rep_cfg)
+
     out.write_text(
         "\n".join(
             [
@@ -105,7 +126,8 @@ def daily() -> None:
                 f"- {jq_line}",
                 f"- Watchlist count: {jp_n}",
             ]
-        ),
+        )
+        + jq_watchlist_section,
         encoding="utf-8",
     )
     typer.echo(f"daily report created: {out}")
