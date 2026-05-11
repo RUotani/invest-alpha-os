@@ -12,8 +12,10 @@ Version **1** (legacy) retains refresh/id bearer flows behind ``JQUANTS_API_VERS
 
 Public return dicts **omit secrets** (API key, tokens, passwords, raw auth bodies).
 
-For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: responses must be JSON **objects**
-with at least one of ``daily_quotes``, ``bars``, ``data``, or ``results`` (Phase 1a Task 4.2).
+For **V2 live** ``daily_quotes``, HTTP 200 alone is not treated as success: the JSON object must normalize via
+``normalize_v2_daily_bars_response``: one of ``data`` / ``daily_quotes`` / ``bars`` / ``results`` must hold a **list**
+(Phase 1a Task 5). Dict or string bodies under those keys are ``invalid_response``; empty list is ``success``
+with ``row_count=0``.
 
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
@@ -27,8 +29,34 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlencode
 
-_V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("daily_quotes", "bars", "data", "results")
-_V2_DAILY_QUOTES_BODY_KEYS_SET: frozenset[str] = frozenset(_V2_DAILY_QUOTES_BODY_KEYS)
+# V2 daily bars: scan in this order; first present key must map to a list (Task 5).
+_V2_DAILY_QUOTES_BODY_KEYS: tuple[str, ...] = ("data", "daily_quotes", "bars", "results")
+
+
+def normalize_v2_daily_bars_response(payload: dict) -> dict[str, Any]:
+    """Normalize a V2-equities daily-bars-style JSON body (no raw API payload in return).
+
+    - Accepts only ``payload`` that is already a JSON object (``dict``). Callers handle non-dict /
+      top-level array / decode errors separately.
+    - Looks for array data under keys **in order**: ``data``, ``daily_quotes``, ``bars``, ``results``.
+    - The **first key that exists** must map to a **list** (may be empty). Non-list → ``invalid_response``.
+    - Absent keys are skipped until one is present; if none of the four exist → ``invalid_response``.
+    Returns only: ``success`` + ``row_count`` + ``source_key``, or ``invalid_response`` + ``reason``.
+    Never includes API keys, tokens, passwords, or raw responses.
+    """
+
+    if not isinstance(payload, dict):
+        return {"status": "invalid_response", "reason": "payload_not_dict"}
+
+    for key in _V2_DAILY_QUOTES_BODY_KEYS:
+        if key not in payload:
+            continue
+        val = payload[key]
+        if isinstance(val, list):
+            return {"status": "success", "row_count": len(val), "source_key": key}
+        return {"status": "invalid_response", "reason": f"{key}_not_list"}
+
+    return {"status": "invalid_response", "reason": "missing_list_field"}
 
 
 def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
@@ -302,7 +330,7 @@ class JQuantsClient:
     def _v2_parse_daily_quotes_live_body(
         self, raw_text: str
     ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-        """Returns ``(body_dict, None)`` on OK, or ``(None, {kind:..., reason?:...})`` on validation failure."""
+        """Return ``(body_dict, None)`` on OK, or ``(None, {kind:..., reason?:...})`` on parse failure."""
 
         try:
             obj: Any = json.loads(raw_text)
@@ -312,20 +340,7 @@ class JQuantsClient:
             return None, {"kind": "invalid_response", "reason": "top_level_array"}
         if not isinstance(obj, dict):
             return None, {"kind": "invalid_response", "reason": "not_json_object"}
-        if not _V2_DAILY_QUOTES_BODY_KEYS_SET.intersection(obj.keys()):
-            return None, {"kind": "invalid_response", "reason": "missing_expected_keys"}
         return obj, None
-
-    def _summarize_v2_daily_quotes_payload(self, parsed: dict[str, Any]) -> tuple[str, int]:
-        """Row count from the first recognized body key (list length, or 0 if present but not a list)."""
-
-        for k in _V2_DAILY_QUOTES_BODY_KEYS:
-            if k not in parsed:
-                continue
-            val = parsed[k]
-            return f"{k}_row_count", len(val) if isinstance(val, list) else 0
-        return "parsed_keys_count", len(parsed)
-
     def _extract_refresh_secret(self, body: dict[str, Any]) -> str | None:
         return (
             body.get("refreshToken")
@@ -563,14 +578,27 @@ class JQuantsClient:
                 )
 
             assert parsed is not None
-            count_key, count_val = self._summarize_v2_daily_quotes_payload(parsed)
+            norm = normalize_v2_daily_bars_response(parsed)
+            if norm.get("status") != "success":
+                rsn_raw = norm.get("reason")
+                rsn = rsn_raw if isinstance(rsn_raw, str) else None
+                return self._v2_daily_quotes_live_shape_error(
+                    status="invalid_response",
+                    reason=rsn,
+                    endpoint_path=dq_path,
+                    code=code,
+                )
+
             return {
                 "status": "success",
                 "endpoint_path": dq_path,
                 "code": code,
-                count_key: count_val,
+                "row_count": norm["row_count"],
+                "source_key": norm["source_key"],
+                "date_from": from_date,
+                "date_to": to_date,
+                "date": date,
                 "raw_response_included": False,
-                "api_key_preview": "***",
                 "api_version": self.api_version,
                 "api_version_effective": self.api_version_effective,
             }

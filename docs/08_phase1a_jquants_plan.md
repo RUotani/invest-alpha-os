@@ -25,8 +25,9 @@
 | **Task 3.1** | **安全強化**: `JQUANTS_API_VERSION` を **`v1` / `v2` のみ許可**（それ以外は `unsupported_version`・**実 HTTP なし**）。**`JQUANTS_API_BASE_URL` 未設定時はライブ許可があっても `not_configured`（`base_url_missing`）**。CLI / テストで回帰を防ぐ |
 | **Task 4** | **Version2 プライマリ寄せ**: **`JQUANTS_API_KEY`** と **`x-api-key`**、V2 パス（`/equities/bars/daily` 等）を `JQuantsClient`・設定・ドキュメントへ反映。V1 は **legacy** のまま **`JQUANTS_API_VERSION=v1` のみ**。**本タスクでは実 API 呼び出しは行わない**（テストは mock のみ） |
 | **Task 4.1** | **`debug jquants-daily-quotes --live` の exit を厳格化**: 実 HTTP に至らなかった live 試行は **非ゼロ終了**。`live_blocked` / `not_configured` / `unsupported_version` / `disabled`（live 時）などを **成功と誤認しない**。**`--live` なしの dry-run と `make verify` は従来どおり exit 0** |
-| **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型・最小キー不足は **`non_json_response` / `invalid_response`**。**`daily_quotes` / `bars` / `data` / `results` のいずれかを含む JSON オブジェクト**を暫定合格形とする（**Task 5** で公式レスポンスへ正規化強化） |
-| **Task 5** | **ローカル手動 live の最小確認**（人間・[09](./09_jquants_local_manual_test.md) 準拠）。レスポンスの正規化・追加エンドポイント |
+| **Task 4.2** | **V2 ライブ応答の検証**: HTTP 200 のみでは **`success` にしない**。非 JSON・不正トップレベル型は **`non_json_response` / `invalid_response`**（一覧キーの中身までの厳密化は **Task 5**） |
+| **Task 5** | **ローカル最小 live smoke の準備**（運用・手順は **[09](./09_jquants_local_manual_test.md)**）。**実 API Key は人間のみ**。`normalize_v2_daily_bars_response` により、`data` / `daily_quotes` / `bars` / `results` のうち **先に見つかったキーの値が list** のときのみ `success` と **`row_count` / `source_key`** を返す（空 list は `success`・`row_count=0`）。**GitHub Actions では live に接続しない** |
+| **Task 6** | Watchlist 銘柄向けデータ取得パスでの **stub / live 切替**とドキュメント整備へ進む（Task 5 の正規化を利用） |
 
 ### Task 2 で追加したこと（要約）
 
@@ -55,7 +56,13 @@
 
 ### Task 4.2 で追加したこと（live response validation）
 
-- **V2 `get_daily_quotes` ライブ**: レスポンスボディを **`JSON オブジェクト`**として解釈でき、かつ **`daily_quotes` / `bars` / `data` / `results` のいずれかのキーがある**場合のみ **`status: success`** とする。非 JSON は **`non_json_response`**。配列ルート・オブジェクトだが期待キーなしなどは **`invalid_response`**。**raw 本文は戻り値に含めない**（**Task 5** で公式 V2 形への正規化・検証強化）。
+- **V2 `get_daily_quotes` ライブ**: HTTP ボディが **JSON オブジェクト／配列など**になり得た段階のゲート。**Task 5** で **`normalize_v2_daily_bars_response`** に一覧キーごとの **list 必須**を寄せ、`success` 時は **`row_count`** と **`source_key`** で要約。**raw は戻り値にも CLI にも載せない**。
+
+### Task 5 で追加したこと（live smoke 準備・正規化の初期版）
+
+- **`normalize_v2_daily_bars_response(payload: dict)`**（**API Key／token／raw を返さない**）。探索順は **`data` → `daily_quotes` → `bars` → `results`**。**最初に現れたキーの値が list でなければ `invalid_response`**。いずれのキーも無ければ `missing_list_field`。**空 list は `success`・`row_count=0`**。
+- **`debug jquants-daily-quotes`**：`--live` なし → dry-run で **exit 0**；成功時出力は **`status` / `row_count` / `source_key` / `code` / 日付**程度。**秘密と raw は出さない**。
+- **実 API Key と実 live 確認は人間のみ**（[09](./09_jquants_local_manual_test.md)）。CI は **変更なしで live に出ない**。
 
 ## Version2 の認証（Task 4 時点）
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from typing import Optional
+from typing import Any, Optional
 
 import json
 
@@ -182,6 +182,48 @@ def debug_jquants_status() -> None:
     )
 
 
+def _jquants_daily_quotes_cli_snapshot(
+    result: dict[str, Any],
+    *,
+    code: str,
+    from_date: str,
+    to_date: str,
+    date_opt: Optional[str],
+) -> dict[str, Any]:
+    """Public fields only — no raw body, secrets, previews, or password/token values."""
+
+    st = result.get("status")
+    snap: dict[str, Any] = {
+        "status": st,
+        "code": code,
+        "date_from": from_date,
+        "date_to": to_date,
+    }
+    if date_opt:
+        snap["date"] = date_opt
+
+    if st == "success":
+        snap["row_count"] = result.get("row_count")
+        snap["source_key"] = result.get("source_key")
+        return snap
+
+    if st == "dry_run":
+        ep = result.get("endpoint")
+        if ep:
+            snap["endpoint"] = ep
+        return snap
+
+    if st == "http_error":
+        snap["http_status"] = result.get("code")
+        return snap
+
+    for k in ("reason", "endpoint_path", "missing"):
+        if k in result:
+            snap[k] = result[k]
+
+    return snap
+
+
 @debug_app.command("jquants-daily-quotes")
 def debug_jquants_daily_quotes(
     code: str = typer.Option(..., "--code"),
@@ -192,13 +234,14 @@ def debug_jquants_daily_quotes(
 ) -> None:
     client = JQuantsClient.from_env()
     if not client.is_enabled():
-        typer.echo(
-            json.dumps(
-                {"status": "disabled", "reason": "JQUANTS_ENABLED=false", "raw_response_included": False},
-                ensure_ascii=False,
-                indent=2,
-            )
+        view = _jquants_daily_quotes_cli_snapshot(
+            {"status": "disabled", "reason": "JQUANTS_ENABLED=false"},
+            code=code,
+            from_date=from_date,
+            to_date=to_date,
+            date_opt=date,
         )
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
         raise typer.Exit(1 if live else 0)
 
     result = client.get_daily_quotes(
@@ -208,7 +251,8 @@ def debug_jquants_daily_quotes(
         to_date=to_date,
         attempt_live=live,
     )
-    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    view = _jquants_daily_quotes_cli_snapshot(result, code=code, from_date=from_date, to_date=to_date, date_opt=date)
+    typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
     if not live:
         raise typer.Exit(0)
     if result.get("status") == "success":

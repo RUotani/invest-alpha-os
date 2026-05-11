@@ -17,6 +17,8 @@ market_data:
       note: "Future metadata integration"
     jquants:
       enabled: false
+      # Phase 1a Task 5: V2 GET /equities/bars/daily のボディは normalize_v2_daily_bars_response で
+      # data / daily_quotes / bars / results の先頭該当キーが JSON array であることのみ success（空配列→row_count=0）。
       api_version: v2
       auth_method: api_key
       api_key_env: JQUANTS_API_KEY

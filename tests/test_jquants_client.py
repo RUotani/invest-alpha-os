@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from typer.testing import CliRunner
 
 from invis_alpha_os.cli.main import app
-from invis_alpha_os.data.adapters.jquants_client import JQuantsClient
+from invis_alpha_os.data.adapters.jquants_client import JQuantsClient, normalize_v2_daily_bars_response
 
 runner = CliRunner()
 
@@ -58,6 +58,36 @@ def test_v2_get_daily_quotes_live_missing_api_key(monkeypatch):
     assert out.get("reason") == "api_key_missing"
 
 
+def test_normalize_v2_daily_bars_data_must_be_list():
+    assert normalize_v2_daily_bars_response({"data": {"message": "error"}}) == {
+        "status": "invalid_response",
+        "reason": "data_not_list",
+    }
+
+
+def test_normalize_v2_daily_bars_success_list():
+    r = normalize_v2_daily_bars_response({"data": [{"Code": "86970"}]})
+    assert r == {"status": "success", "row_count": 1, "source_key": "data"}
+
+
+def test_normalize_v2_daily_bars_empty_list_success():
+    r = normalize_v2_daily_bars_response({"data": []})
+    assert r == {"status": "success", "row_count": 0, "source_key": "data"}
+
+
+def test_normalize_v2_message_only_invalid():
+    assert normalize_v2_daily_bars_response({"message": "error"}) == {
+        "status": "invalid_response",
+        "reason": "missing_list_field",
+    }
+
+
+def test_normalize_v2_first_key_wins_data_before_daily_quotes():
+    r = normalize_v2_daily_bars_response({"data": [], "daily_quotes": [{"x": 1}]})
+    assert r["row_count"] == 0
+    assert r["source_key"] == "data"
+
+
 def test_v2_get_daily_quotes_live_success_x_api_key_header(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
@@ -78,8 +108,9 @@ def test_v2_get_daily_quotes_live_success_x_api_key_header(monkeypatch):
         out = JQuantsClient.from_env().get_daily_quotes("7011", from_date="2024-01-02", attempt_live=True)
     assert out["status"] == "success"
     assert captured["x-api-key"] == "PLACEHOLDER_KEY_FOR_CI_TEST"
-    assert "bars_row_count" in out
-    assert json.dumps(out).count("PLACEHOLDER") == 0  # preview only ***
+    assert out.get("row_count") == 1
+    assert out.get("source_key") == "bars"
+    assert json.dumps(out).count("PLACEHOLDER") == 0
 
 
 def test_v2_get_daily_quotes_live_non_json_not_success(monkeypatch):
@@ -127,7 +158,7 @@ def test_v2_get_daily_quotes_live_dict_missing_expected_keys(monkeypatch):
     with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
         out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
     assert out["status"] == "invalid_response"
-    assert out.get("reason") == "missing_expected_keys"
+    assert out.get("reason") == "missing_list_field"
 
 
 def test_v2_get_daily_quotes_live_dict_with_data_key_success(monkeypatch):
@@ -141,9 +172,24 @@ def test_v2_get_daily_quotes_live_dict_with_data_key_success(monkeypatch):
     with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
         out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
     assert out["status"] == "success"
-    assert out.get("data_row_count") == 1
+    assert out.get("row_count") == 1
+    assert out.get("source_key") == "data"
     blob = json.dumps(out)
     assert '"Close"' not in blob
+
+
+def test_v2_get_daily_quotes_live_data_object_invalid(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": {"message": "error"}}).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes("70110", attempt_live=True)
+    assert out["status"] == "invalid_response"
+    assert out.get("reason") == "data_not_list"
 
 
 def test_v2_get_daily_quotes_live_json_null_invalid(monkeypatch):
@@ -158,6 +204,67 @@ def test_v2_get_daily_quotes_live_json_null_invalid(monkeypatch):
         out = JQuantsClient.from_env().get_daily_quotes("7011", attempt_live=True)
     assert out["status"] == "invalid_response"
     assert out.get("reason") == "not_json_object"
+
+
+def test_debug_jquants_daily_quotes_live_invalid_response_exit_1(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"message": "error"}).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-quotes",
+                "--live",
+                "--code",
+                "70110",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-05",
+            ],
+        )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "invalid_response"
+
+
+def test_debug_jquants_daily_quotes_live_success_output_has_no_secret_fields(monkeypatch):
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_LEAK_THIS_KEY_VALUE")
+    _patch_base(monkeypatch)
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps({"data": [{"Code": "70110"}]}).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-quotes",
+                "--live",
+                "--code",
+                "70110",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-02",
+            ],
+        )
+    assert r.exit_code == 0
+    assert "NEVER_LEAK_THIS_KEY_VALUE" not in r.stdout
+    assert "70110" in r.stdout
+    data = json.loads(r.stdout.strip())
+    assert data["row_count"] == 1
+    assert "token" not in "".join(r.stdout.lower())
+    assert "password" not in r.stdout.lower()
+    assert '"Code"' not in r.stdout
 
 
 def test_debug_daily_quotes_live_non_json_exit_1(monkeypatch):

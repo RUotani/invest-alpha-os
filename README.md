@@ -17,8 +17,9 @@ Phase 0-v1.1 は **Observation Only**（執行・発注なし）で、将来の�
 - **Version 2**: **`JQUANTS_API_KEY`** を **`x-api-key`** で送る方式がプライマリ。**実 API Key は Git にコミットしない**（`.gitignore` / `.env` はローカルのみ）。
 - **ライブ実 HTTP（デバッグのみ）**: **`JQUANTS_ENABLED` + `--live` + `JQUANTS_ALLOW_LIVE_HTTP=true` + BASE URL + API Key**（すべて必須）。欠落時は `live_blocked` または `not_configured`。**`HTTP 200` でも** V2 の返却形が最小要件を満たさなければ **`success` にならない**（[09](docs/09_jquants_local_manual_test.md)・Task 4.2）。**`debug jquants-status` は常に HTTP しない**。
 - **Version 1**: **`JQUANTS_API_VERSION=v1`** のときだけ refresh / Bearer による legacy 経路。**閉鎖予定・非推奨**。
-- **実接続（人間のみ・手順）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。
-- **AI Agent に API Key・認証情報を渡さない**。`.env.example` は変数名のみ。
+- **J-Quants の最小 live smoke test（コード・運用のみ）**: [docs/09_jquants_local_manual_test.md](docs/09_jquants_local_manual_test.md)。**API Key はダッシュボードで人間が取得し、`JQUANTS_API_KEY` と `x-api-key` で送る。Git にコミットせず、Chat／Codex にも貼らない。**
+- **実接続（人間のみ・手順）**: 上記 `09`。**通常は `JQUANTS_ALLOW_LIVE_HTTP=false`**。
+- **AI Agent に API Key・認証情報を渡さない**。`.env` は人間のみが用意（`.env.example` は変数名のみ）。
 - 計画: [docs/08_phase1a_jquants_plan.md](docs/08_phase1a_jquants_plan.md)
 
 ### クイックスタート
