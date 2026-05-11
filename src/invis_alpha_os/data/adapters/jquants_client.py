@@ -41,6 +41,7 @@ invalid calendar dates → ``invalid_date_format``.
 
 **Task 8**: Same section adds **readiness (Green / Yellow / Red)** from config + env + watchlist counts only (still **no HTTP**).
 
+**Task 9**: **`debug jquants-watchlist-bars --save-summary`** writes **sanitized JSON** to **`outputs/jquants_smoke/`** (still **no secrets / no raw** in files; **not** used with `--preview-request`).
 ``debug jquants-status`` must never perform HTTP — use ``safe_auth_status()`` only.
 """
 

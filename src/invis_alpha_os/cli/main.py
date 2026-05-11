@@ -22,6 +22,11 @@ from invis_alpha_os.data.adapters import (
 )
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
+from invis_alpha_os.reporting.jquants_smoke_summary import (
+    build_watchlist_filename_date_slug,
+    build_watchlist_smoke_summary_document,
+    save_watchlist_smoke_summary_payload,
+)
 from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchlist_bars_check_section
 from invis_alpha_os.risk.veto_rules import VetoEngine
 
@@ -322,6 +327,28 @@ def _result_row_no_raw(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _maybe_save_watchlist_smoke_summary(
+    out: dict[str, Any],
+    *,
+    save_summary: bool,
+    preview_request: bool,
+    date_opt: Optional[str],
+    from_date: Optional[str],
+    to_date: Optional[str],
+    limit: Optional[int],
+) -> dict[str, Any]:
+    if not save_summary or preview_request:
+        return out
+    slug = build_watchlist_filename_date_slug(date_opt, from_date, to_date)
+    lim = str(limit) if limit is not None else "all"
+    payload = build_watchlist_smoke_summary_document(out)
+    main_rel, latest_rel = save_watchlist_smoke_summary_payload(payload, date_slug=slug, limit_display=lim)
+    merged = dict(out)
+    merged["summary_saved_to"] = main_rel
+    merged["latest_summary_saved_to"] = latest_rel
+    return merged
+
+
 @debug_app.command("jquants-watchlist-bars")
 def debug_jquants_watchlist_bars(
     date: Optional[str] = typer.Option(
@@ -339,6 +366,11 @@ def debug_jquants_watchlist_bars(
     ),
     live: bool = typer.Option(False, "--live", help="Perform live HTTP when all gates allow it."),
     preview_request: bool = typer.Option(False, "--preview-request", help="Show V2 request preview per ticker; never HTTP."),
+    save_summary: bool = typer.Option(
+        False,
+        "--save-summary",
+        help="Write sanitized summary JSON under outputs/jquants_smoke/ (not used with --preview-request).",
+    ),
 ) -> None:
     """Batch daily-bars check for ``jp_watchlist`` (Phase 1a Task 6). Default: dry-run."""
 
@@ -405,6 +437,15 @@ def debug_jquants_watchlist_bars(
             **base_meta,
             "results": [],
         }
+        out = _maybe_save_watchlist_smoke_summary(
+            out,
+            save_summary=save_summary,
+            preview_request=False,
+            date_opt=dn,
+            from_date=fn,
+            to_date=tn,
+            limit=limit,
+        )
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
 
@@ -418,6 +459,15 @@ def debug_jquants_watchlist_bars(
 
     if not live:
         out = {"status": "dry_run", **base_meta, "results": results}
+        out = _maybe_save_watchlist_smoke_summary(
+            out,
+            save_summary=save_summary,
+            preview_request=False,
+            date_opt=dn,
+            from_date=fn,
+            to_date=tn,
+            limit=limit,
+        )
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
 
@@ -431,6 +481,15 @@ def debug_jquants_watchlist_bars(
         "error_count": error_count,
         "results": results,
     }
+    out = _maybe_save_watchlist_smoke_summary(
+        out,
+        save_summary=save_summary,
+        preview_request=False,
+        date_opt=dn,
+        from_date=fn,
+        to_date=tn,
+        limit=limit,
+    )
     typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
     if error_count == 0:
         raise typer.Exit(0)

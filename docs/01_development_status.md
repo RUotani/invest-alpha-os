@@ -79,9 +79,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **Readiness（Green / Yellow / Red）** と **unsupported コードのみの一覧**。**live HTTP なし**（**Green でもその日に API を叩いたわけではない**）。
 - **`readiness_enabled`**、**`readiness_green_requires_*`**、**`include_unsupported_codes`** 等は **`config/market_data.adapters.jquants.report`**。
 
-### Task 9 以降（未着手）
+### Task 9 — 完了（watchlist smoke の sanitized JSON ローカル保存）
 
-- **watchlist の小規模 live 運用検証**（[08](./08_phase1a_jquants_plan.md) Task 9、**日次レポート外**で人間のみ）や、その他エンドポイント拡張
+- **`alpha-os debug jquants-watchlist-bars --save-summary`** が **`outputs/jquants_smoke/`** に **sanitized JSON** と **`latest.json`** を出力（**Git 対象外**。**API Key・raw・ヘッダー全体は書かない**）。
+- **`reporting/jquants_smoke_summary.py`**。**`daily` / `make verify` / CI は変更なしで live しない**。
+
+### Task 10 以降（未着手）
+
+- **`latest.json`** を **`daily` が参照して「ローカル記録」として載せるか**の検討（**自動 live は継続禁止**）。
+- Watchlist の小規模 live 運用メモの更新など（[08](./08_phase1a_jquants_plan.md)）。
 
 ---
 

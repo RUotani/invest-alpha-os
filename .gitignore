@@ -33,8 +33,9 @@ credentials/
 outputs/**
 !outputs/**/
 !outputs/**/.gitkeep
-
-# Local AI/Codex review artifacts (never commit)
+# J-Quants smoke summaries: JSON is local-only; .gitkeep keeps the directory in repo
+outputs/jquants_smoke/*.json
+!outputs/jquants_smoke/.gitkeep
 .ai/reviews/*.md
 .ai/reviews/*.json
 

@@ -36,8 +36,8 @@
 | **Task 6** | **`debug jquants-watchlist-bars`**：**`config/watchlist.yaml` の `jp_watchlist`** を順に **`get_daily_quotes` / preview**。**既定 dry-run**、**`--preview-request`** は HTTP なし、**live は三重ゲート + Task 5.6 の日付範囲**。**4 桁数字のみ J-Quants に送信**；**285A など非数字コードは `skipped_unsupported_code`**（勝手に桁埋めしない） |
 | **Task 7** | **`alpha-os daily`** に **J-Quants Watchlist Bars Check**（**dry_run / 集計のみ、HTTP なし**）。`config/market_data.yaml` の **`adapters.jquants.report`**。**API Key・raw・`x-api-key` 値は出さない**。**CI / `make verify` でも live しない** |
 | **Task 8** | **`alpha-os daily`** に **readiness（Green / Yellow / Red）** と **skipped コード一覧**。**HTTP なし**・設定は **`adapters.jquants.report`**（`readiness_*`）。**実 API は呼ばず**環境ガード可否・ウォッチリスト集計のみ |
-| **Task 9** | 必要なら **watchlist の小規模 live 運用検証**（レポート **外**で限定的な `--live` を人間のみ実施）、オペレーション手順の追記 |
-
+| **Task 9** | **`debug jquants-watchlist-bars --save-summary`**：**sanitized** な要約 JSON を **`outputs/jquants_smoke/`** に保存（**raw・API Key・`x-api-key`・ヘッダー全体は保存禁止**）。**`--preview-request` では保存しない**。**dry-run / live 完了**の両方で保存可。**`daily` / CI / `make verify` は変更なしで live しない** |
+| **Task 10** | 必要なら **`latest.json`** 等を **`alpha-os daily` の「ローカル記録」行に反映するか**を検討（**自動 live は禁止のまま**） |
 ### Task 2 で追加したこと（要約）
 
 - **`safe_auth_status()`**: プレゼンスフラグと `token_preview: "***"` のみ（**トークン実値・パスワード・raw を出さない**）。
@@ -114,7 +114,10 @@
 - **Red**：supported 0、ウォッチリスト読込失敗、raw/API 表示オン、**`live_http_in_daily` ≠ disabled** など。
 - **Smoke 状態行**：レポートは **`daily` 中に live smoke を実行しない**ため、**運用合格の `passed` は使わず**、**参照用サブセクションの有無を `documented reference` 等で示す**。
 
-## Version2 の認証（Task 4 時点）
+### Task 9 で追加したこと（ローカル sanitized smoke ファイル・HTTP は人間の live のみ）
+
+- **`--save-summary`**：`reporting/jquants_smoke_summary.py` 経由で **`outputs/jquants_smoke/watchlist_bars_<slug>_limit<N|all>.json`** と **`latest.json`** を出力。保存内容は **`code` / `status` / `row_count` / `source_key` / `http_status` / `error_body_preview`** 等に限定し、**クエリ・URL・Key・raw body は書かない**。
+- **`alpha-os daily`** は引き続き **live しない**。
 
 - **Version2 は API Key 方式**（HTTP ヘッダー **`x-api-key`**）。**refreshToken / idToken 方式は V2 プライマリでは使わない**。
 - **`JQUANTS_API_VERSION=v2`（既定）**のとき、`get_refresh_token` / `get_id_token` は **`not_applicable`**（legacy は `v1` へ切替）。

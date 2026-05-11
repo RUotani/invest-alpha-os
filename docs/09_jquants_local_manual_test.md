@@ -70,6 +70,28 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 **注意**: **`--from-date` / `--to-date` は watchlist コマンドではセットで指定**（片方だけは `validation_error`）。単一銘柄の **`jquants-daily-quotes`** は従来どおり Task 5 の検証のみ。
 
+### Sanitized summary 保存（Task 9）
+
+- watchlist を **dry-run で確認したあとでも**、`--save-summary` で **API Key・raw・`x-api-key` を含まない JSON** を **`outputs/jquants_smoke/`** にだけ保存できる（**.gitignore 対象**で **Git に上がらない**）。
+- **`--preview-request`** と **`--save-summary`** の併用では **ファイルは作らない**（プレビュー専用のため）。
+- 手順は **まず `--limit 1`**、問題なければ **`--limit 3`**。**live は人間だけ**・三重ゲート必須（冒頭「前提」節）。
+
+例（環境変数や venv は自分の環境に合わせる）：
+
+```bash
+JQUANTS_ALLOW_LIVE_HTTP=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
+  debug jquants-watchlist-bars --date 2024-02-16 --limit 3 --live --save-summary
+```
+
+Dry-run のみでの保存：
+
+```bash
+JQUANTS_ENABLED=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
+  debug jquants-watchlist-bars --date 2024-02-16 --limit 2 --save-summary
+```
+
+JSON には **`created_at`** / **`mode`** / **`target_count`** / **`success_count`** / **`error_count`** / **`skipped_count`** / **銘柄ごとの要約結果**のみが載る設計であり、**.env の内容や応答本文そのものは書き込まない**。
+
 ### 記録の形状例：watchlist limit 3（参考）
 
 次は **J-Quants の日足取得が成功した場合の戻り値の形**を説明するための **代表的な東証コード**（`7011` / `6501` / `6506`）と日付・カウンタの例であり、**いずれの環境の CLI 標準出力をそのまま貼ったものではありません**（契約・環境により結果は異なります）。**raw 本文・API Key は含みません。**
