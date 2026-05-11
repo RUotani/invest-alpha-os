@@ -118,7 +118,7 @@
 ### Task 9 で追加したこと（ローカル sanitized smoke ファイル・HTTP は人間の live のみ）
 
 - **`--save-summary`**：`reporting/jquants_smoke_summary.py` 経由で **`outputs/jquants_smoke/watchlist_bars_<slug>_limit<N|all>.json`** と **`latest.json`** を出力。保存内容は **`code` / `status` / `row_count` / `source_key` / `http_status` / `error_body_preview`** 等に限定し、**クエリ・URL・Key・raw body は書かない**。
-- **Task 9.1**：集計 **`success_count` / `error_count`（異常系 `status` のみ） / `skipped_count` / `dry_run_count` / `preview_count`**。**`completed` の保存 **`mode`** は `live`。**
+- **Task 9.1**：集計は **`success_count` / `error_count`（異常系 `status` のみ） / `skipped_count` / `dry_run_count` / `preview_count`**。ライブ後の CLI トップ **`status`** が **`completed`** でも、保存 JSON の **`mode`** は **`live`**。
 - **`alpha-os daily`** は引き続き **live しない**。
 
 - **Version2 は API Key 方式**（HTTP ヘッダー **`x-api-key`**）。**refreshToken / idToken 方式は V2 プライマリでは使わない**。
