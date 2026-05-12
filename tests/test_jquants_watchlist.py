@@ -10,6 +10,7 @@ from invis_alpha_os.config.jp_watchlist import (
     extract_jp_watchlist_tickers,
     jquants_daily_bars_ticker_kind,
     load_jp_watchlist_tickers,
+    normalize_jquants_equity_code,
 )
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import CONFIG_DIR
@@ -29,6 +30,15 @@ def test_extract_from_loaded_yaml():
     data = load_yaml(CONFIG_DIR / "watchlist.yaml")
     t = extract_jp_watchlist_tickers(data)
     assert len(t) >= 11
+
+
+def test_normalize_jquants_equity_code_285a_wire() -> None:
+    """Probe D: alphanumeric JP listing code (e.g. Kioxia) normalizes to uppercase 4-char wire."""
+    assert normalize_jquants_equity_code("285A") == "285A"
+    assert normalize_jquants_equity_code("285a") == "285A"
+    assert normalize_jquants_equity_code("7021") == "7021"
+    assert normalize_jquants_equity_code("70-11") is None
+    assert normalize_jquants_equity_code("") is None
 
 
 def test_jquants_ticker_kind_four_digit_ok():
