@@ -17,6 +17,22 @@ runner = CliRunner()
 _FORBIDDEN_SUBSTRINGS = ("x-api-key", "authorization", "full_url_without_secrets", "query_params")
 
 
+def test_jquants_smoke_summary_created_at_still_uses_utc_clock_in_source():
+    """Regression: Hotfix A must not switch smoke ``created_at`` away from UTC."""
+    from pathlib import Path
+
+    p = (
+        Path(__file__).resolve().parents[1]
+        / "src"
+        / "invis_alpha_os"
+        / "reporting"
+        / "jquants_smoke_summary.py"
+    )
+    text = p.read_text(encoding="utf-8")
+    assert '"created_at"' in text
+    assert "datetime.now(timezone.utc)" in text
+
+
 def test_sanitize_watchlist_rows_strips_sensitive_fields():
     rows = sanitize_watchlist_result_rows_for_summary(
         [

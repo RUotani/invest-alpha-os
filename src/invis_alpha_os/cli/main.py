@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from typing import Any, Optional
 
 import json
@@ -29,6 +27,7 @@ from invis_alpha_os.reporting.jquants_smoke_summary import (
 )
 from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchlist_bars_check_section
 from invis_alpha_os.risk.veto_rules import VetoEngine
+from invis_alpha_os.utils.date_utils import today_jst_iso
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
 snapshot_app = typer.Typer(help="Snapshot commands")
@@ -101,7 +100,7 @@ def config_check() -> None:
 
 @app.command("daily")
 def daily() -> None:
-    today = date.today().isoformat()
+    today = today_jst_iso()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     watchlist = load_yaml(CONFIG_DIR / "watchlist.yaml")
@@ -140,7 +139,7 @@ def daily() -> None:
 
 @app.command("pack")
 def pack(ticker: str = typer.Option(..., "--ticker")) -> None:
-    today = date.today().isoformat()
+    today = today_jst_iso()
     out = OUTPUTS_DIR / "research_packs" / f"{ticker}_{today}.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(

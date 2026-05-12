@@ -23,6 +23,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## Phase 1a — 進行中
 
+### Review Hotfix A — JST 日付ハンドリング（完了）
+
+- **`alpha-os daily`** / **`alpha-os pack`** の**日付駆動ファイル名・見出し**は **`timezone(timedelta(hours=9))` 固定オフセット**（**`ZoneInfo` / tzdata 不使用**）で **JST 暦日**に統一。**GitHub Actions の ubuntu / UTC** でも **日本株レポートとしてのカレンダー日付**で `outputs/reports/daily/*.md` と `outputs/research_packs/*` が付く。
+- **`reporting/jquants_smoke_summary.py` の `created_at`** は **UTC** のまま（保存イベント時刻；Hotfix A の対象外）。
+
+**次の予定**: **Hotfix B** — `safe-push` の **selective staging**（`git add -A` 見直し）。
+
 ### Phase 1a Re-focus — Task 1（アルファニュメリック JP コード / 例: 285A）— 完了
 
 - **目的**：Kioxia 型（**東証アルファニュメリック銘柄**）の **早期検知**に合わせ、**`285A`** を **`debug jquants-watchlist-bars`** の **preview / dry-run** で **`skipped_unsupported_code` にしない**。

@@ -1,7 +1,6 @@
 """Task 7–8 / Task 10: J-Quants daily report section (no HTTP)."""
 
 import json
-from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +15,7 @@ from invis_alpha_os.reports.jquants_watchlist_daily import (
     render_jquants_watchlist_bars_check_section,
     render_latest_local_smoke_summary_section,
 )
+from invis_alpha_os.utils.date_utils import today_jst_iso
 
 runner = CliRunner()
 
@@ -38,7 +38,7 @@ def test_daily_report_readiness_green(jq_data_guard_env, tmp_path, monkeypatch):
 
     result = runner.invoke(app, ["daily"])
     assert result.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     path = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
     body = path.read_text(encoding="utf-8")
     assert "## J-Quants Watchlist Bars Check" in body
@@ -68,7 +68,7 @@ def test_daily_report_readiness_yellow_without_guard(monkeypatch, tmp_path):
 
     result = runner.invoke(app, ["daily"])
     assert result.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "- Readiness: Yellow" in body
     assert "- Data availability guard: not enabled" in body
@@ -84,7 +84,7 @@ def test_daily_report_no_http_and_no_secrets(monkeypatch, jq_data_guard_env, tmp
     with patch("urllib.request.urlopen", side_effect=_boom):
         r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert _FAKE_KEY not in body
     low = body.lower()
@@ -237,7 +237,7 @@ def test_daily_includes_safe_smoke_summary_from_latest_json(tmp_path, monkeypatc
     with patch("urllib.request.urlopen", side_effect=_boom):
         r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "### Latest local smoke summary" in body
     assert "- Mode: live" in body
@@ -257,7 +257,7 @@ def test_daily_latest_blocked_raw_flag(tmp_path, monkeypatch, jq_data_guard_env)
     with patch("urllib.request.urlopen", side_effect=AssertionError):
         r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "unsafe summary blocked" in body
     assert "- Raw response included: true" in body
@@ -273,7 +273,7 @@ def test_daily_latest_blocked_forbidden_key(tmp_path, monkeypatch, jq_data_guard
     monkeypatch.setattr("invis_alpha_os.reports.jquants_watchlist_daily.ROOT_DIR", root)
     r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "unsafe summary blocked" in body
     assert '"x":' not in body
@@ -305,7 +305,7 @@ def test_daily_latest_does_not_echo_values_from_tainted_file(tmp_path, monkeypat
     monkeypatch.setattr("invis_alpha_os.reports.jquants_watchlist_daily.ROOT_DIR", root)
     r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "NEVER_EMBED_SECRET_XYZ_12345" not in body
 
@@ -335,7 +335,7 @@ def test_daily_latest_blocked_non_wire_result_code(tmp_path, monkeypatch, jq_dat
     monkeypatch.setattr("invis_alpha_os.reports.jquants_watchlist_daily.ROOT_DIR", root)
     r = runner.invoke(app, ["daily"])
     assert r.exit_code == 0
-    today = date.today().isoformat()
+    today = today_jst_iso()
     body = (OUTPUTS_DIR / "reports" / "daily" / f"{today}.md").read_text(encoding="utf-8")
     assert "unsafe summary blocked" in body
     assert "SECRET_NOT_A_WIRE_CODE" not in body

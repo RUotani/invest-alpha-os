@@ -38,8 +38,8 @@ alpha-os --help
 
 - `alpha-os status`
 - `alpha-os config-check`
-- `alpha-os daily`（Markdown 末尾に **J-Quants Watchlist Bars Check**・**readiness**・dry-run のみ）
-- `alpha-os pack --ticker 7011`
+- **`alpha-os daily`**（Markdown 末尾に **J-Quants Watchlist Bars Check**・**readiness**・dry-run のみ。**出力ファイル名の日付は JST 暦日** — `outputs/reports/daily/YYYY-MM-DD.md`）
+- **`alpha-os pack --ticker 7011`**（**研究パックのファイル名日付も JST 暦日** — `outputs/research_packs/<ticker>_YYYY-MM-DD.md`）
 - `alpha-os risks`
 - `alpha-os snapshot watchlist`
 - `alpha-os snapshot shadow-portfolio`

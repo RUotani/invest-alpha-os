@@ -7,6 +7,12 @@
 - **J-Quants API** を日本株の **primary source 候補**として組み込むための **adapter・設定・環境変数の器**を用意する。
 - **Task 1** は stub のみ。**Task 2** で **real-mode skeleton**（`JQuantsClient`）。**Task 3** で **Version2 移行を見据えた設定・ドキュメント**（実接続・正規実装は行わない）。
 
+## Review Hotfix A — JST 日付（レポート・パックのファイル名）
+
+- **`invis_alpha_os.utils.date_utils`**：**`timezone(timedelta(hours=9))` 固定**で JST 暦日を得る（**`ZoneInfo("Asia/Tokyo")` / tzdata 依存を避ける**）。
+- **`alpha-os daily`** / **`alpha-os pack`**：**`date.today()`（プロセス TZ 依存）を使わず**、上記ヘルパーで **JST の `YYYY-MM-DD`** を付与。**GitHub Actions（ubuntu / 既定 UTC）**でも **日本株レポートとしての日付ラベル**で `outputs/reports/daily/`・`outputs/research_packs/` に書き出す。
+- **Smoke summary の `created_at`**：イベント時刻として **`datetime.now(timezone.utc)` のまま**（Hotfix A では変更しない）。
+
 ## Version1 → Version2（重要）
 
 公式ドキュメント上、**Version2 がリリース済み**であり、**Version1 は閉鎖予定**です。そのためコード・設定ともに **「V1 固定 URL」を暗黙のデフォルトにしない**ようにします。
