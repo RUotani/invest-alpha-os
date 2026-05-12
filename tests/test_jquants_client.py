@@ -1159,6 +1159,11 @@ def test_preview_request_code_date_full_url_uses_yyyymmdd(monkeypatch):
     blob = json.loads(r.stdout.strip())
     assert blob["status"] == "ok"
     assert blob["query_params"] == {"code": "7011", "date": "20260508"}
+    assert blob["full_url_without_secrets"] == (
+        "https://api.jquants.com/v2/equities/bars/daily?code=7011&date=20260508"
+    )
+
+
 def test_preview_request_285a_code_date_daily_quotes(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://api.jquants.com/v2")
@@ -1170,6 +1175,9 @@ def test_preview_request_285a_code_date_daily_quotes(monkeypatch):
     assert r.exit_code == 0
     blob = json.loads(r.stdout.strip())
     assert blob["query_params"] == {"code": "285A", "date": "20240219"}
+
+
+def test_v2_http_error_json_message_bad_request(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_API_KEY", "k")
