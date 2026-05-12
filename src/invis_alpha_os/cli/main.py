@@ -496,6 +496,31 @@ def _result_row_no_raw(row: dict[str, Any]) -> dict[str, Any]:
     return row
 
 
+def _watchlist_bars_cache_row(
+    *,
+    code: str,
+    status: str,
+    row_count: Any = None,
+    sanitized_bar_count: Any = None,
+    cache_written_to: Any = None,
+    reason: Any = None,
+    full_url_without_secrets: Any = None,
+) -> dict[str, Any]:
+    """Public summary row for ``jquants-watchlist-bars-cache`` (optional safe preview URL in dry-run)."""
+
+    row: dict[str, Any] = {
+        "code": code,
+        "status": status,
+        "row_count": row_count,
+        "sanitized_bar_count": sanitized_bar_count,
+        "cache_written_to": cache_written_to,
+        "reason": reason,
+    }
+    if full_url_without_secrets is not None:
+        row["full_url_without_secrets"] = full_url_without_secrets
+    return _result_row_no_raw(row)
+
+
 def _maybe_save_watchlist_smoke_summary(
     out: dict[str, Any],
     *,
@@ -910,6 +935,253 @@ def debug_jquants_daily_bars_cache(
     view["debug_shape"] = debug_shape
     typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
     raise typer.Exit(0 if result.get("status") == "success" else 1)
+
+
+@debug_app.command("jquants-watchlist-bars-cache")
+def debug_jquants_watchlist_bars_cache(
+    from_date: str = typer.Option(
+        ...,
+        "--from-date",
+        help="Range start YYYY-MM-DD or YYYYMMDD (pairs with --to-date).",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to-date",
+        help="Range end YYYY-MM-DD or YYYYMMDD (pairs with --from-date).",
+    ),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Process only the first N JP watchlist tickers (order preserved).",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Bulk live HTTP (requires JQUANTS_ALLOW_LIVE_HTTP=true and CONFIRM_LIVE_HTTP=YES).",
+    ),
+    write_cache: bool = typer.Option(
+        False,
+        "--write-cache",
+        help="Write sanitized cache per code (requires --live; CONFIRM_LIVE_HTTP=YES is required for any --live).",
+    ),
+) -> None:
+    """Bulk JP watchlist → V2 daily bars; default dry-run previews only (no HTTP, no cache writes)."""
+
+    fn = from_date.strip()
+    tn = to_date.strip()
+    client = JQuantsClient.from_env()
+
+    if write_cache and not live:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "write_cache_requires_live",
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    if live and os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "live_blocked",
+                    "reason": "confirm_live_http_required",
+                    "detail": "Set CONFIRM_LIVE_HTTP=YES for any bulk --live HTTP (read-only or --write-cache).",
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    verr = client.validate_daily_quotes_cli_args(None, date=None, from_date=fn, to_date=tn)
+    if verr is not None:
+        view = _jquants_daily_quotes_cli_snapshot(verr, code=None, from_date=fn, to_date=tn, date_opt=None)
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+        raise typer.Exit(1)
+
+    try:
+        tickers_all = load_jp_watchlist_tickers()
+    except (FileNotFoundError, ValueError, OSError) as e:
+        typer.echo(
+            json.dumps({"status": "error", "reason": "watchlist_load_failed", "detail": str(e), "raw_response_included": False}),
+            ensure_ascii=False,
+            indent=2,
+        )
+        raise typer.Exit(1) from e
+
+    tickers = tickers_all if limit is None else tickers_all[:limit]
+    results: list[dict[str, Any]] = []
+    cache_written_count = 0
+    effective_write = bool(write_cache)
+
+    if not live:
+        for raw in tickers:
+            wire = normalize_jquants_equity_code(str(raw))
+            if wire is None:
+                results.append(
+                    _watchlist_bars_cache_row(
+                        code=(str(raw) or "").strip(),
+                        status="skipped_unsupported_code",
+                        reason="invalid_jquants_wire_code",
+                    )
+                )
+                continue
+            prv = client.build_v2_daily_bars_request_preview(wire, date=None, from_date=fn, to_date=tn)
+            if prv.get("status") == "ok":
+                results.append(
+                    _watchlist_bars_cache_row(
+                        code=wire,
+                        status="preview_ok",
+                        full_url_without_secrets=prv.get("full_url_without_secrets"),
+                    )
+                )
+            else:
+                rsn = prv.get("reason")
+                results.append(
+                    _watchlist_bars_cache_row(
+                        code=wire,
+                        status="preview_error",
+                        reason=str(rsn) if isinstance(rsn, str) else "preview_failed",
+                    )
+                )
+
+        skipped_count = sum(1 for r in results if r.get("status") == "skipped_unsupported_code")
+        non_skip = [r for r in results if r.get("status") != "skipped_unsupported_code"]
+        success_count = sum(1 for r in non_skip if r.get("status") == "preview_ok")
+        error_count = len(non_skip) - success_count
+        out: dict[str, Any] = {
+            "status": "dry_run",
+            "date_from": fn,
+            "date_to": tn,
+            "target_count": len(tickers),
+            "success_count": success_count,
+            "error_count": error_count,
+            "skipped_count": skipped_count,
+            "cache_written_count": 0,
+            "results": results,
+            "raw_response_included": False,
+        }
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+        raise typer.Exit(0 if error_count == 0 else 1)
+
+    for raw in tickers:
+        wire = normalize_jquants_equity_code(str(raw))
+        if wire is None:
+            results.append(
+                _watchlist_bars_cache_row(
+                    code=(str(raw) or "").strip(),
+                    status="skipped_unsupported_code",
+                    reason="invalid_jquants_wire_code",
+                )
+            )
+            continue
+
+        result = client.get_daily_quotes(
+            wire,
+            date=None,
+            from_date=fn,
+            to_date=tn,
+            attempt_live=True,
+            return_sanitized_bars=True,
+        )
+        st = result.get("status")
+
+        if st == "success":
+            rc = result.get("row_count")
+            sb = result.get("sanitized_bar_count")
+            if not isinstance(sb, int):
+                sbl = result.get("sanitized_bars")
+                sb = len(sbl) if isinstance(sbl, list) else None
+            path_rel: str | None = None
+            if effective_write:
+                bars = result.get("sanitized_bars")
+                if isinstance(bars, list) and bars:
+                    path = save_jquants_daily_bars_cache(
+                        wire,
+                        bars,
+                        source="jquants_v2_equities_bars_daily",
+                        fetched_at=utc_now_iso(),
+                        generated_at=None,
+                    )
+                    try:
+                        path_rel = str(path.relative_to(ROOT_DIR)).replace("\\", "/")
+                    except ValueError:
+                        path_rel = str(path).replace("\\", "/")
+                    cache_written_count += 1
+                else:
+                    st = "cache_not_written"
+                    result = dict(result)
+                    result["reason"] = "no_sanitized_rows"
+            results.append(
+                _watchlist_bars_cache_row(
+                    code=wire,
+                    status=st if isinstance(st, str) else "error",
+                    row_count=rc if isinstance(rc, int) else None,
+                    sanitized_bar_count=sb,
+                    cache_written_to=path_rel,
+                    reason=result.get("reason") if st == "cache_not_written" else None,
+                )
+            )
+            continue
+
+        if st == "sanitized_empty":
+            results.append(
+                _watchlist_bars_cache_row(
+                    code=wire,
+                    status="sanitized_empty",
+                    row_count=result.get("row_count"),
+                    sanitized_bar_count=0,
+                    cache_written_to=None,
+                    reason=result.get("reason") if isinstance(result.get("reason"), str) else "sanitized_empty",
+                )
+            )
+            continue
+
+        snap = _jquants_daily_quotes_cli_snapshot(result, code=wire, from_date=fn, to_date=tn, date_opt=None)
+        rsn = snap.get("reason")
+        if not isinstance(rsn, str):
+            rx = result.get("reason")
+            rsn = str(rx) if isinstance(rx, str) else None
+        results.append(
+            _watchlist_bars_cache_row(
+                code=wire,
+                status=str(st) if st is not None else "error",
+                row_count=snap.get("row_count"),
+                sanitized_bar_count=None,
+                cache_written_to=None,
+                reason=rsn,
+            )
+        )
+
+    skipped_count = sum(1 for r in results if r.get("status") == "skipped_unsupported_code")
+    non_skip = [r for r in results if r.get("status") != "skipped_unsupported_code"]
+    success_count = sum(1 for r in non_skip if r.get("status") == "success")
+    error_count = len(non_skip) - success_count
+    out_live: dict[str, Any] = {
+        "status": "completed",
+        "date_from": fn,
+        "date_to": tn,
+        "target_count": len(tickers),
+        "success_count": success_count,
+        "error_count": error_count,
+        "skipped_count": skipped_count,
+        "cache_written_count": cache_written_count,
+        "results": results,
+        "raw_response_included": False,
+    }
+    typer.echo(json.dumps(out_live, ensure_ascii=False, indent=2))
+
+    raise typer.Exit(0 if error_count == 0 else 1)
 
 
 def main() -> None:
