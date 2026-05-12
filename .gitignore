@@ -33,6 +33,8 @@ credentials/
 outputs/**
 !outputs/**/
 !outputs/**/.gitkeep
+# Ops runner output — always local-only (overrides !**/.gitkeep above)
+outputs/ops/
 # J-Quants smoke summaries: JSON is local-only; .gitkeep keeps the directory in repo
 outputs/jquants_smoke/*.json
 !outputs/jquants_smoke/.gitkeep
