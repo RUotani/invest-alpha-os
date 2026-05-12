@@ -14,6 +14,7 @@ import pytest
 from typer.testing import CliRunner
 
 from invis_alpha_os.cli.main import app
+from invis_alpha_os.data.adapters.jquants_client import JQuantsClient
 from invis_alpha_os.data.jquants_daily_bars_cache import load_jquants_daily_bars_cache
 
 runner = CliRunner()
@@ -48,6 +49,8 @@ def test_watchlist_bars_cache_dry_run_no_urlopen(monkeypatch: pytest.MonkeyPatch
     blob = json.loads(r.stdout.strip())
     assert blob["status"] == "dry_run"
     assert blob["cache_written_count"] == 0
+    assert blob.get("live_http_performed") is False
+    assert blob.get("mode") == "jquants_watchlist_cache_preview"
 
 
 def test_watchlist_bars_cache_live_without_confirm_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -287,3 +290,108 @@ def test_watchlist_bars_cache_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     blob = json.loads(r.stdout.strip())
     assert blob["target_count"] == 2
     assert len(blob["results"]) == 2
+
+
+def test_watchlist_bars_dry_run_codes_skips_watchlist_load(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+
+    def _boom() -> list[str]:
+        raise AssertionError("watchlist must not load when --codes is set")
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.load_jp_watchlist_tickers", _boom)
+
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-watchlist-bars-cache",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+            "--codes",
+            "7011",
+        ],
+    )
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    assert blob["target_count"] == 1
+    assert blob["results"][0]["code"] == "7011"
+
+
+def test_watchlist_bars_codes_csv_all_invalid_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-watchlist-bars-cache",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+            "--codes",
+            "%%%bad, alsobad",
+        ],
+    )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob["status"] == "validation_error"
+    assert blob["reason"] == "codes_csv_no_valid_wire_codes"
+
+
+def test_watchlist_bars_cache_live_http_error_row_is_safe_public(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_PRINT_THIS_SECRET")
+    monkeypatch.setenv("CONFIRM_LIVE_HTTP", "YES")
+    _patch_base(monkeypatch)
+
+    def _gdq(
+        self: JQuantsClient,
+        wire: str,
+        *,
+        date=None,
+        from_date=None,
+        to_date=None,
+        **kwargs: object,
+    ) -> dict:
+        assert wire == "7011"
+        return {
+            "status": "http_error",
+            "http_status": 503,
+            "raw_response_included": False,
+            "reason": None,
+            "evil_raw_body": "x-api-key NEVER_PRINT_THIS_SECRET raw-body-leak",
+        }
+
+    monkeypatch.setattr(JQuantsClient, "get_daily_quotes", _gdq)
+    monkeypatch.setattr("invis_alpha_os.cli.main.load_jp_watchlist_tickers", lambda: ["7011"])
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", MagicMock()):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-watchlist-bars-cache",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-31",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1
+    text = r.stdout
+    assert "NEVER_PRINT_THIS_SECRET" not in text
+    assert "evil_raw_body" not in text
+    blob = json.loads(text.strip())
+    row = blob["results"][0]
+    assert row["status"] == "http_error"
+    assert row["http_status"] == 503
+    assert row.get("raw_response_included") is False
+    assert row["reason"] == "http_status_503"
+    assert "error_kind" in row
+    assert "error_body_preview" not in row

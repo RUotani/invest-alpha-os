@@ -505,6 +505,9 @@ def _watchlist_bars_cache_row(
     cache_written_to: Any = None,
     reason: Any = None,
     full_url_without_secrets: Any = None,
+    http_status: Any = None,
+    error_kind: Any = None,
+    error_body_preview: Any = None,
 ) -> dict[str, Any]:
     """Public summary row for ``jquants-watchlist-bars-cache`` (optional safe preview URL in dry-run)."""
 
@@ -518,7 +521,105 @@ def _watchlist_bars_cache_row(
     }
     if full_url_without_secrets is not None:
         row["full_url_without_secrets"] = full_url_without_secrets
+    if http_status is not None:
+        row["http_status"] = http_status
+    if error_kind is not None:
+        row["error_kind"] = error_kind
+    if error_body_preview is not None:
+        row["error_body_preview"] = error_body_preview
     return _result_row_no_raw(row)
+
+
+def _reason_from_snap_for_row(status_str: str, snap: dict[str, Any], result: dict[str, Any]) -> str:
+    """Non-empty public reason for error rows (never raw API body)."""
+
+    r = snap.get("reason")
+    if isinstance(r, str) and r.strip():
+        return r
+    rx = result.get("reason")
+    if isinstance(rx, str) and rx.strip():
+        return rx
+    if status_str == "http_error":
+        hs = snap.get("http_status")
+        if hs is None and isinstance(snap.get("code"), int):
+            hs = int(snap["code"])
+        if isinstance(hs, int):
+            return f"http_status_{hs}"
+        ebp = snap.get("error_body_preview")
+        if isinstance(ebp, str) and ebp.strip():
+            return "http_error_masked_preview"
+        return "http_error_unknown"
+    return status_str
+
+
+def _watchlist_bars_cache_row_from_snap(code: str, snap: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    st = str(snap.get("status") or result.get("status") or "error")
+    reason = _reason_from_snap_for_row(st, snap, result)
+    row: dict[str, Any] = {
+        "code": code,
+        "status": st,
+        "row_count": snap.get("row_count"),
+        "sanitized_bar_count": None,
+        "cache_written_to": None,
+        "reason": reason,
+        "error_kind": st,
+    }
+    if st == "http_error":
+        hs = snap.get("http_status")
+        if hs is None and isinstance(result.get("code"), int):
+            hs = int(result["code"])
+        if isinstance(hs, int):
+            row["http_status"] = hs
+        # Bulk summary: omit body-derived previews; use http_status + reason only (Main L gate).
+        row["raw_response_included"] = False
+    else:
+        row["raw_response_included"] = bool(snap.get("raw_response_included", False))
+    return _result_row_no_raw(row)
+
+
+def _parse_codes_csv(codes: Optional[str]) -> tuple[list[str], list[str]] | None:
+    """Return ``(wire_codes, skipped_raw_tokens)`` or ``None`` if ``codes`` is empty."""
+
+    if codes is None or not str(codes).strip():
+        return None
+    wire_out: list[str] = []
+    skipped: list[str] = []
+    for part in str(codes).split(","):
+        p = part.strip()
+        if not p:
+            continue
+        w = normalize_jquants_equity_code(p)
+        if w is None:
+            skipped.append(p)
+        else:
+            wire_out.append(w)
+    return (wire_out, skipped)
+
+
+def _norm_watchlist_codes_csv_requested(codes_csv: Optional[str]) -> Optional[str]:
+    if codes_csv is None or not str(codes_csv).strip():
+        return None
+    parts = [p.strip() for p in str(codes_csv).split(",") if p.strip()]
+    if not parts:
+        return None
+    return ",".join(parts)
+
+
+def _resolve_watchlist_bars_cache_tickers(
+    *,
+    codes_csv: Optional[str],
+    limit: Optional[int],
+) -> tuple[list[str], list[str]]:
+    """Return ``(tickers, skipped_unsupported_from_codes_csv)``."""
+
+    parsed = _parse_codes_csv(codes_csv)
+    if parsed is not None:
+        wire_list, skipped = parsed
+        tickers = wire_list if limit is None else wire_list[:limit]
+        return tickers, skipped
+    tickers_all = load_jp_watchlist_tickers()
+    tickers = tickers_all if limit is None else tickers_all[:limit]
+    return tickers, []
 
 
 def _maybe_save_watchlist_smoke_summary(
@@ -965,6 +1066,11 @@ def debug_jquants_watchlist_bars_cache(
         "--write-cache",
         help="Write sanitized cache per code (requires --live; CONFIRM_LIVE_HTTP=YES is required for any --live).",
     ),
+    codes: Optional[str] = typer.Option(
+        None,
+        "--codes",
+        help="Comma-separated wire codes (overrides jp_watchlist). Invalid tokens become skipped rows in results.",
+    ),
 ) -> None:
     """Bulk JP watchlist → V2 daily bars; default dry-run previews only (no HTTP, no cache writes)."""
 
@@ -1010,7 +1116,7 @@ def debug_jquants_watchlist_bars_cache(
         raise typer.Exit(1)
 
     try:
-        tickers_all = load_jp_watchlist_tickers()
+        tickers, csv_skipped_tokens = _resolve_watchlist_bars_cache_tickers(codes_csv=codes, limit=limit)
     except (FileNotFoundError, ValueError, OSError) as e:
         typer.echo(
             json.dumps({"status": "error", "reason": "watchlist_load_failed", "detail": str(e), "raw_response_included": False}),
@@ -1019,8 +1125,33 @@ def debug_jquants_watchlist_bars_cache(
         )
         raise typer.Exit(1) from e
 
-    tickers = tickers_all if limit is None else tickers_all[:limit]
+    if _parse_codes_csv(codes) is not None and not tickers:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "codes_csv_no_valid_wire_codes",
+                    "skipped_unsupported_code_tokens": csv_skipped_tokens,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
+        raise typer.Exit(1)
+
+    codes_mode = _parse_codes_csv(codes) is not None
+    target_total = len(tickers) + len(csv_skipped_tokens) if codes_mode else len(tickers)
+
     results: list[dict[str, Any]] = []
+    for bad in csv_skipped_tokens:
+        results.append(
+            _watchlist_bars_cache_row(
+                code=bad,
+                status="skipped_unsupported_code",
+                reason="invalid_jquants_wire_code",
+            )
+        )
     cache_written_count = 0
     effective_write = bool(write_cache)
 
@@ -1061,16 +1192,22 @@ def debug_jquants_watchlist_bars_cache(
         error_count = len(non_skip) - success_count
         out: dict[str, Any] = {
             "status": "dry_run",
+            "mode": "jquants_watchlist_cache_preview",
             "date_from": fn,
             "date_to": tn,
-            "target_count": len(tickers),
+            "target_count": target_total,
             "success_count": success_count,
             "error_count": error_count,
             "skipped_count": skipped_count,
             "cache_written_count": 0,
+            "failed_codes": [str(r.get("code")) for r in non_skip if r.get("status") != "preview_ok"],
             "results": results,
+            "live_http_performed": False,
             "raw_response_included": False,
         }
+        crq = _norm_watchlist_codes_csv_requested(codes)
+        if crq is not None:
+            out["codes_requested"] = crq
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
         raise typer.Exit(0 if error_count == 0 else 1)
 
@@ -1148,37 +1285,31 @@ def debug_jquants_watchlist_bars_cache(
             continue
 
         snap = _jquants_daily_quotes_cli_snapshot(result, code=wire, from_date=fn, to_date=tn, date_opt=None)
-        rsn = snap.get("reason")
-        if not isinstance(rsn, str):
-            rx = result.get("reason")
-            rsn = str(rx) if isinstance(rx, str) else None
-        results.append(
-            _watchlist_bars_cache_row(
-                code=wire,
-                status=str(st) if st is not None else "error",
-                row_count=snap.get("row_count"),
-                sanitized_bar_count=None,
-                cache_written_to=None,
-                reason=rsn,
-            )
-        )
+        results.append(_watchlist_bars_cache_row_from_snap(wire, snap, result))
 
     skipped_count = sum(1 for r in results if r.get("status") == "skipped_unsupported_code")
     non_skip = [r for r in results if r.get("status") != "skipped_unsupported_code"]
     success_count = sum(1 for r in non_skip if r.get("status") == "success")
     error_count = len(non_skip) - success_count
+    failed_codes_live = [str(r.get("code")) for r in non_skip if r.get("status") != "success"]
     out_live: dict[str, Any] = {
         "status": "completed",
+        "mode": "jquants_watchlist_cache_live",
         "date_from": fn,
         "date_to": tn,
-        "target_count": len(tickers),
+        "target_count": target_total,
         "success_count": success_count,
         "error_count": error_count,
         "skipped_count": skipped_count,
         "cache_written_count": cache_written_count,
+        "failed_codes": failed_codes_live,
         "results": results,
+        "live_http_performed": True,
         "raw_response_included": False,
     }
+    crq_live = _norm_watchlist_codes_csv_requested(codes)
+    if crq_live is not None:
+        out_live["codes_requested"] = crq_live
     typer.echo(json.dumps(out_live, ensure_ascii=False, indent=2))
 
     raise typer.Exit(0 if error_count == 0 else 1)

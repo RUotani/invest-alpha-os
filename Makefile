@@ -17,9 +17,15 @@ endif
 export PYTHON
 export ALLOW_IMPORTANT
 
+# jq-cache-live / jq-refresh が使う ops JSON 出力先をテストなどでオーバーライドするときのみ設定。
+ifdef JQ_OPS_OUTPUT_DIR
+export JQ_OPS_OUTPUT_DIR
+endif
+
 .PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run \
 	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
-	jq-cache-preview jq-cache-live signals-cache-only daily-momentum-check ship ops-snapshot
+	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
+	signals-cache-only daily-momentum-check ship ops-snapshot
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -110,15 +116,32 @@ ops-check: env-doctor daily-check post-push-check
 jq-cache-preview:
 	@test -n "$(FROM)" || (echo 'FROM is required (YYYY-MM-DD)' >&2 && exit 1)
 	@test -n "$(TO)" || (echo 'TO is required (YYYY-MM-DD)' >&2 && exit 1)
-	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_preview.sh
+	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" CODES="$(CODES)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_preview.sh
 
 # Live + write cache: requires CONFIRM_LIVE_HTTP=YES (same as CLI for any bulk --live) + sets allow-live.
+# LIMIT is required unless CODES is set (comma-separated wire codes for retry / subsets).
 jq-cache-live:
 	@test "$(CONFIRM_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_LIVE_HTTP=YES required' >&2 && exit 2)
 	@test -n "$(FROM)" || (echo 'FROM is required' >&2 && exit 1)
 	@test -n "$(TO)" || (echo 'TO is required' >&2 && exit 1)
-	@test -n "$(LIMIT)" || (echo 'LIMIT is required' >&2 && exit 1)
-	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" CONFIRM_LIVE_HTTP="$(CONFIRM_LIVE_HTTP)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_live.sh
+	@test -n "$(LIMIT)" -o -n "$(CODES)" || (echo 'LIMIT or CODES is required' >&2 && exit 1)
+	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" CODES="$(CODES)" CONFIRM_LIVE_HTTP="$(CONFIRM_LIVE_HTTP)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_live.sh
+
+# Same as jq-cache-live but requires CODES=... (explicit failed-code retry path).
+jq-cache-live-codes:
+	@test "$(CONFIRM_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_LIVE_HTTP=YES required' >&2 && exit 2)
+	@test -n "$(FROM)" || (echo 'FROM is required' >&2 && exit 1)
+	@test -n "$(TO)" || (echo 'TO is required' >&2 && exit 1)
+	@test -n "$(CODES)" || (echo 'CODES is required (comma-separated wire codes)' >&2 && exit 1)
+	@$(MAKE) jq-cache-live FROM="$(FROM)" TO="$(TO)" CODES="$(CODES)" CONFIRM_LIVE_HTTP="$(CONFIRM_LIVE_HTTP)" PYTHON="$(PYTHON)" $(if $(LIMIT),LIMIT="$(LIMIT)")
+
+# Preview → live (ops JSON) → signals + momentum only when verdict allows (ALLOW_PARTIAL_CACHE for partial_success).
+jq-refresh-workflow:
+	@test -n "$(FROM)" || (echo 'FROM is required' >&2 && exit 1)
+	@test -n "$(TO)" || (echo 'TO is required' >&2 && exit 1)
+	@test "$(CONFIRM_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_LIVE_HTTP=YES required' >&2 && exit 2)
+	@test -n "$(LIMIT)" -o -n "$(CODES)" || (echo 'LIMIT or CODES is required' >&2 && exit 1)
+	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" CODES="$(CODES)" CONFIRM_LIVE_HTTP="$(CONFIRM_LIVE_HTTP)" ALLOW_PARTIAL_CACHE="$(ALLOW_PARTIAL_CACHE)" PYTHON="$(PYTHON)" bash scripts/jq_refresh_workflow.sh
 
 # LIMIT=N make signals-cache-only
 signals-cache-only:

@@ -23,11 +23,15 @@ if [[ -z "${PYTHON:-}" ]]; then
   fi
 fi
 
-LIMIT_ARGS=()
+CLI_ARGS=(
+  "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars-cache
+  --from-date "${FROM}" --to-date "${TO}"
+)
+if [[ -n "${CODES:-}" ]]; then
+  CLI_ARGS+=(--codes "${CODES}")
+fi
 if [[ -n "${LIMIT:-}" ]]; then
-  LIMIT_ARGS=(--limit "${LIMIT}")
+  CLI_ARGS+=(--limit "${LIMIT}")
 fi
 
-exec "${PYTHON}" "${ROOT}/scripts/load_jquants_env.py" run --env-file "${ROOT}/.env" -- \
-  "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars-cache \
-  --from-date "${FROM}" --to-date "${TO}" "${LIMIT_ARGS[@]}"
+exec "${PYTHON}" "${ROOT}/scripts/load_jquants_env.py" run --env-file "${ROOT}/.env" -- "${CLI_ARGS[@]}"
