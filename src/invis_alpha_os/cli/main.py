@@ -159,12 +159,17 @@ def signals_command(
     dry_run: bool = typer.Option(
         True,
         "--dry-run/--no-dry-run",
-        help="No live HTTP. With --source synthetic, uses deterministic bars; with --source cache, reads local cache only.",
+        help="No live HTTP. synthetic/cache/cache-only use local or deterministic data only.",
     ),
     source: str = typer.Option(
         "synthetic",
         "--source",
-        help="synthetic (default) or cache — cache uses outputs/market_data/jquants_daily_bars/{code}.json when present.",
+        help="synthetic | cache | cache-only — cache prefers local JSON; cache-only ranks cached tickers only.",
+    ),
+    no_synthetic_fallback: bool = typer.Option(
+        False,
+        "--no-synthetic-fallback",
+        help="With --source cache, skip tickers without cache (same as --source cache-only).",
     ),
     code: Optional[str] = typer.Option(None, "--code", help="Single ticker (requires --bars-file)."),
     bars_file: Optional[str] = typer.Option(
@@ -181,9 +186,22 @@ def signals_command(
 ) -> None:
     """Observation-only JP momentum-style flags from daily bars (Main E MVP). Not trading advice."""
 
-    src_norm = source.strip().lower()
-    if src_norm not in ("synthetic", "cache"):
-        typer.echo("signals: --source must be synthetic or cache", err=True)
+    src_norm = source.strip().lower().replace("_", "-")
+    if src_norm == "cacheonly":
+        src_norm = "cache-only"
+
+    if no_synthetic_fallback:
+        if src_norm == "cache":
+            src_norm = "cache-only"
+        elif src_norm != "cache-only":
+            typer.echo(
+                "signals: --no-synthetic-fallback is only valid with --source cache or cache-only",
+                err=True,
+            )
+            raise typer.Exit(2)
+
+    if src_norm not in ("synthetic", "cache", "cache-only"):
+        typer.echo("signals: --source must be synthetic, cache, or cache-only", err=True)
         raise typer.Exit(2)
 
     if bars_file:
@@ -220,16 +238,23 @@ def signals_command(
     tickers = load_jp_watchlist_tickers()
     if limit is not None:
         tickers = tickers[:limit]
-    mapping, srcmap = _jp_momentum_bar_mapping(src_norm, tickers)
+    mapping, srcmap, skipped_no_cache = _jp_momentum_bar_mapping(src_norm, tickers)
     ranked = build_momentum_signals(mapping)
+    mode = "cache_only_dry_run" if src_norm == "cache-only" else (
+        "synthetic_dry_run" if src_norm == "synthetic" else "cache_preferred_dry_run"
+    )
+    bars_label = "cache" if src_norm == "cache-only" else _bars_data_source_label(srcmap)
     out: dict[str, Any] = {
-        "mode": "synthetic_dry_run" if src_norm == "synthetic" else "cache_preferred_dry_run",
-        "bars_data_source": _bars_data_source_label(srcmap),
+        "mode": mode,
+        "bars_data_source": bars_label,
         "observation_only": True,
         "ranked": [
             momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic")) for m in ranked
         ],
     }
+    if src_norm == "cache-only":
+        out["skipped_no_cache"] = len(skipped_no_cache)
+        out["skipped_no_cache_codes"] = skipped_no_cache
     typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
 
@@ -315,24 +340,37 @@ def _cli_optional_str(value: Optional[str]) -> Optional[str]:
     return stripped if stripped else None
 
 
-def _jp_momentum_bar_mapping(source: str, tickers: list[str]) -> tuple[dict[str, list], dict[str, str]]:
+def _jp_momentum_bar_mapping(
+    source: str, tickers: list[str]
+) -> tuple[dict[str, list], dict[str, str], list[str]]:
+    """Build code→bars for momentum; ``skipped_no_cache`` lists wire codes with no cache file (cache-only)."""
+
     mapping: dict[str, list] = {}
     srcmap: dict[str, str] = {}
+    skipped_no_cache: list[str] = []
     for raw in tickers:
         w = normalize_jquants_equity_code(str(raw))
         if w is None:
             continue
-        if source == "cache":
+        if source == "synthetic":
+            mapping[w] = synthetic_bars_for_code(w)
+            srcmap[w] = "synthetic"
+        elif source == "cache":
             got = try_load_cached_daily_bars(w)
             if got is not None:
                 mapping[w], srcmap[w] = got
             else:
                 mapping[w] = synthetic_bars_for_code(w)
                 srcmap[w] = "synthetic"
+        elif source == "cache-only":
+            got = try_load_cached_daily_bars(w)
+            if got is not None:
+                mapping[w], srcmap[w] = got
+            else:
+                skipped_no_cache.append(w)
         else:
-            mapping[w] = synthetic_bars_for_code(w)
-            srcmap[w] = "synthetic"
-    return mapping, srcmap
+            raise ValueError(f"unexpected signals source: {source!r}")
+    return mapping, srcmap, skipped_no_cache
 
 
 def _bars_data_source_label(srcmap: dict[str, str]) -> str:
