@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # dry-run | live smoke for jquants-watchlist-bars (live requires confirmation).
-# Never prints secrets or whole .env.
+# Loads whitelisted J-Quants keys via scripts/load_jquants_env.py (no shell sourcing of .env file).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,22 +34,11 @@ if [[ -z "${PYTHON:-}" ]]; then
   fi
 fi
 
-load_env_quiet() {
-  if [[ -f "${ROOT}/.env" ]]; then
-    echo "(loading .env; values not displayed)"
-    # shellcheck disable=SC1091
-    set -a
-    source "${ROOT}/.env"
-    set +a
-  else
-    echo "(no .env file at repo root)"
-  fi
-}
-
 case "${MODE}" in
   dry-run)
     echo "=== jquants-smoke dry-run (DATE=${DATE} LIMIT=${LIMIT}) ==="
-    exec "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars \
+    exec "${PYTHON}" "${ROOT}/scripts/load_jquants_env.py" run --env-file "${ROOT}/.env" -- \
+      "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars \
       --date "${DATE}" --limit "${LIMIT}" --save-summary
     ;;
   live)
@@ -58,8 +47,9 @@ case "${MODE}" in
       exit 1
     fi
     echo "=== jquants-smoke LIVE (DATE=${DATE} LIMIT=${LIMIT}) ==="
-    load_env_quiet
-    exec env JQUANTS_ALLOW_LIVE_HTTP=true "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars \
+    exec "${PYTHON}" "${ROOT}/scripts/load_jquants_env.py" run --env-file "${ROOT}/.env" \
+      --set JQUANTS_ALLOW_LIVE_HTTP=true -- \
+      "${PYTHON}" -m invis_alpha_os.cli.main debug jquants-watchlist-bars \
       --date "${DATE}" --limit "${LIMIT}" --live --save-summary
     ;;
   *)

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Run `daily` (no live HTTP), print J-Quants Watchlist Bars Check section, leak-grep excerpt.
+# Merges whitelisted J-Quants keys from .env via scripts/load_jquants_env.py (no shell sourcing of .env file).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +16,8 @@ fi
 
 echo "=== daily-check (PYTHON=${PYTHON}) ==="
 
-out="$("${PYTHON}" -m invis_alpha_os.cli.main daily 2>&1)"
+out="$("${PYTHON}" "${ROOT}/scripts/load_jquants_env.py" run --env-file "${ROOT}/.env" -- \
+  "${PYTHON}" -m invis_alpha_os.cli.main daily 2>&1)"
 printf '%s\n' "${out}"
 
 path="$(printf '%s' "${out}" | sed -n 's/^daily report created: //p' | tail -n 1)"

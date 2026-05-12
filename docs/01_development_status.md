@@ -32,7 +32,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 - **`scripts/safe_commit_push.sh`**：**リポジトリ全体の一括 add を廃止**し、`git status --short --untracked-files=all` 由来の **候補パスのみ** `git add --`。**index が事前に汚れている場合・競合・rename（`->`）は中断**。`DRY_RUN` も同じ列挙ロジック。
 
-**次の予定**: **Hotfix C**（未着手・別タスクとして追記予定）。
+### Review Hotfix C — 安全な `.env` 読取り・短い秘密マスク（完了）
+
+- **`scripts/load_jquants_env.py`**：`source` / eval なしで **許可 `JQUANTS_*` キーのみ**を読み、`env-doctor` / `daily-check` / `jquants-smoke` から **子プロセスへだけ**渡す。
+- **`jquants_client._mask_sensitive_preview`**：短い API Key も **error 本文プレビューに出さない**。
+
+**次の予定**: **Probe D / momentum signals** など Phase 1a 本流へ（別タスク）。
 
 ### Phase 1a Re-focus — Task 1（アルファニュメリック JP コード / 例: 285A）— 完了
 

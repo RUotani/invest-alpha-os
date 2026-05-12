@@ -17,6 +17,14 @@
 
 - **`scripts/safe_commit_push.sh`**：`git status --short --untracked-files=all` から得た **検査済み候補パスのみ** `git add -- <paths>`。**クリーンな index 前提**（事前 stage 済みは拒否）。**競合 XY**（例 `UU` / `AA` / `DD` / `AU` / `UA` / `DU` / `UD` / `TT`）および **rename/copy（`->` 行）は中断**（rename は **`git mv` または別コミット**で解消後に再実行）。**`DRY_RUN` と本番で同一の候補列挙**。`.gitignore` 抜けによる意図しない取り込みリスクを抑える。
 
+## Review Hotfix C — 安全な `.env` 読取りと短い秘密のマスク
+
+- **`scripts/load_jquants_env.py`**：`.env` を **shell として実行せず**、`KEY=VALUE` / `export KEY=VALUE` 行のみ。**許可した `JQUANTS_*` 等のキーだけ**をパースし、**値は決して表示しない**。**`doctor`**（`env-doctor`）と **`run`**（子プロセスへマージして CLI 実行）の2モード。
+- **`scripts/env_doctor.sh` / `daily_check.sh` / `jquants_smoke.sh`**：``source .env`` を廃止し、上記ローダ経由。**live**（`jquants-smoke-live`）は従来どおり **`CONFIRM_LIVE_HTTP=YES` 必須**；許可時のみ子に **`JQUANTS_ALLOW_LIVE_HTTP=true`** を一時付与。
+- **`_mask_sensitive_preview`**：API Key など短い秘密も **HTTP エラー本文プレビューに漏らさない**（長い秘密は従来どおり全体置換、極短いものは**単独トークン**としてのみ置換し自然文を壊しにくい）。
+
+**次の開発フォーカス**: Phase 1a の **Probe D / momentum signals** 等へ戻る（本 Hotfix は運用安全の横断整備）。
+
 ## Version1 → Version2（重要）
 
 公式ドキュメント上、**Version2 がリリース済み**であり、**Version1 は閉鎖予定**です。そのためコード・設定ともに **「V1 固定 URL」を暗黙のデフォルトにしない**ようにします。

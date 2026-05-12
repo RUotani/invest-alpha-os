@@ -79,10 +79,10 @@ make verify
 
 | ターゲット | 概要 |
 |-----------|------|
-| `make env-doctor` | `.env` があれば静かに読み込み（**値は一切表示しない**）。J-Quants 関連変数が **present / missing / true / false** の程度のみ表示 |
-| `make daily-check` | `daily` を実行し、当日の **`## J-Quants Watchlist Bars Check`** を抜粋。**簡易リークヒューリスティック**も実行 |
-| `DATE=YYYY-MM-DD LIMIT=N make jquants-smoke-dry-run` | `debug jquants-watchlist-bars --date … --limit … --save-summary` のみ（**live しない**） |
-| `CONFIRM_LIVE_HTTP=YES DATE=… LIMIT=… make jquants-smoke-live` | **人間の明示ゲート**。`.env` を読んでサブプロセスだけ **`JQUANTS_ALLOW_LIVE_HTTP=true`** + `--live --save-summary` |
+| `make env-doctor` | **`.env` を shell の `source` として実行しない**（`scripts/load_jquants_env.py` が **許可 JQUANTS_* キーだけ**行単位で読み、**値は出さない**）。**present / missing / true / false** のみ表示 |
+| `make daily-check` | 同上の安全ローダで **`daily` を子プロセス実行**し、当日の **`## J-Quants Watchlist Bars Check`** を抜粋。**簡易リークヒューリスティック**も実行 |
+| `DATE=YYYY-MM-DD LIMIT=N make jquants-smoke-dry-run` | 同上の安全ローダで **`debug jquants-watchlist-bars --date … --limit … --save-summary`** のみ（**live しない**） |
+| `CONFIRM_LIVE_HTTP=YES DATE=… LIMIT=… make jquants-smoke-live` | **人間の明示ゲート `CONFIRM_LIVE_HTTP=YES` が無ければ停止**。許可時のみ安全ローダ＋子プロセスに **`JQUANTS_ALLOW_LIVE_HTTP=true`** を一時付与して **`--live --save-summary`** |
 | `make post-push-check` | `gh` があれば **GitHub Actions 最新 Run のステータス**を表示。**`gh` なければ warning で exit 0** |
 | `make ops-check` | 上の **`env-doctor` → `daily-check` → `post-push-check`**（いずれも live HTTP なし） |
 

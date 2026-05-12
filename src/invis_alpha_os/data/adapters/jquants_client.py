@@ -242,26 +242,43 @@ _JSON_ERR_KEY_QUOTED_RE = re.compile(
 )
 
 
+def _mask_secret_occurrences(out: str, s: str) -> str:
+    """Replace occurrences of secret *s* in *out* with ``***``.
+
+    Long secrets (length >= 4): case-insensitive substring replace (legacy behavior).
+    Short secrets: replace only as an isolated token (alphanumeric/underscore boundaries)
+    so single-character keys do not mangle ordinary English words.
+    """
+
+    if not s:
+        return out
+    if len(s) >= 4:
+        try:
+            return re.sub(re.escape(s), "***", out, flags=re.IGNORECASE)
+        except re.error:
+            return out.replace(s, "***")
+    try:
+        return re.sub(
+            rf"(?<![A-Za-z0-9_]){re.escape(s)}(?![A-Za-z0-9_])",
+            "***",
+            out,
+            flags=re.IGNORECASE,
+        )
+    except re.error:
+        return out
+
+
 def _mask_sensitive_preview(text: str, secrets: Sequence[str]) -> str:
     """Mask env/client secrets and common bearer/header patterns (never emit x-api-key values)."""
 
     out = text
-    ordered = sorted((s for s in secrets if s and len(s) > 0), key=len, reverse=True)
+    ordered = sorted((s for s in secrets if s), key=len, reverse=True)
     seen: set[str] = set()
     for s in ordered:
         if s in seen:
             continue
         seen.add(s)
-        # Avoid turning every "k" in unrelated text into "***" when env holds a 1-char test key.
-        if len(s) >= 4:
-            out = out.replace(s, "***")
-    for s in ordered:
-        if len(s) < 4:
-            continue
-        try:
-            out = re.sub(re.escape(s), "***", out, flags=re.IGNORECASE)
-        except re.error:
-            pass
+        out = _mask_secret_occurrences(out, s)
     out = re.sub(r"(?i)\bBearer\s+\S+", "Bearer ***", out)
     out = _JSON_ERR_KEY_QUOTED_RE.sub(r"\1***\3", out)
     out = re.sub(

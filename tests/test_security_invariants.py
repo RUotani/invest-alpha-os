@@ -51,3 +51,26 @@ def test_safe_push_rename_abort_documented_in_script() -> None:
     text = SAFE_PUSH.read_text(encoding="utf-8")
     assert "rename or copy detected" in text
     assert "git mv / separate commit" in text or "git mv" in text
+
+
+# --- Hotfix C (ops scripts: no shell sourcing of .env) -------------------------
+
+_OPS = [
+    ROOT / "scripts" / "env_doctor.sh",
+    ROOT / "scripts" / "jquants_smoke.sh",
+    ROOT / "scripts" / "daily_check.sh",
+]
+
+
+def test_ops_scripts_do_not_shell_source_dotenv() -> None:
+    for path in _OPS:
+        text = path.read_text(encoding="utf-8")
+        assert 'source "${ROOT}/.env"' not in text
+        assert "source .env" not in text
+
+
+def test_load_jquants_env_script_avoids_exec_hooks() -> None:
+    text = (ROOT / "scripts" / "load_jquants_env.py").read_text(encoding="utf-8")
+    assert "os.system" not in text
+    assert "subprocess." in text  # run mode
+    assert "eval(" not in text

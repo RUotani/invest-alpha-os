@@ -12,6 +12,19 @@ from invis_alpha_os.data.adapters.jquants_client import JQuantsClient, normalize
 runner = CliRunner()
 
 
+def test_mask_sensitive_preview_isolated_short_key() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import _mask_sensitive_preview
+
+    assert _mask_sensitive_preview("err: a", ["a"]) == "err: ***"
+    assert "alphabet" == _mask_sensitive_preview("alphabet", ["a"])
+
+
+def test_mask_sensitive_preview_four_or_more_chars_global() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import _mask_sensitive_preview
+
+    assert _mask_sensitive_preview("see test now", ["test"]) == "see *** now"
+
+
 def _patch_base(monkeypatch) -> None:
     monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v0")
 
@@ -1211,6 +1224,24 @@ def test_v2_http_error_plain_text_truncated_to_300(monkeypatch):
     assert prev is not None
     assert len(prev) == 300
     assert "raw_response" not in out
+
+
+def test_v2_http_error_masks_short_jquants_api_key_in_json_message(monkeypatch):
+    secret = "test"
+    monkeypatch.setenv("JQUANTS_API_KEY", secret)
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    _patch_base(monkeypatch)
+    payload = json.dumps({"message": f"use key {secret} please"})
+
+    def _urlopen(req, timeout=None):  # noqa: ANN001
+        raise urllib.error.HTTPError(req.full_url, 400, "Bad Request", {}, BytesIO(payload.encode()))
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", side_effect=_urlopen):
+        out = JQuantsClient.from_env().get_daily_quotes("7011", date="2026-05-08", attempt_live=True)
+    eb = out.get("error_body_preview") or ""
+    assert secret not in eb
+    assert "***" in eb
 
 
 def test_v2_http_error_masks_jquants_api_key_in_body(monkeypatch):

@@ -67,6 +67,7 @@ Laputa Alpha OS / InvisAlphaOS で、複数 AI / ツールと人間が協働す�
 ## 5.1 ローカル運用ショートカット（DevOps）
 
 - **`make ops-check`**：live HTTP せず **`env-doctor` → `daily-check` → `post-push-check`** を連鎖。**`.env` や API Key の値は表示しない**。`daily-check` は当日レポートから **J-Quants Watchlist Bars Check** を抜粋し簡易リークチェックのみ。
+- **`.env` はシェルとして `source` しない**（コマンド置換・バッククォートを走らせない）。`env-doctor` / `daily-check` / `jquants-smoke*` は **`scripts/load_jquants_env.py` が許可 `JQUANTS_*` キーだけ**を読み取り、子プロセス環境へ渡す。
 - **`make env-doctor`**：J-Quants 関連の **present / missing / true / false** のみ。**`.env` 全文・実値は出さない**。
 - **`make daily-check`**：Python は **`PYTHON=${PYTHON:-.venv/bin/python}`** と同等（Makefile 側の `PYTHON` もそのまま使える）。
 - **`make jquants-smoke-dry-run`**：**`DATE=…` `LIMIT=…` 必須**。`debug jquants-watchlist-bars … --save-summary` のみ（**既定 dry-run**。live はしない）。
