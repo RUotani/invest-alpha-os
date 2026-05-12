@@ -16,8 +16,10 @@ def test_daily_report_has_japan_signals_section():
     body = path.read_text(encoding="utf-8")
     assert "## Japan Signals" in body
     assert "Watchlist count:" in body
-    assert "## Momentum Signals" in body
+    assert "## Momentum Signals — Cache Only" in body
+    assert "## Momentum Signals — Mixed / System Validation" in body
     assert "Observation only" in body
     assert "**Bars source:**" in body
     assert "synthetic" in body.lower() or "cache" in body.lower()
     assert "not actionable" in body.lower()
+    assert "Synthetic fallback" in body

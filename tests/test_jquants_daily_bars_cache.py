@@ -12,7 +12,7 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
     load_jquants_daily_bars_cache,
     save_jquants_daily_bars_cache,
 )
-from invis_alpha_os.reports.momentum_daily import render_momentum_signals_section
+from invis_alpha_os.reports.momentum_daily import render_momentum_signals_mixed_section
 
 
 def test_jquants_daily_bars_cache_roundtrip_no_secrets(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -91,7 +91,8 @@ def test_render_momentum_section_shows_cache_source(tmp_path: Path, monkeypatch:
     }
     (cache_dir / "7011.json").write_text(json.dumps(payload), encoding="utf-8")
 
-    md = render_momentum_signals_section()
+    md = render_momentum_signals_mixed_section()
+    assert "## Momentum Signals — Mixed / System Validation" in md
     assert "**Bars source:**" in md
     assert "cache" in md.lower()
     assert "| Bars src |" in md

@@ -1,10 +1,10 @@
-"""Render Observation-only momentum signal section for daily reports (Main E / Main F)."""
+"""Render Observation-only momentum signal sections for daily reports (Main E / Main F / Main I)."""
 
 from __future__ import annotations
 
 from invis_alpha_os.config.jp_watchlist import load_jp_watchlist_tickers, normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import try_load_cached_daily_bars
-from invis_alpha_os.signals.momentum import DailyBar, build_momentum_signals, synthetic_bars_for_code
+from invis_alpha_os.signals.momentum import DailyBar, MomentumBreakdown, build_momentum_signals, synthetic_bars_for_code
 
 
 def _bars_source_summary_line(sources: dict[str, str]) -> str:
@@ -29,8 +29,73 @@ def _bars_source_summary_line(sources: dict[str, str]) -> str:
     )
 
 
-def render_momentum_signals_section() -> str:
-    """Build ``## Momentum Signals`` markdown; prefers sanitized J-Quants cache when present."""
+def _append_ranking_table(
+    lines: list[str],
+    ranked: list[MomentumBreakdown],
+    bars_source_for_code: dict[str, str],
+) -> None:
+    lines.append("| Rank | Code | Score | Labels | r5 | r20 | r60 | Bars src |")
+    lines.append("|------|------|-------|--------|-----|-----|-----|----------|")
+    for i, m in enumerate(ranked, start=1):
+        lbl = ", ".join(m.labels) if m.labels else "—"
+        r5 = "—" if m.r5 is None else f"{m.r5 * 100:.2f}%"
+        r20 = "—" if m.r20 is None else f"{m.r20 * 100:.2f}%"
+        r60 = "—" if m.r60 is None else f"{m.r60 * 100:.2f}%"
+        bsrc = bars_source_for_code.get(m.code, "—")
+        lines.append(f"| {i} | {m.code} | {m.score} | {lbl} | {r5} | {r20} | {r60} | {bsrc} |")
+    lines.append("")
+
+
+def render_momentum_signals_cache_only_section() -> str:
+    """Build ``## Momentum Signals — Cache Only`` — cached bars only; no synthetic generation."""
+
+    tickers = load_jp_watchlist_tickers()
+    mapping: dict[str, list[DailyBar]] = {}
+    skipped_no_cache: list[str] = []
+    for raw in tickers:
+        code = normalize_jquants_equity_code(str(raw))
+        if code is None:
+            continue
+        got = try_load_cached_daily_bars(code)
+        if got is not None:
+            mapping[code] = got[0]
+        else:
+            skipped_no_cache.append(code)
+
+    ranked = build_momentum_signals(mapping)
+    bars_src = {c: "cache" for c in mapping}
+
+    lines: list[str] = [
+        "## Momentum Signals — Cache Only",
+        "",
+        "Observation only — not buy/sell advice. No automatic trading.",
+        "",
+        "**Bars source:** `cache` — local sanitized OHLCV files only "
+        "(`outputs/market_data/jquants_daily_bars/{code}.json`). "
+        "**No synthetic bars** are generated for this section.",
+        "",
+    ]
+    if skipped_no_cache:
+        codes = ", ".join(skipped_no_cache)
+        lines.append(f"**Skipped (no local cache file):** {len(skipped_no_cache)} — {codes}.")
+        lines.append("")
+    lines.extend(
+        [
+            "Labels: `high_52w_breakout`, `volume_25d_spike`, `positive_20d_60d_momentum`.",
+            "",
+        ]
+    )
+    if not ranked:
+        lines.append("- *(no tickers with local cache files in the JP watchlist)*")
+        lines.append("")
+        return "\n".join(lines)
+
+    _append_ranking_table(lines, ranked, bars_src)
+    return "\n".join(lines)
+
+
+def render_momentum_signals_mixed_section() -> str:
+    """Build mixed cache + synthetic fallback section for system validation (not clean research ranking)."""
 
     tickers = load_jp_watchlist_tickers()
     mapping: dict[str, list[DailyBar]] = {}
@@ -49,10 +114,18 @@ def render_momentum_signals_section() -> str:
 
     ranked = build_momentum_signals(mapping)
     src_line = _bars_source_summary_line(sources)
-    lines = [
-        "## Momentum Signals",
+    lines: list[str] = [
+        "## Momentum Signals — Mixed / System Validation",
         "",
-        "Observation only — not buy/sell advice.",
+        "Observation only — not buy/sell advice. No automatic trading.",
+        "",
+        "**Purpose:** Mixed ranking for **pipeline / system validation**. When a ticker lacks a local cache file, "
+        "a **synthetic fallback** series is used so the mover still appears in the table. "
+        "That is misleading for pure investment research because synthetic rows can outrank cached rows.",
+        "",
+        "**Synthetic fallback:** Deterministic placeholder OHLCV is inserted where no cache exists. "
+        "**Synthetic rows are not actionable** and must not be treated like live or vendor-backed signals.",
+        "",
         src_line,
         "Labels: `high_52w_breakout`, `volume_25d_spike`, `positive_20d_60d_momentum`.",
         "",
@@ -62,14 +135,5 @@ def render_momentum_signals_section() -> str:
         lines.append("")
         return "\n".join(lines)
 
-    lines.append("| Rank | Code | Score | Labels | r5 | r20 | r60 | Bars src |")
-    lines.append("|------|------|-------|--------|-----|-----|-----|----------|")
-    for i, m in enumerate(ranked, start=1):
-        lbl = ", ".join(m.labels) if m.labels else "—"
-        r5 = "—" if m.r5 is None else f"{m.r5 * 100:.2f}%"
-        r20 = "—" if m.r20 is None else f"{m.r20 * 100:.2f}%"
-        r60 = "—" if m.r60 is None else f"{m.r60 * 100:.2f}%"
-        bsrc = sources.get(m.code, "—")
-        lines.append(f"| {i} | {m.code} | {m.score} | {lbl} | {r5} | {r20} | {r60} | {bsrc} |")
-    lines.append("")
+    _append_ranking_table(lines, ranked, sources)
     return "\n".join(lines)

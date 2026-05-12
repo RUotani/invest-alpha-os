@@ -33,7 +33,10 @@ from invis_alpha_os.reporting.jquants_smoke_summary import (
     save_watchlist_smoke_summary_payload,
 )
 from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchlist_bars_check_section
-from invis_alpha_os.reports.momentum_daily import render_momentum_signals_section
+from invis_alpha_os.reports.momentum_daily import (
+    render_momentum_signals_cache_only_section,
+    render_momentum_signals_mixed_section,
+)
 from invis_alpha_os.risk.veto_rules import VetoEngine
 from invis_alpha_os.signals.momentum import (
     analyze_bars_for_code,
@@ -148,7 +151,9 @@ def daily() -> None:
         )
         + jq_watchlist_section
         + "\n\n"
-        + render_momentum_signals_section(),
+        + render_momentum_signals_cache_only_section()
+        + "\n\n"
+        + render_momentum_signals_mixed_section(),
         encoding="utf-8",
     )
     typer.echo(f"daily report created: {out}")
