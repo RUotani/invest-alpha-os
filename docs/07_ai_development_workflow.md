@@ -40,6 +40,7 @@ Laputa Alpha OS / InvisAlphaOS で、複数 AI / ツールと人間が協働す�
 
 - `PYTHON=.venv/bin/python make verify`（または `make verify` — Makefile が `.venv/bin/python` を優先する場合あり）
 - `make codex-review` / `make ai-check`
+- `make ops-check`（live HTTP なし：env 状態の要約、`daily` の J-Quants 抜粋、任意で `gh` による Actions メタ）
 - **`SAFE_PUSH_MSG="..." PYTHON=.venv/bin/python make safe-push-dry-run`**（本番の事前確認）または、人間の明示承認がある場合に限り **`SAFE_PUSH_MSG="..." PYTHON=.venv/bin/python make safe-push`**（`scripts/safe_commit_push.sh`：**禁止パス事前検査** → **`make ai-check`** → **`git diff --check`** → **禁止パス再検査** → **`latest.json` 門番** → `git add` / `commit` / `push`）
 - `git status --short`
 - `git diff --stat`
@@ -62,6 +63,16 @@ Laputa Alpha OS / InvisAlphaOS で、複数 AI / ツールと人間が協働す�
 - `curl | bash`
 - `brew install`
 - （その他）外部 API を実キーで叩く操作
+
+## 5.1 ローカル運用ショートカット（DevOps）
+
+- **`make ops-check`**：live HTTP せず **`env-doctor` → `daily-check` → `post-push-check`** を連鎖。**`.env` や API Key の値は表示しない**。`daily-check` は当日レポートから **J-Quants Watchlist Bars Check** を抜粋し簡易リークチェックのみ。
+- **`make env-doctor`**：J-Quants 関連の **present / missing / true / false** のみ。**`.env` 全文・実値は出さない**。
+- **`make daily-check`**：Python は **`PYTHON=${PYTHON:-.venv/bin/python}`** と同等（Makefile 側の `PYTHON` もそのまま使える）。
+- **`make jquants-smoke-dry-run`**：**`DATE=…` `LIMIT=…` 必須**。`debug jquants-watchlist-bars … --save-summary` のみ（**既定 dry-run**。live はしない）。
+- **`make jquants-smoke-live`**：**`CONFIRM_LIVE_HTTP=YES` 必須**のうえ、`DATE` / `LIMIT` を渡す。その **1 回の子プロセスだけ** **`JQUANTS_ALLOW_LIVE_HTTP=true`** と **`--live --save-summary`**（人間のみ・運用規約順守）。
+- **`make post-push-check`**：**`gh` あり**：最新ワークフローランの **status / conclusion 等のみ**。**なし**：警告して **exit 0**。
+- 外部レビュー用のひとつの設計資料：[10_system_overview_for_external_review.md](./10_system_overview_for_external_review.md)
 
 ## 6. 標準作業フロー
 

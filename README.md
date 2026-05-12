@@ -62,7 +62,7 @@ alpha-os --help
 make verify
 ```
 
-`make verify` は以下を順番に実行し、エラー時はその場で停止します。
+以下を順番に実行し、エラー時はその場で停止します。
 
 - tests
 - status
@@ -72,6 +72,21 @@ make verify
 - pack --ticker 7011
 - risks
 - git status --short
+
+### ローカル運用ショートカット（DevOps）
+
+`outputs/` の実データや `.env` の値は Git に載せない前提のまま、手元のチェックだけ短縮できます。**`daily` を含む運用チェーンは既定で live HTTP しません。**
+
+| ターゲット | 概要 |
+|-----------|------|
+| `make env-doctor` | `.env` があれば静かに読み込み（**値は一切表示しない**）。J-Quants 関連変数が **present / missing / true / false** の程度のみ表示 |
+| `make daily-check` | `daily` を実行し、当日の **`## J-Quants Watchlist Bars Check`** を抜粋。**簡易リークヒューリスティック**も実行 |
+| `DATE=YYYY-MM-DD LIMIT=N make jquants-smoke-dry-run` | `debug jquants-watchlist-bars --date … --limit … --save-summary` のみ（**live しない**） |
+| `CONFIRM_LIVE_HTTP=YES DATE=… LIMIT=… make jquants-smoke-live` | **人間の明示ゲート**。`.env` を読んでサブプロセスだけ **`JQUANTS_ALLOW_LIVE_HTTP=true`** + `--live --save-summary` |
+| `make post-push-check` | `gh` があれば **GitHub Actions 最新 Run のステータス**を表示。**`gh` なければ warning で exit 0** |
+| `make ops-check` | 上の **`env-doctor` → `daily-check` → `post-push-check`**（いずれも live HTTP なし） |
+
+レビュワー・外部 AI 向けの全体像は [docs/10_system_overview_for_external_review.md](docs/10_system_overview_for_external_review.md)。
 
 ### AI 開発運用（Phase 0 完了後）
 

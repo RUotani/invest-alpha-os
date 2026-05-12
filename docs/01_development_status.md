@@ -101,4 +101,10 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## DevOps — ローカル運用ショートカット（完了）
+
+- **Makefile**：**`make env-doctor`**、**`make daily-check`**、**`make jquants-smoke-dry-run`**（必須 `DATE`,`LIMIT`。**dry-run + `--save-summary`**のみ）、**`make jquants-smoke-live`**（**`CONFIRM_LIVE_HTTP=YES`** 必須。子プロセスのみ **`JQUANTS_ALLOW_LIVE_HTTP=true`** + **`--live --save-summary`**）、**`make post-push-check`**（`gh` 任意）、**`make ops-check`**（上記 3 を **live HTTP なし**で順実行）。
+- **スクリプト**：`scripts/env_doctor.sh` / `daily_check.sh` / `jquants_smoke.sh` / `post_push_check.sh`。**`.env` 全文や API Key 実値は出さない**。禁止の **`rm`/`rm -rf`** は不使用。
+- **外部レビュー用まとめ**：[docs/10_system_overview_for_external_review.md](./10_system_overview_for_external_review.md)
+
 関連: [07_ai_development_workflow.md](./07_ai_development_workflow.md)

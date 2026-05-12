@@ -42,7 +42,12 @@
 | **Task 10** | **`alpha-os daily`** が **`outputs/jquants_smoke/latest.json`**（**ローカルにだけある sanitized**）を **読んで本文に「Latest local smoke summary」を出す**。**ファイル読み取りのみ**。**`daily` / `make verify` / CI は live HTTP しない**（**`include_latest_smoke_summary`**、`latest_smoke_summary_*` は `config/market_data.adapters.jquants.report`） |
 | **Task 11** | 必要なら **readiness を `latest.json` の内容で Green+ / Yellow に細分化**（**自動 live は禁止のまま**） |
 
-### Task 2 で追加したこと（要約）
+### DevOps — ローカル運用ショートカット（Task / 並行項目）
+
+- **Makefile**：**`make env-doctor`** / **`make daily-check`** / **`make jquants-smoke-dry-run`**（`DATE`,`LIMIT`。**live しない**・**`--save-summary`**）/ **`make jquants-smoke-live`**（**`CONFIRM_LIVE_HTTP=YES` ゲート**。子プロセスだけ **`JQUANTS_ALLOW_LIVE_HTTP=true`** と **`--live --save-summary`**）/ **`make post-push-check`**（`gh` があれば最新 Actions メタのみ）/ **`make ops-check`**（上記の **`env-doctor` → `daily-check` → `post-push-check`** で **live HTTP なし**）。
+- **`scripts/`**：`scripts/env_doctor.sh` など実装。**API Key は表示しない**。外部レビュー用のひとつの全体資料は **`docs/10_system_overview_for_external_review.md`**。
+
+### Phase 1a Task 2（JQuants クライアント骨格）で追加したこと（要約）
 
 - **`safe_auth_status()`**: プレゼンスフラグと `token_preview: "***"` のみ（**トークン実値・パスワード・raw を出さない**）。
 - **`JQuantsClient`**: 公開戻り値に **refresh / id 実値・raw JSON を含めない**。ライブチェーンで得た機密は **メモリ内のみ**。

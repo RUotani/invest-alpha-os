@@ -17,7 +17,8 @@ endif
 export PYTHON
 export ALLOW_IMPORTANT
 
-.PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run
+.PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run \
+	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -76,4 +77,29 @@ safe-push:
 
 safe-push-dry-run:
 	DRY_RUN=true bash scripts/safe_commit_push.sh
+
+# --- Local ops shortcuts (DevOps Task 2) — no secrets printed; ops-check avoids live HTTP. -----------------
+env-doctor:
+	bash scripts/env_doctor.sh
+
+daily-check:
+	bash scripts/daily_check.sh
+
+# DATE=YYYY-MM-DD LIMIT=N [PYTHON=.venv/bin/python] make jquants-smoke-dry-run — dry-run + --save-summary only.
+jquants-smoke-dry-run:
+	@test -n "$(DATE)" || (echo 'DATE is required (e.g. DATE=2024-02-19)' >&2 && exit 1)
+	@test -n "$(LIMIT)" || (echo 'LIMIT is required (e.g. LIMIT=3)' >&2 && exit 1)
+	bash scripts/jquants_smoke.sh dry-run "$(DATE)" "$(LIMIT)"
+
+# CONFIRM_LIVE_HTTP=YES DATE=... LIMIT=... [PYTHON=.venv/bin/python] make jquants-smoke-live — one-shot live + save-summary.
+jquants-smoke-live:
+	@test "$(CONFIRM_LIVE_HTTP)" = "YES" || (echo 'Set CONFIRM_LIVE_HTTP=YES to enable live HTTP (human gate).' >&2 && exit 1)
+	@test -n "$(DATE)" || (echo 'DATE is required' >&2 && exit 1)
+	@test -n "$(LIMIT)" || (echo 'LIMIT is required' >&2 && exit 1)
+	bash scripts/jquants_smoke.sh live "$(DATE)" "$(LIMIT)"
+
+post-push-check:
+	bash scripts/post_push_check.sh
+
+ops-check: env-doctor daily-check post-push-check
 
