@@ -47,7 +47,7 @@ def test_daily_report_readiness_green(jq_data_guard_env, tmp_path, monkeypatch):
     assert f"Unsupported code count: {unsupported_n}" in body
     assert f"Supported code count: {supported_n}" in body
     assert f"Target count: {target_n}" in body
-    assert "- Unsupported codes skipped: 285A" in body
+    assert "- Unsupported codes skipped: none" in body
     assert "### Local smoke test record" in body
     assert "Task 7 spec-style field examples" in body
     assert "7974 / 2024-02-17" in body

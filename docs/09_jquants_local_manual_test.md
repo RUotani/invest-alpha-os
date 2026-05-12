@@ -75,6 +75,33 @@ CLI の `--live` 成功時でも **OHLC などの銘柄行データは標準出�
 
 **注意**: **`--from-date` / `--to-date` は watchlist コマンドではセットで指定**（片方だけは `validation_error`）。単一銘柄の **`jquants-daily-quotes`** は従来どおり Task 5 の検証のみ。
 
+### アルファニュメリック JP コード（例: **`285A` / Phase 1a Re-focus）
+
+- **`config/watchlist.yaml` の `jp_watchlist`** から **`debug jquants-watchlist-bars`** を使うとき、**ASCII 英数字ちょうど 4 文字**（例：**`7011`・`285A`・`304A`**）は **J-Quants の `code` として preview / dry-run / live**（live は上記の三重ゲート）に載る。**小文字を入力しても watchlist 経路では大文字に正規化**される。
+- **HTTP なしの確認**（**`285A` 行**に `query_params.code: "285A"` と `date` の **`YYYYMMDD` wire** が載ること）:
+
+```bash
+alpha-os debug jquants-watchlist-bars --date 2024-02-19 --preview-request
+```
+
+- **任意の live 単体プローブ**（**人間のみ**・**契約内日付**・**`.env` は各自**・実行後 **`JQUANTS_ALLOW_LIVE_HTTP`** を既定に戻す）：
+
+```bash
+JQUANTS_ALLOW_LIVE_HTTP=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
+  debug jquants-daily-quotes --code 285A --date 2024-02-19 --live
+```
+
+- **任意の watchlist live**（並び順に注意。**`285A`** を包含するために **`--limit`** を増やす、など）：
+
+```bash
+JQUANTS_ALLOW_LIVE_HTTP=true PYTHON=.venv/bin/python python -m invis_alpha_os.cli.main \
+  debug jquants-watchlist-bars --date 2024-02-19 --limit 9 --live
+```
+
+※ **`--limit 9`** は本リポの既定 `jp_watchlist` で **先頭から 9 銘まで（9 番目が `285A`）**を含める一例。自分の watchlist に合わせて変えること。
+
+- **J-Quants が当該銘柄コードや市場規則により受け付けない・データが無い場合**がある。**そのときは別ソース**（例：**yfinance フォールバック・アダプタ拡張**）**をコード側で検討することがある**。上流 API・銘柄定義に依存し、**実装タスクとしてはフェーズ・アーキ判断**とする。
+
 ### Sanitized summary 保存（Task 9）
 
 - watchlist を **dry-run で確認したあとでも**、`--save-summary` で **API Key・raw・`x-api-key` を含まない JSON** を **`outputs/jquants_smoke/`** にだけ保存できる（**.gitignore 対象**で **Git に上がらない**）。

@@ -36,9 +36,51 @@ def test_jquants_ticker_kind_four_digit_ok():
     assert jquants_daily_bars_ticker_kind(" 7203 ") == "ok"
 
 
-def test_jquants_ticker_kind_285a_skipped():
-    assert jquants_daily_bars_ticker_kind("285A") == "skipped_unsupported_code"
+def test_jquants_ticker_kind_alnum_four_ok():
+    """Kioxia-style alphanumeric Tokyo listings (Phase 1a refocus)."""
+    assert jquants_daily_bars_ticker_kind("285A") == "ok"
+    assert jquants_daily_bars_ticker_kind("285a") == "ok"
+    assert jquants_daily_bars_ticker_kind("304A") == "ok"
+
+
+def test_jquants_ticker_kind_bad_structures_skipped():
+    assert jquants_daily_bars_ticker_kind("") == "skipped_unsupported_code"
+    assert jquants_daily_bars_ticker_kind("123") == "skipped_unsupported_code"
     assert jquants_daily_bars_ticker_kind("12345") == "skipped_unsupported_code"
+    assert jquants_daily_bars_ticker_kind("70-11") == "skipped_unsupported_code"
+    assert jquants_daily_bars_ticker_kind("285 A") == "skipped_unsupported_code"
+
+
+def test_watchlist_preview_285a_wire_query(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v2")
+    monkeypatch.setenv("JQUANTS_ENABLED", "false")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-watchlist-bars",
+            "--preview-request",
+            "--date",
+            "2024-02-19",
+            "--limit",
+            "9",
+        ],
+    )
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    row = next(x for x in blob["results"] if x["code"] == "285A")
+    assert row["status"] != "skipped_unsupported_code"
+    assert row["query_params"]["code"] == "285A"
+    assert row["query_params"]["date"] == "20240219"
+
+
+def test_watchlist_full_preview_includes_285a_no_skip(monkeypatch):
+    monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v2")
+    monkeypatch.setenv("JQUANTS_ENABLED", "false")
+    r = runner.invoke(app, ["debug", "jquants-watchlist-bars", "--preview-request", "--date", "2024-02-19"])
+    blob = json.loads(r.stdout.strip())
+    row = next(x for x in blob["results"] if x["code"] == "285A")
+    assert row["query_params"] == {"code": "285A", "date": "20240219"}
 
 
 def test_watchlist_limit(monkeypatch):
@@ -134,7 +176,7 @@ def test_watchlist_live_without_allow_no_urlopen(monkeypatch):
     assert "PLACEHOLDER_NOT_REAL" not in r.stdout
 
 
-def test_watchlist_skips_285a(monkeypatch):
+def test_watchlist_dry_run_285a_wire(monkeypatch):
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v2")
     r = runner.invoke(
@@ -143,7 +185,7 @@ def test_watchlist_skips_285a(monkeypatch):
     )
     blob = json.loads(r.stdout.strip())
     codes = {x["code"]: x["status"] for x in blob["results"]}
-    assert codes.get("285A") == "skipped_unsupported_code"
+    assert codes.get("285A") == "dry_run"
 
 
 def test_watchlist_no_secrets_in_stdout(monkeypatch):

@@ -35,7 +35,7 @@ invalid calendar dates → ``invalid_date_format``.
 ``--date`` / ``--from-date`` / ``--to-date`` outside that inclusive window before HTTP (``validation_error`` /
 ``date_out_of_available_range``).
 
-**Task 6**: **``debug jquants-watchlist-bars``** reads ``jp_watchlist`` tickers; only **4-digit** codes are sent to V2 daily bars (see ``config/jp_watchlist.py``).
+**Task 6**: **``debug jquants-watchlist-bars``** reads ``jp_watchlist`` tickers; **JPX-style ``[0-9A-Za-z]{4}``** codes (e.g. ``7011``, ``285A``) are sent to V2 daily bars after **uppercase normalization** (see ``config/jp_watchlist.py``).
 
 **Task 7**: Daily report includes a **dry-run / status-only** **J-Quants Watchlist Bars Check** section (no HTTP, no API keys); **Task 10** adds **optional local ``latest.json`` read** for smoke summary text only (no ``urllib``). See ``reports/jquants_watchlist_daily.py``.
 

@@ -45,4 +45,4 @@ def test_jp_watchlist_helpers():
     tickers = extract_jp_watchlist_tickers(data)
     assert len(tickers) >= 11
     assert jquants_daily_bars_ticker_kind("6501") == "ok"
-    assert jquants_daily_bars_ticker_kind("285A") == "skipped_unsupported_code"
+    assert jquants_daily_bars_ticker_kind("285A") == "ok"

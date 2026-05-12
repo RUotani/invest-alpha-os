@@ -23,6 +23,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## Phase 1a — 進行中
 
+### Phase 1a Re-focus — Task 1（アルファニュメリック JP コード / 例: 285A）— 完了
+
+- **目的**：Kioxia 型（**東証アルファニュメリック銘柄**）の **早期検知**に合わせ、**`285A`** を **`debug jquants-watchlist-bars`** の **preview / dry-run** で **`skipped_unsupported_code` にしない**。
+- **`config/jp_watchlist.py`**：**`normalize_jquants_equity_code` / `jquants_daily_bars_ticker_kind`** — **ASCII `[A-Za-z0-9]{4}`** を **`ok`**（wire は **大文字**）。**記号・全角・長さ≠4・空**は **`skipped_unsupported_code`**。
+- **`cli/main.py`（watchlist-bars）**：正規化後のコードで preview / **`get_daily_quotes`**。**live と実 API はテストしない**。**人手向けの任意 live は [09](./09_jquants_local_manual_test.md)** のみ。
+
+
 ### Task 1 — 完了（J-Quants stub・watchlist・Japan Signals）
 
 - `docs/08_phase1a_jquants_plan.md` baseline
@@ -66,7 +73,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### Task 6 — 完了（watchlist・J-Quants daily bars 一括 CLI）
 
-- **`config/jp_watchlist.py`**：`jp_watchlist` ティッカー抽出。**4 桁数字のみ** J-Quants に送る候補（**`285A` は `skipped_unsupported_code`**、桁埋めはしない）。
+- **`config/jp_watchlist.py`**：`jp_watchlist` ティッカー抽出。**Phase 1a Re-focus**：**ASCII 英数字ちょうど 4 文字**を J-Quants wire へ（例：**`285A`・`7011`**、**小文字入力は正規化**）。**単体銘柄 `jquants-daily-quotes` は従来どおり桁数だけで制限しない**。
 - **`alpha-os debug jquants-watchlist-bars`**：既定 **dry-run**、**`--preview-request`**（HTTP なし）、**live は三重ゲート + Task 5.6**。結果は JSON 配列。**raw・API Key なし**。
 
 ### Task 7 — 完了（daily report の J-Quants watchlist サマリ・HTTP なし）

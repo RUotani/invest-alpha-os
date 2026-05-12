@@ -126,7 +126,7 @@ def test_skipped_unsupported_increments_skipped():
         "date": "2024-02-16",
         "target_count": 2,
         "results": [
-            {"code": "285A", "status": "skipped_unsupported_code"},
+            {"code": "TOOLONG", "status": "skipped_unsupported_code"},
             {"code": "7011", "status": "dry_run"},
         ],
     }

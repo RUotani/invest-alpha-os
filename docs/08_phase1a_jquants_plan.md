@@ -3,6 +3,7 @@
 ## Phase 1a の目的
 
 - 日本株ウォッチリストを **テーマ付きで整理**し、将来のシグナル・日次レポートに載せられる形にする。
+- **シグナル検知への再フォーカス**：アルファニュメリックなど **JP コードの種類ごとの観察**（例：**`285A` / Kioxia 型に代表される銘柄**）が **skipped だけで無視されない**こと。
 - **J-Quants API** を日本株の **primary source 候補**として組み込むための **adapter・設定・環境変数の器**を用意する。
 - **Task 1** は stub のみ。**Task 2** で **real-mode skeleton**（`JQuantsClient`）。**Task 3** で **Version2 移行を見据えた設定・ドキュメント**（実接続・正規実装は行わない）。
 
@@ -33,7 +34,7 @@
 | **Task 5.4** | **V2 日付クエリを `YYYYMMDD` で送信**（公式クイックスタートの例に合わせる）。CLI は **`YYYY-MM-DD`** または **`YYYYMMDD`** を入力可。**`query_params` と `preview-request` は実送信値**（ハイフンなし 8 桁）。無効な日付は **`invalid_date_format`** |
 | **Task 5.5** | **HTTP エラー時の安全プレビュー**：`http_error` に **短いマスク済み `error_body_preview`**（最大約 300 文字、**raw body は返さない**）。`JQUANTS_API_KEY` 等は伏字 |
 | **Task 5.6** | **データ提供範囲ガード**：**`JQUANTS_DATA_AVAILABLE_FROM` / `TO`**（両方とも人間が `.env` で設定）が **解釈可能なときだけ**、**`--date` / `--from-date` / `--to-date`** が **契約ウィンドウ外**なら **HTTP 前に `validation_error` / `date_out_of_available_range`**（`config/market_data.yaml` に env 名メタあり） |
-| **Task 6** | **`debug jquants-watchlist-bars`**：**`config/watchlist.yaml` の `jp_watchlist`** を順に **`get_daily_quotes` / preview**。**既定 dry-run**、**`--preview-request`** は HTTP なし、**live は三重ゲート + Task 5.6 の日付範囲**。**4 桁数字のみ J-Quants に送信**；**285A など非数字コードは `skipped_unsupported_code`**（勝手に桁埋めしない） |
+| **Task 6** | **`debug jquants-watchlist-bars`**：**`jp_watchlist`** を順に **`get_daily_quotes` / preview**。**既定 dry-run**、**`--preview-request`** は HTTP なし、**live は三重ゲート + Task 5.6**。**コード分類（wire）**：**ASCII 英数字ちょうど 4 文字**（**大文字へ正規化**。例：**`7011`・`285A`**）；**それ以外は `skipped_unsupported_code`**（**Phase 1a Re-focus Task 1** でミックス銘柄を許可）。**単体 `jquants-daily-quotes` は厳しい 4 字制約にしない**。 |
 | **Task 7** | **`alpha-os daily`** に **J-Quants Watchlist Bars Check**（**dry_run / 集計のみ、HTTP なし**）。`config/market_data.yaml` の **`adapters.jquants.report`**。**API Key・raw・`x-api-key` 値は出さない**。**CI / `make verify` でも live しない** |
 | **Task 8** | **`alpha-os daily`** に **readiness（Green / Yellow / Red）** と **skipped コード一覧**。**HTTP なし**・設定は **`adapters.jquants.report`**（`readiness_*`）。**実 API は呼ばず**環境ガード可否・ウォッチリスト集計のみ |
 | **Task 9** | **`debug jquants-watchlist-bars --save-summary`**：**sanitized** な要約 JSON を **`outputs/jquants_smoke/`** に保存（**raw・API Key・`x-api-key`・ヘッダー全体は保存禁止**）。**`--preview-request` では保存しない**。**dry-run / live 完了**の両方で保存可。**`daily` / CI / `make verify` は変更なしで live しない** |
@@ -46,6 +47,13 @@
 
 - **Makefile**：**`make env-doctor`** / **`make daily-check`** / **`make jquants-smoke-dry-run`**（`DATE`,`LIMIT`。**live しない**・**`--save-summary`**）/ **`make jquants-smoke-live`**（**`CONFIRM_LIVE_HTTP=YES` ゲート**。子プロセスだけ **`JQUANTS_ALLOW_LIVE_HTTP=true`** と **`--live --save-summary`**）/ **`make post-push-check`**（`gh` があれば最新 Actions メタのみ）/ **`make ops-check`**（上記の **`env-doctor` → `daily-check` → `post-push-check`** で **live HTTP なし**）。
 - **`scripts/`**：`scripts/env_doctor.sh` など実装。**API Key は表示しない**。外部レビュー用のひとつの全体資料は **`docs/10_system_overview_for_external_review.md`**。
+
+### Phase 1a Re-focus — Task 1（アルファニュメリック東証コード / 285A）（完了）
+
+外部レビューで **`285A`**（キオクシア型・東証アルファニュメリック柄）が **`skipped_unsupported_code`** と解釈され得た点を **Corrective** とし、**シグナル検知への再フォーカス**の一環として対応済みとする。
+
+- **`jquants_daily_bars_ticker_kind` / `normalize_jquants_equity_code`**：watchlist での J-Quants daily bars は **ASCII `[A-Za-z0-9]` ちょうど 4 文字**を **`ok`**（送信用は **`upper()` 正規化**）。記号・全角・5 文字超・空などは **`skipped_unsupported_code`**。**単体の `debug jquants-daily-quotes`** はこれまでどおりコード形式を厳しすぎる制約にしない（**5 桁等の公式コード**の探索用）。
+- **`debug jquants-watchlist-bars`** の **`--preview-request` / dry-run**：**`285A`** が **`query_params.code: \"285A\"`**（**`date` は `YYYYMMDD` wire**）で出る。
 
 ### Phase 1a Task 2（JQuants クライアント骨格）で追加したこと（要約）
 
@@ -112,13 +120,13 @@
 
 ### Task 6 で追加したこと（watchlist・daily bars 一括確認）
 
-- **`invis_alpha_os.config.jp_watchlist`**：`jp_watchlist` からティッカー列を抽出。**`jquants_daily_bars_ticker_kind`** は **4 桁数字のみ `ok`**（**それ以外はスキップ**；**`285A` は J-Quants wire 向けに送らない**）。
+- **`invis_alpha_os.config.jp_watchlist`**：`jp_watchlist` を抽出。**Phase 1a Re-focus Task 1**：**`normalize_jquants_equity_code` / `jquants_daily_bars_ticker_kind`** — **ASCII 英数字ちょうど 4 文字**を **`ok`**（wire は **大文字**）。**記号・全角・長さ≠4**は **`skipped_unsupported_code`**（例：**`285A`・`304A`・`7011`** は **wire 対象**）。
 - **`alpha-os debug jquants-watchlist-bars`**：**`--date`** または **`--from-date`/`--to-date`（レンジは両方必須）** 。**`--limit`**・**`--preview-request`**・**`--live`**。トップレベル **`raw_response_included: false`**。
 
 ### Task 8 で追加したこと（daily readiness・HTTP なし）
 
 - **`render_jquants_watchlist_bars_check_section`**：先頭に **`Readiness`**（緑／黄／赤）。**skipped コード**一覧（URL や全銘柄 URL は出さない）。**`live_http_in_daily` は常に `disabled` を要求**（違反時は Red）。
-- **Green（例）**：supported > 0、（設定どおり）**データ範囲ガード両系有効**、（設定どおり）**smoke 記録オン**、raw/API 表示オフ、ウォッチリスト読込成功。**`285A` のように非 4 桁コードが混ざっても skip 扱いなら Green を維持し得る**。
+- **Green（例）**：supported > 0、（設定どおり）**データ範囲ガード両系有効**、（設定どおり）**smoke 記録オン**、raw/API 表示オフ、ウォッチリスト読込成功。**ウォッチリストに wire 対象外のティッカーが残るときだけ**、その数が **`Unsupported code count`** に反映される（**Re-focus のあとでも、例：将来の異常行や手入力ならび外し**）。
 - **Yellow**：Red 条件でなく、Green の厳密条件の一部が欠ける（例：ガード未設定で `readiness_green_requires_data_guard: true`）。
 - **Red**：supported 0、ウォッチリスト読込失敗、raw/API 表示オン、**`live_http_in_daily` ≠ disabled** など。
 - **Smoke 状態行**：レポートは **`daily` 中に live smoke を実行しない**ため、**運用合格の `passed` は使わず**、**参照用サブセクションの有無を `documented reference` 等で示す**。

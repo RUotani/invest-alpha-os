@@ -10,8 +10,8 @@ import typer
 
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
 from invis_alpha_os.config.jp_watchlist import (
-    jquants_daily_bars_ticker_kind,
     load_jp_watchlist_tickers,
+    normalize_jquants_equity_code,
 )
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
@@ -419,13 +419,16 @@ def debug_jquants_watchlist_bars(
 
     if preview_request:
         for code in tickers:
-            if jquants_daily_bars_ticker_kind(code) != "ok":
+            wire = normalize_jquants_equity_code(code)
+            if wire is None:
                 results.append(
-                    _result_row_no_raw({"code": code, "status": "skipped_unsupported_code", "raw_response_included": False})
+                    _result_row_no_raw(
+                        {"code": (code or "").strip(), "status": "skipped_unsupported_code", "raw_response_included": False}
+                    )
                 )
                 continue
-            prv = client.build_v2_daily_bars_request_preview(code, date=dn, from_date=fn, to_date=tn)
-            results.append(_result_row_no_raw(_watchlist_preview_row(code, prv)))
+            prv = client.build_v2_daily_bars_request_preview(wire, date=dn, from_date=fn, to_date=tn)
+            results.append(_result_row_no_raw(_watchlist_preview_row(wire, prv)))
         out = {"status": "preview", **base_meta, "results": results}
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
@@ -450,11 +453,12 @@ def debug_jquants_watchlist_bars(
         raise typer.Exit(0)
 
     for code in tickers:
-        if jquants_daily_bars_ticker_kind(code) != "ok":
-            results.append(_result_row_no_raw({"code": code, "status": "skipped_unsupported_code"}))
+        wire = normalize_jquants_equity_code(code)
+        if wire is None:
+            results.append(_result_row_no_raw({"code": (code or "").strip(), "status": "skipped_unsupported_code"}))
             continue
-        res = client.get_daily_quotes(code, date=dn, from_date=fn, to_date=tn, attempt_live=live)
-        snap = _jquants_daily_quotes_cli_snapshot(res, code=code, from_date=fn, to_date=tn, date_opt=dn)
+        res = client.get_daily_quotes(wire, date=dn, from_date=fn, to_date=tn, attempt_live=live)
+        snap = _jquants_daily_quotes_cli_snapshot(res, code=wire, from_date=fn, to_date=tn, date_opt=dn)
         results.append(_result_row_no_raw(snap))
 
     if not live:
