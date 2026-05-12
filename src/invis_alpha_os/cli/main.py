@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Optional
 
 import json
@@ -26,7 +27,15 @@ from invis_alpha_os.reporting.jquants_smoke_summary import (
     save_watchlist_smoke_summary_payload,
 )
 from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchlist_bars_check_section
+from invis_alpha_os.reports.momentum_daily import render_momentum_signals_section
 from invis_alpha_os.risk.veto_rules import VetoEngine
+from invis_alpha_os.signals.momentum import (
+    analyze_bars_for_code,
+    build_momentum_signals,
+    load_bars_json_file,
+    momentum_row_public_dict,
+    synthetic_bars_for_code,
+)
 from invis_alpha_os.utils.date_utils import today_jst_iso
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
@@ -131,10 +140,82 @@ def daily() -> None:
                 f"- Watchlist count: {jp_n}",
             ]
         )
-        + jq_watchlist_section,
+        + jq_watchlist_section
+        + "\n\n"
+        + render_momentum_signals_section(),
         encoding="utf-8",
     )
     typer.echo(f"daily report created: {out}")
+
+
+@app.command("signals")
+def signals_command(
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--no-dry-run",
+        help="Use deterministic synthetic OHLCV per ticker (default; no HTTP, no API keys).",
+    ),
+    code: Optional[str] = typer.Option(None, "--code", help="Single ticker (requires --bars-file)."),
+    bars_file: Optional[str] = typer.Option(
+        None,
+        "--bars-file",
+        help="Path to JSON array of one OHLCV series (open,high,low,close,volume,date).",
+    ),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Process only the first N JP watchlist tickers (dry-run).",
+    ),
+) -> None:
+    """Observation-only JP momentum-style flags from daily bars (Main E MVP). Not trading advice."""
+
+    if bars_file:
+        if not code:
+            typer.echo("signals: --bars-file requires --code", err=True)
+            raise typer.Exit(2)
+        w = normalize_jquants_equity_code(code.strip())
+        if w is None:
+            typer.echo("signals: invalid --code for J-Quants wire", err=True)
+            raise typer.Exit(2)
+        try:
+            bars = load_bars_json_file(Path(bars_file))
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            typer.echo(f"signals: failed to load bars file: {e}", err=True)
+            raise typer.Exit(2) from e
+        one = analyze_bars_for_code(w, bars)
+        payload: dict[str, Any] = {
+            "mode": "local_bars_file",
+            "observation_only": True,
+            "ranked": [momentum_row_public_dict(one)] if one else [],
+        }
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
+    if not dry_run:
+        typer.echo(
+            "signals: non-dry-run would require historical bars from an adapter; "
+            "use default --dry-run or pass --bars-file + --code.",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    tickers = load_jp_watchlist_tickers()
+    if limit is not None:
+        tickers = tickers[:limit]
+    mapping: dict[str, list] = {}
+    for raw in tickers:
+        w = normalize_jquants_equity_code(str(raw))
+        if w is None:
+            continue
+        mapping[w] = synthetic_bars_for_code(w)
+    ranked = build_momentum_signals(mapping)
+    out: dict[str, Any] = {
+        "mode": "synthetic_dry_run",
+        "observation_only": True,
+        "ranked": [momentum_row_public_dict(m) for m in ranked],
+    }
+    typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
 
 @app.command("pack")

@@ -16,3 +16,7 @@ def test_daily_report_has_japan_signals_section():
     body = path.read_text(encoding="utf-8")
     assert "## Japan Signals" in body
     assert "Watchlist count:" in body
+    assert "## Momentum Signals" in body
+    assert "Observation only" in body
+    assert "cached vendor market data" in body
+    assert "not actionable" in body.lower()

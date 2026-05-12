@@ -59,9 +59,9 @@ def test_daily_report_readiness_green(jq_data_guard_env, tmp_path, monkeypatch):
     assert "documented reference" in body.lower()
     assert "Raw response included: false" in body
     assert "api key displayed: false" in body.lower()
-
-
-def test_daily_report_readiness_yellow_without_guard(monkeypatch, tmp_path):
+    assert "## Momentum Signals" in body
+    assert "Observation only" in body
+    assert "cached vendor market data" in body
     monkeypatch.setattr("invis_alpha_os.reports.jquants_watchlist_daily.ROOT_DIR", tmp_path)
     monkeypatch.delenv("JQUANTS_DATA_AVAILABLE_FROM", raising=False)
     monkeypatch.delenv("JQUANTS_DATA_AVAILABLE_TO", raising=False)
