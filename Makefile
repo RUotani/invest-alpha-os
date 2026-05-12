@@ -70,6 +70,7 @@ ai-check:
 
 # safe-push / dry-run: 門番は .ai/reviews/latest.json のみ（review_run_status=executed 必須）。
 # Forbidden paths: git status で pre / post の2回 + staged で1回（ai-check より前から）。failed/skipped と ALLOW_IMPORTANT の例外は変更なし。
+# Staging はリポジトリ全体の一括 index add を使わず、同じ status 由来の候補に対する `git add --` のみ（clean index 前提・DRY_RUN は add しない）。
 # Important / needs_human_review を通すのは ALLOW_IMPORTANT=true を人間が明示した場合のみ。
 # commit message は Makefile レシピ内では展開しない（シェル注入リスク回避）。SAFE_PUSH_MSG はスクリプトが検証して読む。
 safe-push:

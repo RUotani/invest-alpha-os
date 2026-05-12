@@ -13,6 +13,10 @@
 - **`alpha-os daily`** / **`alpha-os pack`**：**`date.today()`（プロセス TZ 依存）を使わず**、上記ヘルパーで **JST の `YYYY-MM-DD`** を付与。**GitHub Actions（ubuntu / 既定 UTC）**でも **日本株レポートとしての日付ラベル**で `outputs/reports/daily/`・`outputs/research_packs/` に書き出す。
 - **Smoke summary の `created_at`**：イベント時刻として **`datetime.now(timezone.utc)` のまま**（Hotfix A では変更しない）。
 
+## Review Hotfix B — safe-push の selective staging（リポジトリ全体の一括 add 廃止）
+
+- **`scripts/safe_commit_push.sh`**：`git status --short --untracked-files=all` から得た **検査済み候補パスのみ** `git add -- <paths>`。**クリーンな index 前提**（事前 stage 済みは拒否）。**競合 XY**（例 `UU` / `AA` / `DD` / `AU` / `UA` / `DU` / `UD` / `TT`）および **rename/copy（`->` 行）は中断**（rename は **`git mv` または別コミット**で解消後に再実行）。**`DRY_RUN` と本番で同一の候補列挙**。`.gitignore` 抜けによる意図しない取り込みリスクを抑える。
+
 ## Version1 → Version2（重要）
 
 公式ドキュメント上、**Version2 がリリース済み**であり、**Version1 は閉鎖予定**です。そのためコード・設定ともに **「V1 固定 URL」を暗黙のデフォルトにしない**ようにします。

@@ -28,7 +28,11 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - **`alpha-os daily`** / **`alpha-os pack`** の**日付駆動ファイル名・見出し**は **`timezone(timedelta(hours=9))` 固定オフセット**（**`ZoneInfo` / tzdata 不使用**）で **JST 暦日**に統一。**GitHub Actions の ubuntu / UTC** でも **日本株レポートとしてのカレンダー日付**で `outputs/reports/daily/*.md` と `outputs/research_packs/*` が付く。
 - **`reporting/jquants_smoke_summary.py` の `created_at`** は **UTC** のまま（保存イベント時刻；Hotfix A の対象外）。
 
-**次の予定**: **Hotfix B** — `safe-push` の **selective staging**（`git add -A` 見直し）。
+### Review Hotfix B — safe-push selective staging（完了）
+
+- **`scripts/safe_commit_push.sh`**：**リポジトリ全体の一括 add を廃止**し、`git status --short --untracked-files=all` 由来の **候補パスのみ** `git add --`。**index が事前に汚れている場合・競合・rename（`->`）は中断**。`DRY_RUN` も同じ列挙ロジック。
+
+**次の予定**: **Hotfix C**（未着手・別タスクとして追記予定）。
 
 ### Phase 1a Re-focus — Task 1（アルファニュメリック JP コード / 例: 285A）— 完了
 

@@ -92,8 +92,8 @@ make verify
 
 複数の AI / ツールと協働する際の役割分担と標準フローは [docs/07_ai_development_workflow.md](docs/07_ai_development_workflow.md) を参照してください。
 
-- **`git commit` / `git push`** は **`SAFE_PUSH_MSG="your message" PYTHON=.venv/bin/python make safe-push`** を推奨。**`Makefile` はコミットメッセージをレシピ内で展開せず**、**環境変数 `SAFE_PUSH_MSG`** を **`scripts/safe_commit_push.sh` が検証してから `git commit -m` に渡す**設計です。**`make ai-check`（`verify` + `codex-review`）より前に**、`git status` で **危険パス（`.env` など）を検査**し、該当があれば **レビューも含めて即停止**します。通過後も **再検査**と **`.ai/reviews/latest.json` 門番**、**ステージ後の最終検査**で守ります。**`latest.json` が `failed`/`skipped` は `ALLOW_IMPORTANT` でも突破不可**。**Important** は原則停止（**`ALLOW_IMPORTANT=true`** でのみ人間が続行可）。**raw のその場の `git commit` / `git push` は避ける**。
-- **`SAFE_PUSH_MSG="..." PYTHON=.venv/bin/python make safe-push-dry-run`** — commit/push は行わず、追跡差分・ステージ済み・未追跡（除外されないもの）など **Git がコミット候補に含めうるパス**を検査します。実際には `.gitignore` 済みの `.env` は候補に出ずスキャン対象になりません。**Codex JSON 門番も本番同等**です。
+- **`git commit` / `git push`** は **`SAFE_PUSH_MSG="your message" PYTHON=.venv/bin/python make safe-push`** を推奨。**`Makefile` はコミットメッセージをレシピ内で展開せず**、**環境変数 `SAFE_PUSH_MSG`** を **`scripts/safe_commit_push.sh` が検証してから `git commit -m` に渡す**設計です。**`make ai-check`（`verify` + `codex-review`）より前に**、`git status` で **危険パス（`.env` など）を検査**し、該当があれば **レビューも含めて即停止**します。ステージングは **未 stage の index を前提**に、`status` 由来の **候補ファイルだけ**を **`git add --`**（リポジトリ全体の一括 add はしない）。通過後も **再検査**と **`.ai/reviews/latest.json` 門番**、**ステージ後の最終検査**で守ります。**`latest.json` が `failed`/`skipped` は `ALLOW_IMPORTANT` でも突破不可**。**Important** は原則停止（**`ALLOW_IMPORTANT=true`** でのみ人間が続行可）。**raw のその場の `git commit` / `git push` は避ける**。
+- **`SAFE_PUSH_MSG="..." PYTHON=.venv/bin/python make safe-push-dry-run`** — commit/push は行わず、**本番と同じ** `git status --short` 由来の **stage 候補パス一覧**を出します（実際の `git add` はしません）。`.gitignore` 済みは **`!!` 行は stage しない**想定。**Codex JSON 門番も本番同等**です。
 - `.env`、`credentials.json`、`token.json`、`outputs/` の実行生成物（実データ）は **Git 管理しない**（セキュリティ節とも整合）。
 
 #### Codex レビュー（半自動）

@@ -110,6 +110,75 @@ is_forbidden_path() {
   return 1
 }
 
+# --- Selective staging (Hotfix B: no repository-wide `git add` with -A flag) ----
+# Single pass over `git status --short --untracked-files=all` shared by DRY_RUN and commit.
+
+path_is_unsafe_for_add() {
+  local p="$1"
+  [[ -z "${p}" ]] && return 0
+  if LC_ALL=C printf '%s' "${p}" | grep -q '[[:cntrl:]]'; then
+    return 0
+  fi
+  # Leading dash looks like a git option even with `git add --` in some edge cases; refuse.
+  [[ "${p}" == -* ]] && return 0
+  return 1
+}
+
+ensure_index_clean_or_die() {
+  local out
+  out="$(git -C "${ROOT}" diff --cached --name-only 2>/dev/null || true)"
+  if [[ -n "${out}" ]]; then
+    {
+      echo "pre-staged changes detected. Unstage them first:"
+      echo "  git restore --staged <path>"
+      echo "or:"
+      echo "  git restore --staged ."
+      echo ""
+      echo "Currently staged:"
+      git -C "${ROOT}" diff --cached --name-only | sed 's/^/  /' || true
+    } >&2
+    exit 1
+  fi
+}
+
+# Echo sorted unique paths that would be passed to `git add --` (same logic for DRY_RUN and real run).
+# Skips ignored paths (`!!`). Dies on conflict XY, rename arrow, or unsafe path.
+collect_safe_push_stage_paths_or_die() {
+  local line xy rest p
+  local -a acc=()
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" == \#\#* ]] && continue
+    ((${#line} < 2)) && continue
+    xy="${line:0:2}"
+    case "${xy}" in
+      UU|AA|DD|AU|UA|DU|UD|TT)
+        die "conflict detected; resolve before safe-push: ${line}"
+        ;;
+      !!)
+        continue
+        ;;
+    esac
+    ((${#line} < 4)) && continue
+    rest="${line:3}"
+    [[ -z "${rest}" ]] && continue
+    if [[ "${rest}" == *" -> "* ]]; then
+      die "rename or copy detected; resolve or commit separately before safe-push (manual: git mv / separate commit). Line: ${line}"
+    fi
+    p="${rest}"
+    if path_is_unsafe_for_add "${p}"; then
+      die "unsafe path blocked (empty, control chars, or leading -): ${p}"
+    fi
+    acc+=("${p}")
+  done < <(git -C "${ROOT}" status --short --untracked-files=all)
+
+  if ((${#acc[@]} == 0)); then
+    return 0
+  fi
+  printf '%s\n' "${acc[@]}" | sort -u
+  return 0
+}
+
 # Collect paths shown by git status -s --untracked-files=all (excluding ## header lines).
 gather_paths_from_git_status_short() {
   local line rest
@@ -126,12 +195,6 @@ gather_paths_from_git_status_short() {
       printf '%s\n' "${rest}"
     fi
   done < <(git -C "${ROOT}" status --short --untracked-files=all)
-}
-
-collect_candidate_paths() {
-  git -C "${ROOT}" diff --name-only
-  git -C "${ROOT}" diff --cached --name-only
-  git -C "${ROOT}" ls-files --others --exclude-standard
 }
 
 # Args: ctx label — stdin: one path per line (optional leading ./ stripped by is_forbidden).
@@ -352,19 +415,17 @@ run_git_diff_check() {
   git -C "${ROOT}" diff --check
 }
 
-predict_dry_paths() {
-  echo "==> DRY_RUN: candidate paths that would enter commit scope (tracked diff + staged + untracked)"
-  local tmp
-  tmp="$(mktemp)"
-  collect_candidate_paths | sort -u >"${tmp}"
-  if [[ ! -s "${tmp}" ]]; then
+run_selective_stage_dry_run_list() {
+  echo "==> DRY_RUN: selective stage (git status --short --untracked-files=all) — same paths as real safe-push"
+  ensure_index_clean_or_die
+  local paths
+  paths="$(collect_safe_push_stage_paths_or_die)"
+  if [[ -z "${paths}" ]]; then
     echo "(none)"
   else
-    cat "${tmp}"
-    echo "==> git add --dry-run -A (names only hints)"
-    git -C "${ROOT}" add --dry-run -A 2>&1 | sed -n '1,80p' || true
+    printf '%s\n' "${paths}"
   fi
-  rm -f "${tmp}"
+  echo "==> DRY_RUN: would run: git add -- <paths above> (not executed); then commit/push"
 }
 
 echo "safe-push root: ${ROOT}"
@@ -381,19 +442,31 @@ check_git_status_paths_or_die "post-ai-check"
 analyze_codex_review
 
 if [[ "${DRY_RUN}" == "true" ]] || [[ "${DRY_RUN}" == "True" ]] || [[ "${DRY_RUN}" == "1" ]]; then
-  predict_dry_paths
+  run_selective_stage_dry_run_list
   echo "==> DRY_RUN: skipping git add / commit / push"
   exit 0
 fi
 
-echo "==> git add -A"
-git -C "${ROOT}" add -A
+ensure_index_clean_or_die
+
+STAGE_TEXT="$(collect_safe_push_stage_paths_or_die)"
+if [[ -z "${STAGE_TEXT}" ]]; then
+  die "no paths to stage (working tree clean or only ignored entries); nothing to commit"
+fi
+
+STAGE_PATHS=()
+while IFS= read -r _p || [[ -n "${_p}" ]]; do
+  [[ -z "${_p}" ]] && continue
+  STAGE_PATHS+=("${_p}")
+done < <(printf '%s\n' "${STAGE_TEXT}")
+
+printf '%s\n' "${STAGE_PATHS[@]}" | check_paths_stream_or_die "pre-git-add"
+
+echo "==> git add -- (selective, status-derived paths)"
+git -C "${ROOT}" add -- "${STAGE_PATHS[@]}"
 
 echo "==> forbidden path scan (staged)"
-uniq_staged="$(mktemp)"
-git -C "${ROOT}" diff --cached --name-only | sort -u >"${uniq_staged}"
-check_paths_stream_or_die "staged" <"${uniq_staged}"
-rm -f "${uniq_staged}"
+check_paths_stream_or_die "staged" < <(git -C "${ROOT}" diff --cached --name-only | sort -u)
 
 echo "==> git commit -m ..."
 git -C "${ROOT}" commit -m "${COMMIT_MSG}"

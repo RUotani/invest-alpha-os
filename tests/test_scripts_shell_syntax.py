@@ -11,6 +11,7 @@ _SCRIPTS = [
     "scripts/daily_check.sh",
     "scripts/jquants_smoke.sh",
     "scripts/post_push_check.sh",
+    "scripts/safe_commit_push.sh",
 ]
 
 
