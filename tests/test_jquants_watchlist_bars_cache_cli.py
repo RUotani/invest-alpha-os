@@ -1,4 +1,7 @@
-"""Main J: bulk watchlist J-Quants bars cache CLI (no real HTTP)."""
+"""Main J: bulk watchlist J-Quants bars cache CLI (no real HTTP).
+
+Any ``--live`` run requires ``CONFIRM_LIVE_HTTP=YES`` (read-only or ``--write-cache``).
+"""
 
 from __future__ import annotations
 
@@ -71,6 +74,32 @@ def test_watchlist_bars_cache_live_without_confirm_exit_2(monkeypatch: pytest.Mo
     blob = json.loads(err)
     assert blob.get("status") == "live_blocked"
     assert blob.get("reason") == "confirm_live_http_required"
+
+
+def test_watchlist_bars_cache_live_without_confirm_does_not_open_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    monkeypatch.delenv("CONFIRM_LIVE_HTTP", raising=False)
+
+    http = MagicMock(side_effect=AssertionError("live without CONFIRM must not perform HTTP"))
+
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", http):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-watchlist-bars-cache",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-10",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 2
+    http.assert_not_called()
 
 
 def test_watchlist_bars_cache_write_cache_without_confirm_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:

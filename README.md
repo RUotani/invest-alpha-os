@@ -85,6 +85,12 @@ make verify
 | `CONFIRM_LIVE_HTTP=YES DATE=… LIMIT=… make jquants-smoke-live` | **人間の明示ゲート `CONFIRM_LIVE_HTTP=YES` が無ければ停止**。許可時のみ安全ローダ＋子プロセスに **`JQUANTS_ALLOW_LIVE_HTTP=true`** を一時付与して **`--live --save-summary`** |
 | `make post-push-check` | `gh` があれば **GitHub Actions 最新 Run のステータス**を表示。**`gh` なければ warning で exit 0** |
 | `make ops-check` | 上の **`env-doctor` → `daily-check` → `post-push-check`**（いずれも live HTTP なし） |
+| `make jq-cache-preview FROM=… TO=…` `[LIMIT=…]` | **`debug jquants-watchlist-bars-cache`** dry preview（**HTTP なし**）。`.env` は `load_jquants_env.py` |
+| `CONFIRM_LIVE_HTTP=YES make jq-cache-live FROM=… TO=… LIMIT=…` | **bulk `--live --write-cache`**。**CLI と同様、bulk の `--live` には常に `CONFIRM_LIVE_HTTP=YES` が必要**（本ターゲットは Makefile でも検証 + `--set JQUANTS_ALLOW_LIVE_HTTP=true`）。**API 利用あり** |
+| `make signals-cache-only` `[LIMIT=N]` | **`signals --source cache-only --dry-run`** |
+| `make daily-momentum-check` | **`daily-check` のあと**、当日レポートから **Momentum（Cache Only / Mixed）** など抜粋 grep。成功時 **`outputs/ops/latest_*.json`** を **momentum** モードで更新（**最後に走った ops 書き込みで上書き**） |
+| `make ops-snapshot` | **`pytest -q`** + **`outputs/ops/latest_ops_summary.json` / `latest_verdict.json`**（**pytest** 結果。**Git 対象外**） |
+| `SAFE_PUSH_MSG="…" make ship` | **`make test` → `safe-push` → `post-push-check`** のあと **ship** モードで同 JSON を更新（`SAFE_PUSH_MSG` 必須） |
 
 レビュワー・外部 AI 向けの全体像は [docs/10_system_overview_for_external_review.md](docs/10_system_overview_for_external_review.md)。
 

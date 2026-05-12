@@ -18,7 +18,8 @@ export PYTHON
 export ALLOW_IMPORTANT
 
 .PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run \
-	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check
+	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
+	jq-cache-preview jq-cache-live signals-cache-only daily-momentum-check ship ops-snapshot
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -103,4 +104,38 @@ post-push-check:
 	bash scripts/post_push_check.sh
 
 ops-check: env-doctor daily-check post-push-check
+
+# --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
+# make jq-cache-preview FROM=2024-02-17 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP
+jq-cache-preview:
+	@test -n "$(FROM)" || (echo 'FROM is required (YYYY-MM-DD)' >&2 && exit 1)
+	@test -n "$(TO)" || (echo 'TO is required (YYYY-MM-DD)' >&2 && exit 1)
+	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_preview.sh
+
+# Live + write cache: requires CONFIRM_LIVE_HTTP=YES (same as CLI for any bulk --live) + sets allow-live.
+jq-cache-live:
+	@test "$(CONFIRM_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_LIVE_HTTP=YES required' >&2 && exit 2)
+	@test -n "$(FROM)" || (echo 'FROM is required' >&2 && exit 1)
+	@test -n "$(TO)" || (echo 'TO is required' >&2 && exit 1)
+	@test -n "$(LIMIT)" || (echo 'LIMIT is required' >&2 && exit 1)
+	FROM="$(FROM)" TO="$(TO)" LIMIT="$(LIMIT)" CONFIRM_LIVE_HTTP="$(CONFIRM_LIVE_HTTP)" PYTHON="$(PYTHON)" bash scripts/jq_watchlist_bars_cache_live.sh
+
+# LIMIT=N make signals-cache-only
+signals-cache-only:
+	$(PYTHON) -m invis_alpha_os.cli.main signals --source cache-only --dry-run $(if $(LIMIT),--limit $(LIMIT),)
+
+daily-momentum-check:
+	PYTHON="$(PYTHON)" bash scripts/daily_momentum_check.sh
+
+# Local ops JSON under outputs/ops/ (gitignored; no secrets)
+ops-snapshot:
+	@bash -c 'ec=0; $(PYTHON) -m pytest -q || ec=$$?; $(PYTHON) scripts/ops_write_json.py --mode pytest --pytest-exit $$ec; exit $$ec'
+
+# SAFE_PUSH_MSG="..." make ship
+ship:
+	@test -n "$${SAFE_PUSH_MSG}" || (echo 'SAFE_PUSH_MSG is required' >&2 && exit 1)
+	$(MAKE) test PYTHON="$(PYTHON)"
+	$(MAKE) safe-push
+	$(MAKE) post-push-check
+	$(PYTHON) scripts/ops_write_json.py --mode ship
 
