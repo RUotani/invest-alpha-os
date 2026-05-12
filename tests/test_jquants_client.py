@@ -1394,6 +1394,117 @@ def test_get_daily_quotes_blocked_before_http_when_outside_window(monkeypatch):
     assert "NEVER_LEAK_THIS_LIVE_KEY" not in blob
 
 
+def test_extract_sanitized_v2_daily_bars_orders_oldest_first() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {"Date": "20240105", "Open": 1, "High": 2, "Low": 0.5, "Close": 1.5, "Volume": 100},
+            {"Date": "20240104", "Open": 1, "High": 1.1, "Low": 0.9, "Close": 1.0, "Volume": 50},
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload)
+    assert [r["date"] for r in rows] == ["2024-01-04", "2024-01-05"]
+    assert rows[0]["close"] == 1.0
+
+
+def test_get_daily_quotes_live_return_sanitized_bars(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_LEAK_TEST_KEY_VALUE")
+    _patch_base(monkeypatch)
+    body = {
+        "bars": [
+            {"Date": "20240104", "Open": 10, "High": 11, "Low": 9, "Close": 10.5, "Volume": 1000},
+        ]
+    }
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "7011",
+            from_date="2024-01-01",
+            to_date="2024-01-31",
+            attempt_live=True,
+            return_sanitized_bars=True,
+        )
+    assert out["status"] == "success"
+    assert out["sanitized_bar_count"] == 1
+    assert out["sanitized_bars"][0]["close"] == 10.5
+    blob = json.dumps(out)
+    assert "NEVER_LEAK_TEST_KEY_VALUE" not in blob
+
+
+def test_debug_jquants_daily_bars_cache_dry_run_no_http(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-bars-cache",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+        ],
+    )
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout.strip())
+    assert blob.get("live_http") is False
+    assert blob.get("status") == "ok"
+
+
+def test_debug_jquants_daily_bars_cache_invalid_code_exit_1(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-bars-cache",
+            "--code",
+            "../7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+        ],
+    )
+    assert r.exit_code == 1
+    blob = json.loads(r.stdout.strip())
+    assert blob.get("status") == "validation_error"
+    assert blob.get("reason") == "invalid_equity_code"
+
+
+def test_debug_jquants_daily_bars_cache_write_requires_confirm(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-bars-cache",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+            "--live",
+            "--write-cache",
+        ],
+    )
+    assert r.exit_code == 2
+    blob = json.loads(r.stderr.strip() or r.stdout.strip())
+    assert blob.get("status") == "live_blocked"
+
+
 def test_jquants_watchlist_smoke_error_statuses_excludes_benign():
     from invis_alpha_os.data.adapters.jquants_client import JQUANTS_WATCHLIST_SMOKE_ERROR_STATUSES
 

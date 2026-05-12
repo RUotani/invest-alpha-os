@@ -112,9 +112,51 @@ def test_cli_signals_dry_run_json(tmp_path: Path, monkeypatch) -> None:
     assert r.exit_code == 0
     blob = json.loads(r.stdout)
     assert blob["mode"] == "synthetic_dry_run"
+    assert blob["bars_data_source"] == "synthetic"
     assert blob["observation_only"] is True
     assert len(blob["ranked"]) == 2
     assert {row["code"] for row in blob["ranked"]} == {"7011", "7203"}
+
+
+def test_cli_signals_source_cache_uses_file(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+
+    cache_dir = tmp_path / "market_data" / "jquants_daily_bars"
+    cache_dir.mkdir(parents=True)
+    bars = []
+    for i in range(80):
+        c = 1000.0 + i * 0.1
+        bars.append(
+            {
+                "date": f"2024-01-{(i % 28) + 1:02d}",
+                "open": c,
+                "high": c + 1.0,
+                "low": c - 1.0,
+                "close": c,
+                "volume": 5000.0,
+            }
+        )
+    payload = {
+        "schema_version": 1,
+        "code": "7011",
+        "source": "jquants_v2_equities_bars_daily",
+        "fetched_at": "2026-01-01T00:00:00+00:00",
+        "generated_at": None,
+        "bar_count": len(bars),
+        "bars": bars,
+    }
+    (cache_dir / "7011.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    r = CliRunner().invoke(app, ["signals", "--source", "cache", "--dry-run"])
+    assert r.exit_code == 0
+    blob = json.loads(r.stdout)
+    assert blob["bars_data_source"] == "cache"
+    assert blob["ranked"][0]["bars_source"] == "cache"
+    assert blob["ranked"][0]["bar_count"] == 80
 
 
 def test_cli_signals_bars_file_requires_code(tmp_path: Path) -> None:

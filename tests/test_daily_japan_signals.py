@@ -18,5 +18,6 @@ def test_daily_report_has_japan_signals_section():
     assert "Watchlist count:" in body
     assert "## Momentum Signals" in body
     assert "Observation only" in body
-    assert "cached vendor market data" in body
+    assert "**Bars source:**" in body
+    assert "synthetic" in body.lower() or "cache" in body.lower()
     assert "not actionable" in body.lower()

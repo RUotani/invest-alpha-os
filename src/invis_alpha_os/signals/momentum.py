@@ -213,10 +213,10 @@ def _seed_u32(code: str) -> int:
     return int.from_bytes(h[:4], "big")
 
 
-def momentum_row_public_dict(m: MomentumBreakdown) -> dict[str, Any]:
+def momentum_row_public_dict(m: MomentumBreakdown, *, bars_source: str | None = None) -> dict[str, Any]:
     """JSON-safe dict for CLI (no secrets)."""
 
-    return {
+    out: dict[str, Any] = {
         "code": m.code,
         "bar_count": m.bar_count,
         "labels": list(m.labels),
@@ -228,6 +228,9 @@ def momentum_row_public_dict(m: MomentumBreakdown) -> dict[str, Any]:
         "vol_avg25_prior": m.vol_avg25,
         "high_52w_breakout": m.high_52w_breakout,
     }
+    if bars_source is not None:
+        out["bars_source"] = bars_source
+    return out
 
 
 def synthetic_bars_for_code(code: str, n: int = 320) -> list[DailyBar]:

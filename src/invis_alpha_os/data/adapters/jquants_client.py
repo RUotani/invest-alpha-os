@@ -400,6 +400,91 @@ def normalize_v2_daily_bars_response(payload: dict) -> dict[str, Any]:
     return {"status": "invalid_response", "reason": "missing_list_field"}
 
 
+def _v2_pick_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for k in keys:
+        if k not in row:
+            continue
+        try:
+            v = row[k]
+            if v is None:
+                continue
+            return float(v)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _v2_pick_date_str(row: dict[str, Any]) -> str | None:
+    for k in ("Date", "date", "TradingDate"):
+        if k in row and row[k] is not None:
+            s = str(row[k]).strip()
+            if s:
+                return s
+    return None
+
+
+def _v2_normalize_bar_date_display(value: str) -> str:
+    s = value.strip().replace("-", "")
+    if len(s) == 8 and s.isdigit():
+        return f"{s[:4]}-{s[4:6]}-{s[6:8]}"
+    return value.strip()
+
+
+def _v2_bar_sort_key(date_str: str) -> str:
+    return date_str.strip().replace("-", "")
+
+
+def extract_sanitized_v2_daily_bars(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Map the V2 daily-bars JSON list to sanitized OHLCV rows (oldest first).
+
+    Rows missing both a parseable date and a close are skipped. Output keys are
+    ``date``, ``open``, ``high``, ``low``, ``close``, ``volume`` only.
+    """
+
+    norm = normalize_v2_daily_bars_response(payload)
+    if norm.get("status") != "success":
+        return []
+    sk = norm["source_key"]
+    rows = payload.get(sk)
+    if not isinstance(rows, list):
+        return []
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        ds = _v2_pick_date_str(r)
+        close = _v2_pick_float(r, ("Close", "AdjustmentClose", "close"))
+        if ds is None or close is None:
+            continue
+        open_ = _v2_pick_float(r, ("Open", "AdjustmentOpen", "open"))
+        high = _v2_pick_float(r, ("High", "AdjustmentHigh", "high"))
+        low = _v2_pick_float(r, ("Low", "AdjustmentLow", "low"))
+        vol = _v2_pick_float(r, ("Volume", "volume", "TradingVolume"))
+        c = float(close)
+        if open_ is None:
+            open_ = c
+        if high is None:
+            high = max(float(open_), c)
+        if low is None:
+            low = min(float(open_), c)
+        if vol is None:
+            vol = 0.0
+        out.append(
+            {
+                "date": _v2_normalize_bar_date_display(ds),
+                "open": float(open_),
+                "high": float(high),
+                "low": float(low),
+                "close": c,
+                "volume": float(vol),
+            }
+        )
+
+    out.sort(key=lambda b: _v2_bar_sort_key(str(b["date"])))
+    return out
+
+
 def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
     """Return ``(display_str, effective_label)`` where ``effective_label`` is ``v1``, ``v2``, or ``None``."""
 
@@ -1007,6 +1092,7 @@ class JQuantsClient:
         from_date: str | None = None,
         to_date: str | None = None,
         attempt_live: bool = False,
+        return_sanitized_bars: bool = False,
     ) -> dict[str, Any]:
         bad_ver = self._maybe_unsupported_api_version()
         if bad_ver is not None:
@@ -1122,7 +1208,7 @@ class JQuantsClient:
                     code=code,
                 )
 
-            return {
+            out_live: dict[str, Any] = {
                 "status": "success",
                 "endpoint_path": dq_path,
                 "code": code,
@@ -1135,6 +1221,11 @@ class JQuantsClient:
                 "api_version": self.api_version,
                 "api_version_effective": self.api_version_effective,
             }
+            if return_sanitized_bars:
+                bars = extract_sanitized_v2_daily_bars(parsed)
+                out_live["sanitized_bars"] = bars
+                out_live["sanitized_bar_count"] = len(bars)
+            return out_live
 
         # Legacy V1: bearer tokens
         if not (self.has_id_token() or self.has_refresh_token() or self.has_mail_password()):

@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 from typing import Any, Optional
-
-import json
 
 import typer
 
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
+from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.config.jp_watchlist import (
     load_jp_watchlist_tickers,
     normalize_jquants_equity_code,
+)
+from invis_alpha_os.data.jquants_daily_bars_cache import (
+    save_jquants_daily_bars_cache,
+    try_load_cached_daily_bars,
+    utc_now_iso,
 )
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
@@ -153,7 +159,12 @@ def signals_command(
     dry_run: bool = typer.Option(
         True,
         "--dry-run/--no-dry-run",
-        help="Use deterministic synthetic OHLCV per ticker (default; no HTTP, no API keys).",
+        help="No live HTTP. With --source synthetic, uses deterministic bars; with --source cache, reads local cache only.",
+    ),
+    source: str = typer.Option(
+        "synthetic",
+        "--source",
+        help="synthetic (default) or cache — cache uses outputs/market_data/jquants_daily_bars/{code}.json when present.",
     ),
     code: Optional[str] = typer.Option(None, "--code", help="Single ticker (requires --bars-file)."),
     bars_file: Optional[str] = typer.Option(
@@ -169,6 +180,11 @@ def signals_command(
     ),
 ) -> None:
     """Observation-only JP momentum-style flags from daily bars (Main E MVP). Not trading advice."""
+
+    src_norm = source.strip().lower()
+    if src_norm not in ("synthetic", "cache"):
+        typer.echo("signals: --source must be synthetic or cache", err=True)
+        raise typer.Exit(2)
 
     if bars_file:
         if not code:
@@ -186,16 +202,17 @@ def signals_command(
         one = analyze_bars_for_code(w, bars)
         payload: dict[str, Any] = {
             "mode": "local_bars_file",
+            "bars_data_source": "file",
             "observation_only": True,
-            "ranked": [momentum_row_public_dict(one)] if one else [],
+            "ranked": [momentum_row_public_dict(one, bars_source="file")] if one else [],
         }
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
 
-    if not dry_run:
+    if src_norm == "synthetic" and not dry_run:
         typer.echo(
-            "signals: non-dry-run would require historical bars from an adapter; "
-            "use default --dry-run or pass --bars-file + --code.",
+            "signals: --no-dry-run is not supported for --source synthetic; "
+            "use --source cache (local files) or --bars-file + --code.",
             err=True,
         )
         raise typer.Exit(2)
@@ -203,17 +220,15 @@ def signals_command(
     tickers = load_jp_watchlist_tickers()
     if limit is not None:
         tickers = tickers[:limit]
-    mapping: dict[str, list] = {}
-    for raw in tickers:
-        w = normalize_jquants_equity_code(str(raw))
-        if w is None:
-            continue
-        mapping[w] = synthetic_bars_for_code(w)
+    mapping, srcmap = _jp_momentum_bar_mapping(src_norm, tickers)
     ranked = build_momentum_signals(mapping)
     out: dict[str, Any] = {
-        "mode": "synthetic_dry_run",
+        "mode": "synthetic_dry_run" if src_norm == "synthetic" else "cache_preferred_dry_run",
+        "bars_data_source": _bars_data_source_label(srcmap),
         "observation_only": True,
-        "ranked": [momentum_row_public_dict(m) for m in ranked],
+        "ranked": [
+            momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic")) for m in ranked
+        ],
     }
     typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
@@ -298,6 +313,37 @@ def _cli_optional_str(value: Optional[str]) -> Optional[str]:
         return None
     stripped = value.strip()
     return stripped if stripped else None
+
+
+def _jp_momentum_bar_mapping(source: str, tickers: list[str]) -> tuple[dict[str, list], dict[str, str]]:
+    mapping: dict[str, list] = {}
+    srcmap: dict[str, str] = {}
+    for raw in tickers:
+        w = normalize_jquants_equity_code(str(raw))
+        if w is None:
+            continue
+        if source == "cache":
+            got = try_load_cached_daily_bars(w)
+            if got is not None:
+                mapping[w], srcmap[w] = got
+            else:
+                mapping[w] = synthetic_bars_for_code(w)
+                srcmap[w] = "synthetic"
+        else:
+            mapping[w] = synthetic_bars_for_code(w)
+            srcmap[w] = "synthetic"
+    return mapping, srcmap
+
+
+def _bars_data_source_label(srcmap: dict[str, str]) -> str:
+    u = set(srcmap.values())
+    if u == {"cache"}:
+        return "cache"
+    if u == {"synthetic"}:
+        return "synthetic"
+    if not u:
+        return "synthetic"
+    return "mixed"
 
 
 def _jquants_daily_quotes_cli_snapshot(
@@ -642,6 +688,127 @@ def debug_jquants_daily_quotes(
     if result.get("status") == "success":
         raise typer.Exit(0)
     raise typer.Exit(1)
+
+
+@debug_app.command("jquants-daily-bars-cache")
+def debug_jquants_daily_bars_cache(
+    code: str = typer.Option(..., "--code", help="Equity code (normalized digits/letters)."),
+    from_date: str = typer.Option(
+        ...,
+        "--from-date",
+        help="Range start YYYY-MM-DD or YYYYMMDD (pairs with --to-date).",
+    ),
+    to_date: str = typer.Option(
+        ...,
+        "--to-date",
+        help="Range end YYYY-MM-DD or YYYYMMDD (pairs with --from-date).",
+    ),
+    live: bool = typer.Option(False, "--live", help="Perform live HTTP when gates allow."),
+    write_cache: bool = typer.Option(
+        False,
+        "--write-cache",
+        help="After live success, write sanitized rows to outputs/market_data/jquants_daily_bars/{code}.json.",
+    ),
+) -> None:
+    """Dry-run request preview by default. Live + --write-cache needs CONFIRM_LIVE_HTTP=YES (human gate)."""
+
+    client = JQuantsClient.from_env()
+    cn_raw = code.strip()
+    w = normalize_jquants_equity_code(cn_raw)
+    if w is None:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "invalid_equity_code",
+                    "code": cn_raw,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        raise typer.Exit(1)
+    cn = w
+    fn = from_date.strip()
+    tn = to_date.strip()
+
+    if write_cache and not live:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "write_cache_requires_live",
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        raise typer.Exit(2)
+
+    verr = client.validate_daily_quotes_cli_args(cn, date=None, from_date=fn, to_date=tn)
+    if verr is not None:
+        view = _jquants_daily_quotes_cli_snapshot(verr, code=cn, from_date=fn, to_date=tn, date_opt=None)
+        typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+        raise typer.Exit(1)
+
+    if not live:
+        prv = client.build_v2_daily_bars_request_preview(cn, from_date=fn, to_date=tn)
+        out = {**prv, "live_http": False, "write_cache": False, "raw_response_included": False}
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+        raise typer.Exit(0 if prv.get("status") == "ok" else 1)
+
+    if write_cache and os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "live_blocked",
+                    "reason": "confirm_live_http_required_for_write_cache",
+                    "detail": "Set CONFIRM_LIVE_HTTP=YES for this session to acknowledge live HTTP + cache write.",
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    result = client.get_daily_quotes(
+        cn,
+        from_date=fn,
+        to_date=tn,
+        attempt_live=True,
+        return_sanitized_bars=write_cache,
+    )
+
+    if write_cache and result.get("status") == "success":
+        bars = result.get("sanitized_bars")
+        if not isinstance(bars, list):
+            bars = []
+        path = save_jquants_daily_bars_cache(
+            cn,
+            bars,
+            source="jquants_v2_equities_bars_daily",
+            fetched_at=utc_now_iso(),
+            generated_at=None,
+        )
+        snap = {
+            "status": "success",
+            "code": cn,
+            "row_count": result.get("row_count"),
+            "sanitized_bar_count": len(bars),
+            "cache_written_to": str(path.relative_to(ROOT_DIR)).replace("\\", "/"),
+            "raw_response_included": False,
+        }
+        typer.echo(json.dumps(snap, ensure_ascii=False, indent=2))
+        raise typer.Exit(0)
+
+    view = _jquants_daily_quotes_cli_snapshot(result, code=cn, from_date=fn, to_date=tn, date_opt=None)
+    view["write_cache"] = False
+    typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
+    raise typer.Exit(0 if result.get("status") == "success" else 1)
 
 
 def main() -> None:
