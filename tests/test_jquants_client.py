@@ -1408,6 +1408,260 @@ def test_extract_sanitized_v2_daily_bars_orders_oldest_first() -> None:
     assert rows[0]["close"] == 1.0
 
 
+def test_extract_sanitized_v2_prefers_adjustment_fields() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {
+                "Date": "20240104",
+                "Open": 100.0,
+                "High": 110.0,
+                "Low": 90.0,
+                "Close": 105.0,
+                "Volume": 50.0,
+                "AdjustmentOpen": 200.0,
+                "AdjustmentHigh": 210.0,
+                "AdjustmentLow": 190.0,
+                "AdjustmentClose": 205.0,
+                "AdjustmentVolume": 99.0,
+            }
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload)
+    assert len(rows) == 1
+    assert rows[0]["open"] == 200.0
+    assert rows[0]["close"] == 205.0
+    assert rows[0]["volume"] == 99.0
+
+
+def test_extract_sanitized_v2_official_pascal_case_row() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "daily_quotes": [
+            {
+                "Date": "20240104",
+                "Code": "70110",
+                "Open": 1000.0,
+                "High": 1010.0,
+                "Low": 990.0,
+                "Close": 1005.0,
+                "Volume": 12345.0,
+            }
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["close"] == 1005.0
+    assert rows[0]["volume"] == 12345.0
+
+
+def test_extract_sanitized_v2_five_char_code_matches_four_char_request() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {"Date": "20240104", "Code": "70110", "Close": 1.0},
+            {"Date": "20240105", "Code": "70110", "Close": 2.0},
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 2
+
+
+def test_extract_sanitized_v2_drops_mismatched_instrument_code() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {"Date": "20240104", "Code": "6501", "Close": 9.0},
+            {"Date": "20240105", "code": "7011", "Close": 3.0},
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["close"] == 3.0
+
+
+def test_extract_v2_abbreviated_wire_keys_with_extra_fields() -> None:
+    """Observed V2 /equities/bars/daily row shape (Adj*, O/H/L/C/Vo, Va/UL/LL/AdjFactor ignored in output)."""
+
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    row = {
+        "Date": "20240104",
+        "Code": "70110",
+        "AdjO": 1001.0,
+        "AdjH": 1002.0,
+        "AdjL": 998.0,
+        "AdjC": 1000.5,
+        "AdjVo": 50_000.0,
+        "O": 999.0,
+        "H": 1003.0,
+        "L": 997.0,
+        "C": 1000.0,
+        "Vo": 40_000.0,
+        "Va": 999.99,
+        "UL": 0.01,
+        "LL": 0.02,
+        "AdjFactor": 1.05,
+    }
+    payload = {"data": [row]}
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["open"] == 1001.0
+    assert rows[0]["high"] == 1002.0
+    assert rows[0]["low"] == 998.0
+    assert rows[0]["close"] == 1000.5
+    assert rows[0]["volume"] == 50_000.0
+    assert set(rows[0].keys()) == {"date", "open", "high", "low", "close", "volume"}
+
+
+def test_extract_v2_abbreviated_fallback_when_adj_missing() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {
+                "Date": "20240105",
+                "Code": "7011",
+                "O": 10.0,
+                "H": 12.0,
+                "L": 9.5,
+                "C": 11.0,
+                "Vo": 800.0,
+            }
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["close"] == 11.0
+    assert rows[0]["open"] == 10.0
+    assert rows[0]["volume"] == 800.0
+
+
+def test_extract_v2_adjc_preferred_over_c_when_both_present() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {
+                "Date": "20240106",
+                "Code": "7011",
+                "AdjC": 300.0,
+                "C": 100.0,
+                "AdjO": 301.0,
+                "O": 101.0,
+                "AdjH": 310.0,
+                "H": 110.0,
+                "AdjL": 290.0,
+                "L": 90.0,
+                "AdjVo": 111.0,
+                "Vo": 11.0,
+            }
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["close"] == 300.0
+    assert rows[0]["open"] == 301.0
+    assert rows[0]["volume"] == 111.0
+
+
+def test_extract_v2_abbreviated_maps_many_rows() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    template = {
+        "Date": "20240104",
+        "Code": "70110",
+        "AdjO": 1.0,
+        "AdjH": 2.0,
+        "AdjL": 0.5,
+        "AdjC": 1.5,
+        "AdjVo": 100.0,
+    }
+    rows_in = []
+    for i in range(28):
+        row = dict(template)
+        row["Date"] = f"2024-01-{(i % 28) + 1:02d}"
+        rows_in.append(row)
+    payload = {"data": rows_in}
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 28
+
+
+def test_extract_v2_rejects_65010_for_request_7011() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import extract_sanitized_v2_daily_bars
+
+    payload = {
+        "data": [
+            {"Date": "20240104", "Code": "65010", "C": 1.0},
+            {"Date": "20240105", "Code": "70110", "C": 2.0},
+        ]
+    }
+    rows = extract_sanitized_v2_daily_bars(payload, requested_wire_code="7011")
+    assert len(rows) == 1
+    assert rows[0]["close"] == 2.0
+
+
+def test_get_daily_quotes_live_sanitized_empty_when_rows_unmapped(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    body = {"bars": [{"unexpected": 1}] * 3}
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "7011",
+            from_date="2024-01-01",
+            to_date="2024-01-31",
+            attempt_live=True,
+            return_sanitized_bars=True,
+        )
+    assert out["status"] == "sanitized_empty"
+    assert out["reason"] == "v2_daily_bars_unmapped"
+    assert out["row_count"] == 3
+
+
+def test_get_daily_quotes_abbreviated_v2_rows_full_count_not_sanitized_empty(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    row = {
+        "Date": "20240104",
+        "Code": "70110",
+        "AdjO": 1000.0,
+        "AdjH": 1010.0,
+        "AdjL": 990.0,
+        "AdjC": 1005.0,
+        "AdjVo": 12345.0,
+        "Va": 99.0,
+        "AdjFactor": 1.2,
+        "UL": 1.0,
+        "LL": 2.0,
+    }
+    body = {"data": [dict(row) for _ in range(28)]}
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "7011",
+            from_date="2024-01-01",
+            to_date="2024-01-31",
+            attempt_live=True,
+            return_sanitized_bars=True,
+        )
+    assert out["status"] == "success"
+    assert out["sanitized_bar_count"] == 28
+    assert out["row_count"] == 28
+
+
 def test_get_daily_quotes_live_return_sanitized_bars(monkeypatch) -> None:
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
@@ -1415,7 +1669,15 @@ def test_get_daily_quotes_live_return_sanitized_bars(monkeypatch) -> None:
     _patch_base(monkeypatch)
     body = {
         "bars": [
-            {"Date": "20240104", "Open": 10, "High": 11, "Low": 9, "Close": 10.5, "Volume": 1000},
+            {
+                "Date": "20240104",
+                "Code": "70110",
+                "AdjO": 10.0,
+                "AdjH": 11.0,
+                "AdjL": 9.0,
+                "AdjC": 10.5,
+                "AdjVo": 1000.0,
+            },
         ]
     }
     cm = MagicMock()
@@ -1503,6 +1765,211 @@ def test_debug_jquants_daily_bars_cache_write_requires_confirm(monkeypatch) -> N
     assert r.exit_code == 2
     blob = json.loads(r.stderr.strip() or r.stdout.strip())
     assert blob.get("status") == "live_blocked"
+    assert blob.get("reason") == "confirm_live_http_required"
+
+
+def test_build_v2_daily_bars_shape_digest_omits_row_values() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import build_v2_daily_bars_shape_digest
+
+    payload = {
+        "data": [
+            {
+                "Date": "20240104",
+                "TokenLike": "sk-must-not-appear-in-digest-blob",
+                "Amt": 12345.67,
+            },
+            {"Date": "20240105", "X": None},
+        ]
+    }
+    d = build_v2_daily_bars_shape_digest(payload)
+    blob = json.dumps(d, ensure_ascii=False)
+    assert "sk-must-not-appear" not in blob
+    assert "12345" not in blob
+    assert "TokenLike" in blob
+    assert d["row_count"] == 2
+    assert d["source_key"] == "data"
+    assert "Date" in d["row_key_union"]
+    assert d["key_presence_counts"].get("Date") == 2
+
+
+def test_build_v2_daily_bars_shape_digest_has_no_sensitive_substrings() -> None:
+    from invis_alpha_os.data.adapters.jquants_client import build_v2_daily_bars_shape_digest
+
+    payload = {
+        "data": [
+            {
+                "Date": "20240104",
+                "raw_response": {"nested": "x"},
+                "api_key": "nope",
+                "authorization": "bearer-never-print",
+            }
+        ]
+    }
+    d = build_v2_daily_bars_shape_digest(payload)
+    low = json.dumps(d, ensure_ascii=False).lower()
+    assert "bearer-never-print" not in low
+    assert "nope" not in low
+    assert "nested" not in low
+    assert "x" not in json.dumps(d)
+    assert "raw_response" in d["row_key_union"]
+
+
+def test_get_daily_quotes_sanitized_empty_includes_shape_digest_when_flag(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "NEVER_LEAK_TEST_KEY_VALUE")
+    _patch_base(monkeypatch)
+    body = {"bars": [{"FooBar": 1, "Date": "20240101"}]}
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        out = JQuantsClient.from_env().get_daily_quotes(
+            "7011",
+            from_date="2024-01-01",
+            to_date="2024-01-31",
+            attempt_live=True,
+            return_sanitized_bars=True,
+            include_shape_digest=True,
+        )
+    assert out["status"] == "sanitized_empty"
+    assert out.get("shape_digest") is not None
+    assert out["shape_digest"]["row_key_union"] == ["Date", "FooBar"]
+    assert "NEVER_LEAK_TEST_KEY_VALUE" not in json.dumps(out)
+
+
+def test_debug_shape_requires_live(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-bars-cache",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+            "--debug-shape",
+        ],
+    )
+    assert r.exit_code == 2
+    blob = json.loads(r.stderr.strip() or r.stdout.strip())
+    assert blob.get("reason") == "debug_shape_requires_live"
+
+
+def test_debug_shape_live_requires_confirm_like_write_cache(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    _patch_base(monkeypatch)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "jquants-daily-bars-cache",
+            "--code",
+            "7011",
+            "--from-date",
+            "2024-01-01",
+            "--to-date",
+            "2024-01-10",
+            "--live",
+            "--debug-shape",
+        ],
+    )
+    assert r.exit_code == 2
+    blob = json.loads(r.stderr.strip() or r.stdout.strip())
+    assert blob.get("status") == "live_blocked"
+    assert blob.get("reason") == "confirm_live_http_required"
+
+
+def test_debug_shape_sanitized_empty_includes_digest(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    monkeypatch.setenv("CONFIRM_LIVE_HTTP", "YES")
+    _patch_base(monkeypatch)
+    body = {"data": [{"OnlyWeird": True}] * 2}
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-bars-cache",
+                "--code",
+                "7011",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-10",
+                "--live",
+                "--debug-shape",
+            ],
+        )
+    assert r.exit_code == 1
+    blob = json.loads(r.stderr.strip() or r.stdout.strip())
+    assert blob["status"] == "sanitized_empty"
+    assert "shape_digest" in blob
+    assert blob["shape_digest"]["row_count"] == 2
+    assert "OnlyWeird" in blob["shape_digest"]["row_key_union"]
+    out = json.dumps(blob)
+    assert "x-api-key" not in out.lower()
+
+
+def test_debug_shape_never_calls_save_even_with_write_cache(monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_ENABLED", "true")
+    monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
+    monkeypatch.setenv("JQUANTS_API_KEY", "k")
+    monkeypatch.setenv("CONFIRM_LIVE_HTTP", "YES")
+    _patch_base(monkeypatch)
+    calls: list[bool] = []
+
+    def _capture_save(*_a, **_kw) -> None:  # noqa: ANN002
+        calls.append(True)
+        raise AssertionError("save_jquants_daily_bars_cache must not run when --debug-shape is set")
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.save_jquants_daily_bars_cache", _capture_save)
+    body = {
+        "bars": [
+            {
+                "Date": "20240104",
+                "Code": "70110",
+                "AdjustmentClose": 10.0,
+                "AdjustmentOpen": 9.0,
+                "AdjustmentHigh": 11.0,
+                "AdjustmentLow": 8.0,
+                "AdjustmentVolume": 100.0,
+            },
+        ]
+    }
+    cm = MagicMock()
+    cm.__enter__.return_value.read.return_value = json.dumps(body).encode("utf-8")
+    cm.__exit__.return_value = None
+    with patch("invis_alpha_os.data.adapters.jquants_client.urllib.request.urlopen", return_value=cm):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "jquants-daily-bars-cache",
+                "--code",
+                "7011",
+                "--from-date",
+                "2024-01-01",
+                "--to-date",
+                "2024-01-31",
+                "--live",
+                "--write-cache",
+                "--debug-shape",
+            ],
+        )
+    assert r.exit_code == 0
+    assert calls == []
 
 
 def test_jquants_watchlist_smoke_error_statuses_excludes_benign():

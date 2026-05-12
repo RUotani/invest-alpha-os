@@ -39,6 +39,26 @@ def test_load_cache_invalid_code_returns_none() -> None:
     assert load_jquants_daily_bars_cache("BAD") is None
 
 
+def test_jquants_daily_bars_cache_save_refuses_empty_list() -> None:
+    with pytest.raises(ValueError, match="refuse to write empty"):
+        save_jquants_daily_bars_cache("7011", [], source="x", fetched_at="2026-01-01T00:00:00Z")
+
+
+def test_jquants_daily_bars_cache_file_has_no_secret_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    rows = [{"date": "2024-01-01", "open": 1.0, "high": 1.0, "low": 1.0, "close": 1.0, "volume": 1.0}]
+    path = save_jquants_daily_bars_cache(
+        "7011",
+        rows,
+        source="jquants_v2_equities_bars_daily",
+        fetched_at="2026-01-01T00:00:00Z",
+    )
+    low = path.read_text().lower()
+    assert "api_key" not in low
+    assert "raw_response" not in low
+    assert "x-api-key" not in low
+
+
 def test_render_momentum_section_shows_cache_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     monkeypatch.setattr(

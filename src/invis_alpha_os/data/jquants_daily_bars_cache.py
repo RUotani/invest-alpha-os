@@ -34,6 +34,9 @@ def save_jquants_daily_bars_cache(
 ) -> Path:
     """Write sanitized cache JSON (no raw response, no API material)."""
 
+    if not rows:
+        raise ValueError("refuse to write empty J-Quants daily bars cache")
+
     path = jquants_daily_bars_cache_path(code)
     norm_code = path.stem
     path.parent.mkdir(parents=True, exist_ok=True)

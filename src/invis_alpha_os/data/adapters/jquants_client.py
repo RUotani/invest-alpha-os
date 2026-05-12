@@ -414,13 +414,81 @@ def _v2_pick_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     return None
 
 
+# V2 ``/equities/bars/daily`` wire: full ``Adjustment*`` names, abbreviated ``Adj*`` / ``OHLVC`` / ``Vo``.
+_V2_OPEN_FLOAT_KEYS: Final[tuple[str, ...]] = (
+    "AdjO",
+    "O",
+    "AdjustmentOpen",
+    "Open",
+    "open",
+)
+_V2_HIGH_FLOAT_KEYS: Final[tuple[str, ...]] = (
+    "AdjH",
+    "H",
+    "AdjustmentHigh",
+    "High",
+    "high",
+)
+_V2_LOW_FLOAT_KEYS: Final[tuple[str, ...]] = (
+    "AdjL",
+    "L",
+    "AdjustmentLow",
+    "Low",
+    "low",
+)
+_V2_CLOSE_FLOAT_KEYS: Final[tuple[str, ...]] = (
+    "AdjC",
+    "C",
+    "AdjustmentClose",
+    "Close",
+    "close",
+)
+_V2_VOLUME_FLOAT_KEYS: Final[tuple[str, ...]] = (
+    "AdjVo",
+    "Vo",
+    "AdjustmentVolume",
+    "Volume",
+    "volume",
+    "TradingVolume",
+)
+
+
+def _v2_first_non_null_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    """Return the first parseable float for ``keys`` in order (abbreviated V2 keys first)."""
+
+    return _v2_pick_float(row, keys)
+
+
 def _v2_pick_date_str(row: dict[str, Any]) -> str | None:
-    for k in ("Date", "date", "TradingDate"):
+    for k in ("Date", "date", "TradingDate", "trading_date"):
         if k in row and row[k] is not None:
             s = str(row[k]).strip()
             if s:
                 return s
     return None
+
+
+def _v2_row_matches_requested_wire(requested_wire: str | None, row: dict[str, Any]) -> bool:
+    """Allow official 5-digit-style ``Code`` (e.g. ``70110``) to match wire ``7011``; reject unrelated tickers."""
+
+    if not requested_wire or not str(requested_wire).strip():
+        return True
+    rq = str(requested_wire).strip().upper()
+    # Row may omit Code when the HTTP response is already scoped to the queried instrument.
+    raw = row.get("Code")
+    if raw is None:
+        raw = row.get("code")
+    if raw is None:
+        return True
+    s = str(raw).strip()
+    if not s:
+        return True
+    rc = s.upper()
+    if rc == rq:
+        return True
+    if len(rq) == 4 and len(rc) == 5 and rc.startswith(rq):
+        return True
+    return False
 
 
 def _v2_normalize_bar_date_display(value: str) -> str:
@@ -434,11 +502,18 @@ def _v2_bar_sort_key(date_str: str) -> str:
     return date_str.strip().replace("-", "")
 
 
-def extract_sanitized_v2_daily_bars(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def extract_sanitized_v2_daily_bars(
+    payload: dict[str, Any],
+    *,
+    requested_wire_code: str | None = None,
+) -> list[dict[str, Any]]:
     """Map the V2 daily-bars JSON list to sanitized OHLCV rows (oldest first).
 
-    Rows missing both a parseable date and a close are skipped. Output keys are
-    ``date``, ``open``, ``high``, ``low``, ``close``, ``volume`` only.
+    Supports **abbreviated** V2 keys (``AdjO``/``O``/``AdjC``/``C``/``Vo``/``AdjVo``) and long
+    ``Adjustment*`` / ``Open``-style names. Rows without a parseable date or close are skipped.
+    When ``requested_wire_code`` is set, rows whose ``Code`` clearly targets another instrument are dropped
+    (4-char vs 5-char such as ``7011`` vs ``70110`` allowed).
+    Output keys are ``date``, ``open``, ``high``, ``low``, ``close``, ``volume`` only.
     """
 
     norm = normalize_v2_daily_bars_response(payload)
@@ -453,14 +528,16 @@ def extract_sanitized_v2_daily_bars(payload: dict[str, Any]) -> list[dict[str, A
     for r in rows:
         if not isinstance(r, dict):
             continue
+        if not _v2_row_matches_requested_wire(requested_wire_code, r):
+            continue
         ds = _v2_pick_date_str(r)
-        close = _v2_pick_float(r, ("Close", "AdjustmentClose", "close"))
+        close = _v2_first_non_null_float(r, _V2_CLOSE_FLOAT_KEYS)
         if ds is None or close is None:
             continue
-        open_ = _v2_pick_float(r, ("Open", "AdjustmentOpen", "open"))
-        high = _v2_pick_float(r, ("High", "AdjustmentHigh", "high"))
-        low = _v2_pick_float(r, ("Low", "AdjustmentLow", "low"))
-        vol = _v2_pick_float(r, ("Volume", "volume", "TradingVolume"))
+        open_ = _v2_first_non_null_float(r, _V2_OPEN_FLOAT_KEYS)
+        high = _v2_first_non_null_float(r, _V2_HIGH_FLOAT_KEYS)
+        low = _v2_first_non_null_float(r, _V2_LOW_FLOAT_KEYS)
+        vol = _v2_first_non_null_float(r, _V2_VOLUME_FLOAT_KEYS)
         c = float(close)
         if open_ is None:
             open_ = c
@@ -483,6 +560,80 @@ def extract_sanitized_v2_daily_bars(payload: dict[str, Any]) -> list[dict[str, A
 
     out.sort(key=lambda b: _v2_bar_sort_key(str(b["date"])))
     return out
+
+
+def _shape_digest_value_nonempty(val: Any) -> bool:
+    """True if value counts as non-null / non-empty for per-key statistics."""
+
+    if val is None:
+        return False
+    if isinstance(val, str) and not val.strip():
+        return False
+    if isinstance(val, (list, dict)) and len(val) == 0:
+        return False
+    return True
+
+
+def build_v2_daily_bars_shape_digest(payload: dict[str, Any]) -> dict[str, Any]:
+    """Structural digest of a V2-style daily bars JSON object (no row values, no secrets).
+
+    Intended for diagnostics when rows fail to map to OHLCV. Never includes response bodies,
+    headers, tokens, or API-key material — only keys, counts, and Python type names.
+    """
+
+    top_level_keys = sorted(payload.keys())
+
+    norm = normalize_v2_daily_bars_response(payload)
+    source_key: str | None = None
+    rows_list: list[Any] = []
+    if norm.get("status") == "success":
+        source_key = str(norm.get("source_key", ""))
+        raw_rows = payload.get(source_key)
+        rows_list = list(raw_rows) if isinstance(raw_rows, list) else []
+    else:
+        for k in _V2_DAILY_QUOTES_BODY_KEYS:
+            v = payload.get(k)
+            if isinstance(v, list):
+                rows_list = list(v)
+                source_key = k
+                break
+
+    row_count = len(rows_list)
+
+    first_row_keys: list[str] = []
+    row_key_union: set[str] = set()
+    key_presence_counts: dict[str, int] = {}
+    key_non_null_counts: dict[str, int] = {}
+    type_acc: dict[str, set[str]] = {}
+
+    for r in rows_list:
+        if not isinstance(r, dict):
+            continue
+        rk = r.keys()
+        for kk in rk:
+            row_key_union.add(kk)
+            key_presence_counts[kk] = key_presence_counts.get(kk, 0) + 1
+            v = r.get(kk)
+            if _shape_digest_value_nonempty(v):
+                key_non_null_counts[kk] = key_non_null_counts.get(kk, 0) + 1
+            tname = type(v).__name__
+            type_acc.setdefault(kk, set()).add(tname)
+
+    if rows_list and isinstance(rows_list[0], dict):
+        first_row_keys = sorted(rows_list[0].keys())
+
+    key_type_names = {k: sorted(type_acc[k]) for k in sorted(type_acc.keys())}
+
+    return {
+        "top_level_keys": top_level_keys,
+        "source_key": source_key,
+        "row_count": row_count,
+        "first_row_keys": first_row_keys,
+        "row_key_union": sorted(row_key_union),
+        "key_presence_counts": dict(sorted(key_presence_counts.items())),
+        "key_non_null_counts": dict(sorted(key_non_null_counts.items())),
+        "key_type_names": key_type_names,
+    }
 
 
 def _resolve_jquants_api_version(raw: str | None) -> tuple[str, str | None]:
@@ -1093,6 +1244,7 @@ class JQuantsClient:
         to_date: str | None = None,
         attempt_live: bool = False,
         return_sanitized_bars: bool = False,
+        include_shape_digest: bool = False,
     ) -> dict[str, Any]:
         bad_ver = self._maybe_unsupported_api_version()
         if bad_ver is not None:
@@ -1208,6 +1360,27 @@ class JQuantsClient:
                     code=code,
                 )
 
+            if return_sanitized_bars:
+                bars = extract_sanitized_v2_daily_bars(parsed, requested_wire_code=code)
+                if int(norm["row_count"]) > 0 and len(bars) == 0:
+                    out_se: dict[str, Any] = {
+                        "status": "sanitized_empty",
+                        "reason": "v2_daily_bars_unmapped",
+                        "endpoint_path": dq_path,
+                        "code": code,
+                        "row_count": norm["row_count"],
+                        "source_key": norm["source_key"],
+                        "date_from": from_date,
+                        "date_to": to_date,
+                        "date": date,
+                        "raw_response_included": False,
+                        "api_version": self.api_version,
+                        "api_version_effective": self.api_version_effective,
+                    }
+                    if include_shape_digest:
+                        out_se["shape_digest"] = build_v2_daily_bars_shape_digest(parsed)
+                    return out_se
+
             out_live: dict[str, Any] = {
                 "status": "success",
                 "endpoint_path": dq_path,
@@ -1222,7 +1395,6 @@ class JQuantsClient:
                 "api_version_effective": self.api_version_effective,
             }
             if return_sanitized_bars:
-                bars = extract_sanitized_v2_daily_bars(parsed)
                 out_live["sanitized_bars"] = bars
                 out_live["sanitized_bar_count"] = len(bars)
             return out_live

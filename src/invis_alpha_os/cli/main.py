@@ -709,8 +709,13 @@ def debug_jquants_daily_bars_cache(
         "--write-cache",
         help="After live success, write sanitized rows to outputs/market_data/jquants_daily_bars/{code}.json.",
     ),
+    debug_shape: bool = typer.Option(
+        False,
+        "--debug-shape",
+        help="With --live (+ CONFIRM_LIVE_HTTP=YES), include safe shape_digest on sanitized_empty; never writes cache.",
+    ),
 ) -> None:
-    """Dry-run request preview by default. Live + --write-cache needs CONFIRM_LIVE_HTTP=YES (human gate)."""
+    """Dry-run request preview by default. Live + side effects need CONFIRM_LIVE_HTTP=YES."""
 
     client = JQuantsClient.from_env()
     cn_raw = code.strip()
@@ -732,6 +737,22 @@ def debug_jquants_daily_bars_cache(
     cn = w
     fn = from_date.strip()
     tn = to_date.strip()
+
+    if debug_shape and not live:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "debug_shape_requires_live",
+                    "detail": "Use --live with --debug-shape (and CONFIRM_LIVE_HTTP=YES) for HTTP shape diagnostics.",
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
 
     if write_cache and not live:
         typer.echo(
@@ -759,13 +780,13 @@ def debug_jquants_daily_bars_cache(
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
         raise typer.Exit(0 if prv.get("status") == "ok" else 1)
 
-    if write_cache and os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
+    if live and (write_cache or debug_shape) and os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
         typer.echo(
             json.dumps(
                 {
                     "status": "live_blocked",
-                    "reason": "confirm_live_http_required_for_write_cache",
-                    "detail": "Set CONFIRM_LIVE_HTTP=YES for this session to acknowledge live HTTP + cache write.",
+                    "reason": "confirm_live_http_required",
+                    "detail": "Set CONFIRM_LIVE_HTTP=YES for --write-cache and/or --debug-shape live HTTP.",
                     "raw_response_included": False,
                 },
                 ensure_ascii=False,
@@ -775,18 +796,54 @@ def debug_jquants_daily_bars_cache(
         )
         raise typer.Exit(2)
 
+    want_sanitize = write_cache or debug_shape
     result = client.get_daily_quotes(
         cn,
         from_date=fn,
         to_date=tn,
         attempt_live=True,
-        return_sanitized_bars=write_cache,
+        return_sanitized_bars=want_sanitize,
+        include_shape_digest=debug_shape,
     )
+    effective_write = write_cache and not debug_shape
 
-    if write_cache and result.get("status") == "success":
+    if want_sanitize and result.get("status") == "sanitized_empty":
+        payload: dict[str, Any] = {
+            "status": "sanitized_empty",
+            "reason": result.get("reason"),
+            "code": cn,
+            "row_count": result.get("row_count"),
+            "source_key": result.get("source_key"),
+            "detail": "API returned rows but none mapped to OHLCV; cache not written.",
+            "raw_response_included": False,
+        }
+        sd = result.get("shape_digest")
+        if sd is not None:
+            payload["shape_digest"] = sd
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2), err=True)
+        raise typer.Exit(1)
+
+    if effective_write and result.get("status") == "success":
         bars = result.get("sanitized_bars")
         if not isinstance(bars, list):
             bars = []
+        if not bars:
+            typer.echo(
+                json.dumps(
+                    {
+                        "status": "success",
+                        "code": cn,
+                        "row_count": result.get("row_count"),
+                        "sanitized_bar_count": 0,
+                        "cache_written_to": None,
+                        "cache_skipped": "no_sanitized_rows",
+                        "raw_response_included": False,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            raise typer.Exit(0)
         path = save_jquants_daily_bars_cache(
             cn,
             bars,
@@ -807,6 +864,7 @@ def debug_jquants_daily_bars_cache(
 
     view = _jquants_daily_quotes_cli_snapshot(result, code=cn, from_date=fn, to_date=tn, date_opt=None)
     view["write_cache"] = False
+    view["debug_shape"] = debug_shape
     typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
     raise typer.Exit(0 if result.get("status") == "success" else 1)
 
