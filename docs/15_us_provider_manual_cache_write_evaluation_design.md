@@ -179,7 +179,7 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 
 - [x] `build_manual_cache_write_save_cache_writer_adapter` adapter boundary implemented.
 - [x] Validates sanitized bars, symbol match, raw-response guard, API-key guard before calling injected save func.
-- [x] 15 new tests (116 total); no real FS write, no live HTTP, no CLI change.
+- [x] 22 new tests (126 total); no real FS write, no live HTTP, no CLI change.
 
 **R6.5.7+ prerequisites (not yet satisfied):**
 
