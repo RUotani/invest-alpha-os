@@ -1,4 +1,4 @@
-# US equities / ETFs — market data provider plan (Main R2)
+# US equities / ETFs — market data provider plan (Main R2 + Main R3)
 
 ## 1. Purpose
 
@@ -20,8 +20,8 @@ Observation only — no buy/sell advice, no automated trading.
 
 ### Stooq
 
-- **Strengths:** **No API key** for public CSV-style daily endpoints; convenient for sketches and spreadsheets.
-- **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; **symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully.
+- **Strengths:** **No API key** for public CSV-style daily endpoints; convenient for sketches and spreadsheets; used for **Main R3** one-symbol **gated** shape-only live preview (see phased table).
+- **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; **symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully. **Treat as preview / prototype** until a commercial API path is chosen.
 - **Terms:** Use only in compliance with Stooq’s published terms; no scraping of pages outside documented usage.
 
 ### Yahoo Finance / yfinance (unofficial)
@@ -60,8 +60,8 @@ Observation only — no buy/sell advice, no automated trading.
 
 | Phase | Scope |
 |-------|--------|
-| **Main R2 (current)** | **Design** + **`config/us_market_data.yaml`** + **`build_us_provider_preview_plan`** / **`debug us-provider-preview`** — **no HTTP**, **no live ingestion**. |
-| **Main R3** | **Gated live preview** — **one provider**, **one symbol**, triple-gated CLI (explicit flags + env), response parsed to **sanitized** structures only — still **optional** cache write behind confirmation. |
+| **Main R2** | **Design** + **`config/us_market_data.yaml`** + **`build_us_provider_preview_plan`** / **`debug us-provider-preview`** — **no HTTP**, **no live ingestion**. |
+| **Main R3 (current)** | **Stooq one-symbol gated live preview** — **`stooq_live_preview_shape_digest`** + **`debug us-provider-live-preview`** + **`make us-provider-live-preview-dry-run`**. Live HTTP is **off by default** and requires **both** **`--live`** and **`CONFIRM_US_LIVE_HTTP=YES`**. Output is a **shape digest only** (row count, date span, column names, flags). **No cache write** in Main R3; **no `raw_response`** printed or persisted. Smoke path is **MSFT** via existing Stooq wire mapping (e.g. **`msft.us`**). **Stooq remains preview / prototype** — convenient for zero-key smoke tests, **not** asserted as the final production provider. |
 | **Main R4** | **Cache write path** wired with **human confirmation**, logging policy, and **no `raw_response` in payloads**. |
 
 ---

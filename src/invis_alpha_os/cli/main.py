@@ -22,6 +22,7 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
 )
 from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
 from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
+from invis_alpha_os.data.us_provider_live_preview import stooq_live_preview_shape_digest
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -1258,6 +1259,51 @@ def debug_us_provider_preview(
     typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
     if payload.get("status") != "preview_ok":
         raise typer.Exit(2)
+
+
+@debug_app.command("us-provider-live-preview")
+def debug_us_provider_live_preview(
+    symbol: str = typer.Option(..., "--symbol", help="Single US symbol (Main R3: MSFT smoke path)."),
+    provider: str = typer.Option(
+        ...,
+        "--provider",
+        help="stooq_preview only (Main R3).",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Perform one gated HTTP GET (requires CONFIRM_US_LIVE_HTTP=YES). Default: dry_run, no HTTP.",
+    ),
+) -> None:
+    """Stooq-only shape digest preview. No cache write; never emits raw CSV."""
+
+    prov = provider.strip()
+    if prov != "stooq_preview":
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "unsupported_provider",
+                    "provider_input": prov,
+                    "detail": "Main R3 implements stooq_preview only.",
+                    "live_http_performed": False,
+                    "raw_response_included": False,
+                    "cache_write_performed": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
+        raise typer.Exit(2)
+
+    payload = stooq_live_preview_shape_digest(symbol, live=live)
+    typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    st = payload.get("status")
+    if st == "dry_run" or st == "live_preview_ok":
+        raise typer.Exit(0)
+    if st == "validation_error":
+        raise typer.Exit(2)
+    raise typer.Exit(1)
 
 
 @debug_app.command("jquants-watchlist-bars-cache")
