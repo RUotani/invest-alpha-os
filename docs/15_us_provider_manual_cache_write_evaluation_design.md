@@ -139,25 +139,30 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] No `.github/` or `Makefile` wiring.
 - [x] Existing R6.4.1 tests still pass without regression (459 tests total).
 
-**R6.5.2+ prerequisites (not yet satisfied):**
+**R6.5.2 items (already satisfied):**
 
-- [ ] Tests planned and written **before** implementation (mock-first).
-- [ ] Test: `validation_error` live row refuses write.
-- [ ] Test: `parse_error` row refuses write.
-- [ ] Test: `transport_error` row refuses write.
-- [ ] Test: invalid symbol row refuses write.
-- [ ] Test: capped symbol (`max_http_cap_reached`) refuses write.
-- [ ] Test: success row only write-eligible when all gates pass.
-- [ ] Test: `save_us_daily_bars_cache` called only with sanitized bars when all gates pass.
-- [ ] Test: raw body / raw CSV never in payload or Markdown.
-- [ ] Confirm CI remains offline-safe.
+- [x] Tests planned and written before implementation (mock-first).
+- [x] Test: `validation_error` live row refuses write.
+- [x] Test: `parse_error` row refuses write.
+- [x] Test: `transport_error` row refuses write.
+- [x] Test: invalid symbol row refuses write.
+- [x] Test: capped symbol (`max_http_cap_reached`) refuses write.
+- [x] Test: success row classified eligible (observation only; no write performed).
+- [x] Test: `save_us_daily_bars_cache` never called by eligibility classifier.
+- [x] Test: raw body / raw CSV never in payload.
+- [x] CI remains offline-safe.
+
+**R6.5.3+ prerequisites (not yet satisfied):**
+
+- [ ] Test: `save_us_daily_bars_cache` called only with sanitized bars when all gates pass (actual write path).
 - [ ] Confirm write target path is deterministic and under `outputs/market_data/us_daily_bars/`.
+- [ ] Implement and gate actual cache-write execution per R6.5.3 design.
 
 ---
 
-## 8. Required tests for R6.5.2+ implementation
+## 8. Required tests for R6.5.3+ implementation
 
-R6.5.1 refusal scaffold tests are already implemented (44 tests pass). These additional tests are required before R6.5.2 actual cache-write implementation may proceed:
+R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 total) are implemented. These additional tests are required before R6.5.3 actual cache-write implementation may proceed:
 
 - `test_cache_write_flag_without_live_exits_2`
 - `test_cache_write_without_cache_gate_exits_2`
@@ -190,6 +195,7 @@ R6.5.1 refusal scaffold tests are already implemented (44 tests pass). These add
 |---------|-----------|---------|
 | **1.0** | **Main R6.5.0** | Design / checklist / refusal rules only — **no implementation**, **no cache write**, **no workflow change**. |
 | **1.1** | **Main R6.5.1** | `--evaluate-cache-write` refusal scaffold implemented — **always refuses** (exit 2); **no cache write**, **no live HTTP**, **no raw response**; 11 new tests (44 total); actual write remains R6.5.2+. |
+| **1.2** | **Main R6.5.2** | `evaluate_manual_cache_write_eligibility_from_rows` pure classifier implemented — **no cache write**, **no live HTTP**, **no cache writer call**; 12 new tests (55 total, +11 from R6.5.1); actual write remains R6.5.3+. |
 
 ---
 

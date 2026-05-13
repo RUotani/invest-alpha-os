@@ -663,6 +663,114 @@ def build_us_provider_manual_live_batch_smoke_payload(
     }
 
 
+def evaluate_manual_cache_write_eligibility_from_rows(
+    plan_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Pure deterministic cache-write eligibility classifier (**Main R6.5.2**).
+
+    Classifies each row as eligible or rejected.  **No cache write, no HTTP, no cache writer import.**
+    """
+    eligible_rows: list[dict[str, Any]] = []
+    rejected_rows: list[dict[str, Any]] = []
+
+    cnt_invalid = cnt_parse = cnt_transport = cnt_validation = 0
+    cnt_cap = cnt_raw = cnt_other = 0
+
+    for row in plan_rows:
+        symbol = row.get("symbol", "")
+        status = str(row.get("status") or "")
+        reason = str(row.get("reason") or "")
+        planned_action = str(row.get("planned_action") or "")
+        raw_included = row.get("raw_response_included")
+
+        def _reject(rej_reason: str) -> dict[str, Any]:
+            return {
+                "symbol": symbol,
+                "cache_write_eligible": False,
+                "reason": rej_reason,
+            }
+
+        # Reject: raw response present
+        if raw_included is True:
+            cnt_raw += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_raw_response"))
+            continue
+
+        # Reject: invalid symbol
+        if reason == "invalid_symbol" or planned_action == "excluded_invalid_symbol":
+            cnt_invalid += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_invalid_symbol"))
+            continue
+
+        # Reject: capped
+        if reason == "max_http_cap_reached" or planned_action == "skipped_max_http_cap":
+            cnt_cap += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_max_http_capped_row"))
+            continue
+
+        # Reject: known error statuses
+        if status == "parse_error" or reason == "parse_error":
+            cnt_parse += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_parse_error"))
+            continue
+        if status == "transport_error" or reason == "transport_error":
+            cnt_transport += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_transport_error"))
+            continue
+        if status == "validation_error" or reason == "validation_error":
+            cnt_validation += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_validation_error"))
+            continue
+
+        # Eligible check
+        bar_count = row.get("sanitized_bar_count")
+        eligible = (
+            status == "live_preview_ok"
+            and planned_action == "live_preview_http_get"
+            and row.get("live_http_performed") is True
+            and row.get("cache_write_performed") is False
+            and raw_included is False
+            and row.get("bars_source") == "vendor_live_sanitized_preview"
+            and isinstance(bar_count, int)
+            and bar_count > 0
+            and isinstance(symbol, str)
+            and len(symbol) > 0
+        )
+        if eligible:
+            eligible_rows.append({
+                "symbol": symbol,
+                "cache_write_eligible": True,
+                "reason": "manual_batch_cache_write_eligible_live_preview_ok",
+                "sanitized_bar_count": bar_count,
+            })
+        else:
+            cnt_other += 1
+            rejected_rows.append(_reject("manual_batch_cache_write_rejects_unexpected_row_shape"))
+
+    all_results = eligible_rows + rejected_rows
+    return {
+        "status": "manual_cache_write_eligibility_evaluated",
+        "observation_only": True,
+        "cache_write_performed": False,
+        "live_http_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "eligible_count": len(eligible_rows),
+        "rejected_count": len(rejected_rows),
+        "rows": all_results,
+        "summary": {
+            "eligible_count": len(eligible_rows),
+            "rejected_invalid_symbol_count": cnt_invalid,
+            "rejected_parse_error_count": cnt_parse,
+            "rejected_transport_error_count": cnt_transport,
+            "rejected_validation_error_count": cnt_validation,
+            "rejected_max_http_cap_count": cnt_cap,
+            "rejected_raw_response_count": cnt_raw,
+            "rejected_other_count": cnt_other,
+        },
+    }
+
+
 def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
     """Copy-ready Markdown (**Main R6.4.1**) — **never** API key values / raw payloads."""
 

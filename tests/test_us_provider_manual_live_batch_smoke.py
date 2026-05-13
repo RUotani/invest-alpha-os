@@ -784,6 +784,105 @@ def test_eval_cw_safety_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     assert out["evaluate_cache_write_requested"] is True
 
 
+# ── R6.5.2 eligibility classifier tests ─────────────────────────────────────
+
+
+def _ok_row(symbol: str = "MSFT", bar_count: int = 5) -> dict:
+    return {
+        "symbol": symbol,
+        "status": "live_preview_ok",
+        "planned_action": "live_preview_http_get",
+        "live_http_performed": True,
+        "cache_write_performed": False,
+        "raw_response_included": False,
+        "bars_source": "vendor_live_sanitized_preview",
+        "sanitized_bar_count": bar_count,
+    }
+
+
+def test_eligible_row_classified_ok() -> None:
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([_ok_row()])
+    assert r["status"] == "manual_cache_write_eligibility_evaluated"
+    assert r["eligible_count"] == 1
+    assert r["rejected_count"] == 0
+    row = r["rows"][0]
+    assert row["cache_write_eligible"] is True
+    assert row["reason"] == "manual_batch_cache_write_eligible_live_preview_ok"
+    assert r["cache_write_performed"] is False
+    assert r["live_http_performed"] is False
+    assert r["raw_response_included"] is False
+    assert r["provider_api_key_value_included"] is False
+
+
+def test_invalid_symbol_row_rejected() -> None:
+    row = {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_invalid_symbol"
+    assert r["eligible_count"] == 0
+    assert r["summary"]["rejected_invalid_symbol_count"] == 1
+
+
+def test_parse_error_row_rejected() -> None:
+    row = {**_ok_row(), "status": "parse_error", "reason": "parse_error"}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_parse_error"
+    assert r["summary"]["rejected_parse_error_count"] == 1
+
+
+def test_transport_error_row_rejected() -> None:
+    row = {**_ok_row(), "status": "transport_error"}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_transport_error"
+    assert r["summary"]["rejected_transport_error_count"] == 1
+
+
+def test_validation_error_row_rejected() -> None:
+    row = {**_ok_row(), "status": "validation_error"}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_validation_error"
+    assert r["summary"]["rejected_validation_error_count"] == 1
+
+
+def test_max_http_cap_row_rejected() -> None:
+    row = {"symbol": "MSFT", "planned_action": "skipped_max_http_cap", "reason": "max_http_cap_reached"}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_max_http_capped_row"
+    assert r["summary"]["rejected_max_http_cap_count"] == 1
+
+
+def test_raw_response_row_rejected() -> None:
+    row = {**_ok_row(), "raw_response_included": True}
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_raw_response"
+    assert r["summary"]["rejected_raw_response_count"] == 1
+
+
+def test_zero_bar_count_rejected() -> None:
+    row = _ok_row(bar_count=0)
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([row])
+    assert r["rows"][0]["reason"] == "manual_batch_cache_write_rejects_unexpected_row_shape"
+    assert r["summary"]["rejected_other_count"] == 1
+
+
+def test_classifier_never_calls_cache_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call cache writer")))
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([_ok_row()])
+    assert r["cache_write_performed"] is False
+
+
+def test_classifier_never_calls_live_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call live preview")))
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([_ok_row()])
+    assert r["live_http_performed"] is False
+
+
+def test_classifier_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r652_secret_key_never_echo_55555"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    r = mlbs.evaluate_manual_cache_write_eligibility_from_rows([_ok_row()])
+    assert secret not in str(r)
+
+
 def test_eval_cw_markdown_r651_wording(monkeypatch: pytest.MonkeyPatch) -> None:
     out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
         ["MSFT"],
