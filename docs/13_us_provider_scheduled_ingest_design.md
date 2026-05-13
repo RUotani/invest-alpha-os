@@ -181,8 +181,9 @@ Use as a **paper gate** — checklist items supplement **`docs/14`** section 8. 
 | **1.1** | **Main R6.1** | **`us_provider_scheduled_ingest_plan`** module + **`debug us-provider-scheduled-ingest-plan`** — **still no scheduler / HTTP / cache write**. |
 | **1.2** | **Main R6.2** | **`docs/14`** manual live batch smoke **design** — **still no unattended scheduled ingest**; **no runtime HTTP** in the R6.2 doc merge. |
 | **1.3** | **Main R6.3** | **`us_provider_manual_live_batch_smoke`** + **`debug us-provider-manual-live-batch-smoke`** — **scaffold only** (**`--live`** refuses HTTP); optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
+| **1.4** | **Main R6.4.0** | **`--preflight`** flag — manual live batch smoke **preflight-ready mode**; validates gates + **`--max-http`**; **zero HTTP / zero cache write**; requires **`--live`**. |
 
-When **R6.4+** land, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
+When **R6.4.1+** lands, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
 
 ---
 

@@ -419,17 +419,29 @@ def test_preflight_markdown_r640_wording(monkeypatch: pytest.MonkeyPatch) -> Non
     assert "no cache write" in md
 
 
-def test_preflight_without_live_flag_still_preflight_ready(monkeypatch: pytest.MonkeyPatch) -> None:
-    """preflight_requested=True alone (no live_requested) still triggers preflight path when gates are set."""
-    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
-    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
-    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
-        ["MSFT"],
-        max_http=1,
-        live_requested=False,
-        preflight_requested=True,
+def test_preflight_without_live_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--preflight without --live must return validation_error/manual_batch_smoke_preflight_requires_live."""
+    monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-manual-live-batch-smoke",
+            "--symbols",
+            "MSFT,NVDA",
+            "--provider",
+            "stooq_preview",
+            "--preflight",
+            "--max-http",
+            "1",
+        ],
     )
-    assert out["status"] == "manual_live_batch_smoke_preflight_ready"
-    assert out["preflight_requested"] is True
-    assert out["live_requested"] is False
-    assert out["live_http_performed"] is False
+    assert r.exit_code == 2, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "validation_error"
+    assert payload["reason"] == "manual_batch_smoke_preflight_requires_live"
+    assert payload["live_requested"] is False
+    assert payload["preflight_requested"] is True
+    assert payload["live_http_performed"] is False
+    assert payload["cache_write_performed"] is False
+    assert payload["raw_response_included"] is False

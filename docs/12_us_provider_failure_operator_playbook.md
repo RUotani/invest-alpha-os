@@ -115,7 +115,8 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 |--------------------|--------------------------------------|---------:|----------------|
 | `manual_live_batch_smoke_dry_run` | — | **0** | Default without **`--live`** or **`--preflight`**; inspect **`plan_rows`**, **`constraints.planned_http_attempts`**, **`gate_status`**. |
 | `manual_live_batch_smoke_preflight_ready` | — | **0** | **R6.4.0** — **`--preflight`** with both gates **`YES`** + **`--max-http > 0`**; **zero HTTP** performed. |
-| `validation_error` | `manual_batch_smoke_live_http_not_confirmed` | **2** | **`--live`** / **`--preflight`** without **both** **`CONFIRM_US_LIVE_HTTP=YES`** and **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
+| `validation_error` | `manual_batch_smoke_preflight_requires_live` | **2** | **R6.4.0.1** — **`--preflight`** passed without **`--live`**; normal refusal, **zero HTTP**. |
+| `validation_error` | `manual_batch_smoke_live_http_not_confirmed` | **2** | **`--live --preflight`** without **both** **`CONFIRM_US_LIVE_HTTP=YES`** and **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
 | `validation_error` | `manual_batch_smoke_max_http_zero` | **2** | **`--live`** or **`--preflight`** with **`--max-http 0`** (after gates check). |
 | `validation_error` | `manual_batch_smoke_live_execution_not_implemented_in_r6_3` | **2** | **`--live`** (no **`--preflight`**) with gates **`YES`** — **R6.4.1** executes real GETs. |
 | `validation_error` | `unsupported_provider` / `empty_symbol_batch` | **2** | Same discipline as other **`debug us-provider-*`** commands. |

@@ -54,9 +54,10 @@ Envelope **`reason`** for valid plan rows (not top-level): **`r6_3_scaffold_no_h
 
 | `status` | `reason` | CLI exit | Notes |
 |----------|----------|---------:|-------|
-| **`manual_live_batch_smoke_preflight_ready`** | — | **0** | **`--preflight`** with both gates **`YES`** and **`--max-http > 0`**; **zero vendor HTTP**. |
-| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--preflight`** but gate(s) missing. |
-| **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--preflight`** with both gates **`YES`** but **`--max-http 0`**. |
+| **`manual_live_batch_smoke_preflight_ready`** | — | **0** | **`--live --preflight`** with both gates **`YES`** + **`--max-http > 0`**; **zero vendor HTTP**. |
+| **`validation_error`** | **`manual_batch_smoke_preflight_requires_live`** | **2** | **`--preflight`** without **`--live`**; normal refusal, **zero HTTP**. |
+| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--live --preflight`** but gate(s) missing. |
+| **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--live --preflight`** with both gates **`YES`** but **`--max-http 0`**. |
 
 **Next milestone (success path after preflight):** **`next_required_approval`** string **`R6.4.1 manual live batch smoke execution`**.
 
@@ -107,7 +108,7 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - Merge semantics mirror **`debug us-provider-cache-preview-batch`** and **`debug us-provider-scheduled-ingest-plan`** (**watchlist first**, CSV append, dedupe, **`limit`**).
 - **`--max-http`:** non-negative; default **0**; **`planned_http_attempts = min(valid_symbol_count, max_http)`** (**R6.3** — informational; **R6.4.0** preflight also uses this cap).
 - **`--live`:** **R6.3** (without **`--preflight`**) refuses execution. **R6.4.0**: combine **`--live --preflight`** to validate readiness (zero HTTP performed).
-- **`--preflight`:** **R6.4.0** — gates check + max_http check → **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2).
+- **`--preflight`:** **R6.4.0** — must be combined with **`--live`**; without **`--live`** → **`manual_batch_smoke_preflight_requires_live`** (exit 2). With **`--live`**: gates check + max_http check → **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2).
 
 **Makefile:** **`make us-provider-manual-live-batch-smoke-dry-run`** (**`--max-http 0`**, no **`--live`**, no **`--preflight`**) — **`safe-push`** / **`verify`** / **`agent-final-check`** stay **independent** of this target.
 
@@ -126,7 +127,7 @@ Any **future R6.4** implementation **must** require:
 
 **R6.3:** if **`--live`** (no **`--preflight`**) and either gate is not **`YES`**, top-level **`reason`** is **`manual_batch_smoke_live_http_not_confirmed`** (**exit 2**) — **still zero HTTP**.
 
-**R6.4.0:** if **`--preflight`** and either gate is not **`YES`**, same **`manual_batch_smoke_live_http_not_confirmed`** reason — **zero HTTP**. Both gates **`YES`** + **`--max-http > 0`** → **`manual_live_batch_smoke_preflight_ready`** (**exit 0**, zero HTTP).
+**R6.4.0:** **`--preflight`** without **`--live`** → **`manual_batch_smoke_preflight_requires_live`** (exit 2, zero HTTP). With **`--live --preflight`**: if either gate is not **`YES`** → **`manual_batch_smoke_live_http_not_confirmed`** (exit 2). Both gates **`YES`** + **`--max-http > 0`** → **`manual_live_batch_smoke_preflight_ready`** (exit 0, zero HTTP).
 
 ---
 

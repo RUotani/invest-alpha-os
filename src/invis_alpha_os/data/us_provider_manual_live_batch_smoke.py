@@ -33,6 +33,7 @@ _REASON_LIVE_GATE = "manual_batch_smoke_live_http_not_confirmed"
 _REASON_LIVE_NA = "manual_batch_smoke_live_execution_not_implemented_in_r6_3"
 _REASON_MAX_HTTP_ZERO = "manual_batch_smoke_max_http_zero"
 _REASON_PREFLIGHT_READY_ROW = "r6_4_0_preflight_ready_no_http"
+_REASON_PREFLIGHT_REQUIRES_LIVE = "manual_batch_smoke_preflight_requires_live"
 
 
 def _symbol_merge_core(
@@ -187,6 +188,16 @@ def build_us_provider_manual_live_batch_smoke_payload(
     gate_block = _gate_status_block()
 
     if preflight_requested:
+        if not live_requested:
+            return {
+                "status": "validation_error",
+                "reason": _REASON_PREFLIGHT_REQUIRES_LIVE,
+                "provider": prov,
+                "observation_only": True,
+                "live_requested": False,
+                "preflight_requested": True,
+                **_common_live_refusal_booleans(),
+            }
         live_ok = os.environ.get(CONFIRM_US_LIVE_HTTP_ENV) == "YES"
         batch_ok = os.environ.get(CONFIRM_US_MANUAL_BATCH_SMOKE_ENV) == "YES"
         if not (live_ok and batch_ok):
@@ -383,7 +394,7 @@ def build_us_provider_manual_live_batch_smoke_payload(
             "symbols": list(normed_acc),
             "plan_rows": merged_plan_rows,
             "operator_summary": operator_summary_base,
-            "next_required_approval": "R6.4 manual live batch smoke execution",
+            "next_required_approval": "R6.4.1 manual live batch smoke execution",
         }
 
     return {
@@ -410,7 +421,7 @@ def build_us_provider_manual_live_batch_smoke_payload(
         "symbols": list(normed_acc),
         "plan_rows": merged_plan_rows,
         "operator_summary": operator_summary_base,
-        "next_required_approval": "R6.4 manual live batch smoke execution",
+        "next_required_approval": "R6.4.1 manual live batch smoke execution",
     }
 
 
@@ -589,7 +600,7 @@ def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
         "## Notes",
         "",
         "- **R6.3 scaffold only** — **no vendor HTTP**, **no cache write**.",
-        "- Gate **`CONFIRM_US_MANUAL_BATCH_SMOKE`** is documented for **R6.4+** execution.",
+        "- Gate **`CONFIRM_US_MANUAL_BATCH_SMOKE`** is documented for **R6.4.1+** execution.",
         "- See **`docs/14_us_provider_manual_live_batch_smoke_design.md`**.",
         "",
     ]
