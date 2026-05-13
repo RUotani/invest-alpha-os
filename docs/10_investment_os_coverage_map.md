@@ -117,8 +117,9 @@ After Main Q / Q0:
 | **Main R6.4.0** | **`--preflight` readiness check** — gates + max-http validated; **`manual_live_batch_smoke_preflight_ready`** exit 0; **still zero HTTP** |
 | **Main R6.4.1** | **Bounded manual live HTTP** (**implemented**) — **`--execute-live-http`** + full gate set; **no cache write**; manual operator only |
 | **Main R6.5.0** | **Cache-write evaluation design only** — **`docs/15`** safety contract / checklist / proposed reasons; **no implementation** |
-| **Main R6.5.1** | **`--evaluate-cache-write` refusal scaffold** — always exits 2; **no write**; actual write remains R6.5.2+ |
-| **Main R6.5.1+** | **Manual cache-write evaluation implementation**, scheduled ingest (**R6.6+**) — only after **`docs/15`** checklist |
+| **Main R6.5.1** | **`--evaluate-cache-write` refusal scaffold** — always exits 2; **no write** |
+| **Main R6.5.7** | **`--execute-cache-write` limited manual production cache write** — all 9 conditions required; `real_cache_write_performed: true` on success; **no Makefile / workflow / cron** — see **`docs/15`** |
+| **Beyond R6.5.7** | Scheduled / unattended ingest (**R6.6+**) — requires **`docs/13`** gates |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |

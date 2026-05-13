@@ -1,10 +1,10 @@
-# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–Main R6.3 scaffold)
+# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–Main R6.5.7)
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**), (**Main R6.1**) **`debug us-provider-scheduled-ingest-plan`** — **dry-run scheduled ingest plans only** (**no HTTP**, **no cache write** — see **`docs/13`**), and (**Main R6.3**) **`debug us-provider-manual-live-batch-smoke`** — **manual live batch scaffold** (**merge + caps JSON**; **`--live`** **always** ends in **`validation_error`** with **zero** vendor GETs until **R6.4** — see **`docs/14`**). **Scheduled / unattended ingest execution** remains **`docs/13`** **R6.6+**.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**), (**Main R6.1**) **`debug us-provider-scheduled-ingest-plan`** — **dry-run scheduled ingest plans only** (**no HTTP**, **no cache write** — see **`docs/13`**), and (**Main R6.3–R6.5.7**) **`debug us-provider-manual-live-batch-smoke`** — **manual live batch smoke** (dry-run scaffold → preflight → bounded live HTTP → **R6.5.7 limited production cache write** via `--execute-cache-write` with all 9 gates required — see **`docs/14`** / **`docs/15`**). **Scheduled / unattended ingest execution** remains **`docs/13`** **R6.6+**. No Makefile / workflow / cron added.
 
-Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch envelope / **`operator_summary`** / Markdown recap, **`docs/13`** phased safety design, **`docs/14`** manual batch gates, and (**R6.3+ scaffold / future execution**) **`us_provider_manual_live_batch_smoke`** — **not** a wish list for production automation without further gates.
+Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch envelope / **`operator_summary`** / Markdown recap, **`docs/13`** phased safety design, **`docs/14`** manual batch gates, and (**R6.3–R6.5.7**) **`us_provider_manual_live_batch_smoke`** — **R6.5.7** added `--execute-cache-write` (limited manual production cache write; all 9 gates required; no Makefile / workflow / cron). Scheduled / unattended ingest remains **R6.6+**.
 
 **Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP (**R6.1 plan renderer** + **R6.3 scaffold** included).
 
@@ -147,14 +147,19 @@ Valid row **`reason`**: **`r6_3_scaffold_no_http_no_write`** (dry-run), **`r6_4_
 | `manual_batch_cache_write_requires_cache_gate` | `CONFIRM_US_CACHE_WRITE` not YES |
 | `manual_batch_cache_write_not_enabled_in_r6_5_1` | All flags + all gates set — full-gate scaffold refusal |
 
-Proposed future reason strings (not yet implemented — R6.5.2+, for planning only):
+**R6.5.7 `--execute-cache-write` refusal orderings** (implemented; all exit 2 before production write):
 
-| Proposed reason | Trigger (future) |
-|-----------------|-----------------|
-| `manual_batch_cache_write_requires_successful_live_preview` | No `live_preview_ok` rows |
-| `manual_batch_cache_write_rejects_invalid_symbol` / `parse_error` / `transport_error` / `validation_error` / `max_http_cap_reached` | Row-level eligibility guard |
-| `manual_batch_cache_write_rejects_raw_response` | Raw body write attempt |
-| `manual_batch_cache_write_rejects_automation_context` | CI / workflow invocation |
+| Reason | Trigger |
+|--------|---------|
+| `manual_batch_execute_cache_write_requires_live` | Missing `--live` |
+| `manual_batch_execute_cache_write_requires_preflight` | Missing `--preflight` |
+| `manual_batch_execute_cache_write_requires_execute_live_http` | Missing `--execute-live-http` |
+| `manual_batch_execute_cache_write_requires_evaluate_cache_write` | Missing `--evaluate-cache-write` |
+| `manual_batch_smoke_live_http_not_confirmed` | `CONFIRM_US_LIVE_HTTP` or `CONFIRM_US_MANUAL_BATCH_SMOKE` not YES |
+| `manual_batch_cache_write_requires_cache_gate` | `CONFIRM_US_CACHE_WRITE` not YES |
+| `manual_batch_smoke_max_http_zero` | `--max-http` is 0 |
+
+Row-level: invalid symbols, `parse_error`, `transport_error`, `validation_error`, and capped rows never reach the writer; raw response and API key value are never in output. **No automation context check needed** — CLI is manual operator invocation only; no Makefile / workflow wiring exists.
 
 ---
 

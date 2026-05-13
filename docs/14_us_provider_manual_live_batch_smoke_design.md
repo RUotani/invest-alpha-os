@@ -199,7 +199,7 @@ Any **future R6.4** implementation **must** require:
 - **No raw response** or **API key value** in any output.
 - Not wired to Makefile, verify, safe-push, or any workflow.
 
-**R6.5.0** is design-only — see **`docs/15_us_provider_manual_cache_write_evaluation_design.md`** for the cache-write evaluation safety contract, checklist, and proposed reason strings. **R6.5.1+** implementation requires that checklist to be satisfied first.
+**R6.5.0** is design-only — see **`docs/15_us_provider_manual_cache_write_evaluation_design.md`** for the cache-write evaluation safety contract, checklist, and reason strings. **R6.5.7** introduced `--execute-cache-write` for limited manual production cache write (all 9 conditions required; no Makefile / workflow / cron). **Scheduled / unattended ingest remains R6.6+.**
 
 Tests **must not** use **`ALLOW_IMPORTANT=true`**.
 
