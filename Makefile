@@ -29,7 +29,9 @@ endif
 	us-watchlist-preview us-cache-fixture-import us-momentum-check us-provider-preview \
 	us-provider-live-preview-dry-run us-provider-live-preview-stooq \
 	us-provider-cache-preview-dry-run us-provider-cache-preview-stooq us-provider-cache-write-stooq \
-	us-provider-cache-preview-batch-dry-run us-provider-scheduled-ingest-plan-dry-run
+	us-provider-cache-preview-batch-dry-run \
+	us-provider-scheduled-ingest-plan-dry-run \
+	us-provider-manual-live-batch-smoke-dry-run
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -171,6 +173,10 @@ us-provider-cache-preview-batch-dry-run:
 # Main R6.1: scheduled ingest plan dry-run only (no HTTP, no cache write; see docs/13).
 us-provider-scheduled-ingest-plan-dry-run:
 	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-scheduled-ingest-plan --from-watchlist --provider stooq_preview --limit 4
+
+# Main R6.3: manual live batch smoke scaffold (JSON/Markdown only; zero HTTP when --live absent; --live still refuses R6.3).
+us-provider-manual-live-batch-smoke-dry-run:
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke --from-watchlist --provider stooq_preview --limit 4 --max-http 0
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
 # make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP

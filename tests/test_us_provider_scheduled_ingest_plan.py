@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -12,6 +13,7 @@ from invis_alpha_os.data import us_provider_live_preview as uplp
 from invis_alpha_os.data import us_provider_scheduled_ingest_plan as sip
 
 runner = CliRunner()
+REPO = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(autouse=True)
@@ -143,3 +145,22 @@ def test_cli_plan_empty_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
     r = runner.invoke(app, ["debug", "us-provider-scheduled-ingest-plan", "--provider", "stooq_preview"])
     assert r.exit_code == 2, r.stdout + r.stderr
+
+
+def test_makefile_r61_r63_shortcut_targets_have_cli_recipes() -> None:
+    """Regression guard: Makefile dry-run shortcuts must invoke the CLI (not no-op stubs)."""
+
+    makefile = REPO / "Makefile"
+    m = makefile.read_text(encoding="utf-8")
+    assert ".PHONY" in m and "us-provider-scheduled-ingest-plan-dry-run" in m
+    assert "us-provider-manual-live-batch-smoke-dry-run" in m
+    assert (
+        "us-provider-scheduled-ingest-plan-dry-run:\n"
+        "\t$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-scheduled-ingest-plan "
+        "--from-watchlist --provider stooq_preview --limit 4\n" in m
+    )
+    assert (
+        "us-provider-manual-live-batch-smoke-dry-run:\n"
+        "\t$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke "
+        "--from-watchlist --provider stooq_preview --limit 4 --max-http 0\n" in m
+    )

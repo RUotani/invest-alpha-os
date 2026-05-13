@@ -31,6 +31,10 @@ from invis_alpha_os.data.us_provider_cache_preview_batch import (
     run_stooq_cache_preview_batch,
     symbols_from_us_watchlist_file,
 )
+from invis_alpha_os.data.us_provider_manual_live_batch_smoke import (
+    build_us_provider_manual_live_batch_smoke_payload,
+    render_manual_live_batch_smoke_markdown,
+)
 from invis_alpha_os.data.us_provider_scheduled_ingest_plan import (
     build_us_provider_scheduled_ingest_plan,
     merged_symbols_for_scheduled_ingest_plan,
@@ -1468,6 +1472,71 @@ def debug_us_provider_scheduled_ingest_plan(
     )
     if markdown:
         typer.echo(render_us_provider_scheduled_ingest_plan_markdown(out), nl=False)
+    else:
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    st_top = str(out.get("status") or "")
+    if st_top == "validation_error":
+        raise typer.Exit(2)
+    raise typer.Exit(0)
+
+
+@debug_app.command("us-provider-manual-live-batch-smoke")
+def debug_us_provider_manual_live_batch_smoke(
+    symbols_csv: Optional[str] = typer.Option(
+        None,
+        "--symbols",
+        help="Comma-separated US symbols (merged after --from-watchlist when both set).",
+    ),
+    from_watchlist: bool = typer.Option(
+        False,
+        "--from-watchlist",
+        help="Include symbols from config/us_watchlist.yaml (normalized; YAML-native dedupe).",
+    ),
+    provider: str = typer.Option(
+        "stooq_preview",
+        "--provider",
+        help="stooq_preview only (Main R6.3 manual batch smoke scaffold).",
+    ),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Maximum normalized symbols after merge (invalid rows unaffected).",
+    ),
+    max_http: int = typer.Option(
+        0,
+        "--max-http",
+        min=0,
+        help="Planned HTTP cap per run (R6.3 reports only; zero with --live is validation_error).",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Reserved for R6.4; R6.3 never performs vendor HTTP (scaffold refusal).",
+    ),
+    markdown: bool = typer.Option(
+        False,
+        "--markdown",
+        help="Emit copy-ready Markdown recap (JSON canonical). Main R6.3.",
+    ),
+) -> None:
+    """Manual live batch smoke scaffold (**R6.3**): merge/limit/caps — **no HTTP**, **no cache write**."""
+
+    merged, fw, csv_ok = merged_symbols_for_scheduled_ingest_plan(
+        from_watchlist=from_watchlist,
+        symbols_csv=symbols_csv,
+    )
+    out = build_us_provider_manual_live_batch_smoke_payload(
+        merged,
+        provider=provider,
+        from_watchlist_used=fw,
+        symbols_csv_provided=csv_ok,
+        limit_param=limit,
+        max_http=max_http,
+        live_requested=live,
+    )
+    if markdown:
+        typer.echo(render_manual_live_batch_smoke_markdown(out), nl=False)
     else:
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
     st_top = str(out.get("status") or "")
