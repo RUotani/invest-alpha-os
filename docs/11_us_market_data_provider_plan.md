@@ -1,4 +1,4 @@
-# US equities / ETFs — market data provider plan (Main R2–Main R4 / R4.3)
+# US equities / ETFs — market data provider plan (Main R2–Main R4 / R4.4)
 
 ## 1. Purpose
 
@@ -22,7 +22,7 @@ Observation only — no buy/sell advice, no automated trading.
 
 - **Strengths:** **Historical daily CSV-style** endpoint convenient for spreadsheets and prototyping; supports **Main R3** one-symbol **gated** shape-only live preview (see phased table).
 - **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; server responses may evolve — Stooq can answer **HTTP 200** with **non-tabular payloads** or prose indicating an **API key is required**. **Optional** gated live GET may append **`STOOQ_APIKEY`** from process environment only (**never committed, never logged, never in JSON previews** — keep keys in local `.env` / shell only). **Symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully. **Treat as preview / prototype** until a commercial API path is chosen.
-- **Operational:** Inspect **`validation_error`** with **`reason: "provider_api_key_required"`** or **`parse_error`** with a **stable `reason`** (R4.3 matrix) plus **`response_diagnostics`** (**Main R4.1 / R4.2 / R4.3**) before assuming a ticker or wire slug is accepted — **still no raw body** in tooling output.
+- **Operational:** Inspect **`validation_error`** / **`parse_error`** / **`http_error`** payloads using **`reason`**, **`status`**, and **`response_diagnostics`** per **`docs/12_us_provider_failure_operator_playbook.md`** (Main R4.4) — **still no raw body** in tooling output.
 
 ### Yahoo Finance / yfinance (unofficial)
 
@@ -66,7 +66,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R4.1** | **Safe HTTP-200 diagnostics** — when gated Stooq fetch returns **`http_status` 200** but **strict CSV parse fails** (HTML page, terse “no data” text, wrong delimiter, unexpected header), **`parse_error`** payloads may include **`response_diagnostics`** from **`classify_stooq_csv_text_safely`**: capped header tokens, **`body_kind`**, delimiter guess — **never** vendor **raw bodies**, OHLC numeric cells, nor full lines. Helps operators distinguish “network OK” from “payload unusable”. |
 | **Main R4.2** | **Stooq “API key required” (HTTP 200 prose)** — safe classification as **`response_diagnostics.body_kind: "api_key_required"`**; strict parse failures in that situation surface **`validation_error`** / **`reason: "provider_api_key_required"`** (exit **2**) instead of **`parse_error`**. Config: **`requires_api_key: true`**, **`api_key_env: "STOOQ_APIKEY"`**. Live GET merges env key into query **only when set** — **never** into committed YAML, previews, stderr, nor error payloads. **`build_stooq_daily_preview`** still lists **`apikey: "<redacted_required_later>"`** in **`query_params_without_secrets`** for operator visibility (**not** sent on wire unless replaced by **`STOOQ_APIKEY`**). |
 | **Main R4.3** | **Failure matrix hardening** — **`classify_stooq_csv_text_safely`** adds **`delimiter_drift`** (heuristic delimiter mismatch vs data rows); API-key prose is detected from headers **or** bounded body (**overrides bare `html_like` when both apply**); **`html_like`** / terse **`no_data_like`** responses **omit** pseudo-header tokens derived from prose/HTML in **`response_diagnostics`** (**no markup words / vendor sentences** leaked). **`debug us-provider-*-preview`** returns stable **`parse_error`** reasons including **`stooq_payload_html_like`**, **`stooq_vendor_no_data`**, **`empty_csv`** (already used), **`stooq_csv_delimiter_drift`** where applicable; malformed CSV **`csv.reader`** failures attach diagnostics. **Still** gated one-symbol smoke only — **not** bulk/production refresh. |
-| **Beyond R4.3** | Multi-symbol / scheduled ingest, Alpha Vantage, richer mapping — unchanged backlog. |
+| **Main R4.4** | **Operator playbook** — **`docs/12_us_provider_failure_operator_playbook.md`**: consolidated **failure matrix** ( **`status`** / **`reason`** / **`body_kind`**) mapped to implementation, **allowed vs forbidden** operator actions, and **Main R5** documentation prerequisites. **No** new ingestion, **no** multi-symbol automation, **no** cache schedule in R4.4. |
+| **Beyond R4.4** | Multi-symbol / scheduled ingest, Alpha Vantage, richer mapping — unchanged backlog. |
 
 ---
 
@@ -76,3 +77,5 @@ Observation only — no buy/sell advice, no automated trading.
 2. For **automated** use, prefer a provider with an **explicit, stable HTTPS API** and acceptable **ToU for your use-case** (e.g. Alpha Vantage for prototyping; **Polygon/Tiingo-class** APIs for clearer commercial footing when budget allows).
 3. **Avoid** coupling core automation solely to **unofficial Yahoo / HTML scraping**.
 4. **Safety:** **No live HTTP by default.** **No API keys printed.** **`raw_response` never written.** All provider outputs must pass the **sanitized OHLCV cache writer** (`save_us_daily_bars_cache`) after validation.
+
+For **failure triage**, use **`docs/12_us_provider_failure_operator_playbook.md`** (Main R4.4).

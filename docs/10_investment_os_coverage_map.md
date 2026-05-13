@@ -23,7 +23,7 @@ Going forward, **never report a single percentage without naming the scope**. Us
 | Lens | Approximate progress | Notes |
 |------|----------------------|-------|
 | **JP equities momentum pipeline subsystem** (sanitized OHLCV cache → Momentum Score v2 → daily section → observations → Action Watchlist for cache-only rows) | **about 80–85%** | **Not** broader JP equity research (fundamentals / earnings models / intrinsic valuation remain unintegrated here); strongest *technical OHLCV* vertical in-repo |
-| **Total Investment OS** (all rows in §3 treated as one programme) | **about 45%** (at most **slightly** higher after R4 tooling) | Early outside JP OHLCV + reporting; Main R4 adds **optional** gated vendor→cache for **one US symbol** — **not** watchlist-wide automated refresh |
+| **Total Investment OS** (all rows in §3 treated as one programme) | **about 45%** (at most **marginally** higher after R4.4 playbook docs — **documentation / ops clarity only**) | Early outside JP OHLCV + reporting; Main R4 adds **optional** gated vendor→cache for **one US symbol** — **not** watchlist-wide automated refresh |
 
 These numbers are **judgment calls for planning**, not audited metrics.
 
@@ -79,6 +79,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R4.1**: **`classify_stooq_csv_text_safely`** — on **`parse_error`** from strict Stooq parse, attaches **`response_diagnostics`** (**no raw body / no OHLC cells**) when **HTTP succeeds** but payload is HTML, terse no-data prose, delimiter drift, etc.
 - **Main R4.2**: Stooq may return HTTP **200** with **API-key-required prose** — classified safely as **`body_kind: "api_key_required"`**; surfaced as **`validation_error`** / **`provider_api_key_required`** (not **`parse_error`**). **`STOOQ_APIKEY`** is optional, **env-only** for gated live GET; never committed or echoed in tooling output.
 - **Main R4.3**: Stooq tooling **failure matrix** — stable **`parse_error`** / **`reason`** values (e.g. **`stooq_payload_html_like`**, **`stooq_vendor_no_data`**, **`stooq_csv_delimiter_drift`**) keyed off **`response_diagnostics.body_kind`** (**`delimiter_drift`**, plus existing **`csv_like`/`empty`/…**) with **sanitized diagnostics only**; HTML / no-data responses do not echo vendor prose/markup tokens in **`header_columns_sanitized`**.
+- **Main R4.4**: **US provider operator playbook** — **`docs/12_us_provider_failure_operator_playbook.md`** documents the **failure matrix** (`status` / `reason` / `body_kind`), **safe vs forbidden** handling, and **R5 prerequisites** (**no new live ingestion** in R4.4).
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
