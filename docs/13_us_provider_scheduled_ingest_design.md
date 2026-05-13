@@ -1,4 +1,4 @@
-# US provider scheduled ingest — safety design (**Main R6.0–R6.1**)
+# US provider scheduled ingest — safety design (**Main R6.0–R6.2**)
 
 ## 1. Purpose
 
@@ -21,10 +21,15 @@ This document is the **safety contract and readiness gate** for evolving US prov
 
 - Changing JP pipelines, US daily Markdown defaults, or single-symbol gated tooling behaviour (**unchanged**).
 
+**Main R6.2 adds (documentation only — not implemented yet):**
+
+- **[`docs/14_us_provider_manual_live_batch_smoke_design.md`](14_us_provider_manual_live_batch_smoke_design.md)**: operator-approved **manual live batch smoke** proposal — bounded **`max_http`**, dual gates (**`CONFIRM_US_LIVE_HTTP`** + **`CONFIRM_US_MANUAL_BATCH_SMOKE`**), **no** scheduler, **no** default cache write, **still not** unattended scheduled ingest (**R6.4+**).
+
 **Canonical neighbours:**
 
 - Provider plan / phased history: **`docs/11_us_market_data_provider_plan.md`**
 - Failure matrix / operator playbook: **`docs/12_us_provider_failure_operator_playbook.md`**
+- Manual live batch smoke (**R6.2 design anchor**): **`docs/14_us_provider_manual_live_batch_smoke_design.md`**
 
 ---
 
@@ -47,17 +52,17 @@ As of **Main R5.3.1**, the repo already provides:
 
 ## 3. Target future state (phased — **not** committed delivery dates)
 
-Phases describe **intent**. **R6.0** and **R6.1 (plan renderer)** are **landed** as of this revision; **R6.2+** remain **future** milestones with separate sign-off.
+Phases describe **intent**. **R6.0**, **R6.1 (plan renderer)**, and **R6.2 (manual batch smoke — `docs/14` design)** are **documentation-landed** as of this revision; **R6.2 code** and **R6.3+** remain **future** milestones with separate sign-off.
 
 | Phase | Intent |
 |-------|--------|
 | **R6.0** | **Safety design** — this document’s contract; **no scheduler execution**. |
 | **R6.1** | **Dry-run plan renderer** (**implemented**) — JSON / Markdown plans; **no HTTP**, **no cache write** (`src/.../us_provider_scheduled_ingest_plan.py`). |
-| **R6.2** | **Operator-approved manual live batch smoke** — explicit human invocation with caps and **`FAIL_FAST`** semantics aligned with §5; **still not** unattended. |
+| **R6.2** | **Manual live batch smoke** — **design:** **`docs/14`**; **future impl:** explicit human invocation, **`--max-http`**, **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`** + **`CONFIRM_US_LIVE_HTTP=YES`**; **still not** cron / Actions **`schedule`** / unattended refresh. |
 | **R6.3** | **Gated multi-symbol sanitized cache write *candidate*** — design-level evaluation only until writer policy, manifest rules, and rollback story are accepted (**bulk semantics remain tightly gated**). |
 | **R6.4+** | **Scheduled ingest** — **only after** vendor contract / rate limits / storage retention / observability are approved and redundant manual gates exist. |
 
-**R6.1 does not implement R6.2 or later.**
+**R6.1 does not implement R6.2 implementation or later.** **R6.2** (**`docs/14`**) is **design-only** until a dedicated implementation milestone ships (see **`docs/14`** section 8).
 
 ---
 
@@ -80,6 +85,7 @@ These names describe **future** ergonomics for automation design reviews. **Do n
 | Variable / knob | Purpose |
 |-----------------|--------|
 | **`CONFIRM_US_SCHEDULED_INGEST=YES`** | Distinct human gate before any unattended scheduler is armed (process supervisor, cron unit, Actions workflow toggle, etc.). |
+| **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`** | Distinct human gate before **manual live batch smoke** HTTP budget is consumed (**`docs/14`** — **design**; **not implemented** until a future milestone adds code). Requires **`CONFIRM_US_LIVE_HTTP=YES`** in tandem when live GETs are attempted. |
 | **`US_PROVIDER_INGEST_MODE`** | Enumerated posture: **`dry_run`** \| **`manual`** \| **`live`** \| **`scheduled`** (exact semantics TBD at implementation time). |
 | **`US_PROVIDER_MAX_SYMBOLS`** | Hard ceiling per operator-visible run plan. |
 | **`US_PROVIDER_MAX_HTTP_PER_RUN`** | Bounded GET count per invocation (pairs with caps). |
@@ -138,10 +144,11 @@ flowchart LR
 
 ---
 
-## 6. Readiness checklist (before opening an **R6.2** design/impl PR)
+## 6. Readiness checklist (before opening an **R6.2 implementation** PR)
 
-Use as a **paper gate** — R6.0 does not automate checks.
+Use as a **paper gate** — R6.0 does not automate checks. **R6.2 design** acceptance is **`docs/14`**; implementation **also** requires **`docs/14`** section 8.
 
+- [ ] **`docs/14`** acknowledged as the **R6.2** contract (this milestone can merge **design-only**).
 - [ ] Operators can run **`debug us-provider-scheduled-ingest-plan`** and interpret **`scheduled_plan_dry_run`** JSON / Markdown (**no HTTP** implicit).
 - [ ] Watchlist normalization and **Stooq wire slug** rules are understood (**`docs/11`**).
 - [ ] **`STOOQ_APIKEY`** posture documented for the target environment (**env-only**).
@@ -158,6 +165,7 @@ Use as a **paper gate** — R6.0 does not automate checks.
 |---------|-----------|--------|
 | **1.0** | **Main R6.0** | Initial safety design; ingest automation = none. |
 | **1.1** | **Main R6.1** | **`us_provider_scheduled_ingest_plan`** module + **`debug us-provider-scheduled-ingest-plan`** — **still no scheduler / HTTP / cache write**. |
+| **1.2** | **Main R6.2** | **`docs/14`** manual live batch smoke **design** — **still no unattended scheduled ingest**; **no new runtime CLI** until a follow-on implementation milestone. |
 
 When R6.2+ land, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
 

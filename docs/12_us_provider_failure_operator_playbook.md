@@ -2,9 +2,9 @@
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**), and (**Main R6.1**) **`debug us-provider-scheduled-ingest-plan`** — **dry-run scheduled ingest plans only** (**no HTTP**, **no cache write** — see **`docs/13`**). **Scheduled / unattended ingest execution is out of scope** until **`docs/13`** gated milestones (**R6.2+**) ship.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**), and (**Main R6.1**) **`debug us-provider-scheduled-ingest-plan`** — **dry-run scheduled ingest plans only** (**no HTTP**, **no cache write** — see **`docs/13`**). **Future** manual live batch smoke (**Main R6.2** — **`docs/14`**, **design-only**; **CLI not implemented**) would **reuse** this failure matrix; **scheduled / unattended ingest execution** remains **`docs/13`** **R6.4+** (**not** **R6.2**).
 
-Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch envelope / **`operator_summary`** / Markdown recap, and **`docs/13`** phased safety design — **not** a wish list for production automation without further gates.
+Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch envelope / **`operator_summary`** / Markdown recap, **`docs/13`** phased safety design, and (**when implemented**) must align with **`docs/14`** gates — **not** a wish list for production automation without further gates.
 
 **Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP (**R6.1 plan renderer included**).
 
@@ -27,7 +27,7 @@ Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch enve
 - Putting **API keys** in **stdout**, **stderr**, **committed docs**, **tests**, or **CI logs** — use **process env** / local **`.env`** only (`.env` is **not** committed).
 - Running **live HTTP** from **automated tests** or **CI** (mock only).
 - **Cache write** without **`CONFIRM_US_CACHE_WRITE=YES`** and explicit operator intent.
-- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh — **forbidden** until **`docs/13`** **R6.2+** milestones; **R6.1 plan output is not execution**.
+- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh — **forbidden** until **`docs/13`** **R6.4+** and future **`CONFIRM_US_SCHEDULED_INGEST`**-class milestones; **`docs/14`** (**R6.2**) defines **manual** batch smoke design only (**not automation** here). **R6.1 plan output is not execution**.
 
 ---
 
@@ -157,17 +157,20 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 **Documentation touchpoints:**
 
-- Batch aggregation: **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
+- **Main R6.2** (**design only**) manual live batch smoke contract: **`docs/14_us_provider_manual_live_batch_smoke_design.md`** — **implementation not implied**; a future **`debug us-provider-manual-live-batch-smoke`** would classify **`validation_error`** / **`http_error`** / **`parse_error`** per §3 (**same vocabulary**).
 
-- **Main R6.1** dry-run ingest plans: **`src/invis_alpha_os/data/us_provider_scheduled_ingest_plan.py`** (**`debug us-provider-scheduled-ingest-plan`**).
+- Batch aggregation (**implemented**): **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
+
+- **Main R6.1** dry-run ingest plans (**implemented**): **`src/invis_alpha_os/data/us_provider_scheduled_ingest_plan.py`** (**`debug us-provider-scheduled-ingest-plan`**).
 
 **Explicit future work (**pre‑Main R6 automation** gate):**
 
-- **`docs/13_us_provider_scheduled_ingest_design.md`** — phased roadmap (**R6.0 contract**, **R6.1 plan renderer landed**, **R6.2+** still gated).
+- **`docs/14_us_provider_manual_live_batch_smoke_design.md`** — **Main R6.2** manual live batch smoke **design anchor** (**no runtime** in that doc merge); implementation must dual-gate (**`CONFIRM_US_LIVE_HTTP`** + **`CONFIRM_US_MANUAL_BATCH_SMOKE`**) before HTTP.
+- **`docs/13_us_provider_scheduled_ingest_design.md`** — phased roadmap (**R6.0 contract**, **R6.1 plan renderer landed**, **R6.2 design in `docs/14`**, **R6.3+** still gated).
 - **Main R6.1 (plan renderer):** emits **`scheduled_plan_dry_run`** JSON / Markdown — **not** ingest execution.
 - Operators should **`operator_summary`** / batch **Markdown recap (§3.3)** first triage; use **`docs/13`** + **`scheduled_plan_dry_run`** for scheduled-ingest readiness — **never** persist vendor bodies.
-- **Unattended R6+ implementation** (cron, Actions schedule, production refresh) **must not** ship until product owners reaffirm **`docs/13`** gates plus **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, future **`CONFIRM_US_SCHEDULED_INGEST`**, **safe-push output hygiene**, **`STOOQ_APIKEY`** env-only rules — **R6.1 plans do not relax this**.
-- Automated watchlist ingestion at cron scale remains **explicit backlog** until **`docs/13`** readiness (post‑**R6.1**) is satisfied.
+- **Unattended R6+ implementation** (cron, Actions schedule, production refresh) **must not** ship until product owners reaffirm **`docs/13`** gates plus **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, future **`CONFIRM_US_SCHEDULED_INGEST`**, **safe-push output hygiene**, **`STOOQ_APIKEY`** env-only rules — **R6.1 plans do not relax this** (**`docs/14`** manual batch smoke design **does not** satisfy scheduled-ingest readiness).
+- Automated watchlist ingestion at cron scale remains **explicit backlog** until **`docs/13`** readiness (**R6.4+**) is satisfied.
 
 ---
 

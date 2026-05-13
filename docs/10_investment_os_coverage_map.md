@@ -86,6 +86,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R5.3**: **Copy-ready stdout ordering** — verdict + safety-flag table + notes tuned for manual paste (**still JSON canonical** for rows).
 - **Main R6.0**: **`docs/13_us_provider_scheduled_ingest_design.md`** — scheduled / unattended ingest **safety contract** (**design-only**; **no cron**, **no Actions schedule**, **no new HTTP/cache code**).
 - **Main R6.1**: **`build_us_provider_scheduled_ingest_plan`** / **`debug us-provider-scheduled-ingest-plan`** — **`scheduled_plan_dry_run`** JSON / Markdown (**watchlist + CLI symbol merge**); **no HTTP**, **no cache write**, **no scheduler** — see **`docs/13`** §8.
+- **Main R6.2**: **`docs/14_us_provider_manual_live_batch_smoke_design.md`** — **operator-approved manual live batch smoke design only** (**bounded HTTP**, **`CONFIRM_US_MANUAL_BATCH_SMOKE`** gate proposed); **not** unattended scheduled ingest, **no implementation** in the design milestone itself — future code must satisfy **`docs/14`** section 8 + **`docs/13`** phased contract.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -106,7 +107,8 @@ After Main Q / Q0:
 | **Main R5.3** | **Copy-ready Markdown section order** — **stdout paste helper only** |
 | **Main R6.0** | **`docs/13`** scheduled ingest **safety design** — **no automation** |
 | **Main R6.1** | **Dry-run scheduled ingest plan renderer** — JSON / Markdown posture only (**`docs/13`** §8) |
-| **Main R6+** | Scheduled / unattended watchlist ingest execution, additional commercial providers (**only after `docs/13` gates + explicit implementation milestones**, **post‑R6.1**) |
+| **Main R6.2** | **`docs/14`** **manual live batch smoke design only** — not execution; **not** unattended refresh |
+| **Main R6+ / R6.3+** | Scheduled / unattended watchlist ingest execution, gated multi-symbol write evaluation, commercial providers (**only after `docs/13`** + **`docs/14`** implementation gates when applicable) |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |
