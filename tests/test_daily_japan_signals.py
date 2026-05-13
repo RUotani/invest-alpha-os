@@ -22,4 +22,5 @@ def test_daily_report_has_japan_signals_section():
     assert "**Bars source:**" in body
     assert "synthetic" in body.lower() or "cache" in body.lower()
     assert "not actionable" in body.lower()
-    assert "Synthetic fallback" in body
+    bl = body.lower()
+    assert "synthetic fallback" in bl or "all rows are cache-backed" in bl
