@@ -1,12 +1,12 @@
-# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4)
+# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5)
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest) and **`debug us-provider-cache-preview`** (strict parse + optional cache write). It matches **in-repo implementation** as of **Main R4.3** classification — **not** a wish list.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope — **not** a wish list.
 
-**Observation only** — no trading advice, no automated refresh, no bulk live HTTP by default.
+**Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP.
 
-**Canonical reference:** payload fields are produced by `stooq_live_preview_shape_digest` and `stooq_live_preview_sanitized_bars` in `src/invis_alpha_os/data/us_provider_live_preview.py`. If code and this doc disagree, **trust the code** and update this file.
+**Canonical reference:** **`stooq_live_preview_shape_digest`** / **`stooq_live_preview_sanitized_bars`** in **`us_provider_live_preview.py`**; batch envelope **`run_stooq_cache_preview_batch`** in **`us_provider_cache_preview_batch.py`**. If code and this doc disagree, **trust the code** and update this file.
 
 ---
 
@@ -25,7 +25,7 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 - Putting **API keys** in **stdout**, **stderr**, **committed docs**, **tests**, or **CI logs** — use **process env** / local **`.env`** only (`.env` is **not** committed).
 - Running **live HTTP** from **automated tests** or **CI** (mock only).
 - **Cache write** without **`CONFIRM_US_CACHE_WRITE=YES`** and explicit operator intent.
-- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh (**R5+**, not R4.4).
+- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh (post‑R5 design work unless explicitly gated elsewhere).
 
 ---
 
@@ -66,6 +66,17 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 
 **CLI exit hints (approximate):** `validation_error` → exit **2**; `dry_run`, `live_preview_ok`, `preview_ok`, `success` → exit **0**; `parse_error` / `http_error` → exit **1**. See Typer handlers in `src/invis_alpha_os/cli/main.py` for edge cases (`unsupported_provider` returns JSON then exit **2**).
 
+### Multi-symbol batch envelope (**`debug us-provider-cache-preview-batch`**, Main R5)
+
+| Outer `status` | Typical batch `reason` | Operator notes |
+|----------------|----------------------|----------------|
+| `batch_preview_ok` | — | **`results[]`** carries one row per requested symbol (**invalid_symbol** tokens appear inline). **`summary`** buckets row **`status`** (**`transport_error`** counts **`http_error`** rows). **`write_cache_requested`** is **false** in payloads — batch **never** persists cache. CLI exit **0**. |
+| `validation_error` | `unsupported_provider` | Wrong **`--provider`**. CLI exit **2**. |
+| `validation_error` | `batch_cache_write_not_supported` | **`--write-cache`** is rejected — use **`debug us-provider-cache-preview`** with gates. CLI exit **2**. |
+| `validation_error` | `empty_symbol_batch` | Provide **`--symbols`** and/or **`--from-watchlist`**. CLI exit **2**. |
+
+Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed`**) signals **single-symbol follow-up write** (**`debug us-provider-cache-preview --write-cache`**) eligibility — **not** the batch path (**bulk cache writes intentionally unsupported**).
+
 ---
 
 ## 4. Operator playbooks by theme
@@ -73,6 +84,11 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 ### Gates (not errors)
 
 - **`live_http_not_confirmed`**, **`cache_write_not_confirmed`**: deliberate **human gates**. No vendor call or no disk write occurred — **safe by design**.
+
+### Multi-symbol aggregation (batch)
+
+- Default **`make us-provider-cache-preview-batch-dry-run`**: **no HTTP**. **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and runs **human-invoked sequential GETs**.
+- Inspect **`results[]`**, **`summary`**, **`operator_next_action`**, **`docs/11`** wire slug guidance (**no raw vendor bodies**) before diagnosing watchlist failures at scale — **bulk cache writes remain deliberately unsupported.**
 
 ### API key prose
 
@@ -100,28 +116,29 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 
 ---
 
-## 5. R5 prerequisites (documentation — not implemented in R4.4)
+## 5. R5 implementation notes (implemented)
 
-**Intent for Main R5** (design-level only here):
+**Delivered behaviors (operators):**
 
-- **Multi-symbol US provider cache preview** design (explicit batch semantics).
-- **Per-symbol aggregation** of `status` / `reason` / `body_kind` (safe summaries only).
-- **No unattended live HTTP** and **no default bulk cache write** — retains **gates first**.
+- **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints JSON with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`observation_only=true`** (**no raw vendor payloads** embedded).
+- **Makefile**: **`make us-provider-cache-preview-batch-dry-run`** defaults to **`--limit 4`**, **`--dry-run`**, **`--quiet`** — **`safe-push`** intentionally **does not** depend on batch targets (**unit tests gate this invariant**).
 
-**Explicitly out of scope for Main R5 in this playbook’s expectations:**
+**Safety rules remain unchanged:**
 
-- Scheduled / cron ingest at watchlist-wide scale labeled “production ready.”
-- Commercial provider commitment, Alpha Vantage full implementation, yfinance fallback wiring.
-- **US daily Markdown section enabled by default.**
-- Portfolio-aware decision plumbing, metals/rates/macro pillars.
+- **No unattended live HTTP**, **no default cache write**, **no bulk sanitized writer** (`--write-cache` at batch ⇒ **`batch_cache_write_not_supported`**), **never commit `outputs/market_data`**, **do not use `ALLOW_IMPORTANT=true`** to bypass workflow gates (unchanged policy).
 
-Operators should finish **manual one-symbol playbook fluency** (this document + §4 in `docs/11_us_market_data_provider_plan.md`) before proposing R5 automation changes.
+**Documentation touchpoints:**
+- Canonical module: **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
+
+**Explicit future work:**
+
+- Automated watchlist ingestion at cron scale (**still out-of-scope until product owners green-light production gates).
 
 ---
 
 ## 6. Standard outcomes for aggregate planning
 
-Treat these **`reason`** values as **first-class buckets** when comparing symbols in future design work (**R5 proposal**):
+Treat these **`reason`** values as **first-class buckets** when comparing symbols (**batch `summary`** in Main R5 and later planning):
 
 - **Gates:** `live_http_not_confirmed`, `cache_write_not_confirmed`
 - **Key / entitlement:** `provider_api_key_required`

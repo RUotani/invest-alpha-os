@@ -26,6 +26,10 @@ from invis_alpha_os.data.us_provider_live_preview import (
     stooq_live_preview_sanitized_bars,
     stooq_live_preview_shape_digest,
 )
+from invis_alpha_os.data.us_provider_cache_preview_batch import (
+    run_stooq_cache_preview_batch,
+    symbols_from_us_watchlist_file,
+)
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -1357,6 +1361,57 @@ def debug_us_provider_cache_preview(
     if st == "validation_error":
         raise typer.Exit(2)
     raise typer.Exit(1)
+
+
+@debug_app.command("us-provider-cache-preview-batch")
+def debug_us_provider_cache_preview_batch(
+    symbols_csv: Optional[str] = typer.Option(
+        None,
+        "--symbols",
+        help="Comma-separated US symbols (merged after --from-watchlist when both set).",
+    ),
+    from_watchlist: bool = typer.Option(
+        False,
+        "--from-watchlist",
+        help="Include symbols from config/us_watchlist.yaml (normalized; YAML-native dedupe).",
+    ),
+    provider: str = typer.Option("stooq_preview", "--provider", help="stooq_preview only (Main R5)."),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Perform gated Stooq HTTP GET per symbol (requires CONFIRM_US_LIVE_HTTP=YES). Operator-only.",
+    ),
+    write_cache: bool = typer.Option(
+        False,
+        "--write-cache",
+        help="Batch rejects cache writes Main R5; use debug us-provider-cache-preview.",
+    ),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Maximum normalized symbols processed after merging inputs (invalid rows unaffected).",
+    ),
+) -> None:
+    """Multi-symbol Stooq cache preview aggregation (dry-run default; optional gated live loop)."""
+
+    merged: list[str] = []
+    if from_watchlist:
+        merged.extend(symbols_from_us_watchlist_file())
+    if symbols_csv:
+        merged.extend([p.strip() for p in str(symbols_csv).split(",") if p.strip()])
+    out = run_stooq_cache_preview_batch(
+        merged,
+        provider=provider,
+        live=live,
+        write_cache=write_cache,
+        limit=limit,
+    )
+    typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    st_top = str(out.get("status") or "")
+    if st_top == "validation_error":
+        raise typer.Exit(2)
+    raise typer.Exit(0)
 
 
 @debug_app.command("jquants-watchlist-bars-cache")

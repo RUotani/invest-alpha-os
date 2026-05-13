@@ -23,7 +23,7 @@ Going forward, **never report a single percentage without naming the scope**. Us
 | Lens | Approximate progress | Notes |
 |------|----------------------|-------|
 | **JP equities momentum pipeline subsystem** (sanitized OHLCV cache → Momentum Score v2 → daily section → observations → Action Watchlist for cache-only rows) | **about 80–85%** | **Not** broader JP equity research (fundamentals / earnings models / intrinsic valuation remain unintegrated here); strongest *technical OHLCV* vertical in-repo |
-| **Total Investment OS** (all rows in §3 treated as one programme) | **about 45%** (at most **marginally** higher after R4.4 playbook docs — **documentation / ops clarity only**) | Early outside JP OHLCV + reporting; Main R4 adds **optional** gated vendor→cache for **one US symbol** — **not** watchlist-wide automated refresh |
+| **Total Investment OS** (all rows in §3 treated as one programme) | **about 45%** (tiny bump after Main R5 **batch preview tooling** — still **observer / manual gates only**) | Early outside JP OHLCV + reporting; Main R4 adds **optional** gated vendor→cache for **one US symbol**; Main R5 adds **`debug us-provider-cache-preview-batch`** / **`make us-provider-cache-preview-batch-dry-run`** for **multi-symbol summarized preview** (**no bulk cache write**, **no unattended live HTTP**) |
 
 These numbers are **judgment calls for planning**, not audited metrics.
 
@@ -38,7 +38,7 @@ Progress % is directional (same caveat as §2).
 | Area | Implementation status | Progress % | Data source status | Signal status | Report status | Next priority |
 |------|-------------------------|------------|--------------------|--------------|---------------|---------------|
 | **JP equities / J-Quants** | Cache-backed daily bars → signals → daily Markdown | ~80–85% | Active (local sanitized JSON cache; optional live ingest behind gates elsewhere) | Momentum Score v2 + CLI | Daily section + Observations + Action Watchlist (cache-only) | Liquidity/context fields, QA on edge cases |
-| **US equities** | Through **Main R4**: **Stooq strict CSV parse → sanitized bars**; **optional gated cache write** via **`debug us-provider-cache-preview`** (`CONFIRM_US_LIVE_HTTP` + **`--live`**; **`CONFIRM_US_CACHE_WRITE`** + **`--write-cache`**); shape-only **`debug us-provider-live-preview`** (Main R3). Optional **`STOOQ_APIKEY`** (env-only) when Stooq requires a key. **No bulk watchlist live fetch.** | **~25–30%** | **Operator-gated Stooq one-symbol smoke**; **`data fetching still not implemented`** for **automated** production-wide refresh | Momentum-ready when cache populated | Hidden from daily unless `include_us_momentum_cache_only_section` | Multi-symbol ingestion; scheduling beyond manual smoke |
+| **US equities** | Through **Main R4–R5**: **Stooq strict CSV parse → sanitized bars**; **optional gated cache write** via **`debug us-provider-cache-preview`** (single-symbol only); **Main R5** **`debug us-provider-cache-preview-batch`** merges watchlist / CLI symbols into **`results[]`** + **`summary`** (**default dry-run**, **batch refuses `--write-cache`**); shape-only **`debug us-provider-live-preview`** (Main R3). Optional **`STOOQ_APIKEY`** (env-only). **No bulk cache writer**, **no bulk watchlist live fetch** by automation. | **~25–30%** | **Operator-gated** Stooq smoke (single- or multi-symbol CLI); **`data fetching still not implemented`** for **automated** production-wide refresh | Momentum-ready when cache populated | Hidden from daily unless `include_us_momentum_cache_only_section` | Scheduling / unattended multi-symbol ingest beyond manual CLI |
 | **US ETFs** | Same tray; Stooq `*.us` may work per listing (**symbol-specific validation**) | **~25–30%** | Fixture / import + same gated framing as equities — **bulk production refresh**: **data fetching still not implemented** | As above | As above | Bundled under **Main R** slice |
 | **gold / silver / copper / metals** | Not started | ~0–5% | None in-repo | None | None | **Main S**: commodity / macro-adjacent design |
 | **bonds / rates** | Not started | ~0–5% | None in-repo | None | None | **Main S** |
@@ -79,7 +79,8 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R4.1**: **`classify_stooq_csv_text_safely`** — on **`parse_error`** from strict Stooq parse, attaches **`response_diagnostics`** (**no raw body / no OHLC cells**) when **HTTP succeeds** but payload is HTML, terse no-data prose, delimiter drift, etc.
 - **Main R4.2**: Stooq may return HTTP **200** with **API-key-required prose** — classified safely as **`body_kind: "api_key_required"`**; surfaced as **`validation_error`** / **`provider_api_key_required`** (not **`parse_error`**). **`STOOQ_APIKEY`** is optional, **env-only** for gated live GET; never committed or echoed in tooling output.
 - **Main R4.3**: Stooq tooling **failure matrix** — stable **`parse_error`** / **`reason`** values (e.g. **`stooq_payload_html_like`**, **`stooq_vendor_no_data`**, **`stooq_csv_delimiter_drift`**) keyed off **`response_diagnostics.body_kind`** (**`delimiter_drift`**, plus existing **`csv_like`/`empty`/…**) with **sanitized diagnostics only**; HTML / no-data responses do not echo vendor prose/markup tokens in **`header_columns_sanitized`**.
-- **Main R4.4**: **US provider operator playbook** — **`docs/12_us_provider_failure_operator_playbook.md`** documents the **failure matrix** (`status` / `reason` / `body_kind`), **safe vs forbidden** handling, and **R5 prerequisites** (**no new live ingestion** in R4.4).
+- **Main R4.4**: **US provider operator playbook** — **`docs/12_us_provider_failure_operator_playbook.md`** documents the **failure matrix** (`status` / `reason` / `body_kind`), **safe vs forbidden** handling (**no new live ingestion** added in R4.4 alone).
+- **Main R5**: **`run_stooq_cache_preview_batch`** in **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**; **`debug us-provider-cache-preview-batch`** + **`make us-provider-cache-preview-batch-dry-run`** — **multi-symbol** JSON rollup (**`batch_preview_ok`**, per-row statuses, **`summary`** counts aligning with §3 matrix / transport bucket); **explicitly rejects** batch **`--write-cache`**; **`raw_response_included: false`**; **gates unchanged** (**`CONFIRM_US_LIVE_HTTP`** for **`--live`**).
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -94,7 +95,8 @@ After Main Q / Q0:
 | Phase | Theme |
 |-------|--------|
 | **Main R4** | **Stooq parse + optional gated one-symbol vendor cache write** — **automated bulk refresh remains future work** |
-| **Main R5+** | Multi-symbol / scheduled ingest, additional providers |
+| **Main R5** | **Multi-symbol US provider cache preview batch** (**dry-run default**, **observer JSON**, **no bulk cache writes**) |
+| **Main R6+** | Scheduled / unattended watchlist ingest, additional commercial providers (**still gated product decisions**) |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |
