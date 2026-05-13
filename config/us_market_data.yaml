@@ -1,0 +1,21 @@
+# US equities / ETFs — provider metadata for dry-run preview (Main R2).
+# No secrets. Vendor HTTP ingestion is disabled in-repo until gated Main R3+.
+
+provider_default: alpha_vantage_preview
+
+providers:
+  alpha_vantage_preview:
+    enabled: false
+    requires_api_key: true
+    base_url: "https://www.alphavantage.co/query"
+    function: "TIME_SERIES_DAILY_ADJUSTED"
+    outputsize: "compact"
+    adjusted: true
+  stooq_preview:
+    enabled: false
+    requires_api_key: false
+    base_url: "https://stooq.com/q/d/l/"
+    adjusted: false
+  manual_file:
+    enabled: true
+    requires_api_key: false

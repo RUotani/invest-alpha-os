@@ -21,6 +21,7 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
     utc_now_iso,
 )
 from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
+from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -139,6 +140,7 @@ def config_check() -> None:
         "data_confidence.yaml",
         "market_data.yaml",
         "us_watchlist.yaml",
+        "us_market_data.yaml",
     ]
     missing = [name for name in required if not (CONFIG_DIR / name).exists()]
     if missing:
@@ -1239,6 +1241,23 @@ def debug_us_daily_bars_cache_import(
             indent=2,
         )
     )
+
+
+@debug_app.command("us-provider-preview")
+def debug_us_provider_preview(
+    symbol: str = typer.Option(..., "--symbol", help="US symbol (normalized for preview/cache path)."),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        help="alpha_vantage_preview | stooq_preview | manual_file (defaults to config/us_market_data.yaml).",
+    ),
+) -> None:
+    """Emit JSON URL/query preview for a planned US provider (Main R2; no HTTP)."""
+
+    payload = build_us_provider_preview_plan(symbol, provider)
+    typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    if payload.get("status") != "preview_ok":
+        raise typer.Exit(2)
 
 
 @debug_app.command("jquants-watchlist-bars-cache")

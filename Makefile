@@ -26,7 +26,7 @@ endif
 	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
 	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
 	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot agent-final-check \
-	us-watchlist-preview us-cache-fixture-import us-momentum-check
+	us-watchlist-preview us-cache-fixture-import us-momentum-check us-provider-preview
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -133,6 +133,12 @@ us-momentum-check:
 		$(MAKE) us-cache-fixture-import PYTHON="$(PYTHON)"; \
 	fi
 	$(PYTHON) "$(CURDIR)/scripts/us_momentum_check.py"
+
+# Main R2: US provider URL/query previews (no HTTP).
+us-provider-preview:
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-preview --symbol MSFT --provider alpha_vantage_preview
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-preview --symbol GLDM --provider alpha_vantage_preview
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-preview --symbol MSFT --provider stooq_preview
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
 # make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP
