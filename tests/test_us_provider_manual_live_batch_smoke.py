@@ -1290,3 +1290,37 @@ def test_r655_no_file_created(tmp_path: "pytest.TempPathFactory") -> None:
     _, w = _collect_writer()
     mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(plan, writer=w, cache_write_confirmed=True)
     assert not (tmp_path / "out").exists()
+
+
+# ── R6.5.5.1 callable writer guard tests ─────────────────────────────────────
+
+
+def test_r6551_non_callable_writer_refuses() -> None:
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(
+        _make_dry_run_plan(), writer="not_a_callable", cache_write_confirmed=True
+    )
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_callable_injected_writer"
+    assert r["writer_invoked"] is False
+    assert r["cache_write_performed"] is False
+    assert r["real_cache_write_performed"] is False
+    assert r["writer_invocation_count"] == 0
+
+
+def test_r6551_non_callable_does_not_raise_type_error() -> None:
+    # must return validation_error, not raise
+    for bad_writer in [42, "str", [], {}]:
+        r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(
+            _make_dry_run_plan(), writer=bad_writer, cache_write_confirmed=True
+        )
+        assert r["status"] == "validation_error", f"expected validation_error for writer={bad_writer!r}"
+
+
+def test_r6551_callable_writer_still_works() -> None:
+    calls, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(
+        _make_dry_run_plan(), writer=w, cache_write_confirmed=True
+    )
+    assert r["status"] == "manual_cache_write_injected_writer_completed"
+    assert r["writer_invoked"] is True
+    assert len(calls) == 1

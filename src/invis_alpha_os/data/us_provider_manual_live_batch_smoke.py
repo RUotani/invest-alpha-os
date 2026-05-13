@@ -969,8 +969,8 @@ def execute_manual_cache_write_dry_run_plan_with_injected_writer(
     if not cache_write_confirmed:
         return {**_refusal_base, "reason": "manual_batch_cache_write_requires_confirmed_gate"}
 
-    if writer is None:
-        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_injected_writer"}
+    if writer is None or not callable(writer):
+        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_callable_injected_writer" if writer is not None else "manual_batch_cache_write_requires_injected_writer"}
 
     if not isinstance(dry_run_plan, dict) or dry_run_plan.get("dry_run_only") is not True:
         return {**_refusal_base, "reason": "manual_batch_cache_write_requires_dry_run_plan"}
