@@ -71,6 +71,12 @@ else
   set -e
 fi
 
+SUM_OPS="${OPS_DIR}/latest_ops_summary.json"
+VD_OPS="${OPS_DIR}/latest_verdict.json"
+if [[ -f "${SUM_OPS}" ]] && [[ -f "${VD_OPS}" ]]; then
+  "${PYTHON}" "${ROOT}/scripts/jq_ops_workflow_gate.py" print-live-ops-human --ops-dir "${OPS_DIR}" >&2 || true
+fi
+
 VAL_CODES=()
 if [[ -n "${CODES:-}" ]]; then
   VAL_CODES=(--codes "${CODES}")

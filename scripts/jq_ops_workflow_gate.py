@@ -80,6 +80,32 @@ def validate_snapshots(ops_dir: Path, *, date_from: str, date_to: str, codes: st
     return 0, "ok"
 
 
+def print_live_ops_human_summary(ops_dir: Path) -> int:
+    """Print a one-line JSON snippet (stderr) for operators after jq-cache-live writes ops files."""
+
+    ops_dir = ops_dir.resolve()
+    sp = ops_dir / "latest_ops_summary.json"
+    vp = ops_dir / "latest_verdict.json"
+    if not sp.is_file() or not vp.is_file():
+        return 1
+    summary = json.loads(sp.read_text(encoding="utf-8"))
+    verdict = json.loads(vp.read_text(encoding="utf-8"))
+    blob = {
+        "mode": summary.get("mode"),
+        "target_count": summary.get("target_count"),
+        "success_count": summary.get("success_count"),
+        "error_count": summary.get("error_count"),
+        "skipped_count": summary.get("skipped_count"),
+        "cache_written_count": summary.get("cache_written_count"),
+        "failed_codes": summary.get("failed_codes"),
+        "verdict": verdict.get("verdict"),
+        "reason": verdict.get("reason"),
+        "raw_response_included": summary.get("raw_response_included"),
+    }
+    print(json.dumps(blob, ensure_ascii=False), file=sys.stderr)
+    return 0
+
+
 def write_test_fixture(ops_dir: Path, *, fixture: str, date_from: str, date_to: str, codes: str | None) -> None:
     """Emit minimal ops JSON bundles for pytest / gate integration (synthetic-only; not used in prod runs)."""
 
@@ -171,6 +197,9 @@ def main(argv: list[str] | None = None) -> int:
     p_wtf.add_argument("--to-date", required=True)
     p_wtf.add_argument("--codes", default=None)
 
+    p_pri = sub.add_parser("print-live-ops-human", help="Print concise JSON (stderr) from latest ops summary + verdict.")
+    p_pri.add_argument("--ops-dir", type=Path, required=True)
+
     ns = p.parse_args(argv)
     if ns.cmd == "prepare":
         prepare_snapshots(ns.ops_dir)
@@ -194,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
             codes=ns.codes,
         )
         return 0
+    if ns.cmd == "print-live-ops-human":
+        return print_live_ops_human_summary(ns.ops_dir)
     raise AssertionError(ns.cmd)
 
 

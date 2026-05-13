@@ -18,6 +18,7 @@ def _utc_now() -> str:
 _JQ_LIVE_RESULT_FORBIDDEN_KEYS = frozenset(
     {
         "error_body_preview",
+        "error_kind",
         "raw_response",
         "raw_body",
         "headers",
@@ -28,11 +29,45 @@ _JQ_LIVE_RESULT_FORBIDDEN_KEYS = frozenset(
         "access_token",
         "refresh_token",
         "cookie",
+        "cookies",
         "set-cookie",
         "bearer",
         "evil_raw_body",
+        "full_url",
+        "full_url_without_secrets",
+        "query_params",
+        "endpoint_url",
+        "api_key_header_name",
     }
 )
+
+_JQ_OPS_SUMMARY_RESULT_ORDER = (
+    "code",
+    "status",
+    "http_status",
+    "reason",
+    "row_count",
+    "sanitized_bar_count",
+    "cache_written_to",
+    "raw_response_included",
+)
+
+
+def sanitize_jquants_live_results_for_ops_summary(results: list[Any]) -> list[dict[str, Any]]:
+    """Copy only operator-safe keys; force ``raw_response_included`` False for persisted ops summary."""
+
+    out: list[dict[str, Any]] = []
+    for r in results:
+        if not isinstance(r, dict):
+            continue
+        row: dict[str, Any] = {}
+        for k in _JQ_OPS_SUMMARY_RESULT_ORDER:
+            if k == "raw_response_included":
+                row[k] = False
+            elif k in r:
+                row[k] = r[k]
+        out.append(row)
+    return out
 
 
 def validate_jquants_live_result_rows(results: list[Any]) -> str | None:
@@ -208,6 +243,7 @@ def main(argv: list[str] | None = None) -> int:
         verdict["verdict"] = v_text
         verdict["reason"] = v_reason
         verdict["live_http_performed"] = summary["live_http_performed"]
+        summary["results"] = sanitize_jquants_live_results_for_ops_summary(payload.get("results") or [])
 
     od = out_dir / "latest_ops_summary.json"
     vd = out_dir / "latest_verdict.json"

@@ -91,6 +91,7 @@ if [[ "${CLI_EXIT}" -eq 0 || "${CLI_EXIT}" -eq 1 ]]; then
     echo "jq-cache-live: ops_write_json failed (fatal, exit=${OPS_EC})" >&2
     exit "${OPS_EC}"
   fi
+  "${PYTHON}" "${ROOT}/scripts/jq_ops_workflow_gate.py" print-live-ops-human --ops-dir "${OPS_DIR}" >&2 || true
 else
   echo "jq-cache-live: skipping ops JSON (CLI exit ${CLI_EXIT})" >&2
 fi

@@ -27,6 +27,20 @@ def _load_gate_module():
     return mod
 
 
+def _stderr_human_live_ops_summary(stderr: str) -> dict:
+    for ln in stderr.splitlines():
+        t = ln.strip()
+        if not t.startswith("{"):
+            continue
+        try:
+            d = json.loads(t)
+        except json.JSONDecodeError:
+            continue
+        if d.get("mode") == "jquants_watchlist_cache_live":
+            return d
+    raise AssertionError(f"no human summary line in stderr: {stderr!r}")
+
+
 def test_prepare_snapshots_removes_stale_latest(tmp_path: Path) -> None:
     mod = _load_gate_module()
     d = tmp_path / "ops"
@@ -236,3 +250,102 @@ def test_jq_refresh_partial_requires_allow_partial(tmp_path: Path) -> None:
     env2["ALLOW_PARTIAL_CACHE"] = "true"
     r2 = subprocess.run(["bash", str(_JQ_REFRESH_SH)], cwd=str(_REPO_ROOT), env=env2, capture_output=True, text=True)
     assert r2.returncode == 0, r2.stderr + r2.stdout
+
+
+def test_print_live_ops_human_json_line(tmp_path: Path) -> None:
+    mod = _load_gate_module()
+    d = tmp_path / "ops"
+    d.mkdir(parents=True)
+    mod.write_test_fixture(d, fixture="fail", date_from="2024-02-17", date_to="2026-02-17", codes="7011")
+
+    import io
+
+    buf = io.StringIO()
+    old_err = sys.stderr
+    sys.stderr = buf
+    try:
+        assert mod.print_live_ops_human_summary(d) == 0
+    finally:
+        sys.stderr = old_err
+
+    blob = json.loads(buf.getvalue().strip())
+    assert blob["verdict"] == "fail"
+    assert blob["reason"]
+    assert "success_count" in blob
+    assert blob.get("raw_response_included") is False
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="requires POSIX bash")
+def test_jq_watchlist_bars_cache_live_stub_prints_human_summary_on_stderr(tmp_path: Path) -> None:
+    ops_out = tmp_path / "opsout_h"
+    stub = tmp_path / "ok_live.json"
+    stub.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "mode": "jquants_watchlist_cache_live",
+                "target_count": 1,
+                "success_count": 1,
+                "error_count": 0,
+                "skipped_count": 0,
+                "cache_written_count": 1,
+                "failed_codes": [],
+                "results": [{"code": "7011", "status": "success", "raw_response_included": False}],
+                "live_http_performed": True,
+                "raw_response_included": False,
+                "date_from": "2024-02-17",
+                "date_to": "2026-02-17",
+                "codes_requested": "7011",
+            },
+        ),
+        encoding="utf-8",
+    )
+    env = dict(os.environ)
+    env.pop("LIMIT", None)
+    env.update(
+        {
+            "ALLOW_TEST_JQ_STUBS": "YES",
+            "JQ_OPS_OUTPUT_DIR": str(ops_out),
+            "CONFIRM_LIVE_HTTP": "YES",
+            "FROM": "2024-02-17",
+            "TO": "2026-02-17",
+            "CODES": "7011",
+            "TEST_JQ_LIVE_STUB_PAYLOAD": str(stub),
+            "TEST_JQ_LIVE_CLI_EXIT": "1",
+            "PYTHON": sys.executable,
+            "HOME": env.get("HOME", str(tmp_path)),
+        },
+    )
+    r = subprocess.run(["bash", str(_JQ_LIVE_SH)], cwd=str(_REPO_ROOT), env=env, capture_output=True, text=True)
+    assert r.returncode == 1
+    line = _stderr_human_live_ops_summary(r.stderr)
+    assert line["verdict"] == "pass"
+    assert line["error_count"] == 0
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="requires POSIX bash")
+def test_jq_refresh_stub_partial_prints_human_summary_on_stderr(tmp_path: Path) -> None:
+    fake_bin, _log = _write_fake_make(tmp_path)
+    ops_out = tmp_path / "jq_ops_human"
+    env = dict(os.environ)
+    env.pop("LIMIT", None)
+    env.pop("ALLOW_PARTIAL_CACHE", None)
+    env.update(
+        {
+            "PATH": str(fake_bin) + os.pathsep + env.get("PATH", ""),
+            "ALLOW_TEST_JQ_STUBS": "YES",
+            "JQ_OPS_OUTPUT_DIR": str(ops_out),
+            "TEST_JQ_REFRESH_GATE_STUB": "partial_success",
+            "TEST_JQ_REFRESH_SKIP_DAILY": "1",
+            "CONFIRM_LIVE_HTTP": "YES",
+            "FROM": "2024-02-17",
+            "TO": "2026-02-17",
+            "CODES": "7011",
+            "PYTHON": sys.executable,
+            "HOME": env.get("HOME", str(tmp_path)),
+        },
+    )
+    r = subprocess.run(["bash", str(_JQ_REFRESH_SH)], cwd=str(_REPO_ROOT), env=env, capture_output=True, text=True)
+    assert r.returncode != 0
+    tail = _stderr_human_live_ops_summary(r.stderr)
+    assert tail["verdict"] == "partial_success"

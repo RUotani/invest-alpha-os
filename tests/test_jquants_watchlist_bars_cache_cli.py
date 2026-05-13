@@ -393,5 +393,5 @@ def test_watchlist_bars_cache_live_http_error_row_is_safe_public(monkeypatch: py
     assert row["http_status"] == 503
     assert row.get("raw_response_included") is False
     assert row["reason"] == "http_status_503"
-    assert "error_kind" in row
+    assert "error_kind" not in row
     assert "error_body_preview" not in row

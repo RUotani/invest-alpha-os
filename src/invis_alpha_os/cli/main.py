@@ -506,7 +506,6 @@ def _watchlist_bars_cache_row(
     reason: Any = None,
     full_url_without_secrets: Any = None,
     http_status: Any = None,
-    error_kind: Any = None,
     error_body_preview: Any = None,
 ) -> dict[str, Any]:
     """Public summary row for ``jquants-watchlist-bars-cache`` (optional safe preview URL in dry-run)."""
@@ -523,8 +522,6 @@ def _watchlist_bars_cache_row(
         row["full_url_without_secrets"] = full_url_without_secrets
     if http_status is not None:
         row["http_status"] = http_status
-    if error_kind is not None:
-        row["error_kind"] = error_kind
     if error_body_preview is not None:
         row["error_body_preview"] = error_body_preview
     return _result_row_no_raw(row)
@@ -562,7 +559,6 @@ def _watchlist_bars_cache_row_from_snap(code: str, snap: dict[str, Any], result:
         "sanitized_bar_count": None,
         "cache_written_to": None,
         "reason": reason,
-        "error_kind": st,
     }
     if st == "http_error":
         hs = snap.get("http_status")

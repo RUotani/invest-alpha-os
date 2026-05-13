@@ -81,7 +81,18 @@ def test_ops_jquants_watchlist_cache_live_payload(tmp_path: Path) -> None:
         "skipped_count": 0,
         "cache_written_count": 2,
         "failed_codes": [],
-        "results": [{"code": "7011", "status": "success"}, {"code": "7203", "status": "success"}],
+        "results": [
+            {
+                "code": "7011",
+                "status": "success",
+                "row_count": 10,
+                "sanitized_bar_count": 10,
+                "cache_written_to": "data/x.json",
+                "raw_response_included": False,
+                "trace_id": "not-in-ops-summary",
+            },
+            {"code": "7203", "status": "success"},
+        ],
         "live_http_performed": True,
         "raw_response_included": False,
         "date_from": "2024-01-01",
@@ -105,6 +116,13 @@ def test_ops_jquants_watchlist_cache_live_payload(tmp_path: Path) -> None:
     assert s["failed_codes"] == []
     assert s["codes_requested"] == "5801,6504"
     assert v["verdict"] == "pass"
+    rows = s["results"]
+    assert rows[0]["code"] == "7011"
+    assert rows[0]["row_count"] == 10
+    assert rows[0]["sanitized_bar_count"] == 10
+    assert rows[0]["cache_written_to"] == "data/x.json"
+    assert rows[0]["raw_response_included"] is False
+    assert "trace_id" not in rows[0]
 
 
 def test_ops_jquants_rejects_validation_error_payload(tmp_path: Path) -> None:
@@ -121,6 +139,35 @@ def test_ops_jquants_rejects_validation_error_payload(tmp_path: Path) -> None:
     )
     assert r.returncode == 3
     assert not (tmp_path / "latest_verdict.json").exists()
+
+
+def test_ops_jquants_rejects_forbidden_error_kind(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    script = repo / "scripts" / "ops_write_json.py"
+    payload = {
+        "status": "completed",
+        "mode": "jquants_watchlist_cache_live",
+        "target_count": 1,
+        "success_count": 0,
+        "error_count": 1,
+        "skipped_count": 0,
+        "cache_written_count": 0,
+        "failed_codes": ["7011"],
+        "results": [{"code": "7011", "status": "http_error", "reason": "x", "error_kind": "http_error"}],
+        "live_http_performed": True,
+        "raw_response_included": False,
+        "date_from": "2024-01-01",
+        "date_to": "2024-01-10",
+    }
+    p = tmp_path / "bad_kind.json"
+    p.write_text(json.dumps(payload), encoding="utf-8")
+    r = subprocess.run(
+        [sys.executable, str(script), "--mode", "jquants_watchlist_cache_live", "--payload-file", str(p), "--output-dir", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 3
 
 
 def test_ops_jquants_rejects_forbidden_row_field(tmp_path: Path) -> None:
