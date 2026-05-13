@@ -78,7 +78,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R6.4.1** | **Manual live batch smoke — bounded live HTTP** — **`--execute-live-http`** + full gate set; **`manual_live_batch_smoke_live_preview_completed`** exit 0; **no cache write**. |
 | **Main R6.5.0** | **Cache-write evaluation design only** — **`docs/15`** safety contract / checklist / proposed reasons; **no implementation**, **no cache write**. |
 | **Main R6.5.1** | **`--evaluate-cache-write` refusal scaffold** — flag recognized; always exits 2; 6 deterministic refusal orderings; **no cache write**, **no live HTTP**. |
-| **Beyond Main R6.5.1** | **R6.5.2+** per **`docs/15`** checklist (actual cache-write evaluation implementation), **R6.6+** scheduled ingest — commercial provider choice remains separate. |
+| **Main R6.5.7** | **`--execute-cache-write` production write** — all 9 conditions required (5 flags + 3 env gates + `--max-http > 0`); `real_cache_write_performed: true` on success; **no Makefile / workflow wiring** — see **`docs/15`**. |
+| **Beyond Main R6.5.7** | **R6.6+** scheduled ingest — commercial provider choice remains separate. |
 
 ---
 

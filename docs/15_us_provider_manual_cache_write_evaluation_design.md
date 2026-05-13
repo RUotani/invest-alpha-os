@@ -1,6 +1,6 @@
 # US provider — manual cache-write evaluation safety design (**Main R6.5.0 design / R6.5.1 refusal scaffold**)
 
-> **Document control:** v1.0 Main R6.5.0 (design only) → v1.1 Main R6.5.1 (refusal scaffold implemented).
+> **Document control:** v1.0 Main R6.5.0 (design only) → v1.1 Main R6.5.1 (refusal scaffold implemented) → v1.7 Main R6.5.7 (production cache write implemented).
 
 ## 1. Purpose
 
@@ -181,11 +181,17 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] Validates sanitized bars, symbol match, raw-response guard, API-key guard before calling injected save func.
 - [x] 25 R6.5.6-labeled tests (126 total); no real FS write, no live HTTP, no CLI change.
 
-**R6.5.7+ prerequisites (not yet satisfied):**
+**R6.5.7 items (already satisfied):**
 
-- [ ] Wire `save_us_daily_bars_cache` as the real production save func (injected at CLI call site).
-- [ ] CLI integration for `--execute-cache-write` or equivalent gate; no Makefile / workflow wiring.
-- [ ] Confirm CI remains offline-safe after production writer integration.
+- [x] `--execute-cache-write` CLI flag implemented; all 9 conditions required (5 flags + 3 env gates + `--max-http > 0`).
+- [x] Requires `--live --preflight --execute-live-http --evaluate-cache-write --execute-cache-write` + `CONFIRM_US_LIVE_HTTP=YES` + `CONFIRM_US_MANUAL_BATCH_SMOKE=YES` + `CONFIRM_US_CACHE_WRITE=YES` + `--max-http > 0`.
+- [x] Deterministic 7-step refusal ordering before production write executes.
+- [x] Production write calls `stooq_live_preview_sanitized_bars(norm, live=True, write_cache=True)` which internally calls `save_us_daily_bars_cache`; no direct import of save func in batch smoke module.
+- [x] `real_cache_write_performed: true` only when at least one row write succeeded.
+- [x] `raw_response_included: false` and `provider_api_key_value_included: false` enforced.
+- [x] No Makefile shortcut, no workflow wiring, no scheduler.
+- [x] Tests use monkeypatched `stooq_live_preview_sanitized_bars`; no real filesystem write in CI.
+- [x] 14 new R6.5.7-labeled tests (140 total, +14 from R6.5.6).
 
 ---
 
@@ -230,6 +236,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.4** | **Main R6.5.4** | `build_manual_cache_write_dry_run_plan` — dry-run filesystem path validation only; **no file writes**, **no writer calls**, **no live HTTP**; 11 new tests (84 total); production-like write remains R6.5.5+. |
 | **1.5** | **Main R6.5.5** | `execute_manual_cache_write_dry_run_plan_with_injected_writer` — injected-writer adapter contract; **no real FS write**, **no live HTTP**, **no CLI wiring**; 14 new tests (98 total); production-like real writer remains R6.5.6+. |
 | **1.6** | **Main R6.5.6** | `build_manual_cache_write_save_cache_writer_adapter` — save-cache writer adapter boundary; **injected fake save-func only**; validates **all sanitized_bars rows** (symbol match, forbidden fields, non-dict); **no real FS write**, **no CLI wiring**; 25 R6.5.6-labeled tests (126 total); production-like CLI execution remains R6.5.7+. |
+| **1.7** | **Main R6.5.7** | `--execute-cache-write` production CLI flag — all 9 conditions required; calls `stooq_live_preview_sanitized_bars(live=True, write_cache=True)`; `real_cache_write_performed: true` on success; **no Makefile / workflow wiring**; 14 new R6.5.7-labeled tests (140 total). |
 
 ---
 

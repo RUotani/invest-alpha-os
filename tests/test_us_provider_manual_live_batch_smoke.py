@@ -1603,3 +1603,336 @@ def test_r656_log_no_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
     adapter["writer"](payload)
     assert calls == []
     assert secret not in str(adapter["invocation_log"])
+
+
+# ---------------------------------------------------------------------------
+# R6.5.7 — execute-cache-write: refusal orderings and production write path
+# ---------------------------------------------------------------------------
+
+def _all_ecw_gates(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setenv(uplp.CONFIRM_US_CACHE_WRITE_ENV, "YES")
+
+
+def _mock_save_cache_factory(tmp_path):
+    """Return (calls_list, fake_save_func) writing symbol.json to tmp_path."""
+    calls = []
+    def _save(symbol, rows, **kw):
+        p = tmp_path / f"{symbol}.json"
+        import json
+        p.write_text(json.dumps({"symbol": symbol, "bars": rows}), encoding="utf-8")
+        calls.append((symbol, rows, p))
+        return p
+    return calls, _save
+
+
+def test_r657_execute_cache_write_without_live_refuses() -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=False,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_execute_cache_write_requires_live"
+    assert out["cache_write_performed"] is False
+    assert out["real_cache_write_performed"] is False
+    assert out["live_http_performed"] is False
+
+
+def test_r657_execute_cache_write_without_preflight_refuses() -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=False,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_execute_cache_write_requires_preflight"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_execute_cache_write_without_execute_live_http_refuses() -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=False,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_execute_cache_write_requires_execute_live_http"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_execute_cache_write_without_evaluate_refuses() -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=False,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_execute_cache_write_requires_evaluate_cache_write"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_execute_cache_write_without_live_gate_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_smoke_live_http_not_confirmed"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_execute_cache_write_without_cache_gate_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_cache_write_requires_cache_gate"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_execute_cache_write_max_http_zero_refuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    _all_ecw_gates(monkeypatch)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=0,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_smoke_max_http_zero"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_all_gates_success_writes_cache(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    _all_ecw_gates(monkeypatch)
+    monkeypatch.setattr(uplp, "save_us_daily_bars_cache", lambda sym, rows, **kw: tmp_path / f"{sym}.json")
+    monkeypatch.setattr(
+        uplp, "urlopen",
+        lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("should not HTTP in test")),
+    )
+
+    def _mock_preview(symbol, *, live=False, write_cache=False):
+        assert live is True
+        assert write_cache is True
+        return {
+            "status": "success",
+            "provider": "stooq_preview",
+            "symbol": symbol,
+            "row_count": 5,
+            "live_http_performed": True,
+            "cache_write_performed": True,
+            "cache_written_to": f"outputs/market_data/us_daily_bars/{symbol}.json",
+            "raw_response_included": False,
+        }
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview)
+
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "manual_cache_write_completed"
+    assert out["cache_write_performed"] is True
+    assert out["real_cache_write_performed"] is True
+    assert out["live_http_performed"] is True
+    assert out["raw_response_included"] is False
+    assert out["provider_api_key_value_included"] is False
+    assert out["operator_summary"]["cache_write_success_count"] == 1
+    assert out["operator_summary"]["cache_write_failure_count"] == 0
+    plan_row = out["plan_rows"][0]
+    assert plan_row["status"] == "success"
+    assert plan_row["cache_write_performed"] is True
+    assert plan_row["real_cache_write_performed"] is True
+    assert "cache_written_to" in plan_row
+
+
+def test_r657_write_fail_row_captured(monkeypatch: pytest.MonkeyPatch) -> None:
+    _all_ecw_gates(monkeypatch)
+
+    def _mock_fail(symbol, *, live=False, write_cache=False):
+        return {
+            "status": "parse_error",
+            "reason": "empty_csv",
+            "symbol": symbol,
+            "provider": "stooq_preview",
+            "live_http_performed": True,
+            "cache_write_performed": False,
+            "raw_response_included": False,
+        }
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_fail)
+
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["status"] == "manual_cache_write_completed"
+    assert out["real_cache_write_performed"] is False
+    assert out["cache_write_performed"] is False
+    assert out["operator_summary"]["cache_write_success_count"] == 0
+    assert out["operator_summary"]["cache_write_failure_count"] == 1
+
+
+def test_r657_max_http_cap_respected(monkeypatch: pytest.MonkeyPatch) -> None:
+    _all_ecw_gates(monkeypatch)
+    calls = []
+
+    def _mock_ok(symbol, *, live=False, write_cache=False):
+        calls.append(symbol)
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "row_count": 3,
+            "live_http_performed": True,
+            "cache_write_performed": True,
+            "raw_response_included": False,
+        }
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_ok)
+
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT", "GOOGL", "NVDA"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert len(calls) == 1
+    assert out["operator_summary"]["skipped_max_http_cap_count"] == 2
+    cap_rows = [r for r in out["plan_rows"] if r.get("reason") == "max_http_cap_reached"]
+    assert len(cap_rows) == 2
+
+
+def test_r657_no_cache_write_without_execute_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Omitting --execute-cache-write but passing --evaluate-cache-write hits R6.5.1 refusal."""
+    _all_ecw_gates(monkeypatch)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=False,
+    )
+    assert out["status"] == "validation_error"
+    assert out["reason"] == "manual_batch_cache_write_not_enabled_in_r6_5_1"
+    assert out["cache_write_performed"] is False
+
+
+def test_r657_api_key_never_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    _all_ecw_gates(monkeypatch)
+    secret = "r657_secret_key_never_echo_77777"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+
+    def _mock_ok(symbol, *, live=False, write_cache=False):
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "row_count": 2,
+            "live_http_performed": True,
+            "cache_write_performed": True,
+            "raw_response_included": False,
+        }
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_ok)
+
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert secret not in str(out)
+    assert out["provider_api_key_value_included"] is False
+
+
+def test_r657_raw_response_never_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    _all_ecw_gates(monkeypatch)
+
+    def _mock_ok(symbol, *, live=False, write_cache=False):
+        return {
+            "status": "success",
+            "symbol": symbol,
+            "row_count": 2,
+            "live_http_performed": True,
+            "cache_write_performed": True,
+            "raw_response_included": False,
+        }
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_ok)
+
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+        execute_cache_write_requested=True,
+    )
+    assert out["raw_response_included"] is False
+    for row in out.get("plan_rows", []):
+        assert row.get("raw_response_included") is False
+
+
+def test_r657_cli_flag_missing_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CLI: --execute-cache-write without prerequisites exits 2."""
+    monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
+    r = runner.invoke(
+        app,
+        [
+            "debug", "us-provider-manual-live-batch-smoke",
+            "--symbols", "MSFT",
+            "--provider", "stooq_preview",
+            "--max-http", "1",
+            "--execute-cache-write",
+        ],
+    )
+    assert r.exit_code == 2, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "validation_error"
+    assert payload["reason"] == "manual_batch_execute_cache_write_requires_live"

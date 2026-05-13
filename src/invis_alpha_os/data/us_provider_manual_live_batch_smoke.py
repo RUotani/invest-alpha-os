@@ -53,6 +53,12 @@ _REASON_CACHE_WRITE_REQUIRES_EXECUTE = "manual_batch_cache_write_requires_execut
 _REASON_CACHE_WRITE_REQUIRES_CACHE_GATE = "manual_batch_cache_write_requires_cache_gate"
 _REASON_CACHE_WRITE_NOT_ENABLED = "manual_batch_cache_write_not_enabled_in_r6_5_1"
 
+# R6.5.7 execute-cache-write refusal reasons
+_REASON_EXEC_CW_REQUIRES_LIVE = "manual_batch_execute_cache_write_requires_live"
+_REASON_EXEC_CW_REQUIRES_PREFLIGHT = "manual_batch_execute_cache_write_requires_preflight"
+_REASON_EXEC_CW_REQUIRES_EXECUTE_LIVE_HTTP = "manual_batch_execute_cache_write_requires_execute_live_http"
+_REASON_EXEC_CW_REQUIRES_EVALUATE = "manual_batch_execute_cache_write_requires_evaluate_cache_write"
+
 
 def _symbol_merge_core(
     raw_tokens: list[str],
@@ -152,6 +158,7 @@ def build_us_provider_manual_live_batch_smoke_payload(
     preflight_requested: bool = False,
     execute_live_http_requested: bool = False,
     evaluate_cache_write_requested: bool = False,
+    execute_cache_write_requested: bool = False,
 ) -> dict[str, Any]:
     """Build manual batch smoke envelope (**R6.5.1** — cache-write always refused; HTTP only under full gate set)."""
 
@@ -206,6 +213,141 @@ def build_us_provider_manual_live_batch_smoke_payload(
     }
 
     gate_block = _gate_status_block()
+
+    if execute_cache_write_requested:
+        # R6.5.7 — production cache write; all 9 conditions required
+        _ecw_base: dict[str, Any] = {
+            "status": "validation_error",
+            "observation_only": True,
+            "execute_cache_write_requested": True,
+            "evaluate_cache_write_requested": evaluate_cache_write_requested,
+            "live_requested": live_requested,
+            "preflight_requested": preflight_requested,
+            "execute_live_http_requested": execute_live_http_requested,
+            "provider": prov,
+            "live_http_performed": False,
+            "cache_write_performed": False,
+            "real_cache_write_performed": False,
+            "raw_response_included": False,
+            "provider_api_key_value_included": False,
+            "scheduled_ingest_enabled": False,
+            "manual_batch_smoke_enabled": False,
+        }
+        if not live_requested:
+            return {**_ecw_base, "reason": _REASON_EXEC_CW_REQUIRES_LIVE}
+        if not preflight_requested:
+            return {**_ecw_base, "reason": _REASON_EXEC_CW_REQUIRES_PREFLIGHT}
+        if not execute_live_http_requested:
+            return {**_ecw_base, "reason": _REASON_EXEC_CW_REQUIRES_EXECUTE_LIVE_HTTP}
+        if not evaluate_cache_write_requested:
+            return {**_ecw_base, "reason": _REASON_EXEC_CW_REQUIRES_EVALUATE}
+        ecw_live_ok = os.environ.get(CONFIRM_US_LIVE_HTTP_ENV) == "YES"
+        ecw_batch_ok = os.environ.get(CONFIRM_US_MANUAL_BATCH_SMOKE_ENV) == "YES"
+        if not (ecw_live_ok and ecw_batch_ok):
+            return {**_ecw_base, "reason": _REASON_LIVE_GATE}
+        ecw_cache_ok = os.environ.get(CONFIRM_US_CACHE_WRITE_ENV) == "YES"
+        if not ecw_cache_ok:
+            return {**_ecw_base, "reason": _REASON_CACHE_WRITE_REQUIRES_CACHE_GATE}
+        if max_http == 0:
+            return {**_ecw_base, "reason": _REASON_MAX_HTTP_ZERO}
+
+        # All 9 conditions satisfied — execute production cache write
+        ecw_src_block = {
+            "from_watchlist": from_watchlist_used,
+            "symbols_csv_provided": symbols_csv_provided,
+            "limit": limit_param if isinstance(limit_param, int) and limit_param > 0 else None,
+        }
+        write_rows: list[dict[str, Any]] = []
+        http_attempted = 0
+        write_ok_count = 0
+        write_fail_count = 0
+        skipped_cap_count = 0
+
+        for r in merged_plan_rows:
+            if r.get("reason") == "invalid_symbol":
+                write_rows.append(r)
+
+        for norm in normed_acc:
+            if http_attempted >= max_http:
+                write_rows.append({
+                    "symbol": norm,
+                    "provider": prov,
+                    "planned_action": "skipped_max_http_cap",
+                    "live_http_performed": False,
+                    "cache_write_performed": False,
+                    "real_cache_write_performed": False,
+                    "reason": "max_http_cap_reached",
+                })
+                skipped_cap_count += 1
+                continue
+
+            if http_attempted > 0 and min_sleep_val is not None and min_sleep_val > 0:
+                time.sleep(min_sleep_val)
+
+            result = stooq_live_preview_sanitized_bars(norm, live=True, write_cache=True)
+            http_attempted += 1
+
+            row_status = str(result.get("status") or "")
+            row_cache_written = bool(result.get("cache_write_performed"))
+            ecw_row: dict[str, Any] = {
+                "symbol": norm,
+                "provider": prov,
+                "planned_action": "manual_cache_write_live_and_persist",
+                "live_http_performed": bool(result.get("live_http_performed")),
+                "cache_write_performed": row_cache_written,
+                "real_cache_write_performed": row_cache_written,
+                "raw_response_included": False,
+                "provider_api_key_value_included": False,
+                "status": row_status,
+            }
+            if "reason" in result:
+                ecw_row["reason"] = result["reason"]
+            if "cache_written_to" in result:
+                ecw_row["cache_written_to"] = result["cache_written_to"]
+            if row_status == "success" and row_cache_written:
+                ecw_row["row_count"] = result.get("row_count", 0)
+                write_ok_count += 1
+            else:
+                write_fail_count += 1
+            write_rows.append(ecw_row)
+
+        real_write_performed = write_ok_count > 0
+        write_constraints = {**constraints_common, "actual_http_attempts": http_attempted}
+        write_op_summary = {
+            "dry_run_plan_count": valid_count,
+            "planned_http_attempt_count": planned_http_attempts,
+            "actual_http_attempt_count": http_attempted,
+            "cache_write_success_count": write_ok_count,
+            "cache_write_failure_count": write_fail_count,
+            "skipped_max_http_cap_count": skipped_cap_count,
+            "invalid_symbol_count": invalid_ct,
+        }
+        return {
+            "status": "manual_cache_write_completed",
+            "mode": "live_http_and_cache_write",
+            "observation_only": True,
+            "live_requested": True,
+            "preflight_requested": True,
+            "execute_live_http_requested": True,
+            "evaluate_cache_write_requested": True,
+            "execute_cache_write_requested": True,
+            "live_http_performed": http_attempted > 0,
+            "cache_write_performed": real_write_performed,
+            "real_cache_write_performed": real_write_performed,
+            "raw_response_included": False,
+            "provider_api_key_env_name": STOOQ_API_KEY_ENV,
+            "provider_api_key_value_included": False,
+            "scheduled_ingest_enabled": False,
+            "manual_batch_smoke_enabled": False,
+            "provider": prov,
+            "source": ecw_src_block,
+            "constraints": write_constraints,
+            "gate_status": gate_block,
+            "symbol_count": len(write_rows),
+            "symbols": list(normed_acc),
+            "plan_rows": write_rows,
+            "operator_summary": write_op_summary,
+        }
 
     if evaluate_cache_write_requested:
         # R6.5.1 — always refuses; no HTTP, no cache write
