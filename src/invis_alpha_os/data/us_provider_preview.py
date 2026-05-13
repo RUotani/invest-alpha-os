@@ -112,7 +112,11 @@ def build_stooq_daily_preview(symbol: str, cfg_path: Path | None = None) -> dict
     )
 
     wire = stooq_daily_symbol_wire(norm)
-    qp = {"s": wire, "i": "d"}
+    qp: dict[str, str] = {
+        "s": wire,
+        "i": "d",
+        "apikey": "<redacted_required_later>",
+    }
     full_preview = f"{base}?{urlencode(qp)}"
     return {
         "status": "preview_ok",

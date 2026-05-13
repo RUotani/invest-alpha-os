@@ -70,6 +70,10 @@ def test_stooq_preview_flags_and_wire_param() -> None:
     assert preview["status"] == "preview_ok"
     assert preview["query_params_without_secrets"]["s"] == "msft.us"
     assert preview["query_params_without_secrets"]["i"] == "d"
+    assert preview["query_params_without_secrets"]["apikey"] == "<redacted_required_later>"
+    pu = preview.get("preview_url_without_secrets") or ""
+    pl = pu.lower()
+    assert "apikey=" in pl and "redacted_required_later" in pl
 
 
 def test_stooq_class_b_mapping_uses_hyphen() -> None:
@@ -122,6 +126,7 @@ def test_plan_doc_contains_required_providers_and_safety() -> None:
         "Tiingo",
         "no live vendor HTTP",
         "`raw_response`",
+        "provider_api_key_required",
     ):
         assert needle in t, needle
 
@@ -134,6 +139,10 @@ def test_load_us_market_data_config_has_providers() -> None:
     assert "alpha_vantage_preview" in pv
     assert "stooq_preview" in pv
     assert pv["manual_file"].get("enabled") is True
+    st = pv["stooq_preview"]
+    assert isinstance(st, dict)
+    assert st.get("requires_api_key") is True
+    assert st.get("api_key_env") == "STOOQ_APIKEY"
 
 
 def test_us_cache_target_relpath_stable() -> None:

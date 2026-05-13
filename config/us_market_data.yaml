@@ -13,7 +13,8 @@ providers:
     adjusted: true
   stooq_preview:
     enabled: false
-    requires_api_key: false
+    requires_api_key: true
+    api_key_env: "STOOQ_APIKEY"
     base_url: "https://stooq.com/q/d/l/"
     adjusted: false
   manual_file:

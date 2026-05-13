@@ -1,10 +1,10 @@
-# US equities / ETFs — market data provider plan (Main R2–Main R4 / R4.1)
+# US equities / ETFs — market data provider plan (Main R2–Main R4 / R4.2)
 
 ## 1. Purpose
 
 This document selects and compares candidate **daily OHLCV** sources for the US watchlist path (`config/us_watchlist.yaml` → sanitized cache under `outputs/market_data/us_daily_bars/` → optional momentum renderer).
 
-**Main R2 constraint:** **no live vendor HTTP**, **no API keys committed or printed**, **`raw_response` is never persisted** — only **design**, **YAML config**, and **dry-run URL/query previews** (`debug us-provider-preview`). All future ingest must funnel through **`save_us_daily_bars_cache`** after normalization to sanitized bar rows only.
+**Main R2 constraint:** **no live vendor HTTP**, **no API keys committed or printed**, **`raw_response` is never persisted** — only **design**, **YAML config**, and **dry-run URL/query previews** (`debug us-provider-preview`). All future ingest must funnel through **`save_us_daily_bars_cache`** after normalization to sanitized bar rows only. **Secrets** (including **`STOOQ_APIKEY`** if used) belong only in operator **environment** / local `.env` — never in committed YAML, git history, logs, or CLI JSON payloads.
 
 Observation only — no buy/sell advice, no automated trading.
 
@@ -20,9 +20,9 @@ Observation only — no buy/sell advice, no automated trading.
 
 ### Stooq
 
-- **Strengths:** **No API key** for public CSV-style daily endpoints; convenient for sketches and spreadsheets; used for **Main R3** one-symbol **gated** shape-only live preview (see phased table).
-- **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; **symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully. **Treat as preview / prototype** until a commercial API path is chosen.
-- **Operational:** Stooq may answer **HTTP 200** with **non-tabular payloads** (HTML interstitial, “no data” prose, delimiter/header drift). Prefer **`debug us-provider-cache-preview --live`** and inspect **`parse_error`** + **`response_diagnostics`** (**Main R4.1**) before assuming a ticker or wire slug is accepted — **still no raw body** in tooling output.
+- **Strengths:** **Historical daily CSV-style** endpoint convenient for spreadsheets and prototyping; supports **Main R3** one-symbol **gated** shape-only live preview (see phased table).
+- **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; server responses may evolve — Stooq can answer **HTTP 200** with **non-tabular payloads** or prose indicating an **API key is required**. **Optional** gated live GET may append **`STOOQ_APIKEY`** from process environment only (**never committed, never logged, never in JSON previews** — keep keys in local `.env` / shell only). **Symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully. **Treat as preview / prototype** until a commercial API path is chosen.
+- **Operational:** Inspect **`validation_error`** with **`reason: "provider_api_key_required"`** or **`parse_error`** + **`response_diagnostics`** (**Main R4.1 / R4.2**) before assuming a ticker or wire slug is accepted — **still no raw body** in tooling output.
 
 ### Yahoo Finance / yfinance (unofficial)
 
@@ -45,7 +45,7 @@ Observation only — no buy/sell advice, no automated trading.
 
 | Criterion | Notes |
 |-----------|--------|
-| **API key requirement** | Alpha Vantage / Polygon / Tiingo: yes. Stooq public CSV: no. yfinance: no key but unofficial. |
+| **API key requirement** | Alpha Vantage / Polygon / Tiingo: yes. **Stooq:** may require an API key in practice for some deployments; gated tooling uses optional **`STOOQ_APIKEY`** (env-only) — see §2 Stooq. yfinance: no key but unofficial. |
 | **Rate limits** | Alpha Vantage: tight on free tier. Paid vendors: plan-dependent. Stooq/yfinance: be conservative; no bulk hammering. |
 | **Adjusted OHLC** | Alpha Vantage `TIME_SERIES_DAILY_ADJUSTED`: yes. Yahoo tables often have adj. close. Stooq daily CSV: treat as **not** equivalent to a single “adjusted OHLCV” product without validation. |
 | **ETF support** | Yahoo/yfinance typically broad; commercial APIs vary by listing; validate **GLDM**-class symbols per provider. |
@@ -64,7 +64,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R3** | **Stooq one-symbol gated live preview** — **`debug us-provider-live-preview`**: **`--live`** + **`CONFIRM_US_LIVE_HTTP=YES`**; **shape digest only** — **no cache write** — **no `raw_response`** (smoke symbol **MSFT**). |
 | **Main R4 (current)** | **Stooq CSV strict parse → sanitized OHLCV dicts** (`parse_stooq_daily_csv_to_rows`) + **`stooq_live_preview_sanitized_bars`** / **`debug us-provider-cache-preview`**. **`--live`** gates HTTP; **`--write-cache`** + **`CONFIRM_US_CACHE_WRITE=YES`** gates **`save_us_daily_bars_cache`**. Vendor **raw CSV is never stored** on disk — only **sanitized** JSON via the existing writer. **One-symbol manual smoke**, **not** watchlist automation or scheduled refresh. **Stooq remains preview/prototype.** |
 | **Main R4.1** | **Safe HTTP-200 diagnostics** — when gated Stooq fetch returns **`http_status` 200** but **strict CSV parse fails** (HTML page, terse “no data” text, wrong delimiter, unexpected header), **`parse_error`** payloads may include **`response_diagnostics`** from **`classify_stooq_csv_text_safely`**: capped header tokens, **`body_kind`**, delimiter guess — **never** vendor **raw bodies**, OHLC numeric cells, nor full lines. Helps operators distinguish “network OK” from “payload unusable”. |
-| **Beyond R4.1** | Multi-symbol / scheduled ingest, Alpha Vantage, richer mapping — unchanged backlog. |
+| **Main R4.2** | **Stooq “API key required” (HTTP 200 prose)** — safe classification as **`response_diagnostics.body_kind: "api_key_required"`**; strict parse failures in that situation surface **`validation_error`** / **`reason: "provider_api_key_required"`** (exit **2**) instead of **`parse_error`**. Config: **`requires_api_key: true`**, **`api_key_env: "STOOQ_APIKEY"`**. Live GET merges env key into query **only when set** — **never** into committed YAML, previews, stderr, nor error payloads. **`build_stooq_daily_preview`** still lists **`apikey: "<redacted_required_later>"`** in **`query_params_without_secrets`** for operator visibility (**not** sent on wire unless replaced by **`STOOQ_APIKEY`**). |
+| **Beyond R4.2** | Multi-symbol / scheduled ingest, Alpha Vantage, richer mapping — unchanged backlog. |
 
 ---
 

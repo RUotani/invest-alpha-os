@@ -135,6 +135,32 @@ def test_live_success_cli_shape_digest(mock_urlopen: MagicMock) -> None:
     assert payload["live_http_performed"] is True
 
 
+@patch.object(uplp, "urlopen")
+def test_live_provider_api_key_required_shape_digest_exit_2(mock_urlopen: MagicMock) -> None:
+    body = "Get your apikey? See the site for details.\nNo CSV here.\n"
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    env = uplp.CONFIRM_US_LIVE_HTTP_ENV
+    with patch.dict(os.environ, {env: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-live-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 2, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "validation_error"
+    assert payload["reason"] == "provider_api_key_required"
+    assert payload["response_diagnostics"]["body_kind"] == "api_key_required"
+    assert payload["raw_response_included"] is False
+
+
 def test_live_success_stdout_has_no_sensitive_substrings(monkeypatch: pytest.MonkeyPatch) -> None:
     body = (
         _tiny_stooq_csv_body()

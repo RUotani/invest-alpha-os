@@ -39,6 +39,20 @@ def test_classify_html_hint() -> None:
     assert diag["body_kind"] == "html_like"
 
 
+def test_classify_api_key_required_overrides_plain_prose() -> None:
+    diag = classify_stooq_csv_text_safely(
+        "Get your apikey? See https://stooq.com/ for CSV.\nThere is no table here.",
+    )
+    assert diag["body_kind"] == "api_key_required"
+
+
+def test_classify_api_key_hint_in_bounded_sample() -> None:
+    diag = classify_stooq_csv_text_safely(
+        "This feed now requires api key authentication for bulk access.\n"
+    )
+    assert diag["body_kind"] == "api_key_required"
+
+
 def test_classify_semicolon_delimiter() -> None:
     body = "Date;Open;High;Low;Close;Volume\n2024-01-02;1;2;3;4;5\n"
     diag = classify_stooq_csv_text_safely(body)

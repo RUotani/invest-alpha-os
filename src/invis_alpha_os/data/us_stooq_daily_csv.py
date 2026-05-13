@@ -29,6 +29,11 @@ _NO_DATA_HINT_RE = re.compile(
     re.I,
 )
 
+_API_KEY_HINT_RE = re.compile(
+    r"(get\s+your\s+apikey|api\s+key|\bapikey\b)",
+    re.I,
+)
+
 _HEADER_SAFE_CHAR_RE = re.compile(r"[^0-9A-Za-z_.\- ]")
 
 
@@ -149,6 +154,10 @@ def classify_stooq_csv_text_safely(csv_text: str) -> dict[str, Any]:
             body_kind = "unknown"
     else:
         body_kind = "unknown"
+
+    joined_san = " ".join(header_columns_sanitized).lower()
+    if _API_KEY_HINT_RE.search(stripped[:4000]) or _API_KEY_HINT_RE.search(joined_san):
+        body_kind = "api_key_required"
 
     return {
         "body_kind": body_kind,

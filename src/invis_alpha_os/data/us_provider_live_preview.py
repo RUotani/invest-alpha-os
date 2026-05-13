@@ -12,6 +12,7 @@ import io
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -30,6 +31,7 @@ from invis_alpha_os.data.us_stooq_daily_csv import (
 CONFIRM_US_LIVE_HTTP_ENV = "CONFIRM_US_LIVE_HTTP"
 CONFIRM_US_CACHE_WRITE_ENV = "CONFIRM_US_CACHE_WRITE"
 STOOQ_TIMEOUT_SEC = 10
+STOOQ_APIKEY_ENV = "STOOQ_APIKEY"
 
 
 def _base_parse_error(
@@ -89,29 +91,10 @@ def stooq_live_preview_shape_digest(symbol: str, *, live: bool = False) -> dict[
             "cache_write_performed": False,
         }
 
-    plan = build_stooq_daily_preview(symbol)
-    if plan.get("status") != "preview_ok":
-        return {
-            "status": "validation_error",
-            "reason": "preview_plan_failed",
-            "symbol": norm,
-            "provider": "stooq_preview",
-            "live_http_performed": False,
-            "raw_response_included": False,
-            "cache_write_performed": False,
-        }
-
-    url = str(plan.get("preview_url_without_secrets") or "").strip()
-    if not url:
-        return {
-            "status": "validation_error",
-            "reason": "missing_preview_url",
-            "symbol": norm,
-            "provider": "stooq_preview",
-            "live_http_performed": False,
-            "raw_response_included": False,
-            "cache_write_performed": False,
-        }
+    got_url = _stooq_live_transport_or_error(norm, symbol)
+    if isinstance(got_url, dict):
+        return got_url
+    url = got_url
 
     req = Request(
         url,
@@ -156,6 +139,20 @@ def stooq_live_preview_shape_digest(symbol: str, *, live: bool = False) -> dict[
             live_http_performed=True,
             http_status=http_status,
         )
+
+    diag = classify_stooq_csv_text_safely(text)
+    if diag.get("body_kind") == "api_key_required":
+        return {
+            "status": "validation_error",
+            "reason": "provider_api_key_required",
+            "symbol": norm,
+            "provider": "stooq_preview",
+            "live_http_performed": True,
+            "raw_response_included": False,
+            "cache_write_performed": False,
+            "http_status": http_status,
+            "response_diagnostics": diag,
+        }
 
     reader = csv.reader(io.StringIO(text))
     try:
@@ -229,10 +226,28 @@ def _rel_under_root(path: Path) -> str:
         return path.as_posix()
 
 
-def _stooq_live_fetch_csv_text(norm: str) -> dict[str, Any] | tuple[int, str]:
-    """Return an error payload dict, or ``(http_status, decoded_text)`` on success."""
+def _stooq_live_transport_url_from_preview_plan(plan: dict[str, Any]) -> str | None:
+    """Build real GET URL: merge ``STOOQ_APIKEY`` when set; omit ``apikey`` otherwise (never placeholder text)."""
 
-    plan = build_stooq_daily_preview(norm)
+    base = str(plan.get("base_url_without_secrets") or "").strip()
+    if not base:
+        return None
+    raw_qp = plan.get("query_params_without_secrets")
+    qp: dict[str, str] = {}
+    if isinstance(raw_qp, dict):
+        for k0, v0 in raw_qp.items():
+            qp[str(k0)] = str(v0)
+    ak = (os.environ.get(STOOQ_APIKEY_ENV) or "").strip()
+    if ak:
+        qp["apikey"] = ak
+    else:
+        qp.pop("apikey", None)
+    qs = urlencode(qp)
+    return f"{base}?{qs}"
+
+
+def _stooq_live_transport_or_error(norm: str, symbol_for_plan: str) -> dict[str, Any] | str:
+    plan = build_stooq_daily_preview(symbol_for_plan)
     if plan.get("status") != "preview_ok":
         return {
             "status": "validation_error",
@@ -243,9 +258,8 @@ def _stooq_live_fetch_csv_text(norm: str) -> dict[str, Any] | tuple[int, str]:
             "raw_response_included": False,
             "cache_write_performed": False,
         }
-
-    url = str(plan.get("preview_url_without_secrets") or "").strip()
-    if not url:
+    transport = _stooq_live_transport_url_from_preview_plan(plan)
+    if not transport:
         return {
             "status": "validation_error",
             "reason": "missing_preview_url",
@@ -255,6 +269,16 @@ def _stooq_live_fetch_csv_text(norm: str) -> dict[str, Any] | tuple[int, str]:
             "raw_response_included": False,
             "cache_write_performed": False,
         }
+    return transport
+
+
+def _stooq_live_fetch_csv_text(norm: str) -> dict[str, Any] | tuple[int, str]:
+    """Return an error payload dict, or ``(http_status, decoded_text)`` on success."""
+
+    got_url = _stooq_live_transport_or_error(norm, norm)
+    if isinstance(got_url, dict):
+        return got_url
+    url = got_url
 
     req = Request(
         url,
@@ -374,6 +398,18 @@ def stooq_live_preview_sanitized_bars(
         ):
             code = "stooq_csv_parse_failed"
         diagnostics = classify_stooq_csv_text_safely(text)
+        if diagnostics.get("body_kind") == "api_key_required":
+            return {
+                "status": "validation_error",
+                "reason": "provider_api_key_required",
+                "symbol": norm,
+                "provider": "stooq_preview",
+                "live_http_performed": True,
+                "raw_response_included": False,
+                "cache_write_performed": False,
+                "http_status": http_status,
+                "response_diagnostics": diagnostics,
+            }
         return _base_parse_error(
             norm=norm,
             reason=code,
