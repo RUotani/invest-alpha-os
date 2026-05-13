@@ -87,7 +87,7 @@ Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed
 
 ### Multi-symbol aggregation (batch)
 
-- Default **`make us-provider-cache-preview-batch-dry-run`**: **no HTTP**. **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and runs **human-invoked sequential GETs**.
+- **`make us-provider-cache-preview-batch-dry-run`** runs the batch CLI with **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** only. **`debug us-provider-cache-preview-batch`** has **no** **`--quiet`** or **`--dry-run`** options — leaving off **`--live`** is what keeps previews in **`dry_run`** (**no HTTP**). **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and implies **human-invoked sequential GETs**.
 - Inspect **`results[]`**, **`summary`**, **`operator_next_action`**, **`docs/11`** wire slug guidance (**no raw vendor bodies**) before diagnosing watchlist failures at scale — **bulk cache writes remain deliberately unsupported.**
 
 ### API key prose
@@ -121,7 +121,7 @@ Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed
 **Delivered behaviors (operators):**
 
 - **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints JSON with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`observation_only=true`** (**no raw vendor payloads** embedded).
-- **Makefile**: **`make us-provider-cache-preview-batch-dry-run`** defaults to **`--limit 4`**, **`--dry-run`**, **`--quiet`** — **`safe-push`** intentionally **does not** depend on batch targets (**unit tests gate this invariant**).
+- **Makefile**: **`make us-provider-cache-preview-batch-dry-run`** passes **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** (**no** **`--quiet`**, **no** **`--dry-run`** — CLI default is **`dry_run`** unless **`--live`** is supplied). **`safe-push`** intentionally **does not** depend on batch targets (**unit tests gate this invariant**).
 
 **Safety rules remain unchanged:**
 
