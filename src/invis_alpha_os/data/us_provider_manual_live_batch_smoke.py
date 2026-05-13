@@ -14,7 +14,9 @@
 from __future__ import annotations
 
 import os
+import re
 import time
+from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.us_watchlist import normalize_us_symbol
@@ -841,6 +843,102 @@ def execute_manual_cache_write_for_eligible_rows(
         "skipped_count": eligibility["rejected_count"],
         "writer_call_count": len(written),
         "rows": row_results,
+    }
+
+
+_SAFE_SYMBOL_RE = re.compile(r"^[A-Z0-9.\-_]{1,32}$")
+
+
+def _safe_filename_for_symbol(symbol: str) -> str | None:
+    """Return uppercase symbol if safe for use as a filename component, else None."""
+    upper = symbol.upper()
+    if _SAFE_SYMBOL_RE.match(upper) and ".." not in upper and "/" not in upper and "\\" not in upper:
+        return upper
+    return None
+
+
+def build_manual_cache_write_dry_run_plan(
+    plan_rows: list[dict[str, Any]],
+    *,
+    output_root: str | Path = "outputs/market_data/us_daily_bars",
+    provider: str = "stooq_preview",
+) -> dict[str, Any]:
+    """Dry-run filesystem path planning only (**Main R6.5.4**).
+
+    No file writes, no writer calls, no HTTP.  Validates target path shape for future production use.
+    """
+    root = Path(output_root)
+    eligibility = evaluate_manual_cache_write_eligibility_from_rows(plan_rows)
+    eligible_rows = [r for r in eligibility["rows"] if r.get("cache_write_eligible") is True]
+
+    rows_out: list[dict[str, Any]] = []
+    planned_write_count = 0
+
+    for row in eligible_rows:
+        sym = str(row.get("symbol") or "")
+        safe = _safe_filename_for_symbol(sym)
+        if safe is None:
+            rows_out.append({
+                "symbol": sym,
+                "provider": provider,
+                "planned_action": "excluded_unsafe_target_path",
+                "cache_write_eligible": False,
+                "reason": "manual_batch_cache_write_rejects_unsafe_target_path",
+                "writer_invoked": False,
+                "real_cache_write_performed": False,
+                "cache_write_performed": False,
+                "live_http_performed": False,
+                "raw_response_included": False,
+                "provider_api_key_value_included": False,
+            })
+            continue
+        target = root / f"{safe}.json"
+        rows_out.append({
+            "symbol": safe,
+            "provider": provider,
+            "planned_action": "manual_cache_write_dry_run_target",
+            "cache_write_eligible": True,
+            "target_path": str(target),
+            "sanitized_bar_count": row.get("sanitized_bar_count", 0),
+            "writer_invoked": False,
+            "real_cache_write_performed": False,
+            "cache_write_performed": False,
+            "live_http_performed": False,
+            "raw_response_included": False,
+            "provider_api_key_value_included": False,
+        })
+        planned_write_count += 1
+
+    for row in eligibility["rows"]:
+        if not row.get("cache_write_eligible"):
+            rows_out.append({
+                "symbol": str(row.get("symbol") or ""),
+                "provider": provider,
+                "planned_action": "excluded_ineligible",
+                "cache_write_eligible": False,
+                "reason": row.get("reason"),
+                "writer_invoked": False,
+                "real_cache_write_performed": False,
+                "cache_write_performed": False,
+            })
+
+    return {
+        "status": "manual_cache_write_dry_run_plan_built",
+        "observation_only": True,
+        "dry_run_only": True,
+        "live_http_performed": False,
+        "cache_write_performed": False,
+        "writer_invoked": False,
+        "real_cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "provider": provider,
+        "output_root": str(root),
+        "eligible_count": eligibility["eligible_count"],
+        "rejected_count": eligibility["rejected_count"],
+        "planned_write_count": planned_write_count,
+        "rows": rows_out,
+        "summary": eligibility["summary"],
     }
 
 

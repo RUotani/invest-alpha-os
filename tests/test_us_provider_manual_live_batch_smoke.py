@@ -1071,3 +1071,98 @@ def test_r6531_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
     _, writer = _fake_writer_factory()
     r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
     assert secret not in str(r)
+
+
+# ── R6.5.4 build_manual_cache_write_dry_run_plan tests ───────────────────────
+
+_DEFAULT_ROOT = "outputs/market_data/us_daily_bars"
+
+
+def test_r654_eligible_row_deterministic_path() -> None:
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row("MSFT")])
+    assert r["status"] == "manual_cache_write_dry_run_plan_built"
+    assert r["planned_write_count"] == 1
+    plan_rows = [x for x in r["rows"] if x.get("cache_write_eligible")]
+    assert len(plan_rows) == 1
+    assert plan_rows[0]["target_path"] == f"{_DEFAULT_ROOT}/MSFT.json"
+
+
+def test_r654_dry_run_safety_flags() -> None:
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()])
+    assert r["dry_run_only"] is True
+    assert r["writer_invoked"] is False
+    assert r["real_cache_write_performed"] is False
+    assert r["cache_write_performed"] is False
+    assert r["live_http_performed"] is False
+    assert r["raw_response_included"] is False
+    assert r["provider_api_key_value_included"] is False
+
+
+def test_r654_invalid_symbol_no_target_path() -> None:
+    row = {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}
+    r = mlbs.build_manual_cache_write_dry_run_plan([row])
+    assert r["planned_write_count"] == 0
+    for plan_row in r["rows"]:
+        assert "target_path" not in plan_row or plan_row.get("cache_write_eligible") is True
+
+
+def test_r654_unsafe_symbol_rejected() -> None:
+    unsafe_row = {**_ok_row("../escape"), "symbol": "../escape"}
+    r = mlbs.build_manual_cache_write_dry_run_plan([unsafe_row])
+    assert r["planned_write_count"] == 0
+    reasons = [x.get("reason") for x in r["rows"]]
+    assert any("unsafe" in str(rs) for rs in reasons)
+
+
+def test_r654_mixed_rows_planned_count() -> None:
+    rows = [
+        _ok_row("MSFT"),
+        {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"},
+        _ok_row("NVDA"),
+    ]
+    r = mlbs.build_manual_cache_write_dry_run_plan(rows)
+    assert r["planned_write_count"] == 2
+    targets = [x["target_path"] for x in r["rows"] if x.get("cache_write_eligible") and "target_path" in x]
+    assert f"{_DEFAULT_ROOT}/MSFT.json" in targets
+    assert f"{_DEFAULT_ROOT}/NVDA.json" in targets
+
+
+def test_r654_target_path_under_output_root() -> None:
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row("AAPL")])
+    for row in r["rows"]:
+        if tp := row.get("target_path"):
+            assert tp.startswith(_DEFAULT_ROOT)
+            assert ".." not in tp
+
+
+def test_r654_no_raw_response_in_payload() -> None:
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()])
+    payload_str = str(r)
+    assert "raw_body" not in payload_str
+    assert "raw_csv" not in payload_str
+    assert "raw_response\"" not in payload_str
+
+
+def test_r654_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r654_secret_key_never_echo_11111"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()])
+    assert secret not in str(r)
+
+
+def test_r654_never_calls_cache_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()])
+    assert r["cache_write_performed"] is False
+
+
+def test_r654_never_calls_live_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()])
+    assert r["live_http_performed"] is False
+
+
+def test_r654_no_dir_or_file_created(tmp_path: "pytest.TempPathFactory") -> None:
+    r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()], output_root=str(tmp_path / "test_out"))
+    assert not (tmp_path / "test_out").exists()
+    assert r["planned_write_count"] == 1

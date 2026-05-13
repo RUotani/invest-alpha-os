@@ -160,11 +160,18 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] No live HTTP consumed by write execution function.
 - [x] 13 new mock-first tests (68 total).
 
-**R6.5.4+ prerequisites (not yet satisfied):**
+**R6.5.4 items (already satisfied):**
+
+- [x] `build_manual_cache_write_dry_run_plan` pure path-planning function implemented.
+- [x] Target path deterministic: `outputs/market_data/us_daily_bars/{SYMBOL}.json`.
+- [x] Unsafe symbols (path traversal, slash, etc.) rejected with `manual_batch_cache_write_rejects_unsafe_target_path`.
+- [x] No file writes, no writer calls, no live HTTP — 11 new tests (84 total).
+
+**R6.5.5+ prerequisites (not yet satisfied):**
 
 - [ ] Wire `save_us_daily_bars_cache` as the real production writer (injected at CLI call site).
-- [ ] Confirm write target path is deterministic and under `outputs/market_data/us_daily_bars/`.
 - [ ] CLI integration for `--execute-cache-write` or equivalent gate; no Makefile / workflow wiring.
+- [ ] Confirm CI remains offline-safe after production writer integration.
 
 ---
 
@@ -206,6 +213,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.2** | **Main R6.5.2** | `evaluate_manual_cache_write_eligibility_from_rows` pure classifier implemented — **no cache write**, **no live HTTP**, **no cache writer call**; 12 new tests (55 total, +11 from R6.5.1); actual write remains R6.5.3+. |
 | **1.3** | **Main R6.5.3** | `execute_manual_cache_write_for_eligible_rows` injected-writer execution candidate — **no real FS write in tests**, **no live HTTP**, **writer injected only**; 13 new tests (68 total); production-like write remains R6.5.4+. |
 | **1.3.1** | **Main R6.5.3.1** | Clarify mock writer payload semantics — adds `writer_invoked` and `real_cache_write_performed: false` fields; `cache_write_performed` in mock path reflects injected writer exercised, **not** real FS persistence; 5 new tests (73 total). |
+| **1.4** | **Main R6.5.4** | `build_manual_cache_write_dry_run_plan` — dry-run filesystem path validation only; **no file writes**, **no writer calls**, **no live HTTP**; 11 new tests (84 total); production-like write remains R6.5.5+. |
 
 ---
 
