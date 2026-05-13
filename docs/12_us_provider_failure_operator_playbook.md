@@ -158,9 +158,10 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 **Explicit future work (**pre‑Main R6** gate):**
 
+- **Main R6.0 (design):** **`docs/13_us_provider_scheduled_ingest_design.md`** — scheduled / unattended ingest **safety contract** and phased roadmap (**no implementation** in R6.0).
 - Operators should **`operator_summary`** / **Markdown recap (§3.3)** first triage, then **`results[]` JSON** as needed, **never** by persisting vendor bodies.
-- **Main R6** (scheduled / unattended multi-symbol ingest) **must not** ship until product owners reaffirm gates: **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push forbids accidental `outputs/` commits**, **`STOOQ_APIKEY`** stays env-only — **same invariants as R5**; R6 work is tracked separately from **R5.1 / R5.2 / R5.3**.
-- Automated watchlist ingestion at cron scale remains **explicitly backlog** alongside that gate.
+- **Main R6+** implementation (cron, Actions schedule, production refresh) **must not** ship until product owners reaffirm gates in **`docs/13`** plus existing **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push output hygiene**, **`STOOQ_APIKEY`** env-only rules — **same invariants as R5**; implementation work is tracked separately from **R5.1 / R5.2 / R5.3**.
+- Automated watchlist ingestion at cron scale remains **explicitly backlog** until **`docs/13`** readiness items are satisfied.
 
 ---
 
