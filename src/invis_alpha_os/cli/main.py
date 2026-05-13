@@ -1512,15 +1512,20 @@ def debug_us_provider_manual_live_batch_smoke(
     live: bool = typer.Option(
         False,
         "--live",
-        help="Reserved for R6.4; R6.3 never performs vendor HTTP (scaffold refusal).",
+        help="Request live execution path (R6.3 scaffold: always refused; R6.4.0: use with --preflight).",
+    ),
+    preflight: bool = typer.Option(
+        False,
+        "--preflight",
+        help="Validate R6.4.0 live-smoke readiness only; performs no vendor HTTP.",
     ),
     markdown: bool = typer.Option(
         False,
         "--markdown",
-        help="Emit copy-ready Markdown recap (JSON canonical). Main R6.3.",
+        help="Emit copy-ready Markdown recap (JSON canonical). R6.3/R6.4.0.",
     ),
 ) -> None:
-    """Manual live batch smoke scaffold (**R6.3**): merge/limit/caps — **no HTTP**, **no cache write**."""
+    """Manual live batch smoke (**R6.4.0**): preflight readiness check — **no HTTP**, **no cache write**."""
 
     merged, fw, csv_ok = merged_symbols_for_scheduled_ingest_plan(
         from_watchlist=from_watchlist,
@@ -1534,6 +1539,7 @@ def debug_us_provider_manual_live_batch_smoke(
         limit_param=limit,
         max_http=max_http,
         live_requested=live,
+        preflight_requested=preflight,
     )
     if markdown:
         typer.echo(render_manual_live_batch_smoke_markdown(out), nl=False)

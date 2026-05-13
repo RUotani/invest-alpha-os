@@ -245,3 +245,191 @@ def test_cli_help_includes_command() -> None:
     r = runner.invoke(app, ["debug", "us-provider-manual-live-batch-smoke", "--help"])
     assert r.exit_code == 0, r.stdout + r.stderr
     assert "us-provider-manual-live-batch-smoke" in r.stdout or "manual" in r.stdout.lower()
+
+
+# ── R6.4.0 preflight tests ──────────────────────────────────────────────────
+
+
+def test_preflight_missing_gates_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-manual-live-batch-smoke",
+            "--symbols",
+            "MSFT",
+            "--provider",
+            "stooq_preview",
+            "--live",
+            "--preflight",
+            "--max-http",
+            "1",
+        ],
+    )
+    assert r.exit_code == 2, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "validation_error"
+    assert payload["reason"] == "manual_batch_smoke_live_http_not_confirmed"
+    assert payload["preflight_requested"] is True
+
+
+def test_preflight_max_http_zero_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-manual-live-batch-smoke",
+            "--symbols",
+            "MSFT",
+            "--provider",
+            "stooq_preview",
+            "--live",
+            "--preflight",
+            "--max-http",
+            "0",
+        ],
+    )
+    assert r.exit_code == 2, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "validation_error"
+    assert payload["reason"] == "manual_batch_smoke_max_http_zero"
+    assert payload["preflight_requested"] is True
+
+
+def test_preflight_ready_exit_0(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(uplp, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-manual-live-batch-smoke",
+            "--symbols",
+            "MSFT,NVDA",
+            "--provider",
+            "stooq_preview",
+            "--live",
+            "--preflight",
+            "--max-http",
+            "1",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    payload = json.loads(r.stdout.strip())
+    assert payload["status"] == "manual_live_batch_smoke_preflight_ready"
+    assert payload["mode"] == "preflight_ready_no_http"
+    assert payload["preflight_requested"] is True
+    assert payload["live_requested"] is True
+
+
+def test_preflight_ready_safety_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+    )
+    assert out["status"] == "manual_live_batch_smoke_preflight_ready"
+    assert out["live_http_performed"] is False
+    assert out["cache_write_performed"] is False
+    assert out["raw_response_included"] is False
+    assert out["provider_api_key_value_included"] is False
+    assert out["scheduled_ingest_enabled"] is False
+    assert out["manual_batch_smoke_enabled"] is False
+    assert out["observation_only"] is True
+
+
+def test_preflight_ready_plan_rows(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT", "AAPL"],
+        max_http=2,
+        live_requested=True,
+        preflight_requested=True,
+    )
+    assert out["status"] == "manual_live_batch_smoke_preflight_ready"
+    for row in out["plan_rows"]:
+        assert row["planned_action"] == "preflight_ready_no_http"
+        assert row["reason"] == "r6_4_0_preflight_ready_no_http"
+        assert row["live_http_allowed"] is False
+        assert row["cache_write_allowed"] is False
+    assert out["operator_summary"]["preflight_ready_count"] == 2
+
+
+def test_preflight_ready_planned_http_respects_max(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT", "NVDA", "AAPL"],
+        max_http=2,
+        live_requested=True,
+        preflight_requested=True,
+    )
+    assert out["status"] == "manual_live_batch_smoke_preflight_ready"
+    assert out["constraints"]["planned_http_attempts"] == 2
+    assert out["operator_summary"]["planned_http_attempt_count"] == 2
+
+
+def test_preflight_ready_api_key_not_printed(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "preflight_secret_key_never_echo_r640_99999"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-manual-live-batch-smoke",
+            "--symbols",
+            "MSFT",
+            "--provider",
+            "stooq_preview",
+            "--live",
+            "--preflight",
+            "--max-http",
+            "1",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert secret not in r.stdout
+    assert secret not in (r.stderr or "")
+
+
+def test_preflight_markdown_r640_wording(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+    )
+    md = mlbs.render_manual_live_batch_smoke_markdown(out)
+    assert "R6.4.0" in md
+    assert "preflight" in md.lower()
+    assert "no vendor HTTP" in md
+    assert "no cache write" in md
+
+
+def test_preflight_without_live_flag_still_preflight_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    """preflight_requested=True alone (no live_requested) still triggers preflight path when gates are set."""
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=False,
+        preflight_requested=True,
+    )
+    assert out["status"] == "manual_live_batch_smoke_preflight_ready"
+    assert out["preflight_requested"] is True
+    assert out["live_requested"] is False
+    assert out["live_http_performed"] is False

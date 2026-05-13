@@ -21,10 +21,14 @@ This document is the **safety contract and readiness gate** for evolving US prov
 
 - Changing JP pipelines, US daily Markdown defaults, or single-symbol gated tooling behaviour (**unchanged**).
 
+**Main R6.4.0 adds (implemented — preflight readiness only):**
+
+- **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`**: validates gates + **`--max-http`**; emits **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2) — **still zero vendor HTTP** — see **`docs/14`** R6.4.0 section.
+
 **Main R6.3 adds (implemented — scaffold only):**
 
 - **`us_provider_manual_live_batch_smoke.py`**: **`build_us_provider_manual_live_batch_smoke_payload`**, **`render_manual_live_batch_smoke_markdown`**.
-- **CLI** **`debug us-provider-manual-live-batch-smoke`**: merges symbols, applies **`limit`** / **`--max-http`**, emits **`manual_live_batch_smoke_dry_run`** or scaffold **`validation_error`** — **`--live`** is **accepted** but **always refuses** vendor HTTP (**real execution is Main R6.4+**). **`make us-provider-manual-live-batch-smoke-dry-run`** is an optional Makefile shortcut (**still no HTTP**, **`--live`/`--write-cache` not used**).
+- **CLI** **`debug us-provider-manual-live-batch-smoke`**: merges symbols, applies **`limit`** / **`--max-http`**, emits **`manual_live_batch_smoke_dry_run`** or scaffold **`validation_error`** — **`--live`** is **accepted** but **always refuses** vendor HTTP (**real execution is Main R6.4.1+**). **`make us-provider-manual-live-batch-smoke-dry-run`** is an optional Makefile shortcut (**still no HTTP**, **`--live`/`--write-cache` not used**).
 
 **Main R6.2 remains (documentation):**
 
@@ -52,7 +56,8 @@ As of **Main R5.3.1**, the repo already provides:
 | **US daily section** | **Disabled by default** (`include_us_momentum_cache_only_section` unchanged). |
 | **Secrets / outputs hygiene** | **`STOOQ_APIKEY`** env-only when used; **safe-push** guards against accidental **`outputs/`** / `.env` commits; **no raw vendor payloads** in tooling outputs. |
 | **R6.1 dry-run plan renderer** | **`debug us-provider-scheduled-ingest-plan`** (**`--from-watchlist`** / **`--symbols`**, **`--limit`**) emits **`scheduled_plan_dry_run`** JSON (`plan_rows`, `gate_status`, optional env caps) — **observation only**. |
-| **R6.3 manual batch smoke scaffold** | **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_dry_run`** or scaffold **`validation_error`**; **`--live`** **never** performs vendor GETs (**R6.4+**); optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
+| **R6.3 manual batch smoke scaffold** | **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_dry_run`** or scaffold **`validation_error`**; **`--live`** **never** performs vendor GETs (**R6.4.1+**); optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
+| **R6.4.0 preflight readiness** | **`--preflight`** on same CLI — **`manual_live_batch_smoke_preflight_ready`** or **`validation_error`**; **zero vendor HTTP**; validates gates + **`--max-http`**. |
 
 ---
 
@@ -66,11 +71,12 @@ Phases describe **intent**. **R6.0**, **R6.1 (plan renderer)**, **R6.2 (`docs/14
 | **R6.1** | **Dry-run plan renderer** (**implemented**) — JSON / Markdown plans; **no HTTP**, **no cache write** (`src/.../us_provider_scheduled_ingest_plan.py`). |
 | **R6.2** | **`docs/14`** manual live batch smoke — **policy / CLI shape / gates** (**design-first** milestone). |
 | **R6.3** | **Manual live batch scaffold** (**implemented**) — **`debug us-provider-manual-live-batch-smoke`** merges symbols / reports caps; **`--live`** **does not perform** vendor GETs; **exit 2** scaffold reasons (**`manual_batch_smoke_*`**) per **`docs/14`** / **`docs/12`**. |
-| **R6.4** | **Manual live batch smoke execution** — bounded HTTP **after** **`docs/14`** gates + **`docs/14`** section 8 (**not R6.3**). |
+| **R6.4.0** | **Preflight readiness check** (**implemented**) — **`--preflight`** validates gates + **`--max-http`**; **`manual_live_batch_smoke_preflight_ready`** exit 0; **zero vendor HTTP**. |
+| **R6.4.1** | **Manual live batch smoke execution** — bounded HTTP **after** **`docs/14`** gates + **`docs/14`** section 8 (**not R6.3** or **R6.4.0**). |
 | **R6.5** | **Gated multi-symbol sanitized cache write *candidate*** — evaluation only (**bulk semantics remain tightly gated**). |
 | **R6.6+** | **Scheduled ingest** — **only after** vendor contract / observability approvals and **`CONFIRM_US_SCHEDULED_INGEST`** ergonomics land. |
 
-**R6.1 does not widen R6.3 scaffold scope.** **`docs/14`** defines R6.2 contract; **`R6.3` code** honours **observation-first** scaffold rules until **R6.4** executes HTTP.
+**R6.1 does not widen R6.3 scaffold scope.** **`docs/14`** defines R6.2 contract; **`R6.3` code** honours **observation-first** scaffold rules. **R6.4.0** adds preflight readiness (zero HTTP); **R6.4.1** executes HTTP.
 
 ---
 

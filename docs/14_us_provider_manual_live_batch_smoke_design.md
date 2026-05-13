@@ -1,4 +1,4 @@
-# US provider — operator-approved manual live batch smoke (**Main R6.2 design + R6.3 scaffold**)
+# US provider — operator-approved manual live batch smoke (**Main R6.2 design + R6.3 scaffold + R6.4.0 preflight**)
 
 ## 1. Purpose
 
@@ -10,6 +10,14 @@
 - **CLI** **`debug us-provider-manual-live-batch-smoke`** (**`--markdown`** optional): merges **`--from-watchlist`** + **`--symbols`** (same semantics as **`debug us-provider-scheduled-ingest-plan`**), applies **`--limit`** and **`--max-http`**, emits **`manual_live_batch_smoke_dry_run`** JSON or deterministic **`validation_error`** outcomes.
 - **`--live`:** accepted for forward compatibility; **Main R6.3 never performs vendor HTTP** — real bounded GETs are **Main R6.4+**.
 - **Optional Makefile:** **`make us-provider-manual-live-batch-smoke-dry-run`** — **no** **`--live`**, **no** **`--write-cache`**, not wired to **`verify`** / **`safe-push`**.
+
+**Main R6.4.0 adds (implemented — preflight readiness only):**
+
+- **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`**: validates that all gates are set and **`--max-http > 0`** — emits **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2).
+- **Still zero vendor HTTP** and **zero cache writes** — preflight confirms readiness without executing.
+- Plan rows change from **`dry_run_only`** / **`r6_3_scaffold_no_http_no_write`** to **`preflight_ready_no_http`** / **`r6_4_0_preflight_ready_no_http`**.
+- **`operator_summary`** gains **`preflight_ready_count`**.
+- **`next_required_approval`** updates to **`R6.4.1 manual live batch smoke execution`**.
 
 Characteristics (unchanged from R6.2 intent):
 
@@ -33,16 +41,24 @@ Canonical neighbours:
 
 | `status` | `reason` | CLI exit | Notes |
 |----------|----------|---------:|-------|
-| **`manual_live_batch_smoke_dry_run`** | — | **0** | Default without **`--live`**; **`live_http_performed`: false**. |
+| **`manual_live_batch_smoke_dry_run`** | — | **0** | Default without **`--live`** or **`--preflight`**; **`live_http_performed`: false**. |
 | **`validation_error`** | **`unsupported_provider`** | **2** | Only **`stooq_preview`**. |
 | **`validation_error`** | **`empty_symbol_batch`** | **2** | No merged symbols. |
-| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--live`** but missing **`CONFIRM_US_LIVE_HTTP=YES`** or **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
+| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--live`** / **`--preflight`** but missing **`CONFIRM_US_LIVE_HTTP=YES`** or **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
 | **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--live`** with **`--max-http 0`**. |
-| **`validation_error`** | **`manual_batch_smoke_live_execution_not_implemented_in_r6_3`** | **2** | **`--live`** + both gates **`YES`** — **R6.4** executes HTTP. |
+| **`validation_error`** | **`manual_batch_smoke_live_execution_not_implemented_in_r6_3`** | **2** | **`--live`** (no **`--preflight`**) + both gates **`YES`** — **R6.4.1** executes HTTP. |
 
-Envelope **`reason`** for valid plan rows (not top-level): **`r6_3_scaffold_no_http_no_write`**. Invalid symbols use **`invalid_symbol`** / **`excluded_invalid_symbol`** per JSON rows.
+Envelope **`reason`** for valid plan rows (not top-level): **`r6_3_scaffold_no_http_no_write`** (dry-run) or **`r6_4_0_preflight_ready_no_http`** (preflight). Invalid symbols use **`invalid_symbol`** / **`excluded_invalid_symbol`**.
 
-**Next milestone (success path):** **`next_required_approval`** string **`R6.4 manual live batch smoke execution`**.
+## R6.4.0 preflight — additional status / reason strings (JSON)
+
+| `status` | `reason` | CLI exit | Notes |
+|----------|----------|---------:|-------|
+| **`manual_live_batch_smoke_preflight_ready`** | — | **0** | **`--preflight`** with both gates **`YES`** and **`--max-http > 0`**; **zero vendor HTTP**. |
+| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--preflight`** but gate(s) missing. |
+| **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--preflight`** with both gates **`YES`** but **`--max-http 0`**. |
+
+**Next milestone (success path after preflight):** **`next_required_approval`** string **`R6.4.1 manual live batch smoke execution`**.
 
 ---
 
@@ -73,23 +89,27 @@ The following remain **explicitly excluded** from **R6.3** (**and** from claimin
 
 ---
 
-## 4. CLI shape (**R6.3 implemented**)
+## 4. CLI shape (**R6.3 implemented + R6.4.0 --preflight**)
 
 ```text
+# R6.3 dry-run (no --live, no --preflight)
 python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
   --symbols MSFT,NVDA --provider stooq_preview --max-http 2
 
+# R6.4.0 preflight readiness check (both gates must be set; zero HTTP)
+CONFIRM_US_LIVE_HTTP=YES CONFIRM_US_MANUAL_BATCH_SMOKE=YES \
 python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
-  --from-watchlist --provider stooq_preview --limit 3 --max-http 3
+  --symbols MSFT,NVDA --provider stooq_preview --live --preflight --max-http 2
 ```
 
 **Design notes:**
 
 - Merge semantics mirror **`debug us-provider-cache-preview-batch`** and **`debug us-provider-scheduled-ingest-plan`** (**watchlist first**, CSV append, dedupe, **`limit`**).
-- **`--max-http`:** non-negative; default **0**; **`planned_http_attempts = min(valid_symbol_count, max_http)`** (**R6.3** — informational only).
-- **`--live`:** **R6.3** refuses execution per **status/reason** table above.
+- **`--max-http`:** non-negative; default **0**; **`planned_http_attempts = min(valid_symbol_count, max_http)`** (**R6.3** — informational; **R6.4.0** preflight also uses this cap).
+- **`--live`:** **R6.3** (without **`--preflight`**) refuses execution. **R6.4.0**: combine **`--live --preflight`** to validate readiness (zero HTTP performed).
+- **`--preflight`:** **R6.4.0** — gates check + max_http check → **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2).
 
-**Makefile:** **`make us-provider-manual-live-batch-smoke-dry-run`** (**`--max-http 0`**) — **`safe-push`** / **`verify`** / **`agent-final-check`** stay **independent** of this target.
+**Makefile:** **`make us-provider-manual-live-batch-smoke-dry-run`** (**`--max-http 0`**, no **`--live`**, no **`--preflight`**) — **`safe-push`** / **`verify`** / **`agent-final-check`** stay **independent** of this target.
 
 ---
 
@@ -104,23 +124,26 @@ Any **future R6.4** implementation **must** require:
 | **`CONFIRM_US_CACHE_WRITE`** (optional) | **Only** if an explicit cache-write sub-mode is added (**off** by default). |
 | **`STOOQ_APIKEY`** | **Optional**, **environment-only** — **never** echoed (**R6.3** tests enforce). |
 
-**R6.3:** if **`--live`** and either gate is not **`YES`**, top-level **`reason`** is **`manual_batch_smoke_live_http_not_confirmed`** (**exit 2**) — **still zero HTTP**.
+**R6.3:** if **`--live`** (no **`--preflight`**) and either gate is not **`YES`**, top-level **`reason`** is **`manual_batch_smoke_live_http_not_confirmed`** (**exit 2**) — **still zero HTTP**.
+
+**R6.4.0:** if **`--preflight`** and either gate is not **`YES`**, same **`manual_batch_smoke_live_http_not_confirmed`** reason — **zero HTTP**. Both gates **`YES`** + **`--max-http > 0`** → **`manual_live_batch_smoke_preflight_ready`** (**exit 0**, zero HTTP).
 
 ---
 
 ## 6. Safety contract (JSON envelope posture)
 
-| Flag | R6.3 scaffold posture |
-|------|------------------------|
-| **`live_http_performed`** | **`false`** always (**R6.3**). |
-| **`cache_write_performed`** | **`false`** always (**R6.3**). |
-| **`raw_response_included`** | **`false`** always. |
-| **`provider_api_key_value_included`** | **`false`** always (**env name only**: **`STOOQ_APIKEY`** metadata where applicable). |
-| **`scheduled_ingest_enabled`** | **`false`** always. |
-| **`manual_batch_smoke_enabled`** | **`false`** (**R6.3** — scaffold / observation only). |
-| **`requires_operator_approval`** | **`true`** (**constraints** object). |
-| **`max_http_per_run`** / **`planned_http_attempts`** | From **`--max-http`** / **`min(valid_symbols, max_http)`**. |
-| **`min_sleep_seconds`** | From **`US_PROVIDER_MIN_SLEEP_SECONDS`** env when set, else **`null`** (**observation**). |
+| Flag | R6.3 scaffold posture | R6.4.0 preflight posture |
+|------|------------------------|--------------------------|
+| **`live_http_performed`** | **`false`** always. | **`false`** always. |
+| **`cache_write_performed`** | **`false`** always. | **`false`** always. |
+| **`raw_response_included`** | **`false`** always. | **`false`** always. |
+| **`provider_api_key_value_included`** | **`false`** always. | **`false`** always. |
+| **`scheduled_ingest_enabled`** | **`false`** always. | **`false`** always. |
+| **`manual_batch_smoke_enabled`** | **`false`** (scaffold only). | **`false`** (preflight only). |
+| **`preflight_requested`** | not present. | **`true`** when **`--preflight`** used. |
+| **`requires_operator_approval`** | **`true`** (**constraints**). | **`true`** (**constraints**). |
+| **`max_http_per_run`** / **`planned_http_attempts`** | From **`--max-http`** / **`min(valid_symbols, max_http)`**. | Same. |
+| **`min_sleep_seconds`** | From env when set, else **`null`**. | Same. |
 
 ---
 
@@ -139,11 +162,11 @@ Any **future R6.4** implementation **must** require:
 
 ---
 
-## 8. Exit criteria before an implementation PR may claim “R6.4 execution live”
+## 8. Exit criteria before an implementation PR may claim “R6.4.1 execution live”
 
-**Main R6.3** satisfies **scaffold / observation** tests (**`tests/test_us_provider_manual_live_batch_smoke.py`**). **Main R6.4** (**real HTTP**) still requires:
+**Main R6.3** satisfies **scaffold / observation** tests. **Main R6.4.0** satisfies **preflight readiness** tests (**`tests/test_us_provider_manual_live_batch_smoke.py`** — 22 tests). **Main R6.4.1** (**real HTTP**) still requires:
 
-1. **`docs/14`** + **`docs/13`** coherence for **R6.4** (**HTTP ON** when gates + **`--max-http > 0`**).
+1. **`docs/14`** + **`docs/13`** coherence for **R6.4.1** (**HTTP ON** when gates + **`--max-http > 0`** + **`--preflight`** passed first).
 2. Automated proofs: **no HTTP** when gates missing; **`--max-http`** enforced on wire; **no** raw payload / API key values; **no** scheduler / workflow **`schedule:`** for this feature.
 
 Tests **must not** use **`ALLOW_IMPORTANT=true`**.
