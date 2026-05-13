@@ -1,12 +1,14 @@
-# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5.3)
+# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R6 planned ingest)
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope, **R5.1 `operator_summary`**, and **R5.2–R5.3 Markdown recap** — **not** a wish list.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.3**), and (**Main R6.1**) **`debug us-provider-scheduled-ingest-plan`** — **dry-run scheduled ingest plans only** (**no HTTP**, **no cache write** — see **`docs/13`**). **Scheduled / unattended ingest execution is out of scope** until **`docs/13`** gated milestones (**R6.2+**) ship.
 
-**Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP.
+Implementation matches **Main R4.3** per-symbol payloads, **Main R5** batch envelope / **`operator_summary`** / Markdown recap, and **`docs/13`** phased safety design — **not** a wish list for production automation without further gates.
 
-**Canonical reference:** **`stooq_live_preview_shape_digest`** / **`stooq_live_preview_sanitized_bars`** in **`us_provider_live_preview.py`**; batch envelope **`run_stooq_cache_preview_batch`** in **`us_provider_cache_preview_batch.py`**. If code and this doc disagree, **trust the code** and update this file.
+**Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP (**R6.1 plan renderer included**).
+
+**Canonical reference:** **`stooq_live_preview_shape_digest`** / **`stooq_live_preview_sanitized_bars`** in **`us_provider_live_preview.py`**; batch envelope **`run_stooq_cache_preview_batch`** in **`us_provider_cache_preview_batch.py`**; R6.1 plan builder **`build_us_provider_scheduled_ingest_plan`** in **`us_provider_scheduled_ingest_plan.py`**. If code and this doc disagree, **trust the code** and update this file.
 
 ---
 
@@ -25,7 +27,7 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 - Putting **API keys** in **stdout**, **stderr**, **committed docs**, **tests**, or **CI logs** — use **process env** / local **`.env`** only (`.env` is **not** committed).
 - Running **live HTTP** from **automated tests** or **CI** (mock only).
 - **Cache write** without **`CONFIRM_US_CACHE_WRITE=YES`** and explicit operator intent.
-- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh (post‑R5 design work unless explicitly gated elsewhere).
+- **Unattended multi-symbol** live fetch or **scheduled bulk** refresh — **forbidden** until **`docs/13`** **R6.2+** milestones; **R6.1 plan output is not execution**.
 
 ---
 
@@ -154,14 +156,18 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 - **No unattended live HTTP**, **no default cache write**, **no bulk sanitized writer** (`--write-cache` at batch ⇒ **`batch_cache_write_not_supported`**), **never commit `outputs/market_data`**, **do not use `ALLOW_IMPORTANT=true`** to bypass workflow gates (unchanged policy).
 
 **Documentation touchpoints:**
-- Canonical module: **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
 
-**Explicit future work (**pre‑Main R6** gate):**
+- Batch aggregation: **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
 
-- **Main R6.0 (design):** **`docs/13_us_provider_scheduled_ingest_design.md`** — scheduled / unattended ingest **safety contract** and phased roadmap (**no implementation** in R6.0).
-- Operators should **`operator_summary`** / **Markdown recap (§3.3)** first triage, then **`results[]` JSON** as needed, **never** by persisting vendor bodies.
-- **Main R6+** implementation (cron, Actions schedule, production refresh) **must not** ship until product owners reaffirm gates in **`docs/13`** plus existing **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push output hygiene**, **`STOOQ_APIKEY`** env-only rules — **same invariants as R5**; implementation work is tracked separately from **R5.1 / R5.2 / R5.3**.
-- Automated watchlist ingestion at cron scale remains **explicitly backlog** until **`docs/13`** readiness items are satisfied.
+- **Main R6.1** dry-run ingest plans: **`src/invis_alpha_os/data/us_provider_scheduled_ingest_plan.py`** (**`debug us-provider-scheduled-ingest-plan`**).
+
+**Explicit future work (**pre‑Main R6 automation** gate):**
+
+- **`docs/13_us_provider_scheduled_ingest_design.md`** — phased roadmap (**R6.0 contract**, **R6.1 plan renderer landed**, **R6.2+** still gated).
+- **Main R6.1 (plan renderer):** emits **`scheduled_plan_dry_run`** JSON / Markdown — **not** ingest execution.
+- Operators should **`operator_summary`** / batch **Markdown recap (§3.3)** first triage; use **`docs/13`** + **`scheduled_plan_dry_run`** for scheduled-ingest readiness — **never** persist vendor bodies.
+- **Unattended R6+ implementation** (cron, Actions schedule, production refresh) **must not** ship until product owners reaffirm **`docs/13`** gates plus **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, future **`CONFIRM_US_SCHEDULED_INGEST`**, **safe-push output hygiene**, **`STOOQ_APIKEY`** env-only rules — **R6.1 plans do not relax this**.
+- Automated watchlist ingestion at cron scale remains **explicit backlog** until **`docs/13`** readiness (post‑**R6.1**) is satisfied.
 
 ---
 

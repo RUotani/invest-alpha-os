@@ -85,6 +85,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R5.2**: **`render_us_provider_cache_preview_batch_markdown`** + CLI **`--markdown`** — operator **Markdown recap** (**summary / operator_summary**; **omits `results[]`**); **no new fetch**, **no cache persistence**; see **`docs/12`** §3.3.
 - **Main R5.3**: **Copy-ready stdout ordering** — verdict + safety-flag table + notes tuned for manual paste (**still JSON canonical** for rows).
 - **Main R6.0**: **`docs/13_us_provider_scheduled_ingest_design.md`** — scheduled / unattended ingest **safety contract** (**design-only**; **no cron**, **no Actions schedule**, **no new HTTP/cache code**).
+- **Main R6.1**: **`build_us_provider_scheduled_ingest_plan`** / **`debug us-provider-scheduled-ingest-plan`** — **`scheduled_plan_dry_run`** JSON / Markdown (**watchlist + CLI symbol merge**); **no HTTP**, **no cache write**, **no scheduler** — see **`docs/13`** §8.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -104,7 +105,8 @@ After Main Q / Q0:
 | **Main R5.2** | **`--markdown` operator recap** (**counts only**) — **not** row-level JSON, **not** automated refresh |
 | **Main R5.3** | **Copy-ready Markdown section order** — **stdout paste helper only** |
 | **Main R6.0** | **`docs/13`** scheduled ingest **safety design** — **no automation** |
-| **Main R6+** | Scheduled / unattended watchlist ingest, additional commercial providers (**only after `docs/13` gates + explicit implementation milestones**) |
+| **Main R6.1** | **Dry-run scheduled ingest plan renderer** — JSON / Markdown posture only (**`docs/13`** §8) |
+| **Main R6+** | Scheduled / unattended watchlist ingest execution, additional commercial providers (**only after `docs/13` gates + explicit implementation milestones**, **post‑R6.1**) |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |

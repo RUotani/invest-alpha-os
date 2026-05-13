@@ -1,4 +1,4 @@
-# US equities / ETFs — market data provider plan (Main R2–Main R6.0 design)
+# US equities / ETFs — market data provider plan (Main R2–Main R6.1 plan renderer)
 
 ## 1. Purpose
 
@@ -71,7 +71,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R5.2** | **`render_us_provider_cache_preview_batch_markdown`** + **`debug us-provider-cache-preview-batch --markdown`** — **counts / posture only** recap for operators (**no `results[]`**, **no disk write**, **still observation-only**). Prefer JSON export when diagnosing individual symbols. |
 | **Main R5.3** | **Copy-ready Markdown layout** — blockquote (**JSON canonical**), **`## Operator verdict`**, **`## Safety flags`** table, summary tables, **`## Notes`** for paste into daily ops memos (**stdout only**; **no file write**, **no report automation**). |
 | **Main R6.0** | **Scheduled ingest safety design only** — **`docs/13_us_provider_scheduled_ingest_design.md`**: phased roadmap (**R6.1–R6.4+**), gate proposals, ingest state machine (**no cron**, **no Actions schedule**, **no runtime ingest code**). |
-| **Beyond Main R6.0** | **R6.1+** implementation per **`docs/13`** — Alpha Vantage / richer mapping remain separate commercial decisions; **nothing ships unattended** until **`CONFIRM_US_SCHEDULED_INGEST`** (future) and ops checklist pass. |
+| **Main R6.1** | **Dry-run scheduled ingest plan renderer** — **`us_provider_scheduled_ingest_plan.py`** + **`debug us-provider-scheduled-ingest-plan`**: emits **`scheduled_plan_dry_run`** (**symbol universe**, gates, constraints); **no HTTP**, **no cache write**, **no scheduler**. See **`docs/13`** §8. |
+| **Beyond Main R6.1** | **R6.2+** unattended / batch execution per **`docs/13`** — Alpha Vantage / richer mapping remain separate commercial decisions; **nothing ships unattended** until **`CONFIRM_US_SCHEDULED_INGEST`** (future) and ops checklist pass. |
 
 ---
 
@@ -82,4 +83,4 @@ Observation only — no buy/sell advice, no automated trading.
 3. **Avoid** coupling core automation solely to **unofficial Yahoo / HTML scraping**.
 4. **Safety:** **No live HTTP by default.** **No API keys printed.** **`raw_response` never written.** All provider outputs must pass the **sanitized OHLCV cache writer** (`save_us_daily_bars_cache`) after validation.
 
-For **failure triage**, use **`docs/12_us_provider_failure_operator_playbook.md`**. For **multi-symbol dry-run rollup**, **`make us-provider-cache-preview-batch-dry-run`**. For **scheduled ingest readiness (design only)**, **`docs/13_us_provider_scheduled_ingest_design.md`**.
+For **failure triage**, use **`docs/12_us_provider_failure_operator_playbook.md`**. For **multi-symbol dry-run rollup**, **`make us-provider-cache-preview-batch-dry-run`**. For **scheduled ingest contract (design)**, **`docs/13_us_provider_scheduled_ingest_design.md`**. For **dry-run scheduled ingest plans** (symbol universe + gates, **no HTTP**), **`debug us-provider-scheduled-ingest-plan`**.

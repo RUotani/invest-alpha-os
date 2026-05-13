@@ -31,6 +31,11 @@ from invis_alpha_os.data.us_provider_cache_preview_batch import (
     run_stooq_cache_preview_batch,
     symbols_from_us_watchlist_file,
 )
+from invis_alpha_os.data.us_provider_scheduled_ingest_plan import (
+    build_us_provider_scheduled_ingest_plan,
+    merged_symbols_for_scheduled_ingest_plan,
+    render_us_provider_scheduled_ingest_plan_markdown,
+)
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -1415,6 +1420,54 @@ def debug_us_provider_cache_preview_batch(
     )
     if markdown:
         typer.echo(render_us_provider_cache_preview_batch_markdown(out), nl=False)
+    else:
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    st_top = str(out.get("status") or "")
+    if st_top == "validation_error":
+        raise typer.Exit(2)
+    raise typer.Exit(0)
+
+
+@debug_app.command("us-provider-scheduled-ingest-plan")
+def debug_us_provider_scheduled_ingest_plan(
+    symbols_csv: Optional[str] = typer.Option(
+        None,
+        "--symbols",
+        help="Comma-separated US symbols (merged after --from-watchlist when both set).",
+    ),
+    from_watchlist: bool = typer.Option(
+        False,
+        "--from-watchlist",
+        help="Include symbols from config/us_watchlist.yaml (normalized; YAML-native dedupe).",
+    ),
+    provider: str = typer.Option("stooq_preview", "--provider", help="stooq_preview only (Main R6.1 plan)."),
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        min=1,
+        help="Maximum normalized symbols after merge (invalid rows unaffected).",
+    ),
+    markdown: bool = typer.Option(
+        False,
+        "--markdown",
+        help="Emit copy-ready Markdown plan (JSON canonical for plan_rows). Main R6.1.",
+    ),
+) -> None:
+    """Dry-run scheduled ingest plan (**no HTTP**, **no cache write**, **no scheduler**)."""
+
+    merged, fw, csv_ok = merged_symbols_for_scheduled_ingest_plan(
+        from_watchlist=from_watchlist,
+        symbols_csv=symbols_csv,
+    )
+    out = build_us_provider_scheduled_ingest_plan(
+        merged,
+        provider=provider,
+        from_watchlist_used=fw,
+        symbols_csv_provided=csv_ok,
+        limit_param=limit,
+    )
+    if markdown:
+        typer.echo(render_us_provider_scheduled_ingest_plan_markdown(out), nl=False)
     else:
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
     st_top = str(out.get("status") or "")

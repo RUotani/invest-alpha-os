@@ -1,4 +1,4 @@
-# US provider scheduled ingest — safety design (**Main R6.0**)
+# US provider scheduled ingest — safety design (**Main R6.0–R6.1**)
 
 ## 1. Purpose
 
@@ -6,12 +6,19 @@ This document is the **safety contract and readiness gate** for evolving US prov
 
 **Main R6.0 scope:**
 
-- **Design / policy / documentation only.** No runnable automation is introduced in R6.0.
-- Aligns operators and maintainers on **gates**, **limits**, **state semantics**, and **phased delivery** before any schedule, cron, or CI workflow touches vendor HTTP.
+- **Design / policy / documentation** captured in this file — no cron, no GitHub Actions **`schedule`**, no production refresh loops.
 
-**Out of scope for R6.0:**
+**Main R6.1 adds (implemented):**
 
-- Implementing cron, GitHub Actions `schedule`, production refresh loops, batch cache writers, or unattended multi-symbol HTTP.
+- **`us_provider_scheduled_ingest_plan.py`**: **`build_us_provider_scheduled_ingest_plan`**, **`merged_symbols_for_scheduled_ingest_plan`**, **`render_us_provider_scheduled_ingest_plan_markdown`**.
+- **CLI** **`debug us-provider-scheduled-ingest-plan`** (**`--markdown`** optional): prints **JSON** (canonical) or Markdown **plan recap** — **no vendor HTTP**, **no cache write**, **never** prints API key **values** (**`STOOQ_APIKEY`** name may appear as metadata only).
+
+**Still out of scope (R6.1):**
+
+- Cron, Actions schedule, unattended multi-symbol GETs, batch cache writers.
+
+**Out of scope legacy R6.0-only note:**
+
 - Changing JP pipelines, US daily Markdown defaults, or single-symbol gated tooling behaviour (**unchanged**).
 
 **Canonical neighbours:**
@@ -34,22 +41,23 @@ As of **Main R5.3.1**, the repo already provides:
 | **Stooq posture** | **Preview / prototype** tier — not assumed broker-grade production entitlement. |
 | **US daily section** | **Disabled by default** (`include_us_momentum_cache_only_section` unchanged). |
 | **Secrets / outputs hygiene** | **`STOOQ_APIKEY`** env-only when used; **safe-push** guards against accidental **`outputs/`** / `.env` commits; **no raw vendor payloads** in tooling outputs. |
+| **R6.1 dry-run plan renderer** | **`debug us-provider-scheduled-ingest-plan`** (**`--from-watchlist`** / **`--symbols`**, **`--limit`**) emits **`scheduled_plan_dry_run`** JSON (`plan_rows`, `gate_status`, optional env caps) — **observation only**. |
 
 ---
 
 ## 3. Target future state (phased — **not** committed delivery dates)
 
-Phases below describe **intent**. **Only R6.0 exists as approved documentation** at the time this file lands; later phases require separate milestones and gate sign-off.
+Phases describe **intent**. **R6.0** and **R6.1 (plan renderer)** are **landed** as of this revision; **R6.2+** remain **future** milestones with separate sign-off.
 
 | Phase | Intent |
 |-------|--------|
-| **R6.0** | **Safety design only** — this document; **no schedule**, **no new executable ingest**. |
-| **R6.1** | **Dry-run scheduled plan renderer** — machine-readable or human-readable **plan** (symbols, ordering, caps, sleep budget) **without** performing vendor HTTP autonomously. |
+| **R6.0** | **Safety design** — this document’s contract; **no scheduler execution**. |
+| **R6.1** | **Dry-run plan renderer** (**implemented**) — JSON / Markdown plans; **no HTTP**, **no cache write** (`src/.../us_provider_scheduled_ingest_plan.py`). |
 | **R6.2** | **Operator-approved manual live batch smoke** — explicit human invocation with caps and **`FAIL_FAST`** semantics aligned with §5; **still not** unattended. |
 | **R6.3** | **Gated multi-symbol sanitized cache write *candidate*** — design-level evaluation only until writer policy, manifest rules, and rollback story are accepted (**bulk semantics remain tightly gated**). |
 | **R6.4+** | **Scheduled ingest** — **only after** vendor contract / rate limits / storage retention / observability are approved and redundant manual gates exist. |
 
-**R6.0 explicitly does not implement R6.1 or later.**
+**R6.1 does not implement R6.2 or later.**
 
 ---
 
@@ -130,11 +138,11 @@ flowchart LR
 
 ---
 
-## 6. Readiness checklist (before opening an R6.1 design/impl PR)
+## 6. Readiness checklist (before opening an **R6.2** design/impl PR)
 
 Use as a **paper gate** — R6.0 does not automate checks.
 
-- [ ] Operators can run **batch dry-run JSON** + **Markdown recap** without Live HTTP (**`docs/12` §3**).
+- [ ] Operators can run **`debug us-provider-scheduled-ingest-plan`** and interpret **`scheduled_plan_dry_run`** JSON / Markdown (**no HTTP** implicit).
 - [ ] Watchlist normalization and **Stooq wire slug** rules are understood (**`docs/11`**).
 - [ ] **`STOOQ_APIKEY`** posture documented for the target environment (**env-only**).
 - [ ] Rate-limit / courtesy story drafted (caps + sleep + **fail-fast** flags from §4.2).
@@ -148,6 +156,20 @@ Use as a **paper gate** — R6.0 does not automate checks.
 
 | Version | Milestone | Notes |
 |---------|-----------|--------|
-| **1.0** | **Main R6.0** | Initial safety design; **implementation = none**. |
+| **1.0** | **Main R6.0** | Initial safety design; ingest automation = none. |
+| **1.1** | **Main R6.1** | **`us_provider_scheduled_ingest_plan`** module + **`debug us-provider-scheduled-ingest-plan`** — **still no scheduler / HTTP / cache write**. |
 
-When R6.1+ land, update this file’s **phased table** and **checklist** — do not silently widen R6.0 scope.
+When R6.2+ land, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
+
+---
+
+## 8. R6.1 CLI reference (dry-run plans)
+
+| Invocation | Behaviour |
+|------------|-----------|
+| **`python -m invis_alpha_os.cli.main debug us-provider-scheduled-ingest-plan --from-watchlist --limit 4`** | Merges **`config/us_watchlist.yaml`** symbols (normalized), applies **`limit`** after dedupe, prints JSON. |
+| Add **`--symbols MSFT,AAPL`** | Symbols append **after** watchlist merge (**same as batch CLI**). |
+| **`--markdown`** | Human recap; **JSON remains canonical** for **`plan_rows`**. |
+| Exit **2** | **`validation_error`** (`empty_symbol_batch`, `unsupported_provider`). |
+
+**Environment knobs (observation only in output):** optional **`US_PROVIDER_MAX_SYMBOLS`**, **`US_PROVIDER_MAX_HTTP_PER_RUN`**, **`US_PROVIDER_MIN_SLEEP_SECONDS`** — read for reporting in **`constraints`**; **R6.1 never performs HTTP** so **`max_http_per_run`** is informational unless a later phase consumes it.
