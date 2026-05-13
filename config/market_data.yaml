@@ -66,3 +66,5 @@ market_data:
 daily_report:
   include_momentum_cache_only_section: true
   include_momentum_mixed_section: true
+  # Main R: optional US momentum block — default off (populate us_daily_bars cache + enable when ready).
+  include_us_momentum_cache_only_section: false

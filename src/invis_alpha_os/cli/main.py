@@ -37,6 +37,7 @@ from invis_alpha_os.reports.jquants_watchlist_daily import render_jquants_watchl
 from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_cache_only_section,
     render_momentum_signals_mixed_section,
+    render_us_momentum_cache_only_section,
 )
 from invis_alpha_os.risk.veto_rules import VetoEngine
 from invis_alpha_os.signals.momentum import (
@@ -92,13 +93,13 @@ def _jquants_report_settings() -> dict[str, Any]:
     return dict(rep) if isinstance(rep, dict) else {}
 
 
-def _daily_report_momentum_sections_flags() -> tuple[bool, bool]:
-    """Defaults preserve existing daily output."""
+def _daily_report_momentum_sections_flags() -> tuple[bool, bool, bool]:
+    """JP cache/mixed gates + optional US cache-only gate (default off)."""
 
     cfg = load_yaml(CONFIG_DIR / "market_data.yaml")
     dr = cfg.get("daily_report")
     if not isinstance(dr, dict):
-        return (True, True)
+        return (True, True, False)
 
     def _as_bool(raw: object, default: bool) -> bool:
         if isinstance(raw, bool):
@@ -113,7 +114,8 @@ def _daily_report_momentum_sections_flags() -> tuple[bool, bool]:
 
     cache_on = _as_bool(dr.get("include_momentum_cache_only_section", True), default=True)
     mixed_on = _as_bool(dr.get("include_momentum_mixed_section", True), default=True)
-    return cache_on, mixed_on
+    us_on = _as_bool(dr.get("include_us_momentum_cache_only_section", False), default=False)
+    return cache_on, mixed_on, us_on
 
 
 @app.command("status")
@@ -134,11 +136,23 @@ def config_check() -> None:
         "account_rules.yaml",
         "data_confidence.yaml",
         "market_data.yaml",
+        "us_watchlist.yaml",
     ]
     missing = [name for name in required if not (CONFIG_DIR / name).exists()]
     if missing:
         raise typer.Exit(code=1)
     typer.echo("config-check: OK")
+
+
+@app.command("us-watchlist-preview")
+def us_watchlist_preview_command() -> None:
+    """Print normalized US observation-universe symbols (no HTTP)."""
+
+    from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
+
+    typer.echo("US watchlist symbols:")
+    for s in load_us_watchlist_tickers():
+        typer.echo(s)
 
 
 @app.command("daily")
@@ -159,12 +173,14 @@ def daily() -> None:
     if rep_cfg.get("include_watchlist_bars_check", True):
         jq_watchlist_section = "\n\n" + render_jquants_watchlist_bars_check_section(rep_cfg)
 
-    inc_cache, inc_mixed = _daily_report_momentum_sections_flags()
+    inc_cache, inc_mixed, inc_us = _daily_report_momentum_sections_flags()
     momentum_sections: list[str] = []
     if inc_cache:
         momentum_sections.append(render_momentum_signals_cache_only_section())
     if inc_mixed:
         momentum_sections.append(render_momentum_signals_mixed_section())
+    if inc_us:
+        momentum_sections.append(render_us_momentum_cache_only_section())
 
     momentum_blob = "\n\n".join(momentum_sections)
     if jq_watchlist_section and momentum_blob:

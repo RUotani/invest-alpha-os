@@ -21,6 +21,8 @@ REQUIRED_SUBSTRINGS = (
     "total Investment OS progress",
     "momentum pipeline",
     "fundamentals",
+    "Main R",
+    "data fetching still not implemented",
 )
 
 

@@ -5,7 +5,9 @@ from __future__ import annotations
 import statistics
 from collections.abc import Callable, Sequence
 from invis_alpha_os.config.jp_watchlist import load_jp_watchlist_tickers, normalize_jquants_equity_code
+from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
 from invis_alpha_os.data.jquants_daily_bars_cache import try_load_cached_daily_bars
+from invis_alpha_os.data.us_daily_bars_cache import try_load_cached_us_daily_bars
 from invis_alpha_os.signals.momentum import (
     SCORE_V2_OVERHEAT_R20,
     SCORE_V2_OVERHEAT_R60,
@@ -324,6 +326,18 @@ def _default_jp_cache_only_intro_lines() -> list[str]:
     ]
 
 
+def _us_cache_only_intro_lines() -> list[str]:
+    return [
+        "Observation only — not buy/sell advice. No automatic trading.",
+        "",
+        "**No live data fetch** in this skeleton — use local files only or wire ingestion in Main R1+.",
+        "",
+        "**Bars source:** `cache` — **US** sanitized OHLCV JSON under "
+        "`outputs/market_data/us_daily_bars/{symbol}.json` (no vendor raw envelopes in-repo).",
+        "",
+    ]
+
+
 def _tail_pointer_signals_json_lines() -> list[str]:
     return [
         "Full per-ticker fields (`score_v2_components`, `data_quality`, horizons) are available from "
@@ -388,6 +402,22 @@ def render_momentum_cache_only_for_wire_codes(
     )
     lines.extend(action_watchlist_momentum_cache_only_lines(ranked, note_by))
     return "\n".join(lines)
+
+
+def render_us_momentum_cache_only_section() -> str:
+    """US watchlist symbols with local US OHLCV cache only (skeleton; gate in ``market_data.yaml``)."""
+
+    symbols = load_us_watchlist_tickers()
+    return render_momentum_cache_only_for_wire_codes(
+        symbols,
+        section_heading="## Momentum Signals — US Cache Only",
+        load_cached_bars=try_load_cached_us_daily_bars,
+        intro_banner_lines=_us_cache_only_intro_lines(),
+        empty_ranked_fallback_line=(
+            "- *(No cached US watchlist tickers yet — add sanitized JSON under "
+            "`outputs/market_data/us_daily_bars/`.)*"
+        ),
+    )
 
 
 def render_momentum_signals_cache_only_section() -> str:

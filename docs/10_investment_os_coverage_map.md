@@ -38,11 +38,11 @@ Progress % is directional (same caveat as §2).
 | Area | Implementation status | Progress % | Data source status | Signal status | Report status | Next priority |
 |------|-------------------------|------------|--------------------|--------------|---------------|---------------|
 | **JP equities / J-Quants** | Cache-backed daily bars → signals → daily Markdown | ~80–85% | Active (local sanitized JSON cache; optional live ingest behind gates elsewhere) | Momentum Score v2 + CLI | Daily section + Observations + Action Watchlist (cache-only) | Liquidity/context fields, QA on edge cases |
-| **US equities** | Stubs / no first-class pipe | ~5–10% | Concept / placeholders | Not connected | Brief references only | **Main R**: source + schema design |
-| **US ETFs** | Same tray as US equities | ~5–10% | Not integrated | Not connected | None | Bundled under **Main R** |
+| **US equities** | Main R: **`us_watchlist.yaml`** + **`us_daily_bars_cache`** skeleton + optional gated US momentum renderer (no vendor fetch) | **~10–15%** | **Design / disk contract only — data fetching still not implemented** | Momentum-ready when cache populated | Hidden from daily unless `include_us_momentum_cache_only_section` | Main R1: file-based or dry-run OHLCV prototype |
+| **US ETFs** | Same tray as US equities (watchlist grouping + skeleton cache paths) | **~10–15%** | **No fetch wired** — local JSON convention only | As above | As above | Bundled under **Main R** follow-on |
 | **gold / silver / copper / metals** | Not started | ~0–5% | None in-repo | None | None | **Main S**: commodity / macro-adjacent design |
 | **bonds / rates** | Not started | ~0–5% | None in-repo | None | None | **Main S** |
-| **crypto proxies** (e.g. MSTR / COIN / MARA narrative scope) | Watchlist/backlog-level only | ~0–10% | None | None | None | Decide universe + tagging; defer execution |
+| **crypto proxies** (e.g. MSTR / COIN / MARA narrative scope) | **US watchlist** (`crypto_proxy` group); no quote ingest | ~5–15% | None in-repo | None | None | Main R1+ data path |
 | **macro regime** | Ideas / governance docs partially | ~10–20% | Not wired to ingestion | Not integrated | Mentioned conceptually | **Main S**: explicit macro inputs & regime taxonomy |
 | **portfolio holdings / allocation** | Evidence/outcome scaffolding exists; holdings light | ~10–20% | Manual / fragmented | Minimal | Partial (observation ethos) | **Main T**: holdings ingestion + drift vs policy |
 | **daily report / action layer** | Strong for JP momentum; scoped observation-only actions | ~40–50% JP slice; ~15–25% global | Depends on pillar | Mirrors data above | JP momentum rich | Extend only with real data feeds per pillar |
@@ -71,7 +71,9 @@ Use these stages to compare pillars without implying production readiness:
 ## 5. Current module status (explicit)
 
 - **JP equities**: approximately **stage 5–6** today (Momentum daily report plus Action Watchlist on cache-backed rows — observation only).
-- **US equities**, **metals**, **rates**, **crypto-proxy tickers**: mostly **stage 0–1** in this repository until **Main R / S**.
+- **Main R (this milestone)**: added **`config/us_watchlist.yaml`**, **`us_watchlist` / `us_daily_bars_cache`** modules, optional **gated** `render_us_momentum_cache_only_section`, and **`us-watchlist-preview`** — **watchlist + on-disk contract + tests only; US market data fetching is still not implemented**.
+- **US equities / ETFs / listed crypto proxies**: now roughly **stage 1–2** for configuration and **stage 3-ish** *only after* you populate `outputs/market_data/us_daily_bars/*.json` manually (no automated ingest in-repo yet).
+- **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
 - **Portfolio-aware decision support**: **still early** (aligns roughly with stages **1–3** depending on subsystem).
 
@@ -83,7 +85,7 @@ After Main Q / Q0:
 
 | Phase | Theme |
 |-------|--------|
-| **Main R** | US equities and ETF data source design |
+| **Main R** | US equities / ETF — **design skeleton delivered** (`us_watchlist`, cache schema); **live / file ingest still future (Main R1)** |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |

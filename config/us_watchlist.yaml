@@ -1,0 +1,23 @@
+# US / proxy observation universe — Main R design skeleton (no live data fetch wired).
+# Order is preserved row-by-row across sections below; duplicates are skipped after first occurrence.
+us_equities:
+  - MSFT
+  - NVDA
+  - AAPL
+  - AMZN
+  - GOOGL
+  - META
+  - TSLA
+
+us_etfs:
+  - GLDM
+  - SLV
+  - TLT
+  - TMF
+  - SPY
+  - QQQ
+
+crypto_proxy:
+  - MSTR
+  - COIN
+  - MARA

@@ -25,7 +25,8 @@ endif
 .PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run \
 	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
 	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
-	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot agent-final-check
+	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot agent-final-check \
+	us-watchlist-preview
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -113,6 +114,9 @@ ops-check: env-doctor daily-check post-push-check
 
 agent-final-check:
 	PYTHON="$(PYTHON)" bash scripts/agent_final_check.sh
+
+us-watchlist-preview:
+	$(PYTHON) -m invis_alpha_os.cli.main us-watchlist-preview
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
 # make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP

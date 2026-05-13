@@ -23,6 +23,7 @@ credentials.json
 token.json
 secrets/
 credentials/
+keys/
 *.key
 *.pem
 

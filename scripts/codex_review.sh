@@ -120,6 +120,8 @@ STRICT RULES FOR THIS RUN:
 
 CONTEXT — git status --short and git diff --stat only:
 
+Note for gate decisions (`safe-push`): the repository uses selective `git add` over every path shown by `git status --short` that is eligible — including typical `??` untracked paths. If a new module path appears as `??` in the same snapshot as modified tracked files, it is **normally committed in the same push step**; **do not** list as Important / needs_human_review solely because files are still marked `??`. Use Important only when a required path is **missing from** `git status`, or there is a substantive CI/config break beyond this workflow timing.
+
 P1
   printf '%s\n\n%s\n' "${GS}" "${GDS}"
   cat <<'P2'
