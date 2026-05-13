@@ -942,6 +942,105 @@ def build_manual_cache_write_dry_run_plan(
     }
 
 
+def execute_manual_cache_write_dry_run_plan_with_injected_writer(
+    dry_run_plan: dict[str, Any],
+    *,
+    writer: Any,
+    cache_write_confirmed: bool = False,
+) -> dict[str, Any]:
+    """Injected-writer adapter contract (**Main R6.5.5**).
+
+    Accepts a dry-run plan from build_manual_cache_write_dry_run_plan.
+    No real filesystem writes; production-like writer remains R6.5.6+.
+    """
+    _refusal_base: dict[str, Any] = {
+        "status": "validation_error",
+        "observation_only": True,
+        "dry_run_only": True,
+        "live_http_performed": False,
+        "writer_invoked": False,
+        "cache_write_performed": False,
+        "real_cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "writer_invocation_count": 0,
+    }
+
+    if not cache_write_confirmed:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_confirmed_gate"}
+
+    if writer is None:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_injected_writer"}
+
+    if not isinstance(dry_run_plan, dict) or dry_run_plan.get("dry_run_only") is not True:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_dry_run_plan"}
+
+    if dry_run_plan.get("observation_only") is not True:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_requires_dry_run_plan"}
+
+    if dry_run_plan.get("real_cache_write_performed") is True:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_rejects_real_write_source"}
+
+    if dry_run_plan.get("raw_response_included") is True:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_rejects_raw_response"}
+
+    if dry_run_plan.get("provider_api_key_value_included") is True:
+        return {**_refusal_base, "reason": "manual_batch_cache_write_rejects_provider_api_key_value"}
+
+    provider = str(dry_run_plan.get("provider") or "stooq_preview")
+    plan_rows = dry_run_plan.get("rows") or []
+    safe_rows = [r for r in plan_rows if r.get("planned_action") == "manual_cache_write_dry_run_target" and r.get("cache_write_eligible") is True]
+
+    row_results: list[dict[str, Any]] = []
+    invoked = 0
+
+    for row in safe_rows:
+        sym = str(row.get("symbol") or "")
+        target = str(row.get("target_path") or "")
+        bar_count = row.get("sanitized_bar_count", 0)
+        writer_payload: dict[str, Any] = {
+            "symbol": sym,
+            "provider": provider,
+            "target_path": target,
+            "sanitized_bar_count": bar_count,
+            "planned_action": "manual_cache_write_injected_writer_payload",
+            "dry_run_source": True,
+            "cache_write_confirmed": True,
+            "raw_response_included": False,
+            "provider_api_key_value_included": False,
+        }
+        writer(writer_payload)
+        invoked += 1
+        row_results.append({"symbol": sym, "writer_invoked": True, "target_path": target, "sanitized_bar_count": bar_count})
+
+    for row in plan_rows:
+        if row.get("planned_action") != "manual_cache_write_dry_run_target" or not row.get("cache_write_eligible"):
+            row_results.append({
+                "symbol": str(row.get("symbol") or ""),
+                "writer_invoked": False,
+                "reason": row.get("reason"),
+            })
+
+    return {
+        "status": "manual_cache_write_injected_writer_completed",
+        "observation_only": True,
+        "dry_run_only": True,
+        "live_http_performed": False,
+        "writer_invoked": invoked > 0,
+        # R6.5.5 injected writer only; real filesystem cache persistence remains false.
+        "cache_write_performed": invoked > 0,
+        "real_cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "provider": provider,
+        "planned_write_count": dry_run_plan.get("planned_write_count", 0),
+        "writer_invocation_count": invoked,
+        "rejected_count": dry_run_plan.get("rejected_count", 0),
+        "rows": row_results,
+        "summary": dry_run_plan.get("summary", {}),
+    }
+
+
 def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
     """Copy-ready Markdown (**Main R6.4.1**) — **never** API key values / raw payloads."""
 

@@ -1166,3 +1166,127 @@ def test_r654_no_dir_or_file_created(tmp_path: "pytest.TempPathFactory") -> None
     r = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()], output_root=str(tmp_path / "test_out"))
     assert not (tmp_path / "test_out").exists()
     assert r["planned_write_count"] == 1
+
+
+# ── R6.5.5 execute_manual_cache_write_dry_run_plan_with_injected_writer tests ─
+
+
+def _make_dry_run_plan(rows=None) -> dict:
+    if rows is None:
+        rows = [_ok_row("MSFT")]
+    return mlbs.build_manual_cache_write_dry_run_plan(rows)
+
+
+def _collect_writer() -> tuple[list, Any]:
+    calls: list[dict] = []
+    return calls, lambda p: calls.append(p)
+
+
+def test_r655_gate_false_refuses_no_writer() -> None:
+    calls, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=False)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_confirmed_gate"
+    assert r["writer_invoked"] is False
+    assert calls == []
+
+
+def test_r655_none_writer_refuses() -> None:
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=None, cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_injected_writer"
+
+
+def test_r655_valid_plan_invokes_writer_once() -> None:
+    calls, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert r["status"] == "manual_cache_write_injected_writer_completed"
+    assert r["writer_invoked"] is True
+    assert r["writer_invocation_count"] == 1
+    assert len(calls) == 1
+
+
+def test_r655_mixed_plan_writer_only_for_safe() -> None:
+    calls, w = _collect_writer()
+    rows = [_ok_row("MSFT"), {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}, _ok_row("NVDA")]
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(rows), writer=w, cache_write_confirmed=True)
+    assert r["writer_invocation_count"] == 2
+    syms = {c["symbol"] for c in calls}
+    assert syms == {"MSFT", "NVDA"}
+
+
+def test_r655_real_cache_write_performed_false() -> None:
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert r["real_cache_write_performed"] is False
+    assert r["live_http_performed"] is False
+
+
+def test_r655_writer_invoked_true_real_false_distinguished() -> None:
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert r["writer_invoked"] is True
+    assert r["real_cache_write_performed"] is False
+
+
+def test_r655_raw_response_in_plan_refuses() -> None:
+    plan = {**_make_dry_run_plan(), "raw_response_included": True}
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(plan, writer=w, cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_rejects_raw_response"
+
+
+def test_r655_api_key_in_plan_refuses() -> None:
+    plan = {**_make_dry_run_plan(), "provider_api_key_value_included": True}
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(plan, writer=w, cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_rejects_provider_api_key_value"
+
+
+def test_r655_non_dry_run_plan_refuses() -> None:
+    bad_plan = {"dry_run_only": False, "observation_only": True, "real_cache_write_performed": False, "raw_response_included": False, "provider_api_key_value_included": False}
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(bad_plan, writer=w, cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+
+
+def test_r655_writer_payload_no_raw_response() -> None:
+    calls, w = _collect_writer()
+    mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    for p in calls:
+        assert "raw_response" not in p
+        assert "raw_body" not in p
+        assert "raw_csv" not in p
+
+
+def test_r655_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r655_secret_key_never_echo_44444"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    calls, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert secret not in str(r)
+    for c in calls:
+        assert secret not in str(c)
+
+
+def test_r655_no_cache_writer_called(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert r["real_cache_write_performed"] is False
+
+
+def test_r655_no_live_preview_called(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    _, w = _collect_writer()
+    r = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(_make_dry_run_plan(), writer=w, cache_write_confirmed=True)
+    assert r["live_http_performed"] is False
+
+
+def test_r655_no_file_created(tmp_path: "pytest.TempPathFactory") -> None:
+    plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row()], output_root=str(tmp_path / "out"))
+    _, w = _collect_writer()
+    mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(plan, writer=w, cache_write_confirmed=True)
+    assert not (tmp_path / "out").exists()

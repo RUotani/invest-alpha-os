@@ -167,7 +167,15 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] Unsafe symbols (path traversal, slash, etc.) rejected with `manual_batch_cache_write_rejects_unsafe_target_path`.
 - [x] No file writes, no writer calls, no live HTTP — 11 new tests (84 total).
 
-**R6.5.5+ prerequisites (not yet satisfied):**
+**R6.5.5 items (already satisfied):**
+
+- [x] `execute_manual_cache_write_dry_run_plan_with_injected_writer` adapter contract implemented.
+- [x] Accepts only dry-run plans; refuses invalid / non-dry-run / real-write-source inputs.
+- [x] Writer invoked only for safe planned rows; rejected rows never reach writer.
+- [x] `real_cache_write_performed` remains false; `writer_invoked` distinguishes injected-only invocation.
+- [x] 14 new tests (98 total); no real FS write, no live HTTP, no CLI change.
+
+**R6.5.6+ prerequisites (not yet satisfied):**
 
 - [ ] Wire `save_us_daily_bars_cache` as the real production writer (injected at CLI call site).
 - [ ] CLI integration for `--execute-cache-write` or equivalent gate; no Makefile / workflow wiring.
@@ -214,6 +222,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.3** | **Main R6.5.3** | `execute_manual_cache_write_for_eligible_rows` injected-writer execution candidate — **no real FS write in tests**, **no live HTTP**, **writer injected only**; 13 new tests (68 total); production-like write remains R6.5.4+. |
 | **1.3.1** | **Main R6.5.3.1** | Clarify mock writer payload semantics — adds `writer_invoked` and `real_cache_write_performed: false` fields; `cache_write_performed` in mock path reflects injected writer exercised, **not** real FS persistence; 5 new tests (73 total). |
 | **1.4** | **Main R6.5.4** | `build_manual_cache_write_dry_run_plan` — dry-run filesystem path validation only; **no file writes**, **no writer calls**, **no live HTTP**; 11 new tests (84 total); production-like write remains R6.5.5+. |
+| **1.5** | **Main R6.5.5** | `execute_manual_cache_write_dry_run_plan_with_injected_writer` — injected-writer adapter contract; **no real FS write**, **no live HTTP**, **no CLI wiring**; 14 new tests (98 total); production-like real writer remains R6.5.6+. |
 
 ---
 
