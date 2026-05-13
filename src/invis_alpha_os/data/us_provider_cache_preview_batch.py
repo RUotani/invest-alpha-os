@@ -1,4 +1,4 @@
-"""Multi-symbol US Stooq cache preview aggregation (**Main R5–R5.2**).
+"""Multi-symbol US Stooq cache preview aggregation (**Main R5–R5.3**).
 
 No unattended bulk behaviors: **`write_cache`** requests are rejected at the envelope level (**use single-symbol **`debug us-provider-cache-preview`** + gates for writes**).
 
@@ -7,6 +7,8 @@ Each symbol runs **`stooq_live_preview_sanitized_bars`** with the same **`live`*
 **Main R5.1** adds **`operator_summary`** on the batch envelope (**triage buckets only**, still **no raw vendor payloads**, **no cache writes**).
 
 **Main R5.2** adds **`render_us_provider_cache_preview_batch_markdown`** — human-readable summary (**no row-level vendor material**; use JSON for **`results[]`**).
+
+**Main R5.3** tightens Markdown layout (**copy-ready** stdout recap — **still no disk writes**, **no `results[]`**).
 """
 
 from __future__ import annotations
@@ -191,13 +193,18 @@ def _recommended_operator_action_lines(payload: dict[str, Any]) -> list[str]:
 
 
 def render_us_provider_cache_preview_batch_markdown(payload: dict[str, Any]) -> str:
-    """Render a compact operator-facing Markdown recap (**Main R5.2**) — envelope + counts only (**no **`results[]`**, **no secrets**).
+    """Stdout Markdown recap (**Main R5.3**) — **copy-paste friendly**, envelope + counts only.
 
-    Safe for dashboards / tickets containing **counts and statuses** extracted from **`run_stooq_cache_preview_batch`** payloads.
+    **JSON remains canonical** for **`results[]`** and row-level fields; this renderer **never** embeds vendor raw payloads or secrets.
     """
+
+    wc_req = payload.get("write_cache_requested")
+    wc_show = wc_req if wc_req is not None else False
 
     lines: list[str] = [
         "# US Provider Batch Preview Summary",
+        "",
+        "> Copy-ready operator recap. **JSON remains canonical** for row-level `status` / `reason` / `body_kind`.",
         "",
         f"- Provider: {_md_scalar(payload.get('provider'))}".rstrip(),
         f"- Status: {_md_scalar(payload.get('status'))}".rstrip(),
@@ -208,19 +215,21 @@ def render_us_provider_cache_preview_batch_markdown(payload: dict[str, Any]) -> 
     if str(payload.get("status") or "") == "validation_error" and isinstance(payload.get("reason"), str):
         lines.append(f"- Reason: {_md_scalar(payload['reason'])}")
 
-    wc_req = payload.get("write_cache_requested")
-    lines.append(f"- Live HTTP requested: {_md_scalar(payload.get('live_http_requested'))}".rstrip())
-    if wc_req is not None:
-        lines.append(f"- Write cache requested: {_md_scalar(wc_req)}".rstrip())
+    lines.extend(["", "## Operator verdict", ""])
+    lines.append("\n\n".join(_recommended_operator_action_lines(payload)))
 
     lines.extend(
         [
             "",
-            "## Safety",
+            "## Safety flags",
             "",
-            f"- Live HTTP performed: {_md_scalar(payload.get('live_http_performed'))}".rstrip(),
-            f"- Cache write performed: {_md_scalar(payload.get('cache_write_performed'))}".rstrip(),
-            f"- Raw response included: {_md_scalar(payload.get('raw_response_included'))}".rstrip(),
+            "| flag | value |",
+            "|---|---:|",
+            f"| live_http_requested | {_md_scalar(payload.get('live_http_requested'))} |",
+            f"| live_http_performed | {_md_scalar(payload.get('live_http_performed'))} |",
+            f"| write_cache_requested | {_md_scalar(wc_show)} |",
+            f"| cache_write_performed | {_md_scalar(payload.get('cache_write_performed'))} |",
+            f"| raw_response_included | {_md_scalar(payload.get('raw_response_included'))} |",
             "",
             "## Summary",
             "",
@@ -250,22 +259,12 @@ def render_us_provider_cache_preview_batch_markdown(payload: dict[str, Any]) -> 
     lines.extend(
         [
             "",
-            "## Recommended operator action",
+            "## Notes",
             "",
-        ],
-    )
-    action_lines = _recommended_operator_action_lines(payload)
-    if action_lines:
-        lines.append("\n\n".join(action_lines))
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Safety notes",
-            "",
-            "- This Markdown report **omits** per-symbol **`results[]`**. Use **`debug us-provider-cache-preview-batch` without `--markdown`** (JSON) for row-level **`status` / `reason` / `body_kind`** — still **no vendor raw bodies** in tooling output.",
+            "- Markdown **omits** per-symbol **`results[]`** — this is a human recap, **not** a JSON substitute.",
+            "- Use **`debug us-provider-cache-preview-batch`** **without** **`--markdown`** for row-level **`status` / `reason` / `body_kind`** (still **no vendor raw bodies** in tooling output).",
             "- **Batch never writes cache**; gated persistence uses **`debug us-provider-cache-preview`** with explicit env gates.",
-            "- **Never** commit API keys, `.env`, or vendor dumps; keep **`STOOQ_APIKEY`** in local environment only.",
+            "- Keep **`STOOQ_APIKEY`** in local environment only — **never** commit `.env`, keys, or vendor dumps.",
             "",
         ],
     )

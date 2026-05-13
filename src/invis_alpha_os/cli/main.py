@@ -1396,7 +1396,7 @@ def debug_us_provider_cache_preview_batch(
     markdown: bool = typer.Option(
         False,
         "--markdown",
-        help="Emit operator Markdown recap (counts only; use JSON for results[] rows). Main R5.2.",
+        help="Emit copy-ready Markdown recap (counts only; JSON canonical for results[]). Main R5.3.",
     ),
 ) -> None:
     """Multi-symbol Stooq cache preview aggregation (dry-run default; optional gated live loop)."""

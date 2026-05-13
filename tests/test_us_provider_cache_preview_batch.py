@@ -1,4 +1,4 @@
-"""Main R5–R5.2: multi-symbol US Stooq cache preview aggregation (no HTTP in default tests)."""
+"""Main R5–R5.3: multi-symbol US Stooq cache preview aggregation (no HTTP in default tests)."""
 
 from __future__ import annotations
 
@@ -206,7 +206,14 @@ def test_render_us_provider_cache_preview_batch_markdown_dry_run(monkeypatch: py
     assert md.startswith("# US Provider Batch Preview Summary\n")
     assert "| dry_run | 2 |" in md
     assert "| safe_dry_run_count | 2 |" in md
-    assert "## Recommended operator action" in md
+    assert "> Copy-ready operator recap." in md
+    assert "## Operator verdict" in md
+    assert "## Safety flags" in md
+    assert "| live_http_requested | false |" in md
+    assert "| write_cache_requested | false |" in md
+    assert "## Summary" in md
+    assert "## Operator summary" in md
+    assert "## Notes" in md
     assert "Safe dry-run only" in md
     assert "operator_next_action" not in md
     assert "STOOQ_APIKEY" in md
