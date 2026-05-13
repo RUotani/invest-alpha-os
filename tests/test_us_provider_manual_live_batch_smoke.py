@@ -895,3 +895,131 @@ def test_eval_cw_markdown_r651_wording(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "no cache write" in md
     assert "no live HTTP consumed" in md
     assert "JSON" in md
+
+
+# ── R6.5.3 execute_manual_cache_write_for_eligible_rows tests ────────────────
+
+
+def _fake_writer_factory() -> tuple[list, Any]:
+    calls: list[tuple] = []
+
+    def _writer(symbol: str, payload: dict) -> None:
+        calls.append((symbol, payload))
+
+    return calls, _writer
+
+
+def test_r653_cache_gate_missing_no_writer_call() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=False)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_cache_gate"
+    assert r["cache_write_performed"] is False
+    assert r["writer_call_count"] == 0
+    assert calls == []
+
+
+def test_r653_no_eligible_rows_no_writer_call() -> None:
+    calls, writer = _fake_writer_factory()
+    bad_row = {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([bad_row], writer=writer, cache_write_confirmed=True)
+    assert r["status"] == "manual_cache_write_no_eligible_rows"
+    assert r["cache_write_performed"] is False
+    assert r["writer_call_count"] == 0
+    assert calls == []
+
+
+def test_r653_eligible_row_calls_writer_once() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row("MSFT")], writer=writer, cache_write_confirmed=True)
+    assert r["status"] == "manual_cache_write_mock_execution_completed"
+    assert r["cache_write_performed"] is True
+    assert r["writer_call_count"] == 1
+    assert r["written_count"] == 1
+    assert len(calls) == 1
+    assert calls[0][0] == "MSFT"
+    assert r["live_http_performed"] is False
+    assert r["raw_response_included"] is False
+    assert r["provider_api_key_value_included"] is False
+
+
+def test_r653_invalid_symbol_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    rows = [{"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}]
+    r = mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
+    assert calls == []
+    assert r["written_count"] == 0
+
+
+def test_r653_parse_error_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "parse_error"}], writer=writer, cache_write_confirmed=True)
+    assert calls == []
+
+
+def test_r653_transport_error_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "transport_error"}], writer=writer, cache_write_confirmed=True)
+    assert calls == []
+
+
+def test_r653_validation_error_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "validation_error"}], writer=writer, cache_write_confirmed=True)
+    assert calls == []
+
+
+def test_r653_max_http_cap_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    rows = [{"symbol": "MSFT", "planned_action": "skipped_max_http_cap", "reason": "max_http_cap_reached"}]
+    r = mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
+    assert calls == []
+
+
+def test_r653_raw_response_row_not_passed_to_writer() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "raw_response_included": True}], writer=writer, cache_write_confirmed=True)
+    assert calls == []
+
+
+def test_r653_mixed_rows_writer_only_eligible() -> None:
+    calls, writer = _fake_writer_factory()
+    rows = [
+        _ok_row("MSFT"),
+        {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"},
+        {**_ok_row("AAPL"), "status": "parse_error"},
+        _ok_row("NVDA"),
+    ]
+    r = mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
+    assert r["written_count"] == 2
+    written_syms = {c[0] for c in calls}
+    assert written_syms == {"MSFT", "NVDA"}
+    assert "bad/sym" not in written_syms
+    assert "AAPL" not in written_syms
+
+
+def test_r653_writer_payload_no_raw_response() -> None:
+    calls, writer = _fake_writer_factory()
+    mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
+    assert len(calls) == 1
+    _, payload = calls[0]
+    assert "raw_response" not in payload
+    assert "raw_body" not in payload
+    assert "raw_csv" not in payload
+
+
+def test_r653_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r653_secret_key_never_echo_33333"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
+    assert secret not in str(r)
+    for c in calls:
+        assert secret not in str(c)
+
+
+def test_r653_no_live_preview_called(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
+    assert r["live_http_performed"] is False

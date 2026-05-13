@@ -771,6 +771,72 @@ def evaluate_manual_cache_write_eligibility_from_rows(
     }
 
 
+def execute_manual_cache_write_for_eligible_rows(
+    plan_rows: list[dict[str, Any]],
+    *,
+    writer: Any,
+    cache_write_confirmed: bool = False,
+    provider: str = "stooq_preview",
+) -> dict[str, Any]:
+    """Gated cache-write execution candidate (**Main R6.5.3** — injected writer only, no real FS writes here).
+
+    Writer must be injected by the caller.  Production-like integration remains R6.5.4+.
+    """
+    eligibility = evaluate_manual_cache_write_eligibility_from_rows(plan_rows)
+    eligible_rows = [r for r in eligibility["rows"] if r.get("cache_write_eligible") is True]
+
+    _base: dict[str, Any] = {
+        "observation_only": True,
+        "live_http_performed": False,
+        "cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "provider": provider,
+        "eligibility_summary": eligibility["summary"],
+    }
+
+    if not cache_write_confirmed:
+        return {
+            **_base,
+            "status": "validation_error",
+            "reason": "manual_batch_cache_write_requires_cache_gate",
+            "writer_call_count": 0,
+        }
+
+    if not eligible_rows:
+        return {
+            **_base,
+            "status": "manual_cache_write_no_eligible_rows",
+            "writer_call_count": 0,
+            "written_count": 0,
+            "skipped_count": eligibility["rejected_count"],
+        }
+
+    written: list[dict[str, Any]] = []
+    row_results: list[dict[str, Any]] = []
+    for row in eligible_rows:
+        sym = row["symbol"]
+        bar_count = row.get("sanitized_bar_count", 0)
+        writer(sym, {"symbol": sym, "sanitized_bar_count": bar_count, "provider": provider})
+        written.append({"symbol": sym, "write_status": "written", "sanitized_bar_count": bar_count})
+        row_results.append({"symbol": sym, "written": True, "sanitized_bar_count": bar_count})
+
+    # Rejected rows — not passed to writer
+    for row in eligibility["rows"]:
+        if not row.get("cache_write_eligible"):
+            row_results.append({"symbol": row.get("symbol", ""), "written": False, "reason": row.get("reason")})
+
+    return {
+        **_base,
+        "status": "manual_cache_write_mock_execution_completed",
+        "cache_write_performed": len(written) > 0,
+        "written_count": len(written),
+        "skipped_count": eligibility["rejected_count"],
+        "writer_call_count": len(written),
+        "rows": row_results,
+    }
+
+
 def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
     """Copy-ready Markdown (**Main R6.4.1**) — **never** API key values / raw payloads."""
 

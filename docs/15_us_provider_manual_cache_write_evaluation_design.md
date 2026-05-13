@@ -152,11 +152,19 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] Test: raw body / raw CSV never in payload.
 - [x] CI remains offline-safe.
 
-**R6.5.3+ prerequisites (not yet satisfied):**
+**R6.5.3 items (already satisfied):**
 
-- [ ] Test: `save_us_daily_bars_cache` called only with sanitized bars when all gates pass (actual write path).
+- [x] `execute_manual_cache_write_for_eligible_rows` injected-writer candidate implemented.
+- [x] Writer only called for `live_preview_ok` eligible rows; rejected rows never reach writer.
+- [x] No real filesystem write in tests; writer is a fake callable.
+- [x] No live HTTP consumed by write execution function.
+- [x] 13 new mock-first tests (68 total).
+
+**R6.5.4+ prerequisites (not yet satisfied):**
+
+- [ ] Wire `save_us_daily_bars_cache` as the real production writer (injected at CLI call site).
 - [ ] Confirm write target path is deterministic and under `outputs/market_data/us_daily_bars/`.
-- [ ] Implement and gate actual cache-write execution per R6.5.3 design.
+- [ ] CLI integration for `--execute-cache-write` or equivalent gate; no Makefile / workflow wiring.
 
 ---
 
@@ -196,6 +204,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.0** | **Main R6.5.0** | Design / checklist / refusal rules only — **no implementation**, **no cache write**, **no workflow change**. |
 | **1.1** | **Main R6.5.1** | `--evaluate-cache-write` refusal scaffold implemented — **always refuses** (exit 2); **no cache write**, **no live HTTP**, **no raw response**; 11 new tests (44 total); actual write remains R6.5.2+. |
 | **1.2** | **Main R6.5.2** | `evaluate_manual_cache_write_eligibility_from_rows` pure classifier implemented — **no cache write**, **no live HTTP**, **no cache writer call**; 12 new tests (55 total, +11 from R6.5.1); actual write remains R6.5.3+. |
+| **1.3** | **Main R6.5.3** | `execute_manual_cache_write_for_eligible_rows` injected-writer execution candidate — **no real FS write in tests**, **no live HTTP**, **writer injected only**; 13 new tests (68 total); production-like write remains R6.5.4+. |
 
 ---
 
