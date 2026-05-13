@@ -2,7 +2,7 @@
 
 Raises ``ValueError`` with fixed opaque reason codes — never embedded raw CSV rows or vendor bodies.
 
-``classify_stooq_csv_text_safely`` (Main R4.1) returns only capped, redacted structural metadata —
+``classify_stooq_csv_text_safely`` (Main R4.1, **R4.3 refine**) returns only capped, redacted structural metadata —
 never full lines, OHLC cells, or raw bodies.
 """
 
@@ -69,6 +69,32 @@ def _first_line_probable_data_row(cells: list[str]) -> bool:
         if len(cells) >= 5 and all(_looks_like_number_token(cells[i]) for i in range(1, min(6, len(cells)))):
             return True
 
+    return False
+
+
+def _delimiter_drift_suspected(
+    nonempty_lines: list[str],
+    delim_char: str,
+    delimiter_guess: str,
+) -> bool:
+    """Heuristic: header line delimiter does not match following data rows (tabular drift)."""
+
+    if delimiter_guess == "unknown" or len(nonempty_lines) < 2:
+        return False
+    for raw in nonempty_lines[1:5]:
+        ln = raw.strip()
+        if not ln:
+            continue
+        tabs, commas, semis = ln.count("\t"), ln.count(","), ln.count(";")
+        if delim_char == ",":
+            if tabs >= 2 and tabs > commas + 1:
+                return True
+        elif delim_char == "\t":
+            if commas >= 4 and commas > tabs + 1:
+                return True
+        elif delim_char == ";":
+            if (tabs >= 2 and tabs > semis + 1) or (commas >= 4 and commas > semis + 1):
+                return True
     return False
 
 
@@ -155,9 +181,27 @@ def classify_stooq_csv_text_safely(csv_text: str) -> dict[str, Any]:
     else:
         body_kind = "unknown"
 
+    if body_kind == "csv_like" and _delimiter_drift_suspected(nonempty_lines, delim_char, delimiter_guess):
+        body_kind = "delimiter_drift"
+
     joined_san = " ".join(header_columns_sanitized).lower()
-    if _API_KEY_HINT_RE.search(stripped[:4000]) or _API_KEY_HINT_RE.search(joined_san):
+    hint_region = stripped[:8192]
+    api_in_header = bool(_API_KEY_HINT_RE.search(joined_san))
+    api_in_body = bool(_API_KEY_HINT_RE.search(hint_region))
+    if api_in_header or api_in_body:
         body_kind = "api_key_required"
+
+    if body_kind == "no_data_like":
+        header_columns_sanitized = []
+        header_column_count = 0
+        has_required = False
+        req_missing = sorted(_REQUIRED_LOWER)
+
+    if _HTML_HINT_RE.search(head_sample):
+        header_columns_sanitized = []
+        header_column_count = 0
+        has_required = False
+        req_missing = sorted(_REQUIRED_LOWER)
 
     return {
         "body_kind": body_kind,

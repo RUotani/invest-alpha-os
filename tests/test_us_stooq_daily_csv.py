@@ -59,6 +59,47 @@ def test_classify_semicolon_delimiter() -> None:
     assert diag["delimiter_guess"] == "semicolon"
 
 
+def test_classify_empty_body_explicit() -> None:
+    diag = classify_stooq_csv_text_safely("")
+    assert diag["body_kind"] == "empty"
+    assert diag["line_count_limited"] == 0
+
+
+def test_classify_whitespace_only_same_as_empty() -> None:
+    diag = classify_stooq_csv_text_safely("  \n\t  \r\n")
+    assert diag["body_kind"] == "empty"
+
+
+def test_classify_api_key_overrides_html_shell() -> None:
+    diag = classify_stooq_csv_text_safely(
+        "<html><body>You need apikey for CSV download</body></html>\n",
+    )
+    assert diag["body_kind"] == "api_key_required"
+
+
+def test_classify_api_key_from_sanitized_header_cell_without_raw_banner() -> None:
+    diag = classify_stooq_csv_text_safely("Get your apikey?,Open,Px\nMsft\n")
+    assert diag["body_kind"] == "api_key_required"
+
+
+def test_classify_unclosed_quote_header_no_body_leak_diagnostic() -> None:
+    leaky = '"Date,Oops unclosed quoted field\nMore secret noise here\n'
+    diag = classify_stooq_csv_text_safely(leaky)
+    blob = json.dumps(diag)
+    assert "secret" not in blob.lower()
+
+
+def test_classify_delimiter_drift_heuristic_vs_comma_header() -> None:
+    body = (
+        "Date,Open,High,Low,Close,Volume\n"
+        "2024-01-02\t1\t2\t3\t4\t5\n"
+        "2024-01-03\t1\t2\t3\t4\t5\n"
+    )
+    diag = classify_stooq_csv_text_safely(body)
+    assert diag["body_kind"] == "delimiter_drift"
+    assert diag["delimiter_guess"] == "comma"
+
+
 def test_classify_truncates_header_cells_without_raw_leaks() -> None:
     long_cell = ("X" * 80) + "secret_part"
     line = ",".join(

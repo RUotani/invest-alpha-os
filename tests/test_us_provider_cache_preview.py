@@ -10,7 +10,7 @@ from urllib.parse import parse_qsl, urlparse
 
 import pytest
 from typer.testing import CliRunner
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 from invis_alpha_os.cli.main import app
 from invis_alpha_os.data import us_daily_bars_cache as usc
@@ -208,6 +208,33 @@ def test_http_error_no_body(monkeypatch: pytest.MonkeyPatch) -> None:
     assert p["raw_response_included"] is False
 
 
+def test_live_network_transport_error_matrix_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _raise_net(*args: object, **_kwargs: object) -> None:
+        raise URLError("simulated_unreachable_host")
+
+    monkeypatch.setattr(uplp, "urlopen", _raise_net)
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-cache-preview",
+            "--symbol",
+            "MSFT",
+            "--provider",
+            "stooq_preview",
+            "--live",
+        ],
+    )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "http_error"
+    assert p["reason"] == "network_or_timeout"
+    assert p["live_http_performed"] is True
+    assert "unreachable" not in json.dumps(p).lower()
+
+
 @patch.object(uplp, "urlopen")
 def test_parse_error_headerless_row_diagnostics_hide_numeric_cells(mock_urlopen: MagicMock) -> None:
     body = "2024-01-02,100.0,110.0,90.0,105.0,1234567\n"
@@ -255,6 +282,7 @@ def test_parse_error_payload_has_safe_diagnostics_not_raw_cells(mock_urlopen: Ma
     assert r.exit_code == 1, r.stdout + r.stderr
     p = json.loads(r.stdout.strip())
     assert p["status"] == "parse_error"
+    assert p["reason"] == "stooq_csv_missing_required_columns"
     assert "response_diagnostics" in p
     assert p["raw_response_included"] is False
 
@@ -329,6 +357,105 @@ def test_success_stdout_sensitive_tokens_absent(monkeypatch: pytest.MonkeyPatch,
     low = r.stdout.lower()
     for frag in ("api_key", "authorization", "bearer"):
         assert frag not in low
+
+
+@patch.object(uplp, "urlopen")
+def test_live_html_like_parse_error_with_safe_diagnostics(mock_urlopen: MagicMock) -> None:
+    body = "<html><head><title>blocked</title></head><body>no csv</body></html>\n"
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "parse_error"
+    assert p["reason"] == "stooq_payload_html_like"
+    assert p["response_diagnostics"]["body_kind"] == "html_like"
+    dj = json.dumps(p).lower()
+    assert "<html" not in dj
+    assert "blocked" not in dj
+
+
+@patch.object(uplp, "urlopen")
+def test_live_empty_body_safe_failure(mock_urlopen: MagicMock) -> None:
+    _patch_urlopen_ok(mock_urlopen, b"  \n\t \n")
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "parse_error"
+    assert p["reason"] == "empty_csv"
+    assert p["response_diagnostics"]["body_kind"] == "empty"
+
+
+@patch.object(uplp, "urlopen")
+def test_live_vendor_no_data_prose_matrix_reason(mock_urlopen: MagicMock) -> None:
+    _patch_urlopen_ok(mock_urlopen, b"No data available for ticker.\n")
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "stooq_vendor_no_data"
+    assert p["response_diagnostics"]["body_kind"] == "no_data_like"
+
+
+@patch.object(uplp, "urlopen")
+def test_live_delimiter_drift_parse_error_stable_reason(mock_urlopen: MagicMock) -> None:
+    body = (
+        "Date,Open,High,Low,Close,Volume\n"
+        "2024-01-02\t1\t2\t3\t4\t5\n"
+        "2024-01-03\t1\t2\t3\t4\t5\n"
+    )
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "stooq_csv_delimiter_drift"
+    assert p["response_diagnostics"]["body_kind"] == "delimiter_drift"
 
 
 @patch.object(uplp, "urlopen")

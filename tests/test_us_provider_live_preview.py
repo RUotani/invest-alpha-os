@@ -161,6 +161,33 @@ def test_live_provider_api_key_required_shape_digest_exit_2(mock_urlopen: MagicM
     assert payload["raw_response_included"] is False
 
 
+@patch.object(uplp, "urlopen")
+def test_live_html_shape_digest_parse_exit_one_without_raw_markup(mock_urlopen: MagicMock) -> None:
+    body = "<html><body>interstitial page</body></html>\n"
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    env = uplp.CONFIRM_US_LIVE_HTTP_ENV
+    with patch.dict(os.environ, {env: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-live-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "parse_error"
+    assert p["reason"] == "stooq_payload_html_like"
+    assert p["response_diagnostics"]["body_kind"] == "html_like"
+    assert "<html" not in json.dumps(p).lower()
+    assert "interstitial" not in json.dumps(p).lower()
+
+
 def test_live_success_stdout_has_no_sensitive_substrings(monkeypatch: pytest.MonkeyPatch) -> None:
     body = (
         _tiny_stooq_csv_body()

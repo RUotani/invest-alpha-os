@@ -58,6 +58,35 @@ def _base_parse_error(
     return out
 
 
+def _parse_error_after_classify(
+    *,
+    norm: str,
+    diag: dict[str, Any],
+    http_status: int | None,
+    live_http_performed: bool,
+) -> dict[str, Any] | None:
+    """Map classifier ``body_kind`` to stable ``parse_error`` reasons (**Main R4.3**)."""
+
+    bk = diag.get("body_kind")
+    if bk == "html_like":
+        r = "stooq_payload_html_like"
+    elif bk == "empty":
+        r = "empty_csv"
+    elif bk == "no_data_like":
+        r = "stooq_vendor_no_data"
+    elif bk == "delimiter_drift":
+        r = "stooq_csv_delimiter_drift"
+    else:
+        return None
+    return _base_parse_error(
+        norm=norm,
+        reason=r,
+        live_http_performed=live_http_performed,
+        http_status=http_status,
+        response_diagnostics=diag,
+    )
+
+
 def stooq_live_preview_shape_digest(symbol: str, *, live: bool = False) -> dict[str, Any]:
     """Return dry-run, validation, or live Stooq daily CSV **shape** summary (no OHLCV values)."""
 
@@ -154,44 +183,61 @@ def stooq_live_preview_shape_digest(symbol: str, *, live: bool = False) -> dict[
             "response_diagnostics": diag,
         }
 
+    classifier_fail = _parse_error_after_classify(
+        norm=norm,
+        diag=diag,
+        http_status=http_status,
+        live_http_performed=True,
+    )
+    if classifier_fail is not None:
+        return classifier_fail
+
     reader = csv.reader(io.StringIO(text))
     try:
         rows = list(reader)
     except csv.Error:
+        bad = classify_stooq_csv_text_safely(text)
         return _base_parse_error(
             norm=norm,
             reason="csv_parse_failed",
             live_http_performed=True,
             http_status=http_status,
+            response_diagnostics=bad,
         )
 
     if not rows:
+        nz = classify_stooq_csv_text_safely(text)
         return _base_parse_error(
             norm=norm,
             reason="empty_csv",
             live_http_performed=True,
             http_status=http_status,
+            response_diagnostics=nz,
         )
 
     header = [c.strip() for c in rows[0]]
     data_rows = [r for r in rows[1:] if r and any(str(c).strip() for c in r)]
     if not header or not data_rows:
+        nz = classify_stooq_csv_text_safely(text)
         return _base_parse_error(
             norm=norm,
             reason="csv_parse_failed",
             live_http_performed=True,
             http_status=http_status,
+            response_diagnostics=nz,
         )
 
     try:
         first_date = str(data_rows[0][0]).strip()
         last_date = str(data_rows[-1][0]).strip()
     except (IndexError, TypeError):
+        nz = classify_stooq_csv_text_safely(text)
         return _base_parse_error(
             norm=norm,
             reason="csv_parse_failed",
             live_http_performed=True,
             http_status=http_status,
+            response_diagnostics=nz,
         )
 
     return {
@@ -387,6 +433,29 @@ def stooq_live_preview_sanitized_bars(
 
     http_status, text = got
 
+    diag0 = classify_stooq_csv_text_safely(text)
+    if diag0.get("body_kind") == "api_key_required":
+        return {
+            "status": "validation_error",
+            "reason": "provider_api_key_required",
+            "symbol": norm,
+            "provider": "stooq_preview",
+            "live_http_performed": True,
+            "raw_response_included": False,
+            "cache_write_performed": False,
+            "http_status": http_status,
+            "response_diagnostics": diag0,
+        }
+
+    cf = _parse_error_after_classify(
+        norm=norm,
+        diag=diag0,
+        http_status=http_status,
+        live_http_performed=True,
+    )
+    if cf is not None:
+        return cf
+
     try:
         rows = parse_stooq_daily_csv_to_rows(text)
     except ValueError as e:
@@ -410,6 +479,11 @@ def stooq_live_preview_sanitized_bars(
                 "http_status": http_status,
                 "response_diagnostics": diagnostics,
             }
+        bk = diagnostics.get("body_kind")
+        if bk == "delimiter_drift":
+            code = "stooq_csv_delimiter_drift"
+        elif bk == "html_like":
+            code = "stooq_payload_html_like"
         return _base_parse_error(
             norm=norm,
             reason=code,
