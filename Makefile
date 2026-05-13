@@ -25,7 +25,7 @@ endif
 .PHONY: setup test status config-check daily pack risks verify codex-review ai-check safe-push safe-push-dry-run \
 	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
 	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
-	signals-cache-only daily-momentum-check ship ops-snapshot
+	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -149,6 +149,10 @@ signals-cache-only:
 
 daily-momentum-check:
 	PYTHON="$(PYTHON)" bash scripts/daily_momentum_check.sh
+
+# Main Q0: print Investment OS coverage map (no HTTP, markdown only).
+investment-os-coverage:
+	@cat $(CURDIR)/docs/10_investment_os_coverage_map.md
 
 # Local ops JSON under outputs/ops/ (gitignored; no secrets)
 ops-snapshot:
