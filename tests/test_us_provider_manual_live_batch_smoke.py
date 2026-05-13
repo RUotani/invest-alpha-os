@@ -1023,3 +1023,51 @@ def test_r653_no_live_preview_called(monkeypatch: pytest.MonkeyPatch) -> None:
     calls, writer = _fake_writer_factory()
     r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
     assert r["live_http_performed"] is False
+
+
+# ── R6.5.3.1 writer_invoked / real_cache_write_performed semantics tests ─────
+
+
+def test_r6531_gate_missing_writer_invoked_false() -> None:
+    _, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=False)
+    assert r["writer_invoked"] is False
+    assert r["real_cache_write_performed"] is False
+    assert r["writer_call_count"] == 0
+
+
+def test_r6531_no_eligible_rows_writer_invoked_false() -> None:
+    _, writer = _fake_writer_factory()
+    bad = {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"}
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([bad], writer=writer, cache_write_confirmed=True)
+    assert r["writer_invoked"] is False
+    assert r["real_cache_write_performed"] is False
+    assert r["writer_call_count"] == 0
+
+
+def test_r6531_eligible_writer_invoked_true_real_false() -> None:
+    calls, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row("MSFT")], writer=writer, cache_write_confirmed=True)
+    assert r["writer_invoked"] is True
+    assert r["real_cache_write_performed"] is False
+    assert r["writer_call_count"] == 1
+    assert len(calls) == 1
+
+
+def test_r6531_mixed_writer_invoked_real_false() -> None:
+    calls, writer = _fake_writer_factory()
+    rows = [
+        _ok_row("MSFT"),
+        {"symbol": "bad/sym", "reason": "invalid_symbol", "planned_action": "excluded_invalid_symbol"},
+    ]
+    r = mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
+    assert r["writer_invoked"] is True
+    assert r["real_cache_write_performed"] is False
+
+
+def test_r6531_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r6531_secret_key_never_echo_22222"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    _, writer = _fake_writer_factory()
+    r = mlbs.execute_manual_cache_write_for_eligible_rows([_ok_row()], writer=writer, cache_write_confirmed=True)
+    assert secret not in str(r)

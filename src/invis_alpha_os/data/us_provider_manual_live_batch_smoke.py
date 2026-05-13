@@ -800,6 +800,8 @@ def execute_manual_cache_write_for_eligible_rows(
             **_base,
             "status": "validation_error",
             "reason": "manual_batch_cache_write_requires_cache_gate",
+            "writer_invoked": False,
+            "real_cache_write_performed": False,
             "writer_call_count": 0,
         }
 
@@ -807,6 +809,8 @@ def execute_manual_cache_write_for_eligible_rows(
         return {
             **_base,
             "status": "manual_cache_write_no_eligible_rows",
+            "writer_invoked": False,
+            "real_cache_write_performed": False,
             "writer_call_count": 0,
             "written_count": 0,
             "skipped_count": eligibility["rejected_count"],
@@ -829,7 +833,10 @@ def execute_manual_cache_write_for_eligible_rows(
     return {
         **_base,
         "status": "manual_cache_write_mock_execution_completed",
+        # R6.5.3 mock/injected writer only; real filesystem cache persistence remains false.
         "cache_write_performed": len(written) > 0,
+        "writer_invoked": len(written) > 0,
+        "real_cache_write_performed": False,
         "written_count": len(written),
         "skipped_count": eligibility["rejected_count"],
         "writer_call_count": len(written),

@@ -205,6 +205,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.1** | **Main R6.5.1** | `--evaluate-cache-write` refusal scaffold implemented — **always refuses** (exit 2); **no cache write**, **no live HTTP**, **no raw response**; 11 new tests (44 total); actual write remains R6.5.2+. |
 | **1.2** | **Main R6.5.2** | `evaluate_manual_cache_write_eligibility_from_rows` pure classifier implemented — **no cache write**, **no live HTTP**, **no cache writer call**; 12 new tests (55 total, +11 from R6.5.1); actual write remains R6.5.3+. |
 | **1.3** | **Main R6.5.3** | `execute_manual_cache_write_for_eligible_rows` injected-writer execution candidate — **no real FS write in tests**, **no live HTTP**, **writer injected only**; 13 new tests (68 total); production-like write remains R6.5.4+. |
+| **1.3.1** | **Main R6.5.3.1** | Clarify mock writer payload semantics — adds `writer_invoked` and `real_cache_write_performed: false` fields; `cache_write_performed` in mock path reflects injected writer exercised, **not** real FS persistence; 5 new tests (73 total). |
 
 ---
 
