@@ -90,6 +90,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R6.3**: **`us_provider_manual_live_batch_smoke.py`** + **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_dry_run`** / scaffold **`validation_error`** (**`manual_batch_smoke_*`** reasons); **`--live`** **never** performs vendor GETs; optional **`make us-provider-manual-live-batch-smoke-dry-run`** — see **`docs/14`**, **`docs/13`** section 9.
 - **Main R6.4.0**: **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_preflight_ready`** (exit 0) when both gates set + **`--max-http > 0`**; **zero vendor HTTP** — see **`docs/14`**.
 - **Main R6.4.1**: **`--execute-live-http`** flag — bounded manual live HTTP (at most **`--max-http`** GETs); **no cache write**; status **`manual_live_batch_smoke_live_preview_completed`** — 33 tests — see **`docs/14`**.
+- **Main R6.5.0**: **`docs/15_us_provider_manual_cache_write_evaluation_design.md`** — cache-write evaluation **safety design / checklist / proposed reason strings** only; **no implementation**, **no cache write** — see **`docs/15`**.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -114,7 +115,8 @@ After Main Q / Q0:
 | **Main R6.3** | **Manual batch smoke CLI scaffold** — merge / caps / JSON + Markdown; **`--live`** refused (**zero HTTP**); **not** R6.4 execution |
 | **Main R6.4.0** | **`--preflight` readiness check** — gates + max-http validated; **`manual_live_batch_smoke_preflight_ready`** exit 0; **still zero HTTP** |
 | **Main R6.4.1** | **Bounded manual live HTTP** (**implemented**) — **`--execute-live-http`** + full gate set; **no cache write**; manual operator only |
-| **Main R6.5+** | **Gated cache-write evaluation**, scheduled ingest (**R6.6+**) — only after **`docs/13`** + **`docs/14`** gates |
+| **Main R6.5.0** | **Cache-write evaluation design only** — **`docs/15`** safety contract / checklist / proposed reasons; **no implementation** |
+| **Main R6.5.1+** | **Manual cache-write evaluation implementation**, scheduled ingest (**R6.6+**) — only after **`docs/15`** checklist |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |

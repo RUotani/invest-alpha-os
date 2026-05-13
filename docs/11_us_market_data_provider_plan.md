@@ -76,7 +76,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R6.3** | **Manual live batch smoke — CLI scaffold** — **`debug us-provider-manual-live-batch-smoke`**: merges symbols (**`scheduled_plan`**-style), reports **`planned_http_attempts`**; **`--live`** exits **`validation_error`** (**`manual_batch_smoke_*`**) — **zero vendor HTTP** until **Main R6.4**; optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
 | **Main R6.4.0** | **Manual live batch smoke — preflight readiness** — **`--preflight`** + gates; emits **`manual_live_batch_smoke_preflight_ready`** exit 0 — **zero vendor HTTP**. |
 | **Main R6.4.1** | **Manual live batch smoke — bounded live HTTP** — **`--execute-live-http`** + full gate set; **`manual_live_batch_smoke_live_preview_completed`** exit 0; **no cache write**. |
-| **Beyond Main R6.4.1** | **R6.5+** per **`docs/13`** / **`docs/14`** (gated cache-write evaluation, scheduled ingest) — commercial provider choice remains separate. |
+| **Main R6.5.0** | **Cache-write evaluation design only** — **`docs/15`** safety contract / checklist / proposed reasons; **no implementation**, **no cache write**. |
+| **Beyond Main R6.5.0** | **R6.5.1+** per **`docs/15`** checklist (manual cache-write evaluation implementation), **R6.6+** scheduled ingest — commercial provider choice remains separate. |
 
 ---
 

@@ -128,6 +128,24 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 Valid row **`reason`**: **`r6_3_scaffold_no_http_no_write`** (dry-run), **`r6_4_0_preflight_ready_no_http`** (preflight), or per-symbol result **`status`** (R6.4.1 live rows). Capped symbols: **`max_http_cap_reached`** (**`planned_action: skipped_max_http_cap`**). Invalid tickers: **`invalid_symbol`** / **`excluded_invalid_symbol`**.
 
+### 3.5 R6.5.0 — manual cache-write evaluation (**design only / not implemented**)
+
+**R6.5.0** defines the safety design and proposed reason strings for future manual cache-write evaluation — see **`docs/15_us_provider_manual_cache_write_evaluation_design.md`**. No cache write, no CLI changes, no runtime behavior in R6.5.0.
+
+Proposed future reason strings (not implemented — for planning only):
+
+| Proposed reason | Trigger (future) |
+|-----------------|-----------------|
+| `manual_batch_cache_write_not_implemented_in_r6_5_0` | Cache-write flag used before R6.5.1 ships |
+| `manual_batch_cache_write_requires_live` | Without `--live` |
+| `manual_batch_cache_write_requires_preflight` | Without `--preflight` |
+| `manual_batch_cache_write_requires_execute_live_http` | Without `--execute-live-http` |
+| `manual_batch_cache_write_requires_cache_gate` | `CONFIRM_US_CACHE_WRITE` not `YES` |
+| `manual_batch_cache_write_requires_successful_live_preview` | No `live_preview_ok` rows |
+| `manual_batch_cache_write_rejects_invalid_symbol` / `parse_error` / `transport_error` / `validation_error` / `max_http_cap_reached` | Row-level eligibility guard |
+| `manual_batch_cache_write_rejects_raw_response` | Raw body write attempt |
+| `manual_batch_cache_write_rejects_automation_context` | CI / workflow invocation |
+
 ---
 
 ## 4. Operator playbooks by theme
