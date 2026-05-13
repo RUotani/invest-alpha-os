@@ -62,3 +62,7 @@ market_data:
         include_unsupported_codes: true
         raw_response_included: false
         api_key_displayed: false
+
+daily_report:
+  include_momentum_cache_only_section: true
+  include_momentum_mixed_section: true

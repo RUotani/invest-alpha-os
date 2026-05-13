@@ -11,6 +11,7 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
     jquants_daily_bars_cache_path,
     load_jquants_daily_bars_cache,
     save_jquants_daily_bars_cache,
+    slug_daily_bars_cache_path,
 )
 from invis_alpha_os.reports.momentum_daily import render_momentum_signals_mixed_section
 
@@ -30,13 +31,44 @@ def test_jquants_daily_bars_cache_roundtrip_no_secrets(tmp_path: Path, monkeypat
     assert meta.get("source") == "unit"
 
 
-def test_jquants_daily_bars_cache_path_rejects_unsafe_code() -> None:
-    with pytest.raises(ValueError):
-        jquants_daily_bars_cache_path("../7011")
+def test_slug_daily_bars_cache_path_accepts_cross_market_symbols(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    for sym in ("MSFT", "GOOGL", "BRK.B"):
+        p = slug_daily_bars_cache_path(sym)
+        assert "slug_daily_bars" in p.parts
+        assert p.name == f"{sym}.json"
 
 
-def test_load_cache_invalid_code_returns_none() -> None:
-    assert load_jquants_daily_bars_cache("BAD") is None
+def test_slug_daily_bars_cache_path_rejects_unsafe_slug() -> None:
+    for bad in ("../evil", "", "a/b", "brk..b", "!MSFT"):
+        with pytest.raises(ValueError):
+            slug_daily_bars_cache_path(bad)
+
+
+def test_jquants_daily_bars_cache_path_accepts_jp_wire_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    for sym in ("7011", "285A"):
+        p = jquants_daily_bars_cache_path(sym)
+        assert p.parent == tmp_path / "market_data" / "jquants_daily_bars"
+        assert p.name == f"{sym.upper()}.json"
+
+
+def test_jquants_daily_bars_cache_path_rejects_non_jp_wire() -> None:
+    for bad in ("MSFT", "GOOGL", "BRK.B"):
+        with pytest.raises(ValueError):
+            jquants_daily_bars_cache_path(bad)
+
+
+def test_jquants_daily_bars_cache_path_rejects_unsafe_slug() -> None:
+    """JP path: invalid wires and unsafe filename patterns."""
+
+    for bad in ("../evil", "../7011", "", "a/b", "brk..b", "!MSFT", "7011/evil"):
+        with pytest.raises(ValueError):
+            jquants_daily_bars_cache_path(bad)
+
+
+def test_load_cache_invalid_slug_returns_none() -> None:
+    assert load_jquants_daily_bars_cache("!BAD") is None
 
 
 def test_jquants_daily_bars_cache_save_refuses_empty_list() -> None:

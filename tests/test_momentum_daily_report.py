@@ -10,6 +10,7 @@ import pytest
 
 from invis_alpha_os.reports.momentum_daily import (
     classify_watch_note,
+    render_momentum_cache_only_for_wire_codes,
     render_momentum_signals_cache_only_section,
     render_momentum_signals_mixed_section,
 )
@@ -87,7 +88,7 @@ def test_cache_only_heading_and_skipped_note(tmp_path: Path, monkeypatch: pytest
     assert "Momentum Score v2" in md
     assert "| Sv2 |" in md
     assert "| Watch |" in md
-    assert "| HiDist |" in md and "| VolR |" in md and "| Risk |" in md
+    assert "| HiDist |" in md and "| VolR |" in md and "| Flag |" in md
     assert "Momentum Score v2 table (concise legend)" in md
     assert "**HiDist:**" in md and "**VolR:**" in md
     assert "### Observations — Momentum (cache-only)" in md
@@ -269,6 +270,44 @@ def test_action_watchlist_buckets_and_rank_order_codes(tmp_path: Path, monkeypat
     assert "entry" not in alc
     assert "target price" not in alc
     assert "should purchase" not in alc
+
+
+def test_render_cache_only_via_wire_codes_without_jp_watchlist_import(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spy = MagicMock(side_effect=RuntimeError("load_jp_watchlist_tickers must not run"))
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        spy,
+    )
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    cache_dir = tmp_path / "market_data" / "jquants_daily_bars"
+    cache_dir.mkdir(parents=True)
+    bars = [{"date": "2024-01-01", "open": 1, "high": 1.1, "low": 0.9, "close": 1, "volume": 100}]
+    payload = {
+        "schema_version": 1,
+        "code": "7011",
+        "source": "unit",
+        "fetched_at": "2026-01-01T00:00:00+00:00",
+        "generated_at": None,
+        "bar_count": 1,
+        "bars": bars,
+    }
+    (cache_dir / "7011.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    md = render_momentum_cache_only_for_wire_codes(
+        ["7011"],
+        intro_banner_lines=[
+            "(test banner)",
+            "",
+        ],
+        trailing_note_before_table_lines=["", "*tail*", ""],
+    )
+    assert "## Momentum Signals — Cache Only" in md
+    assert "(test banner)" in md
+    assert "*tail*" in md
+    assert "### Action Watchlist — Momentum (observation only)" in md
+    spy.assert_not_called()
 
 
 def test_daily_report_cache_only_before_mixed_section(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

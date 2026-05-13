@@ -22,7 +22,7 @@ Going forward, **never report a single percentage without naming the scope**. Us
 
 | Lens | Approximate progress | Notes |
 |------|----------------------|-------|
-| **JP equities momentum subsystem** (sanitized OHLCV cache → Momentum Score v2 → daily report → observations → Action Watchlist for cache-only) | **about 80–85%** | Strongest vertical in-repo; refinement and parity work remain |
+| **JP equities momentum pipeline subsystem** (sanitized OHLCV cache → Momentum Score v2 → daily section → observations → Action Watchlist for cache-only rows) | **about 80–85%** | **Not** broader JP equity research (fundamentals / earnings models / intrinsic valuation remain unintegrated here); strongest *technical OHLCV* vertical in-repo |
 | **Total Investment OS** (all rows in §3 treated as one programme) | **about 30–40%** | Most non-JP pillars are latent or conceptual |
 
 These numbers are **judgment calls for planning**, not audited metrics.

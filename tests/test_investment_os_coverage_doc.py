@@ -19,6 +19,8 @@ REQUIRED_SUBSTRINGS = (
     "portfolio",
     "subsystem progress",
     "total Investment OS progress",
+    "momentum pipeline",
+    "fundamentals",
 )
 
 

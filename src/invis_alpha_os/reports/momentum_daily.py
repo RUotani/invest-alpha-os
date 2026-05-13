@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import statistics
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from invis_alpha_os.config.jp_watchlist import load_jp_watchlist_tickers, normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import try_load_cached_daily_bars
 from invis_alpha_os.signals.momentum import (
@@ -31,7 +31,7 @@ def momentum_score_v2_glossary_lines() -> list[str]:
         "- **Sv2:** Momentum Score v2 composite. Higher means stronger multi-horizon trend quality in this score.",
         "- **HiDist:** Distance versus the trailing ~252-session high excluding the latest bar — values closer to **0%** sit nearer the range top.",
         "- **VolR:** Latest volume divided by the prior **25**-session average (excluding the latest bar).",
-        '- **Risk / Watch:** Compressed risk-ish tags (**overheat**, thin history); **Watch** repeats a coarse **prioritization tag only**.',
+        '- **Flag / Watch:** Observation-only condition flags (**overheat**, thin history); **Watch** is a coarse **prioritization tag** for follow-up scans.',
         '- **Overheat:** Very strong trailing strength — elevated **chase / giveback** caution in the mechanic (not predictive).',
         "- Observation only — not buy/sell advice. No automatic trading.",
         "",
@@ -243,7 +243,7 @@ def _abbrev_labels(m: MomentumBreakdown) -> str:
     return "; ".join(chips) if chips else "—"
 
 
-def _risk_cell(m: MomentumBreakdown) -> str:
+def _flag_cell(m: MomentumBreakdown) -> str:
     if m.overheat_flag:
         parts = []
         if m.r20 is not None and m.r20 > SCORE_V2_OVERHEAT_R20:
@@ -293,7 +293,7 @@ def _append_ranking_table(
     lines.append("Legacy integer ``score`` still appears in CLI JSON next to ``score_v2``.")
     lines.append("")
     lines.append(
-        "| Rank | Code | Sv2 | Key | r5 | r20 | r60 | HiDist | VolR | Risk | Watch | Bars src |",
+        "| Rank | Code | Sv2 | Key | r5 | r20 | r60 | HiDist | VolR | Flag | Watch | Bars src |",
     )
     lines.append(
         "|------|------|-----|-----|-----|-----|-----|--------|------|------|-------|----------|",
@@ -307,34 +307,14 @@ def _append_ranking_table(
         watch = note_by[m.code]
         lines.append(
             f"| {i} | {m.code} | {m.score_v2} | {key} | {r5} | {r20} | {r60} | "
-            f"{_hi_dist_cell(m)} | {_vol_r_cell(m)} | {_risk_cell(m)} | {watch} | {bsrc} |",
+            f"{_hi_dist_cell(m)} | {_vol_r_cell(m)} | {_flag_cell(m)} | {watch} | {bsrc} |",
         )
     lines.append("")
     return note_by
 
 
-def render_momentum_signals_cache_only_section() -> str:
-    """Build ``## Momentum Signals — Cache Only`` — cached bars only; no synthetic generation."""
-
-    tickers = load_jp_watchlist_tickers()
-    mapping: dict[str, list[DailyBar]] = {}
-    skipped_no_cache: list[str] = []
-    for raw in tickers:
-        code = normalize_jquants_equity_code(str(raw))
-        if code is None:
-            continue
-        got = try_load_cached_daily_bars(code)
-        if got is not None:
-            mapping[code] = got[0]
-        else:
-            skipped_no_cache.append(code)
-
-    ranked = build_momentum_signals(mapping)
-    bars_src = {c: "cache" for c in mapping}
-
-    lines: list[str] = [
-        "## Momentum Signals — Cache Only",
-        "",
+def _default_jp_cache_only_intro_lines() -> list[str]:
+    return [
         "Observation only — not buy/sell advice. No automatic trading.",
         "",
         "**Bars source:** `cache` — local sanitized OHLCV files only "
@@ -342,19 +322,59 @@ def render_momentum_signals_cache_only_section() -> str:
         "**No synthetic bars** are generated for this section.",
         "",
     ]
+
+
+def _tail_pointer_signals_json_lines() -> list[str]:
+    return [
+        "Full per-ticker fields (`score_v2_components`, `data_quality`, horizons) are available from "
+        "``alpha-os signals`` JSON output.",
+        "",
+    ]
+
+
+def render_momentum_cache_only_for_wire_codes(
+    wire_codes_ordered: Sequence[str],
+    *,
+    section_heading: str = "## Momentum Signals — Cache Only",
+    load_cached_bars: Callable[[str], tuple[list[DailyBar], str] | None] | None = None,
+    intro_banner_lines: Sequence[str] | None = None,
+    trailing_note_before_table_lines: Sequence[str] | None = None,
+    empty_ranked_fallback_line: str = "- *(no tickers with local cache files in the JP watchlist)*",
+) -> str:
+    """Cache-only momentum block for explicit wire codes — no watchlist imports.
+
+    ``load_cached_bars`` defaults to ``try_load_cached_daily_bars`` (local JSON under jquants tree).
+    JP callers should supply codes already validated via ``normalize_jquants_equity_code``.
+    """
+
+    loader = load_cached_bars or try_load_cached_daily_bars
+    mapping: dict[str, list[DailyBar]] = {}
+    skipped_no_cache: list[str] = []
+    for w in wire_codes_ordered:
+        got = loader(w)
+        if got is not None:
+            mapping[w] = got[0]
+        else:
+            skipped_no_cache.append(w)
+
+    ranked = build_momentum_signals(mapping)
+    bars_src = {c: "cache" for c in mapping}
+
+    preamble = list(intro_banner_lines) if intro_banner_lines is not None else _default_jp_cache_only_intro_lines()
+    before_table = (
+        list(trailing_note_before_table_lines)
+        if trailing_note_before_table_lines is not None
+        else _tail_pointer_signals_json_lines()
+    )
+
+    lines: list[str] = [section_heading, "", *preamble]
     if skipped_no_cache:
         codes = ", ".join(skipped_no_cache)
         lines.append(f"**Skipped (no local cache file):** {len(skipped_no_cache)} — {codes}.")
         lines.append("")
-    lines.extend(
-        [
-            "Full per-ticker fields (`score_v2_components`, `data_quality`, horizons) are available from "
-            "``alpha-os signals`` JSON output.",
-            "",
-        ],
-    )
+    lines.extend(before_table)
     if not ranked:
-        lines.append("- *(no tickers with local cache files in the JP watchlist)*")
+        lines.append(empty_ranked_fallback_line)
         lines.append("")
         return "\n".join(lines)
 
@@ -368,6 +388,18 @@ def render_momentum_signals_cache_only_section() -> str:
     )
     lines.extend(action_watchlist_momentum_cache_only_lines(ranked, note_by))
     return "\n".join(lines)
+
+
+def render_momentum_signals_cache_only_section() -> str:
+    """Build ``## Momentum Signals — Cache Only`` — JP watchlist + local cache-only rows."""
+
+    tickers = load_jp_watchlist_tickers()
+    wire_codes: list[str] = []
+    for raw in tickers:
+        code = normalize_jquants_equity_code(str(raw))
+        if code is not None:
+            wire_codes.append(code)
+    return render_momentum_cache_only_for_wire_codes(wire_codes)
 
 
 def render_momentum_signals_mixed_section() -> str:
@@ -429,7 +461,7 @@ def render_momentum_signals_mixed_section() -> str:
             "",
             src_line,
             "**Momentum Score v2** ranking (legacy labels still listed under **Key** when present). "
-            "**Synthetic fallback tickers:** treat **Key / Sv2 / Risk / Watch** as diagnostics only.",
+            "**Synthetic fallback tickers:** treat **Key / Sv2 / Flag / Watch** as diagnostics only.",
             "",
         ]
     lines = [*head, *purpose]

@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import typer
 
+from invis_alpha_os.cli.bars_file_symbol import normalize_generic_bars_file_symbol_label
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.config.jp_watchlist import (
@@ -91,6 +92,30 @@ def _jquants_report_settings() -> dict[str, Any]:
     return dict(rep) if isinstance(rep, dict) else {}
 
 
+def _daily_report_momentum_sections_flags() -> tuple[bool, bool]:
+    """Defaults preserve existing daily output."""
+
+    cfg = load_yaml(CONFIG_DIR / "market_data.yaml")
+    dr = cfg.get("daily_report")
+    if not isinstance(dr, dict):
+        return (True, True)
+
+    def _as_bool(raw: object, default: bool) -> bool:
+        if isinstance(raw, bool):
+            return raw
+        if isinstance(raw, str):
+            stripped = raw.strip().lower()
+            if stripped in ("true", "1", "yes", "on"):
+                return True
+            if stripped in ("false", "0", "no", "off", ""):
+                return False
+        return default
+
+    cache_on = _as_bool(dr.get("include_momentum_cache_only_section", True), default=True)
+    mixed_on = _as_bool(dr.get("include_momentum_mixed_section", True), default=True)
+    return cache_on, mixed_on
+
+
 @app.command("status")
 def status() -> None:
     typer.echo("Laputa Alpha OS")
@@ -134,6 +159,22 @@ def daily() -> None:
     if rep_cfg.get("include_watchlist_bars_check", True):
         jq_watchlist_section = "\n\n" + render_jquants_watchlist_bars_check_section(rep_cfg)
 
+    inc_cache, inc_mixed = _daily_report_momentum_sections_flags()
+    momentum_sections: list[str] = []
+    if inc_cache:
+        momentum_sections.append(render_momentum_signals_cache_only_section())
+    if inc_mixed:
+        momentum_sections.append(render_momentum_signals_mixed_section())
+
+    momentum_blob = "\n\n".join(momentum_sections)
+    if jq_watchlist_section and momentum_blob:
+        tail = jq_watchlist_section + "\n\n" + momentum_blob
+    elif jq_watchlist_section:
+        tail = jq_watchlist_section
+    elif momentum_blob:
+        tail = "\n\n" + momentum_blob
+    else:
+        tail = ""
     out.write_text(
         "\n".join(
             [
@@ -149,11 +190,7 @@ def daily() -> None:
                 f"- Watchlist count: {jp_n}",
             ]
         )
-        + jq_watchlist_section
-        + "\n\n"
-        + render_momentum_signals_cache_only_section()
-        + "\n\n"
-        + render_momentum_signals_mixed_section(),
+        + tail,
         encoding="utf-8",
     )
     typer.echo(f"daily report created: {out}")
@@ -213,16 +250,17 @@ def signals_command(
         if not code:
             typer.echo("signals: --bars-file requires --code", err=True)
             raise typer.Exit(2)
-        w = normalize_jquants_equity_code(code.strip())
-        if w is None:
-            typer.echo("signals: invalid --code for J-Quants wire", err=True)
+        try:
+            label = normalize_generic_bars_file_symbol_label(code)
+        except ValueError:
+            typer.echo("signals: invalid --code for bars-file symbol label", err=True)
             raise typer.Exit(2)
         try:
             bars = load_bars_json_file(Path(bars_file))
         except (OSError, ValueError, json.JSONDecodeError) as e:
             typer.echo(f"signals: failed to load bars file: {e}", err=True)
             raise typer.Exit(2) from e
-        one = analyze_bars_for_code(w, bars)
+        one = analyze_bars_for_code(label, bars)
         payload: dict[str, Any] = {
             "mode": "local_bars_file",
             "bars_data_source": "file",

@@ -278,6 +278,55 @@ def test_cli_signals_bars_file_requires_code(tmp_path: Path) -> None:
     assert r.exit_code == 2
 
 
+def test_cli_signals_bars_file_generic_us_symbols(tmp_path: Path) -> None:
+    """bars-file exits before JP watchlist; symbol label is validated generically."""
+
+    p = tmp_path / "bars.json"
+    p.write_text(
+        json.dumps(
+            [
+                {
+                    "date": "2024-01-01",
+                    "open": 100.0,
+                    "high": 101.0,
+                    "low": 99.0,
+                    "close": 100.0,
+                    "volume": 1_000_000.0,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+    for lab in ("GOOGL", "BRK.B", "MSFT"):
+        r = runner.invoke(app, ["signals", "--bars-file", str(p), "--code", lab])
+        assert r.exit_code == 0, r.stderr
+        row = json.loads(r.stdout)["ranked"][0]
+        assert row["code"] == lab
+
+
+def test_cli_signals_bars_file_rejects_unsafe_symbol_label(tmp_path: Path) -> None:
+    p = tmp_path / "bars.json"
+    p.write_text(
+        json.dumps(
+            [
+                {
+                    "date": "2024-01-01",
+                    "open": 1,
+                    "high": 1,
+                    "low": 1,
+                    "close": 1,
+                    "volume": 1,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    r = CliRunner().invoke(app, ["signals", "--bars-file", str(p), "--code", "../MSFT"])
+    assert r.exit_code == 2
+    assert "J-Quants" not in r.stderr
+
+
 def test_volume_ratio_25d_prior_mean_ratio() -> None:
     baseline = [1000.0] * 25
     vols = baseline + [2500.0]
