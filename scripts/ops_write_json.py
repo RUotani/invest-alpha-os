@@ -117,6 +117,17 @@ def validate_jquants_watchlist_cache_live_payload(payload: dict[str, Any]) -> st
     return None
 
 
+def _result_row_http_status(row: dict[str, Any]) -> Any:
+    return row.get("http_status")
+
+
+def payload_contains_http_status_429(results: list[Any]) -> bool:
+    for row in results:
+        if isinstance(row, dict) and _result_row_http_status(row) == 429:
+            return True
+    return False
+
+
 def verdict_jquants_watchlist_cache_live(payload: dict[str, Any]) -> tuple[str, str]:
     """Rules for ``jquants_watchlist_cache_live`` (must match product expectations)."""
 
@@ -244,6 +255,16 @@ def main(argv: list[str] | None = None) -> int:
         verdict["reason"] = v_reason
         verdict["live_http_performed"] = summary["live_http_performed"]
         summary["results"] = sanitize_jquants_live_results_for_ops_summary(payload.get("results") or [])
+        raw_results = payload.get("results") or []
+        if payload_contains_http_status_429(raw_results):
+            summary["retry_later"] = True
+            summary["retry_reason"] = "rate_limited"
+            summary["recommended_action"] = "retry failed_codes later"
+            v429 = "HTTP 429 rate_limited: retry failed_codes later when cooldown allows"
+            if v_reason and v429 not in v_reason:
+                verdict["reason"] = f"{v_reason}; {v429}"
+            else:
+                verdict["reason"] = v_reason
 
     od = out_dir / "latest_ops_summary.json"
     vd = out_dir / "latest_verdict.json"

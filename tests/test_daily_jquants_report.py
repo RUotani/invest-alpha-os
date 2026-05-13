@@ -50,7 +50,7 @@ def test_daily_report_readiness_green(jq_data_guard_env, tmp_path, monkeypatch):
     assert "- Unsupported codes skipped: none" in body
     assert "### Local smoke test record" in body
     assert "Task 7 spec-style field examples" in body
-    assert "7974 / 2024-02-17" in body
+    assert "7974 / 2024-02-18" in body
     assert "7011 / 6501 / 6506" in body
     assert "**Task 9.2**" in body or "Task 9.2" in body
     assert "### Latest local smoke summary" in body

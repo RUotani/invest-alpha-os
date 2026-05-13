@@ -54,6 +54,11 @@ if [[ "${TEST_JQ_REFRESH_GATE_STUB:-}" != "" ]]; then
     --to-date "${TO}" \
     "${WTF_CODES[@]}"
   LIVE_EC="${TEST_JQ_REFRESH_LIVE_EXIT:-0}"
+  SUM_OPS="${OPS_DIR}/latest_ops_summary.json"
+  VD_OPS="${OPS_DIR}/latest_verdict.json"
+  if [[ -f "${SUM_OPS}" ]] && [[ -f "${VD_OPS}" ]]; then
+    "${PYTHON}" "${ROOT}/scripts/jq_ops_workflow_gate.py" print-live-ops-human --ops-dir "${OPS_DIR}" >&2 || true
+  fi
 else
   PREVIEW_EXTRA=()
   [[ -n "${LIMIT:-}" ]] && PREVIEW_EXTRA+=(LIMIT="$LIMIT")
@@ -69,12 +74,6 @@ else
   make jq-cache-live FROM="$FROM" TO="$TO" CONFIRM_LIVE_HTTP="$CONFIRM_LIVE_HTTP" "${LIVE_EXTRA[@]}" PYTHON="$PYTHON"
   LIVE_EC=$?
   set -e
-fi
-
-SUM_OPS="${OPS_DIR}/latest_ops_summary.json"
-VD_OPS="${OPS_DIR}/latest_verdict.json"
-if [[ -f "${SUM_OPS}" ]] && [[ -f "${VD_OPS}" ]]; then
-  "${PYTHON}" "${ROOT}/scripts/jq_ops_workflow_gate.py" print-live-ops-human --ops-dir "${OPS_DIR}" >&2 || true
 fi
 
 VAL_CODES=()

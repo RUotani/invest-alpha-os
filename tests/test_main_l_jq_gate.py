@@ -41,6 +41,49 @@ def _stderr_human_live_ops_summary(stderr: str) -> dict:
     raise AssertionError(f"no human summary line in stderr: {stderr!r}")
 
 
+def _all_human_live_ops_summaries(stderr: str) -> list[dict]:
+    out = []
+    for ln in stderr.splitlines():
+        t = ln.strip()
+        if not t.startswith("{"):
+            continue
+        try:
+            d = json.loads(t)
+        except json.JSONDecodeError:
+            continue
+        if d.get("mode") == "jquants_watchlist_cache_live":
+            out.append(d)
+    return out
+
+
+def _write_fake_make_delegating_jq_live(repo_root: Path, tmp_path: Path) -> Path:
+    """make shim: jq-cache-live runs real jq_watchlist_bars_cache_live.sh (for stubbed CLI / no duplicate human JSON test)."""
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(parents=True)
+    make_script = fake_bin / "make"
+    root_esc = str(repo_root.resolve()).replace("'", "'\\''")
+    make_script.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        f"ROOT='{root_esc}'\n"
+        'if [[ "${1:-}" == "jq-cache-preview" ]]; then\n'
+        "  exit 0\n"
+        'fi\n'
+        'if [[ "${1:-}" == "jq-cache-live" ]]; then\n'
+        '  exec /bin/bash "${ROOT}/scripts/jq_watchlist_bars_cache_live.sh"\n'
+        'fi\n'
+        'if [[ "${1:-}" == "signals-cache-only" ]]; then\n'
+        "  exit 0\n"
+        'fi\n'
+        'echo "fake-make+jq-live: unexpected target ${1:-}" >&2\n'
+        "exit 99\n",
+        encoding="utf-8",
+    )
+    os.chmod(make_script, 0o755)
+    return fake_bin
+
+
 def test_prepare_snapshots_removes_stale_latest(tmp_path: Path) -> None:
     mod = _load_gate_module()
     d = tmp_path / "ops"
@@ -63,16 +106,16 @@ def test_validate_missing_verdict_91(tmp_path: Path) -> None:
 def test_validate_passes_with_matching_summary(tmp_path: Path) -> None:
     mod = _load_gate_module()
     d = tmp_path / "ops"
-    mod.write_test_fixture(d, fixture="pass", date_from="2024-02-17", date_to="2026-02-17", codes="5801,6504")
-    ec, _msg = mod.validate_snapshots(d, date_from="2024-02-17", date_to="2026-02-17", codes="5801,6504")
+    mod.write_test_fixture(d, fixture="pass", date_from="2024-02-18", date_to="2026-02-17", codes="5801,6504")
+    ec, _msg = mod.validate_snapshots(d, date_from="2024-02-18", date_to="2026-02-17", codes="5801,6504")
     assert ec == 0
 
 
 def test_codes_mismatch_raises_94(tmp_path: Path) -> None:
     mod = _load_gate_module()
     d = tmp_path / "ops"
-    mod.write_test_fixture(d, fixture="pass", date_from="2024-02-17", date_to="2026-02-17", codes="5801,6504")
-    ec, _msg = mod.validate_snapshots(d, date_from="2024-02-17", date_to="2026-02-17", codes="7011")
+    mod.write_test_fixture(d, fixture="pass", date_from="2024-02-18", date_to="2026-02-17", codes="5801,6504")
+    ec, _msg = mod.validate_snapshots(d, date_from="2024-02-18", date_to="2026-02-17", codes="7011")
     assert ec == 94
 
 
@@ -88,7 +131,7 @@ def test_jq_watchlist_bars_cache_live_fatal_on_bad_ops_payload(tmp_path: Path) -
             "ALLOW_TEST_JQ_STUBS": "YES",
             "JQ_OPS_OUTPUT_DIR": str(ops_out),
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "TEST_JQ_LIVE_STUB_PAYLOAD": str(stub),
@@ -123,7 +166,7 @@ def test_jq_watchlist_bars_cache_live_ops_fatal_on_completed_shape_invalid(tmp_p
             "ALLOW_TEST_JQ_STUBS": "YES",
             "JQ_OPS_OUTPUT_DIR": str(ops_out),
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "TEST_JQ_LIVE_STUB_PAYLOAD": str(stub),
@@ -179,7 +222,7 @@ def test_jq_refresh_codes_only_stub_pass_invokes_signals_no_empty_make_argv(tmp_
             "TEST_JQ_REFRESH_GATE_STUB": "pass",
             "TEST_JQ_REFRESH_SKIP_DAILY": "1",
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "5801,6504",
             "PYTHON": sys.executable,
@@ -208,7 +251,7 @@ def test_jq_refresh_omit_verdict_exits_gate(tmp_path: Path) -> None:
             "TEST_JQ_REFRESH_GATE_STUB": "omit_verdict",
             "TEST_JQ_REFRESH_SKIP_DAILY": "1",
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "PYTHON": sys.executable,
@@ -235,7 +278,7 @@ def test_jq_refresh_partial_requires_allow_partial(tmp_path: Path) -> None:
             "TEST_JQ_REFRESH_GATE_STUB": "partial_success",
             "TEST_JQ_REFRESH_SKIP_DAILY": "1",
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "PYTHON": sys.executable,
@@ -256,7 +299,7 @@ def test_print_live_ops_human_json_line(tmp_path: Path) -> None:
     mod = _load_gate_module()
     d = tmp_path / "ops"
     d.mkdir(parents=True)
-    mod.write_test_fixture(d, fixture="fail", date_from="2024-02-17", date_to="2026-02-17", codes="7011")
+    mod.write_test_fixture(d, fixture="fail", date_from="2024-02-18", date_to="2026-02-17", codes="7011")
 
     import io
 
@@ -293,7 +336,7 @@ def test_jq_watchlist_bars_cache_live_stub_prints_human_summary_on_stderr(tmp_pa
                 "results": [{"code": "7011", "status": "success", "raw_response_included": False}],
                 "live_http_performed": True,
                 "raw_response_included": False,
-                "date_from": "2024-02-17",
+                "date_from": "2024-02-18",
                 "date_to": "2026-02-17",
                 "codes_requested": "7011",
             },
@@ -307,7 +350,7 @@ def test_jq_watchlist_bars_cache_live_stub_prints_human_summary_on_stderr(tmp_pa
             "ALLOW_TEST_JQ_STUBS": "YES",
             "JQ_OPS_OUTPUT_DIR": str(ops_out),
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "TEST_JQ_LIVE_STUB_PAYLOAD": str(stub),
@@ -338,7 +381,7 @@ def test_jq_refresh_stub_partial_prints_human_summary_on_stderr(tmp_path: Path) 
             "TEST_JQ_REFRESH_GATE_STUB": "partial_success",
             "TEST_JQ_REFRESH_SKIP_DAILY": "1",
             "CONFIRM_LIVE_HTTP": "YES",
-            "FROM": "2024-02-17",
+            "FROM": "2024-02-18",
             "TO": "2026-02-17",
             "CODES": "7011",
             "PYTHON": sys.executable,
@@ -349,3 +392,87 @@ def test_jq_refresh_stub_partial_prints_human_summary_on_stderr(tmp_path: Path) 
     assert r.returncode != 0
     tail = _stderr_human_live_ops_summary(r.stderr)
     assert tail["verdict"] == "partial_success"
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="requires POSIX bash")
+def test_jq_refresh_through_real_cache_live_stub_emits_one_human_summary(tmp_path: Path) -> None:
+    """Normal jq-refresh path: jq-cache-live prints human summary; workflow must not repeat it."""
+    fake_bin = _write_fake_make_delegating_jq_live(_REPO_ROOT, tmp_path)
+    ops_out = tmp_path / "ops_one_human"
+    stub = tmp_path / "dual_ok.json"
+    stub.write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "mode": "jquants_watchlist_cache_live",
+                "target_count": 2,
+                "success_count": 2,
+                "error_count": 0,
+                "skipped_count": 0,
+                "cache_written_count": 2,
+                "failed_codes": [],
+                "results": [
+                    {"code": "5801", "status": "success", "raw_response_included": False},
+                    {"code": "6504", "status": "success", "raw_response_included": False},
+                ],
+                "live_http_performed": True,
+                "raw_response_included": False,
+                "date_from": "2024-02-18",
+                "date_to": "2026-02-17",
+                "codes_requested": "5801,6504",
+            },
+        ),
+        encoding="utf-8",
+    )
+
+    env = dict(os.environ)
+    env.pop("LIMIT", None)
+    env.pop("TEST_JQ_REFRESH_GATE_STUB", None)
+    env.pop("ALLOW_PARTIAL_CACHE", None)
+    env.update(
+        {
+            "PATH": str(fake_bin) + os.pathsep + env.get("PATH", ""),
+            "ALLOW_TEST_JQ_STUBS": "YES",
+            "JQ_OPS_OUTPUT_DIR": str(ops_out),
+            "TEST_JQ_LIVE_STUB_PAYLOAD": str(stub),
+            "CONFIRM_LIVE_HTTP": "YES",
+            "FROM": "2024-02-18",
+            "TO": "2026-02-17",
+            "CODES": "5801,6504",
+            "TEST_JQ_REFRESH_SKIP_DAILY": "1",
+            "PYTHON": sys.executable,
+            "HOME": env.get("HOME", str(tmp_path)),
+        },
+    )
+    r = subprocess.run(["bash", str(_JQ_REFRESH_SH)], cwd=str(_REPO_ROOT), env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr + r.stdout
+    blobs = _all_human_live_ops_summaries(r.stderr)
+    assert len(blobs) == 1
+    assert blobs[0]["verdict"] == "pass"
+
+
+@pytest.mark.skipif(sys.platform.startswith("win"), reason="requires POSIX bash")
+def test_jq_refresh_gate_stub_emits_human_summary_once(tmp_path: Path) -> None:
+    fake_bin, _ = _write_fake_make(tmp_path)
+    ops_out = tmp_path / "ops_stub_human_once"
+    env = dict(os.environ)
+    env.pop("LIMIT", None)
+    env.pop("ALLOW_PARTIAL_CACHE", None)
+    env.update(
+        {
+            "PATH": str(fake_bin) + os.pathsep + env.get("PATH", ""),
+            "ALLOW_TEST_JQ_STUBS": "YES",
+            "JQ_OPS_OUTPUT_DIR": str(ops_out),
+            "TEST_JQ_REFRESH_GATE_STUB": "partial_success",
+            "TEST_JQ_REFRESH_SKIP_DAILY": "1",
+            "CONFIRM_LIVE_HTTP": "YES",
+            "FROM": "2024-02-18",
+            "TO": "2026-02-17",
+            "CODES": "7011",
+            "PYTHON": sys.executable,
+            "HOME": env.get("HOME", str(tmp_path)),
+        },
+    )
+    r = subprocess.run(["bash", str(_JQ_REFRESH_SH)], cwd=str(_REPO_ROOT), env=env, capture_output=True, text=True)
+    assert r.returncode != 0
+    assert len(_all_human_live_ops_summaries(r.stderr)) == 1

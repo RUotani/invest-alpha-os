@@ -568,7 +568,7 @@ def render_jquants_watchlist_bars_check_section(report_cfg: Mapping[str, Any] | 
                 "They are **not** pasted from any CLI or API **stdout/stderr**, **not** produced by this "
                 "`daily` run, **not** “today’s” automated live result, and **no** HTTP runs here.",
                 "",
-                "- Single code success (illus. within subscription window): 7974 / 2024-02-17 / row_count=1 / source_key=data",
+                "- Single code success (illus. within subscription window): 7974 / 2024-02-18 / row_count=1 / source_key=data",
                 "- Watchlist limit 3: **Task 9.2** narrative + command pattern in "
                 "[09 — local manual test](../../../docs/09_jquants_local_manual_test.md) "
                 "(illus. JP codes e.g. 7011 / 6501 / 6506; **not** a stdout paste).",

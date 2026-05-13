@@ -197,3 +197,71 @@ def test_ops_jquants_rejects_forbidden_row_field(tmp_path: Path) -> None:
         text=True,
     )
     assert r.returncode == 3
+
+
+def test_ops_jquants_http_429_sets_retry_guidance_and_safe_rows(tmp_path: Path) -> None:
+    repo = Path(__file__).resolve().parents[1]
+    script = repo / "scripts" / "ops_write_json.py"
+    gate = repo / "scripts" / "jq_ops_workflow_gate.py"
+    payload = {
+        "status": "completed",
+        "mode": "jquants_watchlist_cache_live",
+        "target_count": 2,
+        "success_count": 1,
+        "error_count": 1,
+        "skipped_count": 0,
+        "cache_written_count": 1,
+        "failed_codes": ["7267"],
+        "results": [
+            {"code": "7011", "status": "success", "cache_written_to": "a.json", "raw_response_included": False},
+            {
+                "code": "7267",
+                "status": "http_error",
+                "http_status": 429,
+                "reason": "http_status_429",
+                "raw_response_included": False,
+            },
+        ],
+        "live_http_performed": True,
+        "raw_response_included": False,
+        "date_from": "2024-02-18",
+        "date_to": "2026-02-17",
+        "codes_requested": "7011,7267",
+    }
+    p = tmp_path / "rate.json"
+    p.write_text(json.dumps(payload), encoding="utf-8")
+    r = subprocess.run(
+        [sys.executable, str(script), "--mode", "jquants_watchlist_cache_live", "--payload-file", str(p), "--output-dir", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    s = json.loads((tmp_path / "latest_ops_summary.json").read_text(encoding="utf-8"))
+    assert s["retry_later"] is True
+    assert s["retry_reason"] == "rate_limited"
+    assert s["recommended_action"] == "retry failed_codes later"
+    err_rows = [x for x in s["results"] if x["code"] == "7267"]
+    assert len(err_rows) == 1
+    assert err_rows[0]["http_status"] == 429
+    assert err_rows[0]["reason"] == "http_status_429"
+    assert err_rows[0]["raw_response_included"] is False
+
+    rr = subprocess.run(
+        [sys.executable, str(gate), "print-live-ops-human", "--ops-dir", str(tmp_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert rr.returncode == 0
+    human = json.loads(rr.stderr.strip())
+    assert human.get("retry_later") is True
+    assert human.get("retry_reason") == "rate_limited"
+
+
+def test_payload_contains_http_status_429_helper() -> None:
+    repo = Path(__file__).resolve().parents[1]
+    mod = _load_ops_write_json_module(repo)
+    rows = [{"http_status": 429}, {"http_status": 200}]
+    assert mod.payload_contains_http_status_429(rows) is True
+    assert mod.payload_contains_http_status_429([]) is False

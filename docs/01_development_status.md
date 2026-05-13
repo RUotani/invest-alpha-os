@@ -109,7 +109,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### Task 9.2 — 完了（契約範囲の記録・watchlist smoke 成功のドキュメント化）
 
-- **実契約（API メッセージ要約）**に合わせ、**`.env.example`** と **[09](./09_jquants_local_manual_test.md)** の **`JQUANTS_DATA_AVAILABLE_FROM` / `TO` 例**を **`2024-02-17`〜`2026-02-17`** に更新。**人間はローカル `.env` で各自のプランに合わせて上書き**。
+- **実運用ウィンドウ（`bars` まとめ取り／HTTP 400 境界の記録を反映）**：**`.env.example`** と **[09](./09_jquants_local_manual_test.md)**・**Makefile の `jq-*` 例**の **`JQUANTS_DATA_AVAILABLE_FROM` / `FROM` 例を `2024-02-18`〜`2026-02-17`** に統一。**人間はローカル `.env` で各自のプランに合わせて上書き**。
 - **watchlist limit 3** の **`--live --save-summary` 成功**（`7011` / `6501` / `6506`、`date=2024-02-19`、要約フィールドのみ）を [09](./09_jquants_local_manual_test.md) と daily レポート説明用文言に反映。**`outputs/jquants_smoke/*.json`** は **Git に載せず**。**`latest.json` も同上**。
 - **`config/market_data.yaml`** に例示ウィンドウの注記。
 

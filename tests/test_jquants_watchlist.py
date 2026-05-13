@@ -213,7 +213,7 @@ def test_watchlist_no_secrets_in_stdout(monkeypatch):
 
 
 def test_watchlist_date_range_guard(monkeypatch):
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-17")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-18")
     monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "2026-02-17")
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_API_BASE_URL", "https://jq.test.invalid/v2")

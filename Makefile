@@ -112,7 +112,7 @@ post-push-check:
 ops-check: env-doctor daily-check post-push-check
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
-# make jq-cache-preview FROM=2024-02-17 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP
+# make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP
 jq-cache-preview:
 	@test -n "$(FROM)" || (echo 'FROM is required (YYYY-MM-DD)' >&2 && exit 1)
 	@test -n "$(TO)" || (echo 'TO is required (YYYY-MM-DD)' >&2 && exit 1)

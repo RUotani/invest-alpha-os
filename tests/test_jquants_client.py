@@ -1308,7 +1308,7 @@ def test_v2_http_error_masks_access_token_in_nested_json(monkeypatch):
 
 
 def _set_jquants_data_window(monkeypatch) -> None:
-    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-17")
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_FROM", "2024-02-18")
     monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "2026-02-17")
 
 
@@ -1330,7 +1330,7 @@ def test_v2_date_before_data_window_validation_error(monkeypatch):
     assert err is not None
     assert err["status"] == "validation_error"
     assert err["reason"] == "date_out_of_available_range"
-    assert err["data_available_from"] == "2024-02-17"
+    assert err["data_available_from"] == "2024-02-18"
     assert err["data_available_to"] == "2026-02-17"
 
 
@@ -1374,7 +1374,7 @@ def test_cli_preview_request_data_window_no_leaks(monkeypatch):
     blob = json.loads(r.stdout.strip())
     assert blob["status"] == "validation_error"
     assert blob["reason"] == "date_out_of_available_range"
-    assert blob["data_available_from"] == "2024-02-17"
+    assert blob["data_available_from"] == "2024-02-18"
     assert "NEVER_LEAK_SECRET_KEY_999" not in r.stdout
     low = r.stdout.lower()
     assert "password" not in low

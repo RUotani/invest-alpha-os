@@ -106,7 +106,7 @@ def test_run_mode_passes_enabled_to_child(tmp_path: Path) -> None:
 def test_run_sets_data_availability_in_child_for_guard(tmp_path: Path) -> None:
     p = tmp_path / ".env"
     p.write_text(
-        "JQUANTS_DATA_AVAILABLE_FROM=2024-02-17\n"
+        "JQUANTS_DATA_AVAILABLE_FROM=2024-02-18\n"
         "JQUANTS_DATA_AVAILABLE_TO=2026-02-17\n",
         encoding="utf-8",
     )

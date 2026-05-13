@@ -102,6 +102,10 @@ def print_live_ops_human_summary(ops_dir: Path) -> int:
         "reason": verdict.get("reason"),
         "raw_response_included": summary.get("raw_response_included"),
     }
+    if summary.get("retry_later") is True:
+        blob["retry_later"] = True
+        blob["retry_reason"] = summary.get("retry_reason")
+        blob["recommended_action"] = summary.get("recommended_action")
     print(json.dumps(blob, ensure_ascii=False), file=sys.stderr)
     return 0
 
