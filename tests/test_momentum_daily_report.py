@@ -91,6 +91,10 @@ def test_cache_only_heading_and_skipped_note(tmp_path: Path, monkeypatch: pytest
     assert "Momentum Score v2 table (concise legend)" in md
     assert "**HiDist:**" in md and "**VolR:**" in md
     assert "### Observations — Momentum (cache-only)" in md
+    i_obs = md.index("### Observations — Momentum (cache-only)")
+    i_act = md.index("### Action Watchlist — Momentum (observation only)")
+    assert i_obs < i_act
+    assert "### Action Watchlist — Momentum (observation only)" in md
     assert "No synthetic bars" in md or "**No synthetic bars**" in md
     assert "**Skipped (no local cache file):**" in md
     assert "5802" in md
@@ -194,6 +198,77 @@ def test_classify_watch_note_pullback_vs_quality() -> None:
     by = {m.code: classify_watch_note(ranked, m) for m in ranked}
     assert by["PB"] == "pullback_in_uptrend"
     assert by["ZX"] == "quality_trend"
+
+
+def test_action_watchlist_not_in_mixed_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    _write_min_cache(tmp_path, "7011")
+    mx = render_momentum_signals_mixed_section()
+    assert "### Action Watchlist — Momentum (observation only)" not in mx
+
+
+def test_action_watchlist_buckets_and_rank_order_codes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["LH11", "WK11", "OH11", "ST11", "PB11", "ZX11"],
+    )
+
+    _write_min_cache(tmp_path, "LH11", n=80)
+
+    zx = [100.0 + i * 0.05 for i in range(280)]
+    _write_payload_bars(tmp_path, "ZX11", _flat_bar_rows(zx))
+
+    oh = [100.0] * 219 + [100.0 + (i - 218) * (150.0 / 61) for i in range(219, 280)]
+    st = [100.0 + i * 0.1 for i in range(280)]
+    _write_payload_bars(tmp_path, "OH11", _flat_bar_rows(oh))
+    _write_payload_bars(tmp_path, "ST11", _flat_bar_rows(st))
+
+    pb = [50.0 + i * 0.8 for i in range(125)]
+    peak = pb[-1]
+    pb.extend([peak * 0.99, peak * 0.985, peak * 0.98, peak * 0.975, peak * 0.97])
+    _write_payload_bars(tmp_path, "PB11", _flat_bar_rows(pb))
+
+    _write_payload_bars(tmp_path, "WK11", _flat_bar_rows([100.0] * 280))
+
+    md = render_momentum_signals_cache_only_section()
+
+    assert "#### Monitor strength / quality trend" in md
+    mon_seg = md[md.index("#### Monitor strength / quality trend") :]
+    nl = mon_seg.find("\n#### ", len("#### "))
+    assert nl != -1
+    mon_blk = mon_seg[:nl]
+    assert "ST11, ZX11" in mon_blk
+
+    blk = md[md.index("#### Overheat / chase-risk watch") :]
+    nx = blk.find("\n#### ", len("#### "))
+    assert "**Codes:** OH11" in blk[:nx]
+
+    blk = md[md.index("#### Pullback within uptrend") :]
+    nx = blk.find("\n#### ", len("#### "))
+    assert "**Codes:** PB11" in blk[:nx]
+
+    blk = md[md.index("#### Weak or mixed trend") :]
+    nx = blk.find("\n#### ", len("#### "))
+    assert "**Codes:** WK11" in blk[:nx]
+
+    blk = md[md.index("#### Limited history") :]
+    assert "**Codes:** LH11" in blk[:120]
+
+    act = md[
+        md.index("### Action Watchlist — Momentum (observation only)") :
+        md.index("### Action Watchlist — Momentum (observation only)") + 3000
+    ]
+    alc = act.lower()
+    assert " buy" not in alc
+    assert " sell" not in alc
+    assert "entry" not in alc
+    assert "target price" not in alc
+    assert "should purchase" not in alc
 
 
 def test_daily_report_cache_only_before_mixed_section(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

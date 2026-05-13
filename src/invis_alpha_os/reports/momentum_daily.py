@@ -138,6 +138,73 @@ def observations_momentum_cache_only_lines(
     return lines
 
 
+_ACTION_WATCHLIST_BUCKETS: tuple[tuple[str, str, str], ...] = (
+    (
+        WATCH_NOTE_QUALITATIVE_TREND,
+        "Monitor strength / quality trend",
+        "Trend quality is broad across horizons. Next checks: valuation, catalyst, latest price/volume, earnings schedule.",
+    ),
+    (
+        WATCH_NOTE_OVERHEATED_TREND,
+        "Overheat / chase-risk watch",
+        "Strong trailing returns but elevated chase/giveback risk. Next checks: pullback level, volume confirmation, news/event driver.",
+    ),
+    (
+        WATCH_NOTE_PULLBACK_UPTREND,
+        "Pullback within uptrend",
+        "Short-term weakness inside positive medium/long trend. Next checks: support level, reversal volume, whether r20/r60 remains positive.",
+    ),
+    (
+        WATCH_NOTE_WEAK_MIXED,
+        "Weak or mixed trend",
+        "Trend confirmation is incomplete. Next checks: whether r20 turns positive, sector relative strength, downside risk.",
+    ),
+    (
+        WATCH_NOTE_LIMITED_HISTORY,
+        "Limited history",
+        "Score reliability is lower due to limited bars. Next checks: listing/date history, liquidity, structural reason for short history.",
+    ),
+)
+
+
+def action_watchlist_momentum_cache_only_lines(
+    ranked: Sequence[MomentumBreakdown],
+    note_by_code: dict[str, str],
+) -> list[str]:
+    """Grouped next-check cues from ``watch_note`` tags — observation-only, rank order preserved."""
+
+    ranked_list = list(ranked)
+    if not ranked_list:
+        return []
+
+    lines: list[str] = [
+        "### Action Watchlist — Momentum (observation only)",
+        "",
+        "Grouped from the **Watch** column above; for manual follow-up checks only.",
+        "",
+    ]
+    wrote_any = False
+    for watch_key, title, cue in _ACTION_WATCHLIST_BUCKETS:
+        codes = _codes_in_rank_order_for_note(ranked_list, note_by_code, watch_key)
+        if not codes:
+            continue
+        wrote_any = True
+        joined = ", ".join(codes)
+        lines.extend(
+            [
+                f"#### {title}",
+                "",
+                f"**Codes:** {joined}",
+                "",
+                cue,
+                "",
+            ],
+        )
+    if not wrote_any:
+        return []
+    return lines
+
+
 def _bars_source_summary_line(sources: dict[str, str]) -> str:
     if not sources:
         return "**Bars source:** (no JP watchlist codes)."
@@ -245,6 +312,7 @@ def _append_ranking_table(
     lines.append("")
     return note_by
 
+
 def render_momentum_signals_cache_only_section() -> str:
     """Build ``## Momentum Signals — Cache Only`` — cached bars only; no synthetic generation."""
 
@@ -298,6 +366,7 @@ def render_momentum_signals_cache_only_section() -> str:
             n_skipped_no_cache=len(skipped_no_cache),
         ),
     )
+    lines.extend(action_watchlist_momentum_cache_only_lines(ranked, note_by))
     return "\n".join(lines)
 
 
