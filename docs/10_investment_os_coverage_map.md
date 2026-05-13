@@ -38,8 +38,8 @@ Progress % is directional (same caveat as §2).
 | Area | Implementation status | Progress % | Data source status | Signal status | Report status | Next priority |
 |------|-------------------------|------------|--------------------|--------------|---------------|---------------|
 | **JP equities / J-Quants** | Cache-backed daily bars → signals → daily Markdown | ~80–85% | Active (local sanitized JSON cache; optional live ingest behind gates elsewhere) | Momentum Score v2 + CLI | Daily section + Observations + Action Watchlist (cache-only) | Liquidity/context fields, QA on edge cases |
-| **US equities** | Main R: **`us_watchlist.yaml`** + **`us_daily_bars_cache`** skeleton + optional gated US momentum renderer (no vendor fetch) | **~10–15%** | **Design / disk contract only — data fetching still not implemented** | Momentum-ready when cache populated | Hidden from daily unless `include_us_momentum_cache_only_section` | Main R1: file-based or dry-run OHLCV prototype |
-| **US ETFs** | Same tray as US equities (watchlist grouping + skeleton cache paths) | **~10–15%** | **No fetch wired** — local JSON convention only | As above | As above | Bundled under **Main R** follow-on |
+| **US equities** | Main R / **Main R1**: **`us_watchlist.yaml`** + **`us_daily_bars_cache`** + **CLI/file fixture import** + optional gated US momentum renderer — **still no vendor HTTP ingest** | **~15–20%** | **Local fixture → cache path works; provider data fetching still not implemented** | Momentum-ready when cache populated (local JSON) | Hidden from daily unless `include_us_momentum_cache_only_section` | Wire optional provider ingestion behind gates when ready |
+| **US ETFs** | Same tray as US equities (watchlist grouping + shared cache/import path) | **~15–20%** | **No fetch wired** — local JSON convention + Main R1 import only | As above | As above | Bundled under **Main R / R1** slice |
 | **gold / silver / copper / metals** | Not started | ~0–5% | None in-repo | None | None | **Main S**: commodity / macro-adjacent design |
 | **bonds / rates** | Not started | ~0–5% | None in-repo | None | None | **Main S** |
 | **crypto proxies** (e.g. MSTR / COIN / MARA narrative scope) | **US watchlist** (`crypto_proxy` group); no quote ingest | ~5–15% | None in-repo | None | None | Main R1+ data path |
@@ -71,7 +71,8 @@ Use these stages to compare pillars without implying production readiness:
 ## 5. Current module status (explicit)
 
 - **JP equities**: approximately **stage 5–6** today (Momentum daily report plus Action Watchlist on cache-backed rows — observation only).
-- **Main R (this milestone)**: added **`config/us_watchlist.yaml`**, **`us_watchlist` / `us_daily_bars_cache`** modules, optional **gated** `render_us_momentum_cache_only_section`, and **`us-watchlist-preview`** — **watchlist + on-disk contract + tests only; US market data fetching is still not implemented**.
+- **Main R (this milestone)**: added **`config/us_watchlist.yaml`**, **`us_watchlist` / `us_daily_bars_cache`** modules, optional **gated** `render_us_momentum_cache_only_section`, and **`us-watchlist-preview`** — watchlist + on-disk contract + tests.
+- **Main R1**: added committed **`tests/fixtures/us_daily_bars/`** OHLCV JSON, **`debug us-daily-bars-cache-import`** (dry-run / `--write-cache`), **`make us-cache-fixture-import`**, and **`make us-momentum-check`** — **fixture-based cache population only**; **US market data fetching from a vendor is still not implemented**.
 - **US equities / ETFs / listed crypto proxies**: now roughly **stage 1–2** for configuration and **stage 3-ish** *only after* you populate `outputs/market_data/us_daily_bars/*.json` manually (no automated ingest in-repo yet).
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -85,7 +86,7 @@ After Main Q / Q0:
 
 | Phase | Theme |
 |-------|--------|
-| **Main R** | US equities / ETF — **design skeleton delivered** (`us_watchlist`, cache schema); **live / file ingest still future (Main R1)** |
+| **Main R / R1** | US equities / ETF — **local fixture/cache import prototype** (`us_watchlist`, cache schema, CLI + Makefile targets); **provider / live HTTP ingest remains future work** |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |

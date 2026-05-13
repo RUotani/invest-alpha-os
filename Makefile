@@ -26,7 +26,7 @@ endif
 	env-doctor daily-check jquants-smoke-dry-run jquants-smoke-live post-push-check ops-check \
 	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
 	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot agent-final-check \
-	us-watchlist-preview
+	us-watchlist-preview us-cache-fixture-import us-momentum-check
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -117,6 +117,22 @@ agent-final-check:
 
 us-watchlist-preview:
 	$(PYTHON) -m invis_alpha_os.cli.main us-watchlist-preview
+
+# Main R1: local US OHLCV fixtures → outputs/market_data/us_daily_bars (no HTTP).
+FIX_US_DAILY := $(CURDIR)/tests/fixtures/us_daily_bars
+
+us-cache-fixture-import:
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-daily-bars-cache-import --symbol MSFT --bars-file "$(FIX_US_DAILY)/MSFT.json" --asset-class us_equity --source local_fixture --write-cache
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-daily-bars-cache-import --symbol GOOGL --bars-file "$(FIX_US_DAILY)/GOOGL.json" --asset-class us_equity --source local_fixture --write-cache
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-daily-bars-cache-import --symbol GLDM --bars-file "$(FIX_US_DAILY)/GLDM.json" --asset-class us_etf --source local_fixture --write-cache
+
+us-momentum-check:
+	@if [ ! -f "$(CURDIR)/outputs/market_data/us_daily_bars/MSFT.json" ] || \
+	     [ ! -f "$(CURDIR)/outputs/market_data/us_daily_bars/GOOGL.json" ] || \
+	     [ ! -f "$(CURDIR)/outputs/market_data/us_daily_bars/GLDM.json" ]; then \
+		$(MAKE) us-cache-fixture-import PYTHON="$(PYTHON)"; \
+	fi
+	$(PYTHON) "$(CURDIR)/scripts/us_momentum_check.py"
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
 # make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP

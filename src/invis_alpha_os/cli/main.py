@@ -14,11 +14,13 @@ from invis_alpha_os.config.jp_watchlist import (
     load_jp_watchlist_tickers,
     normalize_jquants_equity_code,
 )
+from invis_alpha_os.config.us_watchlist import normalize_us_symbol
 from invis_alpha_os.data.jquants_daily_bars_cache import (
     save_jquants_daily_bars_cache,
     try_load_cached_daily_bars,
     utc_now_iso,
 )
+from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -1086,6 +1088,157 @@ def debug_jquants_daily_bars_cache(
     view["debug_shape"] = debug_shape
     typer.echo(json.dumps(view, ensure_ascii=False, indent=2))
     raise typer.Exit(0 if result.get("status") == "success" else 1)
+
+
+@debug_app.command("us-daily-bars-cache-import")
+def debug_us_daily_bars_cache_import(
+    symbol: str = typer.Option(..., "--symbol", help="US symbol (normalized for cache filename)."),
+    bars_file: Path = typer.Option(..., "--bars-file", help="JSON array of sanitized OHLCV rows."),
+    asset_class: Optional[str] = typer.Option(
+        None,
+        "--asset-class",
+        help="Optional persisted label (e.g. us_equity, us_etf).",
+    ),
+    source: str = typer.Option(
+        "local_fixture",
+        "--source",
+        help="Stored in cache JSON metadata (must not resemble secrets).",
+    ),
+    write_cache: bool = typer.Option(
+        False,
+        "--write-cache",
+        help="Write outputs/market_data/us_daily_bars/{symbol}.json; default is preview only.",
+    ),
+) -> None:
+    """Import local US OHLCV JSON into on-disk cache (no HTTP)."""
+
+    norm = normalize_us_symbol(symbol.strip())
+    if norm is None:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "invalid_symbol",
+                    "symbol_input": symbol,
+                    "live_http": False,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    p = Path(bars_file)
+    if not p.is_file():
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "bars_file_not_found",
+                    "path": str(p),
+                    "live_http": False,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    try:
+        bars = load_bars_json_file(p)
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "bars_parse_failed",
+                    "detail": (
+                        "Expected a UTF-8 JSON array of sanitized OHLCV objects "
+                        "(date, open, high, low, close, volume)."
+                    ),
+                    "live_http": False,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2)
+
+    rows: list[dict[str, Any]] = [dict(b) for b in bars]
+    rel = f"outputs/market_data/us_daily_bars/{norm}.json"
+
+    ac = asset_class.strip() if isinstance(asset_class, str) and asset_class.strip() else None
+
+    if not write_cache:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "dry_run",
+                    "symbol": norm,
+                    "bar_count": len(rows),
+                    "cache_would_write_to": rel,
+                    "live_http": False,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        raise typer.Exit(0)
+
+    try:
+        path = save_us_daily_bars_cache(
+            norm,
+            rows,
+            asset_class=ac,
+            source=source.strip(),
+            fetched_at=utc_now_iso(),
+        )
+    except ValueError as e:
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "refused_cache_write",
+                    "detail": str(e),
+                    "live_http": False,
+                    "raw_response_included": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            err=True,
+        )
+        raise typer.Exit(2) from e
+
+    try:
+        rel_path = path.relative_to(ROOT_DIR).as_posix()
+    except ValueError:
+        rel_path = path.relative_to(path.anchor).as_posix() if path.is_absolute() else path.as_posix()
+        markers = ("outputs/market_data/us_daily_bars/", "market_data/us_daily_bars/")
+        if not any(rel_path.startswith(p) for p in markers):
+            rel_path = f"outputs/market_data/us_daily_bars/{norm}.json"
+
+    typer.echo(
+        json.dumps(
+            {
+                "status": "success",
+                "symbol": norm,
+                "bar_count": len(rows),
+                "cache_written_to": rel_path,
+                "live_http": False,
+                "raw_response_included": False,
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 @debug_app.command("jquants-watchlist-bars-cache")
