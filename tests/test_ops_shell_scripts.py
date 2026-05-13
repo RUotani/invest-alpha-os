@@ -13,6 +13,8 @@ _SCRIPTS = [
     _ROOT / "scripts" / "jq_watchlist_bars_cache_live.sh",
     _ROOT / "scripts" / "jq_refresh_workflow.sh",
     _ROOT / "scripts" / "daily_momentum_check.sh",
+    _ROOT / "scripts" / "agent_final_check.sh",
+    _ROOT / "scripts" / "agent_daily_momentum_check_no_env.sh",
 ]
 
 
