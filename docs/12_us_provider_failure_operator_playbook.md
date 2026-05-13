@@ -105,23 +105,28 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 - Use **JSON** (default CLI; omit **`--markdown`**) when you need per-row **`operator_next_action`** / **`body_kind`**. Markdown is **human recap only**, not a substitute export.
 - **Neither mode** performs cache writes, embeds vendor raw bodies, or prints API keys.
 
-### 3.4 Manual live batch smoke scaffold + preflight (**`debug us-provider-manual-live-batch-smoke`**, Main R6.3 + R6.4.0)
+### 3.4 Manual live batch smoke scaffold + preflight + live HTTP (**`debug us-provider-manual-live-batch-smoke`**, Main R6.3 + R6.4.0 + R6.4.1)
 
 **R6.3** emits a **batch-style JSON envelope** (not the **`results[]`** shape of section 3). Top-level **`status`** is **`manual_live_batch_smoke_dry_run`** (success) or **`validation_error`**. **No vendor HTTP** and **no cache write** occur in **R6.3**.
 
-**R6.4.0** adds **`--live --preflight`**: validates gates + **`--max-http`**; emits **`manual_live_batch_smoke_preflight_ready`** (exit 0) — **still zero vendor HTTP**. **`--preflight`** without **`--live`** is a normal validation refusal (**`manual_batch_smoke_preflight_requires_live`**, exit 2, zero HTTP).
+**R6.4.0** adds **`--live --preflight`**: validates gates + **`--max-http`**; emits **`manual_live_batch_smoke_preflight_ready`** (exit 0) — **still zero vendor HTTP**. **`--preflight`** without **`--live`** → **`manual_batch_smoke_preflight_requires_live`** (exit 2, zero HTTP).
+
+**R6.4.1** adds **`--live --preflight --execute-live-http`**: performs bounded vendor GETs (at most **`--max-http`**); **no cache write**, **no raw response stored**.
 
 | Top-level `status` | Top-level `reason` (when applicable) | CLI exit | Operator notes |
 |--------------------|--------------------------------------|---------:|----------------|
 | `manual_live_batch_smoke_dry_run` | — | **0** | Default without **`--live`** or **`--preflight`**; inspect **`plan_rows`**, **`constraints.planned_http_attempts`**, **`gate_status`**. |
 | `manual_live_batch_smoke_preflight_ready` | — | **0** | **R6.4.0** — **`--live --preflight`** with both gates **`YES`** + **`--max-http > 0`**; **zero HTTP** performed. |
-| `validation_error` | `manual_batch_smoke_preflight_requires_live` | **2** | **R6.4.0.1** — **`--preflight`** passed without **`--live`**; normal refusal, **zero HTTP**. |
-| `validation_error` | `manual_batch_smoke_live_http_not_confirmed` | **2** | **`--live --preflight`** without **both** **`CONFIRM_US_LIVE_HTTP=YES`** and **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
-| `validation_error` | `manual_batch_smoke_max_http_zero` | **2** | **`--live --preflight`** with both gates **`YES`** but **`--max-http 0`** (only reached after gates pass; **`--preflight`** without **`--live`** is handled earlier by `manual_batch_smoke_preflight_requires_live`). |
-| `validation_error` | `manual_batch_smoke_live_execution_not_implemented_in_r6_3` | **2** | **`--live`** (no **`--preflight`**) with gates **`YES`** — **R6.4.1** executes real GETs. |
+| `manual_live_batch_smoke_live_preview_completed` | — | **0** | **R6.4.1** — **`--live --preflight --execute-live-http`** + gates + **`--max-http > 0`**; **no cache write**. |
+| `validation_error` | `manual_batch_smoke_execute_requires_live` | **2** | **R6.4.1** — **`--execute-live-http`** without **`--live`**. |
+| `validation_error` | `manual_batch_smoke_execute_requires_preflight` | **2** | **R6.4.1** — **`--execute-live-http --live`** without **`--preflight`**. |
+| `validation_error` | `manual_batch_smoke_preflight_requires_live` | **2** | **`--preflight`** without **`--live`**; normal refusal, **zero HTTP**. |
+| `validation_error` | `manual_batch_smoke_live_http_not_confirmed` | **2** | **`--live --preflight`** (or **`--execute-live-http`**) without **both** **`CONFIRM_US_LIVE_HTTP=YES`** and **`CONFIRM_US_MANUAL_BATCH_SMOKE=YES`**. |
+| `validation_error` | `manual_batch_smoke_max_http_zero` | **2** | **`--live --preflight`** (or **`--execute-live-http`**) with both gates **`YES`** but **`--max-http 0`**. |
+| `validation_error` | `manual_batch_smoke_live_execution_not_implemented_in_r6_3` | **2** | **`--live`** alone (no **`--preflight`**, no **`--execute-live-http`**) with gates **`YES`** — legacy R6.3 scaffold refusal. |
 | `validation_error` | `unsupported_provider` / `empty_symbol_batch` | **2** | Same discipline as other **`debug us-provider-*`** commands. |
 
-Valid row **`reason`**: **`r6_3_scaffold_no_http_no_write`** (dry-run) or **`r6_4_0_preflight_ready_no_http`** (preflight). Invalid tickers use **`invalid_symbol`** rows (**`excluded_invalid_symbol`** planned action).
+Valid row **`reason`**: **`r6_3_scaffold_no_http_no_write`** (dry-run), **`r6_4_0_preflight_ready_no_http`** (preflight), or per-symbol result **`status`** (R6.4.1 live rows). Capped symbols: **`max_http_cap_reached`** (**`planned_action: skipped_max_http_cap`**). Invalid tickers: **`invalid_symbol`** / **`excluded_invalid_symbol`**.
 
 ---
 

@@ -9,12 +9,14 @@ Builds deterministic JSON / Markdown for **`debug us-provider-manual-live-batch-
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 from invis_alpha_os.config.us_watchlist import normalize_us_symbol
 from invis_alpha_os.data.us_provider_live_preview import (
     CONFIRM_US_CACHE_WRITE_ENV,
     CONFIRM_US_LIVE_HTTP_ENV,
+    stooq_live_preview_sanitized_bars,
 )
 from invis_alpha_os.data.us_provider_scheduled_ingest_plan import (
     ENV_MAX_SYMBOLS,
@@ -34,6 +36,8 @@ _REASON_LIVE_NA = "manual_batch_smoke_live_execution_not_implemented_in_r6_3"
 _REASON_MAX_HTTP_ZERO = "manual_batch_smoke_max_http_zero"
 _REASON_PREFLIGHT_READY_ROW = "r6_4_0_preflight_ready_no_http"
 _REASON_PREFLIGHT_REQUIRES_LIVE = "manual_batch_smoke_preflight_requires_live"
+_REASON_EXECUTE_REQUIRES_LIVE = "manual_batch_smoke_execute_requires_live"
+_REASON_EXECUTE_REQUIRES_PREFLIGHT = "manual_batch_smoke_execute_requires_preflight"
 
 
 def _symbol_merge_core(
@@ -132,8 +136,9 @@ def build_us_provider_manual_live_batch_smoke_payload(
     max_http: int = 0,
     live_requested: bool = False,
     preflight_requested: bool = False,
+    execute_live_http_requested: bool = False,
 ) -> dict[str, Any]:
-    """Build observation-only manual batch smoke envelope (**R6.4.0** — **never** HTTP / cache write)."""
+    """Build manual batch smoke envelope (**R6.4.1** — HTTP only under full gate set)."""
 
     prov = provider.strip()
     if prov != "stooq_preview":
@@ -186,6 +191,157 @@ def build_us_provider_manual_live_batch_smoke_payload(
     }
 
     gate_block = _gate_status_block()
+
+    if execute_live_http_requested:
+        if not live_requested:
+            return {
+                "status": "validation_error",
+                "reason": _REASON_EXECUTE_REQUIRES_LIVE,
+                "provider": prov,
+                "observation_only": True,
+                "live_requested": False,
+                "preflight_requested": preflight_requested,
+                "execute_live_http_requested": True,
+                **_common_live_refusal_booleans(),
+            }
+        if not preflight_requested:
+            return {
+                "status": "validation_error",
+                "reason": _REASON_EXECUTE_REQUIRES_PREFLIGHT,
+                "provider": prov,
+                "observation_only": True,
+                "live_requested": True,
+                "preflight_requested": False,
+                "execute_live_http_requested": True,
+                **_common_live_refusal_booleans(),
+            }
+        # --live --preflight --execute-live-http path
+        live_ok = os.environ.get(CONFIRM_US_LIVE_HTTP_ENV) == "YES"
+        batch_ok = os.environ.get(CONFIRM_US_MANUAL_BATCH_SMOKE_ENV) == "YES"
+        if not (live_ok and batch_ok):
+            return {
+                "status": "validation_error",
+                "reason": _REASON_LIVE_GATE,
+                "provider": prov,
+                "observation_only": True,
+                "live_requested": True,
+                "preflight_requested": True,
+                "execute_live_http_requested": True,
+                **_common_live_refusal_booleans(),
+            }
+        if max_http == 0:
+            return {
+                "status": "validation_error",
+                "reason": _REASON_MAX_HTTP_ZERO,
+                "provider": prov,
+                "observation_only": True,
+                "live_requested": True,
+                "preflight_requested": True,
+                "execute_live_http_requested": True,
+                **_common_live_refusal_booleans(),
+            }
+
+        # Execute bounded live HTTP
+        src_block = {
+            "from_watchlist": from_watchlist_used,
+            "symbols_csv_provided": symbols_csv_provided,
+            "limit": limit_param if isinstance(limit_param, int) and limit_param > 0 else None,
+        }
+        exec_rows: list[dict[str, Any]] = []
+        http_attempted = 0
+        live_preview_ok_count = 0
+        live_preview_fail_count = 0
+        skipped_cap_count = 0
+
+        # invalid symbol rows first
+        for r in merged_plan_rows:
+            if r.get("reason") == "invalid_symbol":
+                exec_rows.append(r)
+
+        for norm in normed_acc:
+            if http_attempted >= max_http:
+                exec_rows.append({
+                    "symbol": norm,
+                    "provider": prov,
+                    "planned_action": "skipped_max_http_cap",
+                    "live_http_allowed": False,
+                    "cache_write_allowed": False,
+                    "live_http_performed": False,
+                    "cache_write_performed": False,
+                    "reason": "max_http_cap_reached",
+                })
+                skipped_cap_count += 1
+                continue
+
+            if http_attempted > 0 and min_sleep_val is not None and min_sleep_val > 0:
+                time.sleep(min_sleep_val)
+
+            result = stooq_live_preview_sanitized_bars(norm, live=True, write_cache=False)
+            http_attempted += 1
+
+            row_status = str(result.get("status") or "")
+            row_http_performed = bool(result.get("live_http_performed"))
+            row: dict[str, Any] = {
+                "symbol": norm,
+                "provider": prov,
+                "planned_action": "live_preview_http_get",
+                "live_http_allowed": True,
+                "cache_write_allowed": False,
+                "live_http_performed": row_http_performed,
+                "cache_write_performed": False,
+                "raw_response_included": False,
+                "status": "live_preview_ok" if row_status == "preview_ok" else row_status,
+            }
+            if "reason" in result:
+                row["reason"] = result["reason"]
+            if row_status == "preview_ok":
+                row["sanitized_bar_count"] = result.get("row_count", 0)
+                row["bars_source"] = "vendor_live_sanitized_preview"
+                live_preview_ok_count += 1
+            else:
+                live_preview_fail_count += 1
+
+            exec_rows.append(row)
+
+        exec_constraints = {
+            **constraints_common,
+            "actual_http_attempts": http_attempted,
+        }
+        exec_op_summary = {
+            "dry_run_plan_count": valid_count,
+            "planned_http_attempt_count": planned_http_attempts,
+            "actual_http_attempt_count": http_attempted,
+            "live_preview_success_count": live_preview_ok_count,
+            "live_preview_failure_count": live_preview_fail_count,
+            "skipped_max_http_cap_count": skipped_cap_count,
+            "live_http_allowed_count": http_attempted,
+            "cache_write_allowed_count": 0,
+            "invalid_symbol_count": invalid_ct,
+        }
+        return {
+            "status": "manual_live_batch_smoke_live_preview_completed",
+            "mode": "live_preview_http_no_cache_write",
+            "observation_only": True,
+            "live_requested": True,
+            "preflight_requested": True,
+            "execute_live_http_requested": True,
+            "live_http_performed": http_attempted > 0,
+            "cache_write_performed": False,
+            "raw_response_included": False,
+            "provider_api_key_env_name": STOOQ_API_KEY_ENV,
+            "provider_api_key_value_included": False,
+            "scheduled_ingest_enabled": False,
+            "manual_batch_smoke_enabled": False,
+            "provider": prov,
+            "source": src_block,
+            "constraints": exec_constraints,
+            "gate_status": gate_block,
+            "symbol_count": len(exec_rows),
+            "symbols": list(normed_acc),
+            "plan_rows": exec_rows,
+            "operator_summary": exec_op_summary,
+            "next_required_approval": "R6.5 manual live batch cache-write evaluation",
+        }
 
     if preflight_requested:
         if not live_requested:
@@ -426,18 +582,87 @@ def build_us_provider_manual_live_batch_smoke_payload(
 
 
 def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
-    """Copy-ready Markdown (**Main R6.4.0**) — **never** API key values / raw payloads."""
+    """Copy-ready Markdown (**Main R6.4.1**) — **never** API key values / raw payloads."""
 
     st = str(payload.get("status") or "")
     if st == "validation_error":
         rs = payload.get("reason")
         rs_s = rs if isinstance(rs, str) else "validation_error"
         return (
-            "# US Manual Live Batch Smoke (**R6.4.0**)\n\n"
+            "# US Manual Live Batch Smoke (**R6.4.1**)\n\n"
             f"> **Observation only.** JSON canonical. **status:** `validation_error` — **`{rs_s}`**.\n\n"
             "## Operator verdict\n\n"
-            "Preflight / scaffold refusal — fix gates, **`--max-http`**, CLI inputs, or wait for **R6.4.1** execution.\n"
+            "Refusal — fix gates, **`--max-http`**, CLI inputs, or flag combination.\n"
         )
+
+    if st == "manual_live_batch_smoke_live_preview_completed":
+        gates = payload.get("gate_status")
+        gates_lines = ""
+        if isinstance(gates, dict):
+            gates_lines = "\n".join(f"| `{k}` | `{gates[k]}` |" for k in sorted(gates.keys()))
+
+        cons = payload.get("constraints") if isinstance(payload.get("constraints"), dict) else {}
+        op_sum = payload.get("operator_summary") if isinstance(payload.get("operator_summary"), dict) else {}
+        plan_rows_raw = payload.get("plan_rows")
+        plan_rows: list[dict[str, Any]] = plan_rows_raw if isinstance(plan_rows_raw, list) else []
+        ok_rows = [r for r in plan_rows if r.get("status") == "live_preview_ok"]
+
+        lines = [
+            "# US Manual Live Batch Smoke (**R6.4.1 live preview completed**)",
+            "",
+            "> **R6.4.1 live preview completed.** JSON canonical.",
+            "> **no cache write**, **raw response not included**.",
+            "",
+            "## Operator verdict",
+            "",
+            f"**Live preview completed.** Attempted: {op_sum.get('actual_http_attempt_count', 0)}, "
+            f"ok: {op_sum.get('live_preview_success_count', 0)}, "
+            f"failed: {op_sum.get('live_preview_failure_count', 0)}.",
+            "",
+            "## Safety flags",
+            "",
+            "| flag | value |",
+            "|---|---:|",
+            f"| live_http_performed | {str(bool(payload.get('live_http_performed'))).lower()} |",
+            f"| cache_write_performed | {str(bool(payload.get('cache_write_performed'))).lower()} |",
+            f"| raw_response_included | {str(bool(payload.get('raw_response_included'))).lower()} |",
+            f"| provider_api_key_value_included | {str(bool(payload.get('provider_api_key_value_included'))).lower()} |",
+            f"| observation_only | {str(bool(payload.get('observation_only'))).lower()} |",
+            f"| scheduled_ingest_enabled | {str(bool(payload.get('scheduled_ingest_enabled'))).lower()} |",
+            "",
+            "## Gate status",
+            "",
+            "| env gate | literal |",
+            "|---|---|",
+            gates_lines if gates_lines else "| — | — |",
+            "",
+            "## Results",
+            "",
+            f"- actual_http_attempts: `{op_sum.get('actual_http_attempt_count', 0)}`",
+            f"- live_preview_success_count: `{op_sum.get('live_preview_success_count', 0)}`",
+            f"- live_preview_failure_count: `{op_sum.get('live_preview_failure_count', 0)}`",
+            f"- skipped_max_http_cap_count: `{op_sum.get('skipped_max_http_cap_count', 0)}`",
+            f"- cache_write_allowed_count: `0`",
+            "",
+        ]
+        for r in ok_rows:
+            lines.append(
+                f"- `{r.get('symbol')}`: {r.get('sanitized_bar_count', '?')} bars "
+                f"({r.get('bars_source', '')})"
+            )
+        lines += [
+            "",
+            "## Next milestone",
+            "",
+            f"`{payload.get('next_required_approval')}`",
+            "",
+            "## Notes",
+            "",
+            "- **R6.4.1** — bounded live preview only; **no cache write**, **no raw response**.",
+            "- This output is **not** scheduled ingest. See **`docs/13`** for R6.6+ scope.",
+            "",
+        ]
+        return "\n".join(lines)
 
     if st == "manual_live_batch_smoke_preflight_ready":
         gates = payload.get("gate_status")

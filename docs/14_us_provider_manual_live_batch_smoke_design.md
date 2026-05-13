@@ -1,4 +1,4 @@
-# US provider — operator-approved manual live batch smoke (**Main R6.2 design + R6.3 scaffold + R6.4.0 preflight**)
+# US provider — operator-approved manual live batch smoke (**Main R6.2 design + R6.3 scaffold + R6.4.0 preflight + R6.4.1 live HTTP**)
 
 ## 1. Purpose
 
@@ -18,6 +18,17 @@
 - Plan rows change from **`dry_run_only`** / **`r6_3_scaffold_no_http_no_write`** to **`preflight_ready_no_http`** / **`r6_4_0_preflight_ready_no_http`**.
 - **`operator_summary`** gains **`preflight_ready_count`**.
 - **`next_required_approval`** updates to **`R6.4.1 manual live batch smoke execution`**.
+
+**Main R6.4.1 adds (implemented — real bounded live HTTP):**
+
+- **`--execute-live-http`** flag: requires **`--live --preflight`** + both gates **`YES`** + **`--max-http > 0`**.
+- Performs at most **`max_http`** vendor GETs for valid symbols; **no cache write**, **no raw response stored**.
+- Status: **`manual_live_batch_smoke_live_preview_completed`** (exit 0).
+- Plan rows: **`live_preview_http_get`** (attempted) or **`skipped_max_http_cap`** (cap reached).
+- **`--execute-live-http`** without **`--live`** → **`manual_batch_smoke_execute_requires_live`** (exit 2).
+- **`--execute-live-http --live`** without **`--preflight`** → **`manual_batch_smoke_execute_requires_preflight`** (exit 2).
+- **`next_required_approval`**: **`R6.5 manual live batch cache-write evaluation`**.
+- Not wired to Makefile, verify, safe-push, or agent-final-check.
 
 Characteristics (unchanged from R6.2 intent):
 
@@ -60,6 +71,20 @@ Envelope **`reason`** for valid plan rows (not top-level): **`r6_3_scaffold_no_h
 | **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--live --preflight`** with both gates **`YES`** but **`--max-http 0`**. |
 
 **Next milestone (success path after preflight):** **`next_required_approval`** string **`R6.4.1 manual live batch smoke execution`**.
+
+## R6.4.1 live HTTP — additional status / reason strings (JSON)
+
+| `status` | `reason` | CLI exit | Notes |
+|----------|----------|---------:|-------|
+| **`manual_live_batch_smoke_live_preview_completed`** | — | **0** | **`--live --preflight --execute-live-http`** + gates + **`--max-http > 0`**; **no cache write**. |
+| **`validation_error`** | **`manual_batch_smoke_execute_requires_live`** | **2** | **`--execute-live-http`** without **`--live`**. |
+| **`validation_error`** | **`manual_batch_smoke_execute_requires_preflight`** | **2** | **`--execute-live-http --live`** without **`--preflight`**. |
+| **`validation_error`** | **`manual_batch_smoke_live_http_not_confirmed`** | **2** | **`--live --preflight --execute-live-http`** but gate(s) missing. |
+| **`validation_error`** | **`manual_batch_smoke_max_http_zero`** | **2** | **`--live --preflight --execute-live-http`** with both gates but **`--max-http 0`**. |
+
+Plan row **`reason`** for capped symbols: **`max_http_cap_reached`** (**`planned_action: skipped_max_http_cap`**).
+
+**Next milestone:** **`next_required_approval`** string **`R6.5 manual live batch cache-write evaluation`**.
 
 ---
 
@@ -163,12 +188,18 @@ Any **future R6.4** implementation **must** require:
 
 ---
 
-## 8. Exit criteria before an implementation PR may claim “R6.4.1 execution live”
+## 8. Exit criteria
 
-**Main R6.3** satisfies **scaffold / observation** tests. **Main R6.4.0** satisfies **preflight readiness** tests (**`tests/test_us_provider_manual_live_batch_smoke.py`** — 22 tests). **Main R6.4.1** (**real HTTP**) still requires:
+**Main R6.3** satisfies **scaffold / observation** tests. **Main R6.4.0** satisfies **preflight readiness** tests. **Main R6.4.1** satisfies **bounded live HTTP** tests (**`tests/test_us_provider_manual_live_batch_smoke.py`** — 33 tests, mocked transport).
 
-1. **`docs/14`** + **`docs/13`** coherence for **R6.4.1** (**HTTP ON** when gates + **`--max-http > 0`** + **`--preflight`** passed first).
-2. Automated proofs: **no HTTP** when gates missing; **`--max-http`** enforced on wire; **no** raw payload / API key values; **no** scheduler / workflow **`schedule:`** for this feature.
+**R6.4.1 invariants (enforced by tests):**
+- **No HTTP** unless **`--live --preflight --execute-live-http`** + gates + **`--max-http > 0`**.
+- **`--max-http`** cap enforced; symbols beyond cap get **`skipped_max_http_cap`** row.
+- **`save_us_daily_bars_cache`** never called.
+- **No raw response** or **API key value** in any output.
+- Not wired to Makefile, verify, safe-push, or any workflow.
+
+**R6.5** (cache-write evaluation) requires explicit follow-on milestone approval.
 
 Tests **must not** use **`ALLOW_IMPORTANT=true`**.
 

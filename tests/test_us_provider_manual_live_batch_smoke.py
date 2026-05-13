@@ -445,3 +445,211 @@ def test_preflight_without_live_exits_2(monkeypatch: pytest.MonkeyPatch) -> None
     assert payload["live_http_performed"] is False
     assert payload["cache_write_performed"] is False
     assert payload["raw_response_included"] is False
+
+
+# ── R6.4.1 execute-live-http tests ──────────────────────────────────────────
+
+
+def _mock_preview_ok(symbol: str, *, live: bool = False, write_cache: bool = False) -> dict:
+    return {
+        "status": "preview_ok",
+        "provider": "stooq_preview",
+        "symbol": symbol,
+        "row_count": 5,
+        "first_date": "2024-01-01",
+        "last_date": "2024-01-05",
+        "live_http_performed": True,
+        "cache_write_performed": False,
+        "raw_response_included": False,
+    }
+
+
+def test_execute_without_live_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--execute-live-http", "--max-http", "1"],
+    )
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_smoke_execute_requires_live"
+    assert p["live_http_performed"] is False
+
+
+def test_execute_live_without_preflight_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--execute-live-http", "--max-http", "1"],
+    )
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_smoke_execute_requires_preflight"
+    assert p["live_http_performed"] is False
+
+
+def test_execute_missing_gates_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--preflight", "--execute-live-http", "--max-http", "1"],
+    )
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_smoke_live_http_not_confirmed"
+    assert p["live_http_performed"] is False
+
+
+def test_execute_max_http_zero_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--preflight", "--execute-live-http", "--max-http", "0"],
+    )
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_smoke_max_http_zero"
+    assert p["live_http_performed"] is False
+
+
+def test_execute_live_preview_completed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(uplp, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--preflight", "--execute-live-http", "--max-http", "1"],
+    )
+    assert r.exit_code == 0, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "manual_live_batch_smoke_live_preview_completed"
+    assert p["live_http_performed"] is True
+    assert p["cache_write_performed"] is False
+    assert p["raw_response_included"] is False
+    assert p["provider_api_key_value_included"] is False
+    assert p["constraints"]["actual_http_attempts"] == 1
+    assert p["operator_summary"]["actual_http_attempt_count"] == 1
+    assert p["operator_summary"]["live_preview_success_count"] == 1
+    assert p["operator_summary"]["cache_write_allowed_count"] == 0
+
+
+def test_execute_max_http_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT", "NVDA"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+    )
+    assert out["status"] == "manual_live_batch_smoke_live_preview_completed"
+    rows_by_sym = {r["symbol"]: r for r in out["plan_rows"]}
+    assert rows_by_sym["MSFT"]["planned_action"] == "live_preview_http_get"
+    assert rows_by_sym["NVDA"]["planned_action"] == "skipped_max_http_cap"
+    assert rows_by_sym["NVDA"]["reason"] == "max_http_cap_reached"
+    assert out["operator_summary"]["skipped_max_http_cap_count"] == 1
+
+
+def test_execute_invalid_symbol_no_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    call_count = 0
+
+    def _count_calls(symbol: str, *, live: bool = False, write_cache: bool = False) -> dict:
+        nonlocal call_count
+        call_count += 1
+        return _mock_preview_ok(symbol, live=live, write_cache=write_cache)
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _count_calls)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["bogus/sym", "MSFT"],
+        max_http=2,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+    )
+    assert call_count == 1  # only MSFT, not bogus/sym
+    assert out["operator_summary"]["invalid_symbol_count"] == 1
+
+
+def test_execute_cache_writer_not_called(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+
+    def _fail_if_called(*_a: object, **_k: object) -> None:
+        raise AssertionError("R6.4.1 must not call save_us_daily_bars_cache")
+
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", _fail_if_called)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+    )
+    assert out["cache_write_performed"] is False
+
+
+def test_execute_api_key_not_printed(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r641_secret_key_never_echo_99999"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--preflight", "--execute-live-http", "--max-http", "1"],
+    )
+    assert r.exit_code == 0, r.stdout
+    assert secret not in r.stdout
+    assert secret not in (r.stderr or "")
+
+
+def test_execute_raw_response_not_in_payload(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    r = runner.invoke(
+        app,
+        ["debug", "us-provider-manual-live-batch-smoke",
+         "--symbols", "MSFT", "--provider", "stooq_preview",
+         "--live", "--preflight", "--execute-live-http", "--max-http", "1"],
+    )
+    p = json.loads(r.stdout.strip())
+    assert p["raw_response_included"] is False
+    for row in p.get("plan_rows", []):
+        assert "raw_body" not in row
+        assert "raw_csv" not in row
+
+
+def test_execute_markdown_r641_wording(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _mock_preview_ok)
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+    )
+    md = mlbs.render_manual_live_batch_smoke_markdown(out)
+    assert "R6.4.1" in md
+    assert "live preview completed" in md.lower()
+    assert "no cache write" in md
+    assert "raw response not included" in md.lower()
+    assert "JSON" in md

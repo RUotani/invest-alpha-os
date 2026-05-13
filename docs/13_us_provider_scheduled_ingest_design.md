@@ -21,6 +21,10 @@ This document is the **safety contract and readiness gate** for evolving US prov
 
 - Changing JP pipelines, US daily Markdown defaults, or single-symbol gated tooling behaviour (**unchanged**).
 
+**Main R6.4.1 adds (implemented — bounded manual live HTTP):**
+
+- **`--execute-live-http`** flag: requires **`--live --preflight`** + both gates + **`--max-http > 0`**; performs at most **`max_http`** vendor GETs — **no cache write**, **no raw response** — see **`docs/14`** R6.4.1 section. This is **manual operator invocation only**; scheduled ingest remains **R6.6+**.
+
 **Main R6.4.0 adds (implemented — preflight readiness only):**
 
 - **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`**: validates gates + **`--max-http`**; emits **`manual_live_batch_smoke_preflight_ready`** (exit 0) or **`validation_error`** (exit 2) — **still zero vendor HTTP** — see **`docs/14`** R6.4.0 section.
@@ -72,7 +76,7 @@ Phases describe **intent**. **R6.0**, **R6.1 (plan renderer)**, **R6.2 (`docs/14
 | **R6.2** | **`docs/14`** manual live batch smoke — **policy / CLI shape / gates** (**design-first** milestone). |
 | **R6.3** | **Manual live batch scaffold** (**implemented**) — **`debug us-provider-manual-live-batch-smoke`** merges symbols / reports caps; **`--live`** **does not perform** vendor GETs; **exit 2** scaffold reasons (**`manual_batch_smoke_*`**) per **`docs/14`** / **`docs/12`**. |
 | **R6.4.0** | **Preflight readiness check** (**implemented**) — **`--preflight`** validates gates + **`--max-http`**; **`manual_live_batch_smoke_preflight_ready`** exit 0; **zero vendor HTTP**. |
-| **R6.4.1** | **Manual live batch smoke execution** — bounded HTTP **after** **`docs/14`** gates + **`docs/14`** section 8 (**not R6.3** or **R6.4.0**). |
+| **R6.4.1** | **Manual live batch smoke execution** (**implemented**) — **`--live --preflight --execute-live-http`** + gates + **`--max-http > 0`**; bounded vendor GETs; **no cache write**. |
 | **R6.5** | **Gated multi-symbol sanitized cache write *candidate*** — evaluation only (**bulk semantics remain tightly gated**). |
 | **R6.6+** | **Scheduled ingest** — **only after** vendor contract / observability approvals and **`CONFIRM_US_SCHEDULED_INGEST`** ergonomics land. |
 
@@ -182,8 +186,9 @@ Use as a **paper gate** — checklist items supplement **`docs/14`** section 8. 
 | **1.2** | **Main R6.2** | **`docs/14`** manual live batch smoke **design** — **still no unattended scheduled ingest**; **no runtime HTTP** in the R6.2 doc merge. |
 | **1.3** | **Main R6.3** | **`us_provider_manual_live_batch_smoke`** + **`debug us-provider-manual-live-batch-smoke`** — **scaffold only** (**`--live`** refuses HTTP); optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
 | **1.4** | **Main R6.4.0** | **`--preflight`** flag — manual live batch smoke **preflight-ready mode**; validates gates + **`--max-http`**; **zero HTTP / zero cache write**; requires **`--live`**. |
+| **1.5** | **Main R6.4.1** | **`--execute-live-http`** flag — bounded manual live HTTP; **no cache write**; manual operator invocation only; scheduled ingest still **R6.6+**. |
 
-When **R6.4.1+** lands, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
+When **R6.5+** lands, update this file’s **phased table** and **checklist** — do not silently widen earlier milestone scope.
 
 ---
 

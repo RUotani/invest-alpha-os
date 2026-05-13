@@ -74,8 +74,9 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R6.1** | **Dry-run scheduled ingest plan renderer** — **`us_provider_scheduled_ingest_plan.py`** + **`debug us-provider-scheduled-ingest-plan`**: emits **`scheduled_plan_dry_run`** (**symbol universe**, gates, constraints); **no HTTP**, **no cache write**, **no scheduler**. See **`docs/13`** §8. |
 | **Main R6.2** | **Manual live batch smoke — design** — **`docs/14`**: gates, **`--max-http`**, hygiene contract (**design-first**). |
 | **Main R6.3** | **Manual live batch smoke — CLI scaffold** — **`debug us-provider-manual-live-batch-smoke`**: merges symbols (**`scheduled_plan`**-style), reports **`planned_http_attempts`**; **`--live`** exits **`validation_error`** (**`manual_batch_smoke_*`**) — **zero vendor HTTP** until **Main R6.4**; optional **`make us-provider-manual-live-batch-smoke-dry-run`**. |
-| **Main R6.4.0** | **Manual live batch smoke — preflight readiness** — **`--preflight`** on **`debug us-provider-manual-live-batch-smoke`**: validates gates + **`--max-http`**; emits **`manual_live_batch_smoke_preflight_ready`** exit 0 — **still zero vendor HTTP**. |
-| **Beyond Main R6.4.0** | **R6.4.1+** per **`docs/13`** / **`docs/14`** (**real bounded HTTP**, later gated write exploration, scheduled ingest) — commercial provider choice remains separate. |
+| **Main R6.4.0** | **Manual live batch smoke — preflight readiness** — **`--preflight`** + gates; emits **`manual_live_batch_smoke_preflight_ready`** exit 0 — **zero vendor HTTP**. |
+| **Main R6.4.1** | **Manual live batch smoke — bounded live HTTP** — **`--execute-live-http`** + full gate set; **`manual_live_batch_smoke_live_preview_completed`** exit 0; **no cache write**. |
+| **Beyond Main R6.4.1** | **R6.5+** per **`docs/13`** / **`docs/14`** (gated cache-write evaluation, scheduled ingest) — commercial provider choice remains separate. |
 
 ---
 

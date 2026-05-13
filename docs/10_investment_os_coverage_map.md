@@ -88,7 +88,8 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R6.1**: **`build_us_provider_scheduled_ingest_plan`** / **`debug us-provider-scheduled-ingest-plan`** — **`scheduled_plan_dry_run`** JSON / Markdown (**watchlist + CLI symbol merge**); **no HTTP**, **no cache write**, **no scheduler** — see **`docs/13`** §8.
 - **Main R6.2**: **`docs/14_us_provider_manual_live_batch_smoke_design.md`** — **manual live batch smoke design** + **`docs/13`** alignment; **R6.3** lands the **CLI scaffold** (below) — **real HTTP** remains **R6.4+**.
 - **Main R6.3**: **`us_provider_manual_live_batch_smoke.py`** + **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_dry_run`** / scaffold **`validation_error`** (**`manual_batch_smoke_*`** reasons); **`--live`** **never** performs vendor GETs; optional **`make us-provider-manual-live-batch-smoke-dry-run`** — see **`docs/14`**, **`docs/13`** section 9.
-- **Main R6.4.0**: **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_preflight_ready`** (exit 0) when both gates set + **`--max-http > 0`**; **zero vendor HTTP**; plan rows use **`preflight_ready_no_http`** / **`r6_4_0_preflight_ready_no_http`** — 22 tests — see **`docs/14`**.
+- **Main R6.4.0**: **`--preflight`** flag on **`debug us-provider-manual-live-batch-smoke`** — **`manual_live_batch_smoke_preflight_ready`** (exit 0) when both gates set + **`--max-http > 0`**; **zero vendor HTTP** — see **`docs/14`**.
+- **Main R6.4.1**: **`--execute-live-http`** flag — bounded manual live HTTP (at most **`--max-http`** GETs); **no cache write**; status **`manual_live_batch_smoke_live_preview_completed`** — 33 tests — see **`docs/14`**.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -112,7 +113,8 @@ After Main Q / Q0:
 | **Main R6.2** | **`docs/14`** **manual live batch smoke design** — policy / gates (**no HTTP** in doc merge alone) |
 | **Main R6.3** | **Manual batch smoke CLI scaffold** — merge / caps / JSON + Markdown; **`--live`** refused (**zero HTTP**); **not** R6.4 execution |
 | **Main R6.4.0** | **`--preflight` readiness check** — gates + max-http validated; **`manual_live_batch_smoke_preflight_ready`** exit 0; **still zero HTTP** |
-| **Main R6.4.1+** | **Real** bounded manual live HTTP, gated multi-symbol write evaluation (**R6.5**), scheduled ingest (**R6.6+**) — only after **`docs/13`** + **`docs/14`** gates |
+| **Main R6.4.1** | **Bounded manual live HTTP** (**implemented**) — **`--execute-live-http`** + full gate set; **no cache write**; manual operator only |
+| **Main R6.5+** | **Gated cache-write evaluation**, scheduled ingest (**R6.6+**) — only after **`docs/13`** + **`docs/14`** gates |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |
