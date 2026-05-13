@@ -1,10 +1,12 @@
-"""Multi-symbol US Stooq cache preview aggregation (**Main R5–R5.1**).
+"""Multi-symbol US Stooq cache preview aggregation (**Main R5–R5.2**).
 
 No unattended bulk behaviors: **`write_cache`** requests are rejected at the envelope level (**use single-symbol **`debug us-provider-cache-preview`** + gates for writes**).
 
 Each symbol runs **`stooq_live_preview_sanitized_bars`** with the same **`live`** flag and **`write_cache=False`** (writes are never performed in batch).
 
 **Main R5.1** adds **`operator_summary`** on the batch envelope (**triage buckets only**, still **no raw vendor payloads**, **no cache writes**).
+
+**Main R5.2** adds **`render_us_provider_cache_preview_batch_markdown`** — human-readable summary (**no row-level vendor material**; use JSON for **`results[]`**).
 """
 
 from __future__ import annotations
@@ -55,11 +57,14 @@ _ACTION_HINTS: dict[tuple[str, str | None], str] = {
 }
 
 
-def _action_hint(status: str, reason: str | None) -> str:
-    return _ACTION_HINTS.get(
-        (status, reason),
-        _ACTION_HINTS.get((status, None), "See docs/12_us_provider_failure_operator_playbook.md and response_diagnostics when present."),
-    )
+_SUMMARY_TABLE_ORDER: tuple[str, ...] = (
+    "dry_run",
+    "preview_ok",
+    "success",
+    "validation_error",
+    "parse_error",
+    "transport_error",
+)
 
 
 def _operator_summary_zeros() -> dict[str, int]:
@@ -75,6 +80,204 @@ def _operator_summary_zeros() -> dict[str, int]:
         "invalid_symbol_count": 0,
         "blocked_cache_write_count": 0,
     }
+
+
+def _md_scalar(value: object) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _normalize_summary_dict(payload: dict[str, Any]) -> dict[str, int]:
+    raw = payload.get("summary")
+    out: dict[str, int] = {k: 0 for k in _SUMMARY_TABLE_ORDER}
+    if not isinstance(raw, dict):
+        return out
+    for k in _SUMMARY_TABLE_ORDER:
+        try:
+            out[k] = int(raw.get(k, 0))
+        except (TypeError, ValueError):
+            out[k] = 0
+    return out
+
+
+def _normalize_operator_summary_dict(payload: dict[str, Any]) -> dict[str, int]:
+    z = _operator_summary_zeros()
+    raw = payload.get("operator_summary")
+    if not isinstance(raw, dict):
+        return z
+    for k in z:
+        try:
+            z[k] = int(raw.get(k, 0))
+        except (TypeError, ValueError):
+            z[k] = 0
+    return z
+
+
+def _recommended_operator_action_lines(payload: dict[str, Any]) -> list[str]:
+    top = str(payload.get("status") or "unknown")
+    rs = payload.get("reason")
+    reason = rs if isinstance(rs, str) else None
+    osum = _normalize_operator_summary_dict(payload)
+
+    def c(key: str) -> int:
+        return int(osum.get(key, 0))
+
+    if top == "validation_error":
+        if reason == "unsupported_provider":
+            return ["Fix `--provider`: multi-symbol batch supports `stooq_preview` only."]
+        if reason == "batch_cache_write_not_supported":
+            return [
+                "Batch cannot persist cache. Omit `--write-cache` here; run `debug us-provider-cache-preview` "
+                + "for one symbol with explicit cache-write gates when needed.",
+            ]
+        if reason == "empty_symbol_batch":
+            return ["Provide `--symbols` and/or `--from-watchlist` before re-running."]
+        return ["Envelope validation failed — inspect JSON `reason` / `detail` and `docs/12_us_provider_failure_operator_playbook.md`."]
+
+    hints: list[str] = []
+
+    if c("needs_api_key_count") > 0:
+        hints.append(
+            f"Configure **STOOQ_APIKEY** in environment only for **{c('needs_api_key_count')}** symbol(s); "
+            "never commit secrets or stash vendor bodies in-repo.",
+        )
+    if c("transport_retry_candidate_count") > 0:
+        hints.append(
+            f"**{c('transport_retry_candidate_count')}** symbol(s) need transport / HTTP review — "
+            "**bounded human-only** retries per `docs/12` (no unattended loops).",
+        )
+    if c("invalid_symbol_count") > 0:
+        hints.append(
+            f"**{c('invalid_symbol_count')}** invalid symbol token(s) — fix ticker / normalization before gated live probes.",
+        )
+    if c("vendor_format_review_count") > 0:
+        hints.append(
+            f"**{c('vendor_format_review_count')}** row(s) look like vendor **format/schema** drift — rely on **`reason` / `body_kind`** in JSON `results[]` only.",
+        )
+    if c("symbol_mapping_review_count") > 0:
+        hints.append(
+            f"**{c('symbol_mapping_review_count')}** row(s) suggest **`.us` / listing-class** mapping review per `docs/11` / `docs/12` (still no raw payloads).",
+        )
+    if c("blocked_cache_write_count") > 0:
+        hints.append(
+            f"**{c('blocked_cache_write_count')}** symbol(s) show **`preview_ok`** without **`cache_write_allowed`** — inspect JSON rows for safety edges before persistence.",
+        )
+    if c("single_symbol_write_candidate_count") > 0:
+        hints.append(
+            f"**{c('single_symbol_write_candidate_count')}** symbol(s) may proceed to gated **`debug us-provider-cache-preview --write-cache`**; batch intentionally remains write-free.",
+        )
+
+    if hints:
+        return hints
+
+    sym_ct = int(payload.get("symbol_count") or 0)
+    live_pf = bool(payload.get("live_http_performed"))
+    cw_pf = bool(payload.get("cache_write_performed"))
+
+    if sym_ct <= 0:
+        return ["No per-symbol rows in this batch."]
+    if c("safe_dry_run_count") == sym_ct:
+        return ["Safe dry-run only. No live HTTP or cache write occurred."]
+    if live_pf or cw_pf:
+        return [
+            "Live / cache-write flags surfaced on the envelope — open JSON `results[]` for per-symbol **`status` / `reason`** against `docs/12`.",
+        ]
+    return [
+        "Mixed dry-run posture — triage **`results[]`** in JSON alongside `docs/12` (**no vendor raw bodies**, **batch does not persist cache**).",
+    ]
+
+
+def render_us_provider_cache_preview_batch_markdown(payload: dict[str, Any]) -> str:
+    """Render a compact operator-facing Markdown recap (**Main R5.2**) — envelope + counts only (**no **`results[]`**, **no secrets**).
+
+    Safe for dashboards / tickets containing **counts and statuses** extracted from **`run_stooq_cache_preview_batch`** payloads.
+    """
+
+    lines: list[str] = [
+        "# US Provider Batch Preview Summary",
+        "",
+        f"- Provider: {_md_scalar(payload.get('provider'))}".rstrip(),
+        f"- Status: {_md_scalar(payload.get('status'))}".rstrip(),
+        f"- Symbols: {_md_scalar(payload.get('symbol_count'))}".rstrip(),
+        f"- Observation only: {_md_scalar(payload.get('observation_only'))}".rstrip(),
+    ]
+
+    if str(payload.get("status") or "") == "validation_error" and isinstance(payload.get("reason"), str):
+        lines.append(f"- Reason: {_md_scalar(payload['reason'])}")
+
+    wc_req = payload.get("write_cache_requested")
+    lines.append(f"- Live HTTP requested: {_md_scalar(payload.get('live_http_requested'))}".rstrip())
+    if wc_req is not None:
+        lines.append(f"- Write cache requested: {_md_scalar(wc_req)}".rstrip())
+
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            f"- Live HTTP performed: {_md_scalar(payload.get('live_http_performed'))}".rstrip(),
+            f"- Cache write performed: {_md_scalar(payload.get('cache_write_performed'))}".rstrip(),
+            f"- Raw response included: {_md_scalar(payload.get('raw_response_included'))}".rstrip(),
+            "",
+            "## Summary",
+            "",
+            "| bucket | count |",
+            "|---|---:|",
+        ],
+    )
+
+    sm = _normalize_summary_dict(payload)
+    for key in _SUMMARY_TABLE_ORDER:
+        lines.append(f"| {key} | {sm[key]} |")
+
+    om = _normalize_operator_summary_dict(payload)
+    ops_keys = tuple(_operator_summary_zeros().keys())
+    lines.extend(
+        [
+            "",
+            "## Operator summary",
+            "",
+            "| bucket | count |",
+            "|---|---:|",
+        ],
+    )
+    for key in ops_keys:
+        lines.append(f"| {key} | {om[key]} |")
+
+    lines.extend(
+        [
+            "",
+            "## Recommended operator action",
+            "",
+        ],
+    )
+    action_lines = _recommended_operator_action_lines(payload)
+    if action_lines:
+        lines.append("\n\n".join(action_lines))
+        lines.append("")
+
+    lines.extend(
+        [
+            "## Safety notes",
+            "",
+            "- This Markdown report **omits** per-symbol **`results[]`**. Use **`debug us-provider-cache-preview-batch` without `--markdown`** (JSON) for row-level **`status` / `reason` / `body_kind`** — still **no vendor raw bodies** in tooling output.",
+            "- **Batch never writes cache**; gated persistence uses **`debug us-provider-cache-preview`** with explicit env gates.",
+            "- **Never** commit API keys, `.env`, or vendor dumps; keep **`STOOQ_APIKEY`** in local environment only.",
+            "",
+        ],
+    )
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _action_hint(status: str, reason: str | None) -> str:
+    return _ACTION_HINTS.get(
+        (status, reason),
+        _ACTION_HINTS.get((status, None), "See docs/12_us_provider_failure_operator_playbook.md and response_diagnostics when present."),
+    )
 
 
 def compute_operator_summary_from_rows(results: list[dict[str, Any]]) -> dict[str, int]:

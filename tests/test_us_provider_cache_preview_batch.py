@@ -1,4 +1,4 @@
-"""Main R5–R5.1: multi-symbol US Stooq cache preview aggregation (no HTTP in default tests)."""
+"""Main R5–R5.2: multi-symbol US Stooq cache preview aggregation (no HTTP in default tests)."""
 
 from __future__ import annotations
 
@@ -193,6 +193,54 @@ def test_compute_operator_summary_isolated() -> None:
     assert o["vendor_format_review_count"] == 1
     assert o["needs_api_key_count"] == 1
     assert o["symbol_mapping_review_count"] == 0
+
+
+def test_render_us_provider_cache_preview_batch_markdown_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise AssertionError("no HTTP")
+
+    monkeypatch.setattr(uplp, "urlopen", _boom)
+    out = upcb.run_stooq_cache_preview_batch(["MSFT", "GOOGL"], live=False)
+    md = upcb.render_us_provider_cache_preview_batch_markdown(out)
+    assert md.startswith("# US Provider Batch Preview Summary\n")
+    assert "| dry_run | 2 |" in md
+    assert "| safe_dry_run_count | 2 |" in md
+    assert "## Recommended operator action" in md
+    assert "Safe dry-run only" in md
+    assert "operator_next_action" not in md
+    assert "STOOQ_APIKEY" in md
+
+
+def test_render_markdown_validation_error_envelope() -> None:
+    out = upcb.run_stooq_cache_preview_batch([], live=False)
+    md = upcb.render_us_provider_cache_preview_batch_markdown(out)
+    assert "empty_symbol_batch" in md
+    assert "## Operator summary" in md
+
+
+def test_cli_batch_markdown_flag_emits_tables(monkeypatch: pytest.MonkeyPatch) -> None:
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise AssertionError("no HTTP")
+
+    monkeypatch.setattr(uplp, "urlopen", _boom)
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-provider-cache-preview-batch",
+            "--symbols",
+            "MSFT",
+            "--provider",
+            "stooq_preview",
+            "--markdown",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert "## Operator summary" in r.stdout
+    assert "| dry_run | 1 |" in r.stdout
+    assert "{" not in r.stdout
 
 
 def test_cli_batch_empty_merged_inputs_exit_2(monkeypatch: pytest.MonkeyPatch) -> None:

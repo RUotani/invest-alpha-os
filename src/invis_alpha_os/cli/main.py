@@ -27,6 +27,7 @@ from invis_alpha_os.data.us_provider_live_preview import (
     stooq_live_preview_shape_digest,
 )
 from invis_alpha_os.data.us_provider_cache_preview_batch import (
+    render_us_provider_cache_preview_batch_markdown,
     run_stooq_cache_preview_batch,
     symbols_from_us_watchlist_file,
 )
@@ -1392,6 +1393,11 @@ def debug_us_provider_cache_preview_batch(
         min=1,
         help="Maximum normalized symbols processed after merging inputs (invalid rows unaffected).",
     ),
+    markdown: bool = typer.Option(
+        False,
+        "--markdown",
+        help="Emit operator Markdown recap (counts only; use JSON for results[] rows). Main R5.2.",
+    ),
 ) -> None:
     """Multi-symbol Stooq cache preview aggregation (dry-run default; optional gated live loop)."""
 
@@ -1407,7 +1413,10 @@ def debug_us_provider_cache_preview_batch(
         write_cache=write_cache,
         limit=limit,
     )
-    typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    if markdown:
+        typer.echo(render_us_provider_cache_preview_batch_markdown(out), nl=False)
+    else:
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
     st_top = str(out.get("status") or "")
     if st_top == "validation_error":
         raise typer.Exit(2)

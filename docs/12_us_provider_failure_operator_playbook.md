@@ -1,8 +1,8 @@
-# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5.1)
+# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5.2)
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–R5.1). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope and **R5.1 `operator_summary` buckets** — **not** a wish list.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–**R5.2**). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope, **R5.1 `operator_summary`**, and **R5.2 Markdown recap** — **not** a wish list.
 
 **Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP.
 
@@ -96,6 +96,12 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 **Rows not enumerated above** (e.g. **`live_http_not_confirmed`**, **`preview_plan_failed`**, **`missing_preview_url`**) appear only in **`results[]`** — triage **`reason`** against the §3 matrix.
 
+### 3.3 Batch Markdown recap (**Main R5.2**)
+
+- **`render_us_provider_cache_preview_batch_markdown`** + CLI **`debug us-provider-cache-preview-batch --markdown`** emit a **counts-only human summary** (**title, safety posture, **`summary` / `operator_summary` tables, recommended operator action**, safety notes).
+- **`--markdown` purposely omits `results[]`** — paste JSON (default CLI, no **`--markdown`**) when you need per-row **`operator_next_action`** / **`body_kind`**. Markdown is for **ticket / README snippets**, not forensic dumps.
+- **Still no cache write, no raw vendor bodies, no API keys** in either output mode.
+
 ---
 
 ## 4. Operator playbooks by theme
@@ -106,7 +112,7 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 ### Multi-symbol aggregation (batch)
 
-- **`make us-provider-cache-preview-batch-dry-run`** runs the batch CLI with **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** only. **`debug us-provider-cache-preview-batch`** has **no** **`--quiet`** or **`--dry-run`** options — leaving off **`--live`** is what keeps previews in **`dry_run`** (**no HTTP**). **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and implies **human-invoked sequential GETs**.
+- **`make us-provider-cache-preview-batch-dry-run`** runs the batch CLI with **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** only. **`debug us-provider-cache-preview-batch`** has **no** **`--quiet`** or **`--dry-run`** options — leaving off **`--live`** is what keeps previews in **`dry_run`** (**no HTTP**). **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and implies **human-invoked sequential GETs**. Add **`--markdown`** for a **counts-only** recap (**Main R5.2**); default output remains **JSON** with **`results[]`**.
 - Inspect **`results[]`**, **`summary`**, **`operator_summary`**, **`operator_next_action`**, **`docs/11`** wire slug guidance (**no raw vendor bodies**) before diagnosing watchlist failures at scale — **bulk cache writes remain deliberately unsupported.**
 
 ### API key prose
@@ -139,7 +145,7 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 **Delivered behaviors (operators):**
 
-- **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints JSON with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`operator_summary`** (**Main R5.1** triage buckets; **counts only**), **`observation_only=true`** (**no raw vendor payloads** embedded).
+- **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints **JSON** (default) with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`operator_summary`** (**Main R5.1** triage buckets; **counts only**), **`observation_only=true`** (**no raw vendor payloads** embedded). **`--markdown`** (**Main R5.2**) prints **`render_us_provider_cache_preview_batch_markdown`** output instead (**no `results[]`** in the report body).
 - **Makefile**: **`make us-provider-cache-preview-batch-dry-run`** passes **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** (**no** **`--quiet`**, **no** **`--dry-run`** — CLI default is **`dry_run`** unless **`--live`** is supplied). **`safe-push`** intentionally **does not** depend on batch targets (**unit tests gate this invariant**).
 
 **Safety rules remain unchanged:**
@@ -151,8 +157,8 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 **Explicit future work (**pre‑Main R6** gate):**
 
-- Operators should **`operator_summary`**-first triage (**§3.2**) and only then escalate to **`results[]`**, **never** by persisting vendor bodies.
-- **Main R6** (scheduled / unattended multi-symbol ingest) **must not** ship until product owners reaffirm gates: **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push forbids accidental `outputs/` commits**, **`STOOQ_APIKEY`** stays env-only — **same invariants as R5**; R6 work is tracked separately from **R5.1**.
+- Operators should **`operator_summary`** / **Markdown recap (§3.3)** first triage, then **`results[]` JSON** as needed, **never** by persisting vendor bodies.
+- **Main R6** (scheduled / unattended multi-symbol ingest) **must not** ship until product owners reaffirm gates: **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push forbids accidental `outputs/` commits**, **`STOOQ_APIKEY`** stays env-only — **same invariants as R5**; R6 work is tracked separately from **R5.1 / R5.2**.
 - Automated watchlist ingestion at cron scale remains **explicitly backlog** alongside that gate.
 
 ---

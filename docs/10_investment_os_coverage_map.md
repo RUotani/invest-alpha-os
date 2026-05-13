@@ -82,6 +82,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R4.4**: **US provider operator playbook** — **`docs/12_us_provider_failure_operator_playbook.md`** documents the **failure matrix** (`status` / `reason` / `body_kind`), **safe vs forbidden** handling (**no new live ingestion** added in R4.4 alone).
 - **Main R5**: **`run_stooq_cache_preview_batch`** in **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**; **`debug us-provider-cache-preview-batch`** + **`make us-provider-cache-preview-batch-dry-run`** — **multi-symbol** JSON rollup (**`batch_preview_ok`**, per-row statuses, **`summary`** counts aligning with §3 matrix / transport bucket); **explicitly rejects** batch **`--write-cache`**; **`raw_response_included: false`**; **gates unchanged** (**`CONFIRM_US_LIVE_HTTP`** for **`--live`**).
 - **Main R5.1**: **`operator_summary`** (**`compute_operator_summary_from_rows`**) on the same batch envelope — failure-matrix–aligned **integer triage buckets** for watchlist-scale human review (**still no unattended HTTP**, **no bulk cache writes**); see **`docs/12`** §3.2 and **pre‑R6** gate wording in **`docs/12`** §5.
+- **Main R5.2**: **`render_us_provider_cache_preview_batch_markdown`** + CLI **`--markdown`** — operator **Markdown recap** (**summary / operator_summary tables + recommended action**; **omits `results[]`**); **no new fetch**, **no cache persistence**; see **`docs/12`** §3.3.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
@@ -98,6 +99,7 @@ After Main Q / Q0:
 | **Main R4** | **Stooq parse + optional gated one-symbol vendor cache write** — **automated bulk refresh remains future work** |
 | **Main R5** | **Multi-symbol US provider cache preview batch** (**dry-run default**, **observer JSON**, **no bulk cache writes**) |
 | **Main R5.1** | **`operator_summary`** buckets + **pre‑R6 human triage discipline** (**docs/11–12**) — **not** ingest automation |
+| **Main R5.2** | **`--markdown` operator recap** (**counts only**) — **not** row-level JSON, **not** automated refresh |
 | **Main R6+** | Scheduled / unattended watchlist ingest, additional commercial providers (**still gated product decisions**) |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
