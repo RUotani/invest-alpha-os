@@ -1,4 +1,4 @@
-"""US provider **manual live batch smoke** — scaffold, preflight, and bounded live preview (**Main R6.4.1**).
+"""US provider **manual live batch smoke** — scaffold, preflight, bounded live preview, and cache-write refusal scaffold (**Main R6.5.1**).
 
 **`debug us-provider-manual-live-batch-smoke`** milestone summary:
 
@@ -7,6 +7,8 @@
 - **R6.4.1 bounded live preview** (`manual_live_batch_smoke_live_preview_completed`):
   real HTTP under `--live --preflight --execute-live-http` + both gates + `--max-http > 0`;
   **no cache write**, **no raw response stored**, **no API key value in output**.
+- **R6.5.1 cache-write refusal scaffold** (`--evaluate-cache-write`): always refuses with deterministic
+  `validation_error`; **no HTTP**, **no cache write**, **no raw response**, **no API key value in output**.
 """
 
 from __future__ import annotations
@@ -41,6 +43,13 @@ _REASON_PREFLIGHT_READY_ROW = "r6_4_0_preflight_ready_no_http"
 _REASON_PREFLIGHT_REQUIRES_LIVE = "manual_batch_smoke_preflight_requires_live"
 _REASON_EXECUTE_REQUIRES_LIVE = "manual_batch_smoke_execute_requires_live"
 _REASON_EXECUTE_REQUIRES_PREFLIGHT = "manual_batch_smoke_execute_requires_preflight"
+
+# R6.5.1 cache-write evaluation refusal reasons
+_REASON_CACHE_WRITE_REQUIRES_LIVE = "manual_batch_cache_write_requires_live"
+_REASON_CACHE_WRITE_REQUIRES_PREFLIGHT = "manual_batch_cache_write_requires_preflight"
+_REASON_CACHE_WRITE_REQUIRES_EXECUTE = "manual_batch_cache_write_requires_execute_live_http"
+_REASON_CACHE_WRITE_REQUIRES_CACHE_GATE = "manual_batch_cache_write_requires_cache_gate"
+_REASON_CACHE_WRITE_NOT_ENABLED = "manual_batch_cache_write_not_enabled_in_r6_5_1"
 
 
 def _symbol_merge_core(
@@ -140,8 +149,9 @@ def build_us_provider_manual_live_batch_smoke_payload(
     live_requested: bool = False,
     preflight_requested: bool = False,
     execute_live_http_requested: bool = False,
+    evaluate_cache_write_requested: bool = False,
 ) -> dict[str, Any]:
-    """Build manual batch smoke envelope (**R6.4.1** — HTTP only under full gate set)."""
+    """Build manual batch smoke envelope (**R6.5.1** — cache-write always refused; HTTP only under full gate set)."""
 
     prov = provider.strip()
     if prov != "stooq_preview":
@@ -194,6 +204,75 @@ def build_us_provider_manual_live_batch_smoke_payload(
     }
 
     gate_block = _gate_status_block()
+
+    if evaluate_cache_write_requested:
+        # R6.5.1 — always refuses; no HTTP, no cache write
+        _eval_base: dict[str, Any] = {
+            "status": "validation_error",
+            "observation_only": True,
+            "evaluate_cache_write_requested": True,
+            "live_requested": live_requested,
+            "preflight_requested": preflight_requested,
+            "execute_live_http_requested": execute_live_http_requested,
+            "provider": prov,
+            "live_http_performed": False,
+            "cache_write_performed": False,
+            "raw_response_included": False,
+            "provider_api_key_value_included": False,
+            "scheduled_ingest_enabled": False,
+            "manual_batch_smoke_enabled": False,
+        }
+        if not live_requested:
+            return {**_eval_base, "reason": _REASON_CACHE_WRITE_REQUIRES_LIVE}
+        if not preflight_requested:
+            return {**_eval_base, "reason": _REASON_CACHE_WRITE_REQUIRES_PREFLIGHT}
+        if not execute_live_http_requested:
+            return {**_eval_base, "reason": _REASON_CACHE_WRITE_REQUIRES_EXECUTE}
+        live_ok = os.environ.get(CONFIRM_US_LIVE_HTTP_ENV) == "YES"
+        batch_ok = os.environ.get(CONFIRM_US_MANUAL_BATCH_SMOKE_ENV) == "YES"
+        if not (live_ok and batch_ok):
+            return {**_eval_base, "reason": _REASON_LIVE_GATE}
+        cache_ok = os.environ.get(CONFIRM_US_CACHE_WRITE_ENV) == "YES"
+        if not cache_ok:
+            return {**_eval_base, "reason": _REASON_CACHE_WRITE_REQUIRES_CACHE_GATE}
+        # All gates set — still refuse in R6.5.1
+        eval_rows: list[dict[str, Any]] = []
+        for r in merged_plan_rows:
+            if r.get("reason") == "invalid_symbol":
+                eval_rows.append(r)
+            else:
+                eval_rows.append({
+                    "symbol": r["symbol"],
+                    "provider": prov,
+                    "planned_action": "cache_write_evaluation_refused",
+                    "live_http_allowed": False,
+                    "cache_write_allowed": False,
+                    "live_http_performed": False,
+                    "cache_write_performed": False,
+                    "raw_response_included": False,
+                    "reason": "cache_write_evaluation_refused_no_write",
+                })
+        gate_block_eval = _gate_status_block()
+        return {
+            **_eval_base,
+            "status": "validation_error",
+            "reason": _REASON_CACHE_WRITE_NOT_ENABLED,
+            "mode": "cache_write_evaluation_refusal_no_write",
+            "gate_status": gate_block_eval,
+            "constraints": {
+                **constraints_common,
+                "max_symbols": constraints_max_symbols,
+            },
+            "operator_summary": {
+                "cache_write_allowed_count": 0,
+                "cache_write_performed_count": 0,
+                "invalid_symbol_count": invalid_ct,
+            },
+            "symbol_count": len(eval_rows),
+            "symbols": list(normed_acc),
+            "plan_rows": eval_rows,
+            "next_required_approval": "R6.5.2 manual cache-write implementation candidate",
+        }
 
     if execute_live_http_requested:
         if not live_requested:
@@ -591,6 +670,18 @@ def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
     if st == "validation_error":
         rs = payload.get("reason")
         rs_s = rs if isinstance(rs, str) else "validation_error"
+        if payload.get("evaluate_cache_write_requested"):
+            return (
+                "# US Manual Live Batch Smoke (**R6.5.1 cache-write refusal scaffold**)\n\n"
+                f"> **Observation only.** JSON canonical. **status:** `validation_error` — **`{rs_s}`**.\n"
+                "> **R6.5.1 refusal scaffold** — **no cache write**, **no live HTTP consumed**.\n\n"
+                "## Operator verdict\n\n"
+                "Cache-write evaluation refused in R6.5.1. "
+                "Fix gate combination or await R6.5.2 implementation.\n\n"
+                "## Notes\n\n"
+                "- **`--evaluate-cache-write`** is R6.5.1 scaffold only — always refuses.\n"
+                "- **JSON remains canonical.** Use `--markdown` for human recap.\n"
+            )
         return (
             "# US Manual Live Batch Smoke (**R6.4.1**)\n\n"
             f"> **Observation only.** JSON canonical. **status:** `validation_error` — **`{rs_s}`**.\n\n"

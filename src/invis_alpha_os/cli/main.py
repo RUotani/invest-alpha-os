@@ -1524,13 +1524,18 @@ def debug_us_provider_manual_live_batch_smoke(
         "--execute-live-http",
         help="R6.4.1: bounded live HTTP; requires --live --preflight + CONFIRM_US_LIVE_HTTP=YES + CONFIRM_US_MANUAL_BATCH_SMOKE=YES + --max-http > 0; no cache write.",
     ),
+    evaluate_cache_write: bool = typer.Option(
+        False,
+        "--evaluate-cache-write",
+        help="R6.5.1 refusal scaffold only: evaluates cache-write intent and always refuses; no cache write.",
+    ),
     markdown: bool = typer.Option(
         False,
         "--markdown",
         help="Emit copy-ready Markdown recap (JSON canonical).",
     ),
 ) -> None:
-    """Manual live batch smoke (**R6.4.1**): bounded live HTTP under full gate set — **no cache write**."""
+    """Manual live batch smoke (**R6.5.1**): cache-write refusal scaffold + bounded live HTTP — **no cache write**."""
 
     merged, fw, csv_ok = merged_symbols_for_scheduled_ingest_plan(
         from_watchlist=from_watchlist,
@@ -1546,6 +1551,7 @@ def debug_us_provider_manual_live_batch_smoke(
         live_requested=live,
         preflight_requested=preflight,
         execute_live_http_requested=execute_live_http,
+        evaluate_cache_write_requested=evaluate_cache_write,
     )
     if markdown:
         typer.echo(render_manual_live_batch_smoke_markdown(out), nl=False)

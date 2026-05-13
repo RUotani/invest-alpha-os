@@ -1,4 +1,6 @@
-# US provider — manual cache-write evaluation safety design (**Main R6.5.0 — design only**)
+# US provider — manual cache-write evaluation safety design (**Main R6.5.0 design / R6.5.1 refusal scaffold**)
+
+> **Document control:** v1.0 Main R6.5.0 (design only) → v1.1 Main R6.5.1 (refusal scaffold implemented).
 
 ## 1. Purpose
 
@@ -9,6 +11,13 @@
 - **No cache write** added.
 - **No CLI flags** changed.
 - **No workflow changes**.
+
+**Main R6.5.1** implements `--evaluate-cache-write` as a **refusal scaffold only**.
+- The flag is recognized and all 6 refusal orderings are deterministic (see §12 below).
+- **No actual cache write** in R6.5.1.
+- **No live HTTP consumed** by the `--evaluate-cache-write` path.
+- **No raw response stored**, **no API key value in output**.
+- Actual cache-write implementation remains **R6.5.2+** per the pre-implementation checklist.
 
 Canonical neighbours:
 - Live HTTP (R6.4.1): **`docs/14_us_provider_manual_live_batch_smoke_design.md`**
@@ -163,3 +172,21 @@ Expected tests only — **do not implement until R6.5.1 milestone begins**:
 | Version | Milestone | Summary |
 |---------|-----------|---------|
 | **1.0** | **Main R6.5.0** | Design / checklist / refusal rules only — **no implementation**, **no cache write**, **no workflow change**. |
+| **1.1** | **Main R6.5.1** | `--evaluate-cache-write` refusal scaffold implemented — **always refuses** (exit 2); **no cache write**, **no live HTTP**, **no raw response**; 11 new tests (44 total); actual write remains R6.5.2+. |
+
+---
+
+## 11. R6.5.1 refusal ordering (implemented)
+
+`--evaluate-cache-write` always returns `validation_error` (exit 2). Checks run in this order:
+
+| Step | Missing condition | `reason` |
+|------|-------------------|----------|
+| 1 | `--live` not set | `manual_batch_cache_write_requires_live` |
+| 2 | `--preflight` not set | `manual_batch_cache_write_requires_preflight` |
+| 3 | `--execute-live-http` not set | `manual_batch_cache_write_requires_execute_live_http` |
+| 4 | `CONFIRM_US_LIVE_HTTP` or `CONFIRM_US_MANUAL_BATCH_SMOKE` ≠ YES | `manual_batch_smoke_live_http_not_confirmed` |
+| 5 | `CONFIRM_US_CACHE_WRITE` ≠ YES | `manual_batch_cache_write_requires_cache_gate` |
+| 6 | All flags + all gates set | `manual_batch_cache_write_not_enabled_in_r6_5_1` (full-gate scaffold refusal) |
+
+All 6 paths: `live_http_performed: false`, `cache_write_performed: false`, `raw_response_included: false`.

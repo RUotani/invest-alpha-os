@@ -1,4 +1,4 @@
-"""Main R6.3: US manual live batch smoke scaffold (no vendor HTTP / no cache write)."""
+"""Main R6.3–R6.5.1: US manual live batch smoke scaffold, preflight, live preview, cache-write refusal."""
 
 from __future__ import annotations
 
@@ -652,4 +652,147 @@ def test_execute_markdown_r641_wording(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "live preview completed" in md.lower()
     assert "no cache write" in md
     assert "raw response not included" in md.lower()
+    assert "JSON" in md
+
+
+# ── R6.5.1 evaluate-cache-write refusal tests ───────────────────────────────
+
+
+def _eval_cw_args(extra: list[str] | None = None) -> list[str]:
+    base = [
+        "debug", "us-provider-manual-live-batch-smoke",
+        "--symbols", "MSFT", "--provider", "stooq_preview",
+        "--evaluate-cache-write", "--max-http", "1",
+    ]
+    return base + (extra or [])
+
+
+def test_eval_cw_without_live_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(app, _eval_cw_args())
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_cache_write_requires_live"
+    assert p["live_http_performed"] is False
+    assert p["cache_write_performed"] is False
+    assert p["evaluate_cache_write_requested"] is True
+
+
+def test_eval_cw_with_live_no_preflight_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(app, _eval_cw_args(["--live"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_cache_write_requires_preflight"
+    assert p["live_http_performed"] is False
+
+
+def test_eval_cw_no_execute_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    r = runner.invoke(app, _eval_cw_args(["--live", "--preflight"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_cache_write_requires_execute_live_http"
+    assert p["live_http_performed"] is False
+
+
+def test_eval_cw_missing_live_manual_gates_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    # all 3 flags but no env gates
+    r = runner.invoke(app, _eval_cw_args(["--live", "--preflight", "--execute-live-http"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_smoke_live_http_not_confirmed"
+    assert p["live_http_performed"] is False
+
+
+def test_eval_cw_missing_cache_gate_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    r = runner.invoke(app, _eval_cw_args(["--live", "--preflight", "--execute-live-http"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_cache_write_requires_cache_gate"
+    assert p["live_http_performed"] is False
+    assert p["cache_write_performed"] is False
+
+
+def test_eval_cw_all_gates_still_exits_2(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setenv(uplp.CONFIRM_US_CACHE_WRITE_ENV, "YES")
+    r = runner.invoke(app, _eval_cw_args(["--live", "--preflight", "--execute-live-http"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["reason"] == "manual_batch_cache_write_not_enabled_in_r6_5_1"
+    assert p["live_http_performed"] is False
+    assert p["cache_write_performed"] is False
+    assert p["mode"] == "cache_write_evaluation_refusal_no_write"
+
+
+def test_eval_cw_never_calls_live_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fail(*_a: object, **_k: object) -> dict:
+        raise AssertionError("R6.5.1 evaluate-cache-write must not call stooq_live_preview_sanitized_bars")
+
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", _fail)
+    # test all 6 refusal levels — none should call preview
+    for extra in [
+        [],
+        ["--live"],
+        ["--live", "--preflight"],
+        ["--live", "--preflight", "--execute-live-http"],
+    ]:
+        r = runner.invoke(app, _eval_cw_args(extra))
+        assert r.exit_code == 2, f"expected exit 2 for {extra}: {r.stdout}"
+
+
+def test_eval_cw_never_calls_cache_writer(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fail(*_a: object, **_k: object) -> None:
+        raise AssertionError("R6.5.1 must not call save_us_daily_bars_cache")
+
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", _fail)
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setenv(uplp.CONFIRM_US_CACHE_WRITE_ENV, "YES")
+    r = runner.invoke(app, _eval_cw_args(["--live", "--preflight", "--execute-live-http"]))
+    assert r.exit_code == 2, r.stdout
+    p = json.loads(r.stdout.strip())
+    assert p["cache_write_performed"] is False
+
+
+def test_eval_cw_api_key_not_printed(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r651_secret_key_never_echo_77777"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    r = runner.invoke(app, _eval_cw_args())
+    assert secret not in r.stdout
+    assert secret not in (r.stderr or "")
+
+
+def test_eval_cw_safety_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, "YES")
+    monkeypatch.setenv(mlbs.CONFIRM_US_MANUAL_BATCH_SMOKE_ENV, "YES")
+    monkeypatch.setenv(uplp.CONFIRM_US_CACHE_WRITE_ENV, "YES")
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        live_requested=True,
+        preflight_requested=True,
+        execute_live_http_requested=True,
+        evaluate_cache_write_requested=True,
+    )
+    assert out["live_http_performed"] is False
+    assert out["cache_write_performed"] is False
+    assert out["raw_response_included"] is False
+    assert out["provider_api_key_value_included"] is False
+    assert out["scheduled_ingest_enabled"] is False
+    assert out["evaluate_cache_write_requested"] is True
+
+
+def test_eval_cw_markdown_r651_wording(monkeypatch: pytest.MonkeyPatch) -> None:
+    out = mlbs.build_us_provider_manual_live_batch_smoke_payload(
+        ["MSFT"],
+        max_http=1,
+        evaluate_cache_write_requested=True,
+    )
+    md = mlbs.render_manual_live_batch_smoke_markdown(out)
+    assert "R6.5.1" in md
+    assert "refusal scaffold" in md.lower()
+    assert "no cache write" in md
+    assert "no live HTTP consumed" in md
     assert "JSON" in md
