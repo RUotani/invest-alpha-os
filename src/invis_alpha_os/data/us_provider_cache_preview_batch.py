@@ -1,8 +1,10 @@
-"""Multi-symbol US Stooq cache preview aggregation (**Main R5 design**).
+"""Multi-symbol US Stooq cache preview aggregation (**Main R5–R5.1**).
 
 No unattended bulk behaviors: **`write_cache`** requests are rejected at the envelope level (**use single-symbol **`debug us-provider-cache-preview`** + gates for writes**).
 
 Each symbol runs **`stooq_live_preview_sanitized_bars`** with the same **`live`** flag and **`write_cache=False`** (writes are never performed in batch).
+
+**Main R5.1** adds **`operator_summary`** on the batch envelope (**triage buckets only**, still **no raw vendor payloads**, **no cache writes**).
 """
 
 from __future__ import annotations
@@ -13,6 +15,22 @@ from typing import Any
 from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers, normalize_us_symbol
 from invis_alpha_os.data.us_provider_live_preview import stooq_live_preview_sanitized_bars
 from invis_alpha_os.data.us_provider_preview import us_cache_target_relpath
+
+_VENDOR_FORMAT_PARSE_REASONS: frozenset[str] = frozenset(
+    {
+        "stooq_payload_html_like",
+        "empty_csv",
+        "stooq_csv_delimiter_drift",
+        "stooq_csv_missing_required_columns",
+        "stooq_csv_parse_failed",
+        "stooq_csv_no_rows",
+        "csv_parse_failed",
+        "csv_decode_failed",
+        "cache_persist_refused",
+    },
+)
+
+_SYMBOL_SLUG_MAPPING_REASONS: frozenset[str] = frozenset({"stooq_vendor_no_data"})
 
 _ACTION_HINTS: dict[tuple[str, str | None], str] = {
     ("dry_run", None): "Safe default. For gated live per symbol use single-symbol tooling or pass --live with CONFIRM_US_LIVE_HTTP=YES (batch repeats per symbol only when operator invokes it explicitly).",
@@ -42,6 +60,58 @@ def _action_hint(status: str, reason: str | None) -> str:
         (status, reason),
         _ACTION_HINTS.get((status, None), "See docs/12_us_provider_failure_operator_playbook.md and response_diagnostics when present."),
     )
+
+
+def _operator_summary_zeros() -> dict[str, int]:
+    """Batch-level operator buckets (**Main R5.1**) — aligned with **`docs/12`** matrix classes."""
+
+    return {
+        "safe_dry_run_count": 0,
+        "single_symbol_write_candidate_count": 0,
+        "needs_api_key_count": 0,
+        "symbol_mapping_review_count": 0,
+        "vendor_format_review_count": 0,
+        "transport_retry_candidate_count": 0,
+        "invalid_symbol_count": 0,
+        "blocked_cache_write_count": 0,
+    }
+
+
+def compute_operator_summary_from_rows(results: list[dict[str, Any]]) -> dict[str, int]:
+    """Summarize **`results[]`** for triage (**no raw payloads**). Rows may overlap matrix rows; buckets are intentional."""
+
+    agg = _operator_summary_zeros()
+    for rw in results:
+        st = str(rw.get("status") or "unknown")
+        rs = rw.get("reason")
+        reason = rs if isinstance(rs, str) else None
+
+        if st == "dry_run":
+            agg["safe_dry_run_count"] += 1
+
+        if st == "validation_error" and reason == "invalid_symbol":
+            agg["invalid_symbol_count"] += 1
+
+        if st == "validation_error" and reason == "provider_api_key_required":
+            agg["needs_api_key_count"] += 1
+
+        if reason in _SYMBOL_SLUG_MAPPING_REASONS:
+            agg["symbol_mapping_review_count"] += 1
+
+        if st == "parse_error" and reason in _VENDOR_FORMAT_PARSE_REASONS:
+            agg["vendor_format_review_count"] += 1
+
+        if st == "http_error":
+            agg["transport_retry_candidate_count"] += 1
+
+        if bool(rw.get("cache_write_allowed")):
+            agg["single_symbol_write_candidate_count"] += 1
+
+        # Parse succeeded live but batch policy / safety refused a write hint (e.g. raw-response edge cases).
+        if st == "preview_ok" and not bool(rw.get("cache_write_allowed")):
+            agg["blocked_cache_write_count"] += 1
+
+    return agg
 
 
 def _row_from_payload(norm: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -128,6 +198,7 @@ def run_stooq_cache_preview_batch(
                 "parse_error": 0,
                 "transport_error": 0,
             },
+            "operator_summary": _operator_summary_zeros(),
             "observation_only": True,
         }
 
@@ -155,6 +226,7 @@ def run_stooq_cache_preview_batch(
                 "Main R5 batch never performs cache writes. Use debug us-provider-cache-preview "
                 "for a single normalized symbol with CONFIRM_US_CACHE_WRITE=YES and --write-cache."
             ),
+            "operator_summary": _operator_summary_zeros(),
             "observation_only": True,
         }
 
@@ -210,6 +282,7 @@ def run_stooq_cache_preview_batch(
                 "transport_error": 0,
             },
             "detail": "No valid symbols after normalization (and no invalid rows emitted).",
+            "operator_summary": _operator_summary_zeros(),
             "observation_only": True,
         }
 
@@ -253,6 +326,7 @@ def run_stooq_cache_preview_batch(
         "symbol_count": len(results),
         "results": results,
         "summary": summary,
+        "operator_summary": compute_operator_summary_from_rows(results),
         "observation_only": True,
     }
 

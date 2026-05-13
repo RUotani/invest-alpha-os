@@ -1,8 +1,8 @@
-# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5)
+# US provider / Stooq preview — failure matrix & operator playbook (Main R4.4–R5.1)
 
 ## 1. Purpose
 
-This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope — **not** a wish list.
+This playbook is for **operators** using **`debug us-provider-live-preview`** (shape digest), **`debug us-provider-cache-preview`** (strict parse + optional single-symbol cache write), and **`debug us-provider-cache-preview-batch`** (multi-symbol **aggregated preview**, Main R5–R5.1). It matches **in-repo implementation** as of **Main R4.3** per-symbol payloads plus **Main R5** batch envelope and **R5.1 `operator_summary` buckets** — **not** a wish list.
 
 **Observation only** — no trading advice, no automated refresh, **no unattended** multi-symbol HTTP.
 
@@ -77,6 +77,25 @@ This playbook is for **operators** using **`debug us-provider-live-preview`** (s
 
 Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed`**) signals **single-symbol follow-up write** (**`debug us-provider-cache-preview --write-cache`**) eligibility — **not** the batch path (**bulk cache writes intentionally unsupported**).
 
+### 3.2 Batch `operator_summary` buckets (**Main R5.1**)
+
+When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`operator_summary`** (integer counts only — **no raw vendor material**). Use it to **prioritize human follow-ups** before **`results[]`**. **Counts are not required to sum to `symbol_count`** (e.g. **`live_http_not_confirmed`** rows match **no** bucket here and are **matrix-triaged only** in **`results[]`**; most other rows match **one** bucket).
+
+| Field | Increments when (per row in **`results[]`**) |
+|-------|-----------------------------------------------|
+| **`safe_dry_run_count`** | **`status == dry_run`** — expected **no HTTP** path. |
+| **`single_symbol_write_candidate_count`** | **`cache_write_allowed == true`** — strict live parse **`preview_ok`** without **`raw_response_included`**; **follow up** with gated **`debug us-provider-cache-preview --write-cache`** if persistence is desired (**batch never writes**). |
+| **`needs_api_key_count`** | **`validation_error`** + **`reason == provider_api_key_required`**. |
+| **`symbol_mapping_review_count`** | **`reason == stooq_vendor_no_data`** (watchlist slug / `.us` / listing class review per §4 “No data prose”). |
+| **`vendor_format_review_count`** | **`parse_error`** with **`reason`** ∈ **`stooq_payload_html_like`**, **`empty_csv`**, **`stooq_csv_*`**, **`csv_parse_failed`**, **`csv_decode_failed`**, **`cache_persist_refused`** (**schema / tabular envelope** issues only). |
+| **`transport_retry_candidate_count`** | **`status == http_error`** (bounded **human-only** retries; **no** CI loops per §4). |
+| **`invalid_symbol_count`** | **`validation_error`** + **`reason == invalid_symbol`**. |
+| **`blocked_cache_write_count`** | **`status == preview_ok`** but **`cache_write_allowed`** is **false** (sanitized-parse safety edge — inspect row-level **`reason`** / flags in **`results[]`**). |
+
+**Envelope-only failures** (`unsupported_provider`, `batch_cache_write_not_supported`, `empty_symbol_batch`): **`symbol_count`** is **0** and **`operator_summary`** is **all zeros** — fix CLI inputs first.
+
+**Rows not enumerated above** (e.g. **`live_http_not_confirmed`**, **`preview_plan_failed`**, **`missing_preview_url`**) appear only in **`results[]`** — triage **`reason`** against the §3 matrix.
+
 ---
 
 ## 4. Operator playbooks by theme
@@ -88,7 +107,7 @@ Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed
 ### Multi-symbol aggregation (batch)
 
 - **`make us-provider-cache-preview-batch-dry-run`** runs the batch CLI with **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** only. **`debug us-provider-cache-preview-batch`** has **no** **`--quiet`** or **`--dry-run`** options — leaving off **`--live`** is what keeps previews in **`dry_run`** (**no HTTP**). **`--live`** still requires **`CONFIRM_US_LIVE_HTTP=YES`** and implies **human-invoked sequential GETs**.
-- Inspect **`results[]`**, **`summary`**, **`operator_next_action`**, **`docs/11`** wire slug guidance (**no raw vendor bodies**) before diagnosing watchlist failures at scale — **bulk cache writes remain deliberately unsupported.**
+- Inspect **`results[]`**, **`summary`**, **`operator_summary`**, **`operator_next_action`**, **`docs/11`** wire slug guidance (**no raw vendor bodies**) before diagnosing watchlist failures at scale — **bulk cache writes remain deliberately unsupported.**
 
 ### API key prose
 
@@ -120,7 +139,7 @@ Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed
 
 **Delivered behaviors (operators):**
 
-- **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints JSON with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`observation_only=true`** (**no raw vendor payloads** embedded).
+- **Multi-symbol aggregation** CLI: **`inv debug us-provider-cache-preview-batch`** merges **`--from-watchlist`** + **`--symbols`**, trims duplicates, honours **`limit`**, and prints JSON with **`batch_preview_ok`**, **`symbol_count`**, **`results[]`**, **`summary`**, **`operator_summary`** (**Main R5.1** triage buckets; **counts only**), **`observation_only=true`** (**no raw vendor payloads** embedded).
 - **Makefile**: **`make us-provider-cache-preview-batch-dry-run`** passes **`--from-watchlist`**, **`--provider stooq_preview`**, and **`--limit 4`** (**no** **`--quiet`**, **no** **`--dry-run`** — CLI default is **`dry_run`** unless **`--live`** is supplied). **`safe-push`** intentionally **does not** depend on batch targets (**unit tests gate this invariant**).
 
 **Safety rules remain unchanged:**
@@ -130,15 +149,17 @@ Per-row **`cache_write_allowed`** (**preview_ok** + gated **`live_http_performed
 **Documentation touchpoints:**
 - Canonical module: **`src/invis_alpha_os/data/us_provider_cache_preview_batch.py`**.
 
-**Explicit future work:**
+**Explicit future work (**pre‑Main R6** gate):**
 
-- Automated watchlist ingestion at cron scale (**still out-of-scope until product owners green-light production gates).
+- Operators should **`operator_summary`**-first triage (**§3.2**) and only then escalate to **`results[]`**, **never** by persisting vendor bodies.
+- **Main R6** (scheduled / unattended multi-symbol ingest) **must not** ship until product owners reaffirm gates: **`CONFIRM_US_LIVE_HTTP`**, **`CONFIRM_US_CACHE_WRITE`**, **safe-push forbids accidental `outputs/` commits**, **`STOOQ_APIKEY`** stays env-only — **same invariants as R5**; R6 work is tracked separately from **R5.1**.
+- Automated watchlist ingestion at cron scale remains **explicitly backlog** alongside that gate.
 
 ---
 
 ## 6. Standard outcomes for aggregate planning
 
-Treat these **`reason`** values as **first-class buckets** when comparing symbols (**batch `summary`** in Main R5 and later planning):
+Treat these **`reason`** values as **first-class buckets** when comparing symbols (**batch `summary`**, **`operator_summary` §3.2** in Main R5.1, and later planning):
 
 - **Gates:** `live_http_not_confirmed`, `cache_write_not_confirmed`
 - **Key / entitlement:** `provider_api_key_required`
