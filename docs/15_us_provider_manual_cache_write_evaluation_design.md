@@ -29,11 +29,11 @@ Canonical neighbours:
 
 ## 2. Scope
 
-Future **R6.5.1+** manual cache-write evaluation scope, when implemented:
+**R6.5.1** implements `--evaluate-cache-write` as a **refusal scaffold only** (always exits 2). **R6.5.2+** scope for actual cache-write evaluation:
 
 - **Manual, bounded, operator-approved** — one CLI invocation; no supervisor, no cron, no GitHub Actions `schedule:`.
-- **After successful live preview** — only rows that returned `live_preview_ok` in a preceding R6.4.1 run may be eligible for cache write.
-- **Explicit flag required** — a dedicated future flag (proposed name `--evaluate-cache-write`; not yet in code) plus `CONFIRM_US_CACHE_WRITE=YES`.
+- **After successful live preview** — only rows that returned `live_preview_ok` in a preceding R6.4.1 run may be eligible for cache write (R6.5.2+).
+- **Explicit flag required** — `--evaluate-cache-write` (implemented in R6.5.1 as refusal scaffold) plus `CONFIRM_US_CACHE_WRITE=YES`.
 - **No bulk production refresh** — not a substitute for scheduled ingest; watchlist-wide automation remains R6.6+.
 - **No CI automation** — not wired into Makefile shortcuts, `verify`, `safe-push`, or `agent-final-check`.
 
@@ -56,14 +56,14 @@ Future **R6.5.1+** manual cache-write evaluation scope, when implemented:
 
 ## 4. Safety contract
 
-Future **R6.5.1+** cache-write evaluation may only be attempted if **all** of the following are true:
+**R6.5.1** enforces these requirements as refusal checks (all exit 2). **R6.5.2+** actual cache-write evaluation may only proceed if **all** of the following are true:
 
 | Requirement | Notes |
 |-------------|-------|
 | `--live` | Intent flag; already required for R6.4.1. |
 | `--preflight` | Gate validation; already required for R6.4.1. |
 | `--execute-live-http` | Live HTTP must have been requested. |
-| Future explicit cache-write flag (proposed `--evaluate-cache-write`) | Dedicated intent; name may be finalized at implementation. |
+| Explicit cache-write evaluation flag (`--evaluate-cache-write`; implemented as refusal scaffold in R6.5.1) | Dedicated intent; always refuses in R6.5.1 — actual write eligibility is R6.5.2+. |
 | `CONFIRM_US_LIVE_HTTP=YES` | Same gate as R6.4.1. |
 | `CONFIRM_US_MANUAL_BATCH_SMOKE=YES` | Same gate as R6.4.1. |
 | `CONFIRM_US_CACHE_WRITE=YES` | Additional gate; currently read for `gate_status` only. |
@@ -77,10 +77,12 @@ Future **R6.5.1+** cache-write evaluation may only be attempted if **all** of th
 
 ---
 
-## 5. Proposed future CLI shape (**documentation only — not implemented**)
+## 5. CLI shape — R6.5.1 refusal scaffold (implemented) / R6.5.2+ actual write (future)
+
+**R6.5.1 refusal scaffold** — flag is implemented; always exits 2; no cache write; no live HTTP consumed:
 
 ```text
-# Proposed — not implemented in R6.5.0
+# R6.5.1 — flag recognized, always refused (exit 2)
 python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
   --symbols MSFT \
   --provider stooq_preview \
@@ -91,19 +93,27 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
   --max-http 1
 ```
 
-`--evaluate-cache-write` is **proposed only**. The actual flag name may be finalized at implementation. Do not use this shape until R6.5.1 ships.
+`--evaluate-cache-write` is **implemented in R6.5.1** as a refusal scaffold. All 6 gate orderings return `validation_error` / exit 2. **Actual cache write remains R6.5.2+ future work** per the pre-implementation checklist (§7).
 
 ---
 
-## 6. Refusal rules — proposed reason strings (**proposed / not implemented in R6.5.0**)
+## 6. Refusal rules — reason strings (R6.5.1 implemented; R6.5.2+ proposed)
 
-| Proposed reason string | Trigger | Expected exit | Safety intent |
-|------------------------|---------|:-------------:|---------------|
-| `manual_batch_cache_write_not_implemented_in_r6_5_0` | Cache-write flag used before implementation ships | **2** | Scaffold refusal; prevents premature use. |
+**R6.5.1 implemented** (all exit 2, no cache write, no live HTTP):
+
+| Reason string | Trigger | Exit | Safety intent |
+|---------------|---------|:----:|---------------|
 | `manual_batch_cache_write_requires_live` | `--evaluate-cache-write` without `--live` | **2** | Live intent required. |
 | `manual_batch_cache_write_requires_preflight` | Without `--preflight` | **2** | Preflight confirmation required. |
 | `manual_batch_cache_write_requires_execute_live_http` | Without `--execute-live-http` | **2** | Live HTTP must be requested. |
+| `manual_batch_smoke_live_http_not_confirmed` | `CONFIRM_US_LIVE_HTTP` or `CONFIRM_US_MANUAL_BATCH_SMOKE` not YES | **2** | Existing live/manual gates enforced. |
 | `manual_batch_cache_write_requires_cache_gate` | `CONFIRM_US_CACHE_WRITE` not `YES` | **2** | Explicit operator gate. |
+| `manual_batch_cache_write_not_enabled_in_r6_5_1` | All flags + all gates set | **2** | Full-gate scaffold refusal — no write in R6.5.1. |
+
+**R6.5.2+ proposed** (not yet implemented — for planning only):
+
+| Proposed reason string | Trigger | Exit | Safety intent |
+|------------------------|---------|:----:|---------------|
 | `manual_batch_cache_write_requires_successful_live_preview` | No `live_preview_ok` rows | **2** | Only successful previews eligible. |
 | `manual_batch_cache_write_rejects_invalid_symbol` | Row reason `invalid_symbol` | row-level | Invalid symbols never written. |
 | `manual_batch_cache_write_rejects_parse_error` | Row status `parse_error` | row-level | Corrupt data never written. |
@@ -115,13 +125,23 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 
 ---
 
-## 7. Checklist before R6.5.1 implementation may start
+## 7. Checklist before R6.5.2 actual cache-write implementation may start
 
-- [ ] `docs/12`, `docs/13`, `docs/14`, `docs/15` aligned on R6.5.1 contract.
+**R6.5.1 items (already satisfied):**
+
+- [x] `docs/12`, `docs/13`, `docs/14`, `docs/15` aligned on R6.5.1 contract.
+- [x] `--evaluate-cache-write` refusal scaffold implemented (exit 2 in all 6 orderings).
+- [x] `monkeypatch save_us_daily_bars_cache` asserts it is never called (test coverage in R6.5.1).
+- [x] Flag without `--live` refuses (exit 2, reason `manual_batch_cache_write_requires_live`).
+- [x] `CONFIRM_US_CACHE_WRITE` not `YES` refuses (exit 2, reason `manual_batch_cache_write_requires_cache_gate`).
+- [x] Full-gate path refuses with `manual_batch_cache_write_not_enabled_in_r6_5_1`.
+- [x] `STOOQ_APIKEY` value never in output.
+- [x] No `.github/` or `Makefile` wiring.
+- [x] Existing R6.4.1 tests still pass without regression (459 tests total).
+
+**R6.5.2+ prerequisites (not yet satisfied):**
+
 - [ ] Tests planned and written **before** implementation (mock-first).
-- [ ] `monkeypatch save_us_daily_bars_cache` asserts it is never called when gates missing.
-- [ ] Test: proposed flag without `--live` refuses (exit 2, reason `manual_batch_cache_write_requires_live`).
-- [ ] Test: `CONFIRM_US_CACHE_WRITE` not `YES` refuses (exit 2, reason `manual_batch_cache_write_requires_cache_gate`).
 - [ ] Test: `validation_error` live row refuses write.
 - [ ] Test: `parse_error` row refuses write.
 - [ ] Test: `transport_error` row refuses write.
@@ -130,17 +150,14 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [ ] Test: success row only write-eligible when all gates pass.
 - [ ] Test: `save_us_daily_bars_cache` called only with sanitized bars when all gates pass.
 - [ ] Test: raw body / raw CSV never in payload or Markdown.
-- [ ] Test: `STOOQ_APIKEY` value never in output.
-- [ ] Confirm no `.github/` or `Makefile` wiring.
 - [ ] Confirm CI remains offline-safe.
 - [ ] Confirm write target path is deterministic and under `outputs/market_data/us_daily_bars/`.
-- [ ] Existing R6.4.1 tests still pass without regression.
 
 ---
 
-## 8. Required tests for future implementation
+## 8. Required tests for R6.5.2+ implementation
 
-Expected tests only — **do not implement until R6.5.1 milestone begins**:
+R6.5.1 refusal scaffold tests are already implemented (44 tests pass). These additional tests are required before R6.5.2 actual cache-write implementation may proceed:
 
 - `test_cache_write_flag_without_live_exits_2`
 - `test_cache_write_without_cache_gate_exits_2`
