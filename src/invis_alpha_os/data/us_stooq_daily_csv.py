@@ -1,6 +1,9 @@
 """Strict in-memory parser for Stooq daily CSV → sanitized OHLCV row dicts (Main R4).
 
 Raises ``ValueError`` with fixed opaque reason codes — never embedded raw CSV rows or vendor bodies.
+
+``classify_stooq_csv_text_safely`` (Main R4.1) returns only capped, redacted structural metadata —
+never full lines, OHLC cells, or raw bodies.
 """
 
 from __future__ import annotations
@@ -9,10 +12,153 @@ import csv
 import io
 import math
 import re
+from typing import Any
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 _REQUIRED_LOWER = frozenset({"date", "open", "high", "low", "close", "volume"})
+
+_HTML_HINT_RE = re.compile(
+    r"<\s*html\b|<\s*!doctype\b|<\s*head\b|<\s*body\b|<\s*table\b",
+    re.I,
+)
+
+_NO_DATA_HINT_RE = re.compile(
+    r"(no\s*data|data\s+not\s+available|not\s+found|brak\s+danych|invalid\s+symbol|unknown\s+symbol|"
+    r"symbol\s+not\s+found|nie\s+znaleziono)",
+    re.I,
+)
+
+_HEADER_SAFE_CHAR_RE = re.compile(r"[^0-9A-Za-z_.\- ]")
+
+
+def _sanitize_header_cell(cell: str) -> str:
+    t = str(cell).strip()
+    if len(t) > 40:
+        t = t[:40]
+    return _HEADER_SAFE_CHAR_RE.sub("?", t)
+
+
+def _looks_like_number_token(token: str) -> bool:
+    t = str(token).strip().replace(",", "")
+    if not t or t in "-—":
+        return False
+    try:
+        float(t)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _first_line_probable_data_row(cells: list[str]) -> bool:
+    """True if the split first line looks like an OHLC row, not a textual header."""
+
+    if len(cells) < 2:
+        return False
+
+    any_letter = any(any(ch.isalpha() for ch in str(c)) for c in cells)
+    if not any_letter:
+        return True
+
+    if _DATE_RE.match(str(cells[0]).strip()):
+        if len(cells) >= 5 and all(_looks_like_number_token(cells[i]) for i in range(1, min(6, len(cells)))):
+            return True
+
+    return False
+
+
+def classify_stooq_csv_text_safely(csv_text: str) -> dict[str, Any]:
+    """Structural-only summary of vendor text for operator debugging (**no OHLC**, **no rows**, **no raw body**)."""
+
+    raw = csv_text if isinstance(csv_text, str) else ""
+    stripped = raw.strip()
+    if not stripped:
+        return {
+            "body_kind": "empty",
+            "header_columns_sanitized": [],
+            "header_column_count": 0,
+            "line_count_limited": 0,
+            "has_required_columns": False,
+            "required_columns_missing": sorted(_REQUIRED_LOWER),
+            "delimiter_guess": "unknown",
+        }
+
+    lines = stripped.splitlines()
+    line_nl = len(lines)
+    line_count_limited = min(line_nl, 200)
+
+    nonempty_lines = [ln for ln in lines if ln.strip()]
+    first_line = nonempty_lines[0] if nonempty_lines else ""
+
+    c_cnt, s_cnt, t_cnt = (
+        first_line.count(","),
+        first_line.count(";"),
+        first_line.count("\t"),
+    )
+    if t_cnt > c_cnt and t_cnt > s_cnt and t_cnt > 0:
+        delim_char = "\t"
+        delimiter_guess: str = "tab"
+    elif s_cnt > c_cnt and s_cnt > 0:
+        delim_char = ";"
+        delimiter_guess = "semicolon"
+    elif c_cnt > 0:
+        delim_char = ","
+        delimiter_guess = "comma"
+    else:
+        delim_char = ","
+        delimiter_guess = "unknown"
+
+    header_cells: list[str] = []
+    if first_line:
+        if delimiter_guess == "unknown" and "\t" in first_line:
+            delim_char = "\t"
+            delimiter_guess = "tab"
+        try:
+            row = next(csv.reader(io.StringIO(first_line), delimiter=delim_char))
+            header_cells = [str(x) for x in row]
+        except (csv.Error, StopIteration):
+            header_cells = [first_line]
+
+    header_column_count = len(header_cells)
+    probable_data = _first_line_probable_data_row(header_cells)
+    if probable_data:
+        header_columns_sanitized: list[str] = []
+        names_lower: list[str] = []
+    else:
+        header_columns_sanitized = [_sanitize_header_cell(cell) for cell in header_cells[:12]]
+        names_lower = [str(x or "").strip().lower() for x in header_cells]
+
+    req_missing = sorted(_REQUIRED_LOWER - frozenset(names_lower))
+    has_required = not bool(req_missing)
+
+    head_sample = stripped[:8192]
+    if _HTML_HINT_RE.search(head_sample):
+        body_kind: str = "html_like"
+    elif _NO_DATA_HINT_RE.search(stripped[:1600]):
+        body_kind = "no_data_like"
+    elif header_column_count >= 2 and delimiter_guess != "unknown":
+        body_kind = "csv_like"
+    elif header_column_count >= 2:
+        body_kind = "csv_like"
+    elif header_column_count == 1 and delimiter_guess == "unknown":
+        lone = names_lower[0] if names_lower else ""
+        snip_low = stripped[:400].lower()
+        if (lone and ("error" in lone or "sorry" in lone)) or ("sorry" in snip_low):
+            body_kind = "no_data_like"
+        else:
+            body_kind = "unknown"
+    else:
+        body_kind = "unknown"
+
+    return {
+        "body_kind": body_kind,
+        "header_columns_sanitized": header_columns_sanitized,
+        "header_column_count": header_column_count,
+        "line_count_limited": line_count_limited,
+        "has_required_columns": has_required,
+        "required_columns_missing": req_missing,
+        "delimiter_guess": delimiter_guess,
+    }
 
 
 def _reject_parse() -> None:

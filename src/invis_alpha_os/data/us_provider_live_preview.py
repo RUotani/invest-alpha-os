@@ -22,7 +22,10 @@ from invis_alpha_os.config.us_watchlist import normalize_us_symbol, us_symbol_as
 from invis_alpha_os.data.jquants_daily_bars_cache import utc_now_iso
 from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
 from invis_alpha_os.data.us_provider_preview import build_stooq_daily_preview, us_cache_target_relpath
-from invis_alpha_os.data.us_stooq_daily_csv import parse_stooq_daily_csv_to_rows
+from invis_alpha_os.data.us_stooq_daily_csv import (
+    classify_stooq_csv_text_safely,
+    parse_stooq_daily_csv_to_rows,
+)
 
 CONFIRM_US_LIVE_HTTP_ENV = "CONFIRM_US_LIVE_HTTP"
 CONFIRM_US_CACHE_WRITE_ENV = "CONFIRM_US_CACHE_WRITE"
@@ -35,6 +38,7 @@ def _base_parse_error(
     reason: str,
     live_http_performed: bool,
     http_status: int | None = None,
+    response_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     out: dict[str, Any] = {
         "status": "parse_error",
@@ -47,6 +51,8 @@ def _base_parse_error(
     }
     if http_status is not None:
         out["http_status"] = http_status
+    if response_diagnostics is not None:
+        out["response_diagnostics"] = response_diagnostics
     return out
 
 
@@ -367,11 +373,13 @@ def stooq_live_preview_sanitized_bars(
             "stooq_csv_parse_failed",
         ):
             code = "stooq_csv_parse_failed"
+        diagnostics = classify_stooq_csv_text_safely(text)
         return _base_parse_error(
             norm=norm,
             reason=code,
             live_http_performed=True,
             http_status=http_status,
+            response_diagnostics=diagnostics,
         )
 
     first_date = str(rows[0]["date"])

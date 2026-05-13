@@ -2,17 +2,73 @@
 
 from __future__ import annotations
 
+import json
 import re
 
 import pytest
 
-from invis_alpha_os.data.us_stooq_daily_csv import parse_stooq_daily_csv_to_rows
+from invis_alpha_os.data.us_stooq_daily_csv import (
+    classify_stooq_csv_text_safely,
+    parse_stooq_daily_csv_to_rows,
+)
 
 _VALID = (
     "Date,Open,High,Low,Close,Volume\n"
     "2024-06-03,410.0,412.0,408.0,411.0,900000\n"
     "2024-06-04,411,413,410,412,910000\n"
 )
+
+
+def test_classify_valid_csv_metadata() -> None:
+    diag = classify_stooq_csv_text_safely(_VALID)
+    assert diag["body_kind"] == "csv_like"
+    assert diag["delimiter_guess"] == "comma"
+    assert diag["has_required_columns"] is True
+    assert diag["required_columns_missing"] == []
+    assert len(diag["header_columns_sanitized"]) <= 12
+
+
+def test_classify_no_data_hint() -> None:
+    diag = classify_stooq_csv_text_safely("No data available for ticker.\n")
+    assert diag["body_kind"] == "no_data_like"
+    assert diag["has_required_columns"] is False
+
+
+def test_classify_html_hint() -> None:
+    diag = classify_stooq_csv_text_safely("<html><body>blocked</body></html>\n")
+    assert diag["body_kind"] == "html_like"
+
+
+def test_classify_semicolon_delimiter() -> None:
+    body = "Date;Open;High;Low;Close;Volume\n2024-01-02;1;2;3;4;5\n"
+    diag = classify_stooq_csv_text_safely(body)
+    assert diag["delimiter_guess"] == "semicolon"
+
+
+def test_classify_truncates_header_cells_without_raw_leaks() -> None:
+    long_cell = ("X" * 80) + "secret_part"
+    line = ",".join(
+        ["Date", "Open", long_cell, "Low", "Close", "Volume"],
+    )
+    diag = classify_stooq_csv_text_safely(line + "\n1,2,3,4,5")
+    assert all(len(c) <= 40 for c in diag["header_columns_sanitized"])
+    assert "secret" not in json.dumps(diag)
+
+
+def test_classify_headerless_numeric_row_omits_header_tokens() -> None:
+    body = "2024-01-02,100.0,110.0,90.0,105.0,1234567\n"
+    diag = classify_stooq_csv_text_safely(body)
+    assert diag["header_columns_sanitized"] == []
+    assert diag["has_required_columns"] is False
+    blob = json.dumps(diag, ensure_ascii=False)
+    assert "2024" not in blob
+    assert "100.0" not in blob
+    assert "1234567" not in blob
+
+
+def test_classify_sanitizes_non_alnum_header_cells() -> None:
+    diag = classify_stooq_csv_text_safely("Da@te,Open#,High$,Low!,Close:,Volume@\n")
+    assert "?" in diag["header_columns_sanitized"][0]
 
 
 def test_parse_valid_csv_returns_sanitized_rows() -> None:

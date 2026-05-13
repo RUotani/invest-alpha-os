@@ -76,6 +76,7 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R2**: **`docs/11_us_market_data_provider_plan.md`**, **`config/us_market_data.yaml`**, **`us_provider_preview`**, **`debug us-provider-preview`**, **`make us-provider-preview`** — **dry-run preview only** (**no HTTP**, **no `raw_response`**, **vendor fetch not implemented**).
 - **Main R3**: **`debug us-provider-live-preview`**, **`make us-provider-live-preview-dry-run`** — gated **shape-only** Stooq preview (**no cache write**).
 - **Main R4**: **`us_stooq_daily_csv`**, **`stooq_live_preview_sanitized_bars`**, **`debug us-provider-cache-preview`**, **`make us-provider-cache-preview-dry-run`** — strict **CSV → sanitized OHLC**; optional **`save_us_daily_bars_cache`** when **`CONFIRM_US_CACHE_WRITE=YES`** **and** **`--write-cache`**; vendor **CSV never stored**.
+- **Main R4.1**: **`classify_stooq_csv_text_safely`** — on **`parse_error`** from strict Stooq parse, attaches **`response_diagnostics`** (**no raw body / no OHLC cells**) when **HTTP succeeds** but payload is HTML, terse no-data prose, delimiter drift, etc.
 - **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.

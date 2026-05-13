@@ -1,4 +1,4 @@
-# US equities / ETFs — market data provider plan (Main R2–Main R4)
+# US equities / ETFs — market data provider plan (Main R2–Main R4 / R4.1)
 
 ## 1. Purpose
 
@@ -22,7 +22,7 @@ Observation only — no buy/sell advice, no automated trading.
 
 - **Strengths:** **No API key** for public CSV-style daily endpoints; convenient for sketches and spreadsheets; used for **Main R3** one-symbol **gated** shape-only live preview (see phased table).
 - **Limitations:** **Not a formal “broker-grade” contractual API for production apps**; **symbol convention risk** — US listings often encoded as **`{ticker}.us`** with hyphenation for multi-class dots (e.g. **BRK.B** → **`brk-b.us`** — heuristic in-repo); **not adjusted** in the same sense as vendor “adjusted close” products — treat field semantics carefully. **Treat as preview / prototype** until a commercial API path is chosen.
-- **Terms:** Use only in compliance with Stooq’s published terms; no scraping of pages outside documented usage.
+- **Operational:** Stooq may answer **HTTP 200** with **non-tabular payloads** (HTML interstitial, “no data” prose, delimiter/header drift). Prefer **`debug us-provider-cache-preview --live`** and inspect **`parse_error`** + **`response_diagnostics`** (**Main R4.1**) before assuming a ticker or wire slug is accepted — **still no raw body** in tooling output.
 
 ### Yahoo Finance / yfinance (unofficial)
 
@@ -63,7 +63,8 @@ Observation only — no buy/sell advice, no automated trading.
 | **Main R2** | **Design** + **`config/us_market_data.yaml`** + **`build_us_provider_preview_plan`** / **`debug us-provider-preview`** — **no HTTP**, **no live ingestion**. |
 | **Main R3** | **Stooq one-symbol gated live preview** — **`debug us-provider-live-preview`**: **`--live`** + **`CONFIRM_US_LIVE_HTTP=YES`**; **shape digest only** — **no cache write** — **no `raw_response`** (smoke symbol **MSFT**). |
 | **Main R4 (current)** | **Stooq CSV strict parse → sanitized OHLCV dicts** (`parse_stooq_daily_csv_to_rows`) + **`stooq_live_preview_sanitized_bars`** / **`debug us-provider-cache-preview`**. **`--live`** gates HTTP; **`--write-cache`** + **`CONFIRM_US_CACHE_WRITE=YES`** gates **`save_us_daily_bars_cache`**. Vendor **raw CSV is never stored** on disk — only **sanitized** JSON via the existing writer. **One-symbol manual smoke**, **not** watchlist automation or scheduled refresh. **Stooq remains preview/prototype.** |
-| **Beyond R4** | Multi-symbol / scheduled ingest, Alpha Vantage, and production-grade observability remain future slices. |
+| **Main R4.1** | **Safe HTTP-200 diagnostics** — when gated Stooq fetch returns **`http_status` 200** but **strict CSV parse fails** (HTML page, terse “no data” text, wrong delimiter, unexpected header), **`parse_error`** payloads may include **`response_diagnostics`** from **`classify_stooq_csv_text_safely`**: capped header tokens, **`body_kind`**, delimiter guess — **never** vendor **raw bodies**, OHLC numeric cells, nor full lines. Helps operators distinguish “network OK” from “payload unusable”. |
+| **Beyond R4.1** | Multi-symbol / scheduled ingest, Alpha Vantage, richer mapping — unchanged backlog. |
 
 ---
 

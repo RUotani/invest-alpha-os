@@ -207,6 +207,79 @@ def test_http_error_no_body(monkeypatch: pytest.MonkeyPatch) -> None:
     assert p["raw_response_included"] is False
 
 
+@patch.object(uplp, "urlopen")
+def test_parse_error_headerless_row_diagnostics_hide_numeric_cells(mock_urlopen: MagicMock) -> None:
+    body = "2024-01-02,100.0,110.0,90.0,105.0,1234567\n"
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    dj = json.dumps(p["response_diagnostics"], ensure_ascii=False)
+    assert "2024" not in dj
+    assert "100.0" not in dj
+    assert "1234567" not in dj
+
+
+@patch.object(uplp, "urlopen")
+def test_parse_error_payload_has_safe_diagnostics_not_raw_cells(mock_urlopen: MagicMock) -> None:
+    body = "Ticker,Px,ExtraColumn\nMSFT,123,filler\n"
+    _patch_urlopen_ok(mock_urlopen, body.encode("utf-8"))
+    with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
+        r = runner.invoke(
+            app,
+            [
+                "debug",
+                "us-provider-cache-preview",
+                "--symbol",
+                "MSFT",
+                "--provider",
+                "stooq_preview",
+                "--live",
+            ],
+        )
+
+    assert r.exit_code == 1, r.stdout + r.stderr
+    p = json.loads(r.stdout.strip())
+    assert p["status"] == "parse_error"
+    assert "response_diagnostics" in p
+    assert p["raw_response_included"] is False
+
+    dumped = json.dumps(p, ensure_ascii=False).lower()
+    assert "123" not in dumped
+
+    diag = p["response_diagnostics"]
+    assert isinstance(diag, dict)
+    assert set(diag).issuperset(
+        {
+            "body_kind",
+            "header_columns_sanitized",
+            "header_column_count",
+            "line_count_limited",
+            "has_required_columns",
+            "required_columns_missing",
+            "delimiter_guess",
+        },
+    )
+
+    dj = json.dumps(diag).lower()
+    for needle in ("raw_response", "api_key", "authorization", "bearer"):
+        assert needle not in dj
+    assert "123" not in dj
+
+
 def test_makefile_has_r4_targets() -> None:
     m = (REPO / "Makefile").read_text(encoding="utf-8")
     assert "us-provider-cache-preview-dry-run:" in m
