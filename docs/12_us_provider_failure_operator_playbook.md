@@ -98,9 +98,10 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 ### 3.3 Batch Markdown recap (**Main R5.2–R5.3**)
 
-- **`render_us_provider_cache_preview_batch_markdown`** + CLI **`debug us-provider-cache-preview-batch --markdown`** emit a **single copy-paste friendly Markdown block** for tickets / ops memos: **blockquote** (JSON canonical), **operator verdict** (next check), **`## Safety flags`** table, **`summary` / `operator_summary` tables, **`## Notes`**. **Main R5.3** orders sections for **one-screen scan** — Markdown **still omits** per-symbol **`results[]`** rows (**no disk write**, **no secrets**).
-- **`--markdown` purposely omits `results[]`** — paste JSON (default CLI, no **`--markdown`**) when you need per-row **`operator_next_action`** / **`body_kind`**. Markdown is **human recap only**, not a substitute export.
-- **Still no cache write, no raw vendor bodies, no API keys** in either output mode.
+- **`render_us_provider_cache_preview_batch_markdown`** with CLI **`debug us-provider-cache-preview-batch --markdown`** prints one Markdown document for manual paste (ops memos, tickets). **Main R5.3** layout: a blockquote stating **JSON remains canonical** for row-level fields; heading **Operator verdict**; **Safety flags** (table); **Summary** (JSON key `summary`); **Operator summary** (JSON key `operator_summary`); **Notes**. Sections are ordered for a quick **one-screen** read.
+- Markdown output **still omits** `results[]` (**no disk write**, **no secrets**, **no report automation**).
+- Use **JSON** (default CLI; omit **`--markdown`**) when you need per-row **`operator_next_action`** / **`body_kind`**. Markdown is **human recap only**, not a substitute export.
+- **Neither mode** performs cache writes, embeds vendor raw bodies, or prints API keys.
 
 ---
 
@@ -165,7 +166,7 @@ When outer **`status`** is **`batch_preview_ok`**, the batch JSON includes **`op
 
 ## 6. Standard outcomes for aggregate planning
 
-Treat these **`reason`** values as **first-class buckets** when comparing symbols (**batch `summary`**, **`operator_summary` §3.2** in Main R5.1, and later planning):
+Treat these **`reason`** values as **first-class buckets** when comparing symbols (batch JSON keys `summary` and `operator_summary` per §3.2 — Main R5.1 — and later planning):
 
 - **Gates:** `live_http_not_confirmed`, `cache_write_not_confirmed`
 - **Key / entitlement:** `provider_api_key_required`
