@@ -14,10 +14,17 @@ from invis_alpha_os.signals.momentum import (
     analyze_bars_for_code,
     build_momentum_signals,
     calculate_returns,
+    compute_score_v2,
+    data_quality_flags,
     detect_high_breakout,
     detect_volume_spike,
+    high_distance_vs_prior_high_pct,
     load_bars_json_file,
+    momentum_row_public_dict,
+    overheat_from_returns,
     score_momentum_candidate,
+    synthetic_bars_for_code,
+    volume_ratio_25d_prior_mean,
 )
 
 
@@ -269,6 +276,112 @@ def test_cli_signals_bars_file_requires_code(tmp_path: Path) -> None:
     p.write_text("[]", encoding="utf-8")
     r = CliRunner().invoke(app, ["signals", "--bars-file", str(p)])
     assert r.exit_code == 2
+
+
+def test_volume_ratio_25d_prior_mean_ratio() -> None:
+    baseline = [1000.0] * 25
+    vols = baseline + [2500.0]
+    r = volume_ratio_25d_prior_mean(vols)
+    assert r is not None
+    assert abs(r - 2.5) < 1e-9
+
+
+def test_high_distance_pct_near_prior_high_window() -> None:
+    highs = [100.0] * 100 + [100.5]
+    closes = [99.5] * 100 + [99.9]
+    d = high_distance_vs_prior_high_pct(closes, highs)
+    assert d is not None
+    assert abs(d - (-0.001)) < 1e-9
+
+
+def test_overheat_flag_extreme_returns() -> None:
+    assert overheat_from_returns(0.51, None) is True
+    assert overheat_from_returns(None, 1.01) is True
+    assert overheat_from_returns(0.1, 0.2) is False
+
+
+def test_data_quality_short_history_flags() -> None:
+    dq50 = dict(data_quality_flags(50))
+    assert dq50["enough_60d"] is False and dq50["enough_120d"] is False
+    dq200 = dict(data_quality_flags(200))
+    assert dq200["enough_60d"] is True and dq200["enough_120d"] is True and dq200["enough_252d"] is False
+
+
+def test_compute_score_v2_components_deterministic() -> None:
+    s1, p1 = compute_score_v2(
+        bar_count=200,
+        has_breakout=True,
+        r5=-0.01,
+        r20=0.02,
+        r60=0.03,
+        r120=0.01,
+        high_dist_pct=-0.02,
+        vol_ratio_25d=2.5,
+        overheat=False,
+    )
+    s2, p2 = compute_score_v2(
+        bar_count=200,
+        has_breakout=True,
+        r5=-0.01,
+        r20=0.02,
+        r60=0.03,
+        r120=0.01,
+        high_dist_pct=-0.02,
+        vol_ratio_25d=2.5,
+        overheat=False,
+    )
+    assert p1 == p2
+    assert s1 == s2
+    assert "r20_positive" in p1
+    assert "short_pullback_within_uptrend" in p1
+
+
+def test_limited_history_penalty_below_121_bars() -> None:
+    """121 bars aligns r120 horizon with ``enough_120d``; 120 bars must keep limited-history penalty."""
+
+    closes_ok = [100.0 + i * 0.01 for i in range(121)]
+    m_ok = analyze_bars_for_code("FULL", _flat_bars_closes(closes_ok))
+    assert m_ok is not None
+    assert dict(m_ok.data_quality)["enough_120d"] is True
+    assert "limited_history_penalty" not in dict(m_ok.score_v2_components)
+
+    closes_thin = closes_ok[:120]
+    m_thin = analyze_bars_for_code("THIN", _flat_bars_closes(closes_thin))
+    assert m_thin is not None
+    assert dict(m_thin.data_quality)["enough_120d"] is False
+    assert m_thin.r120 is None
+    assert "limited_history_penalty" in dict(m_thin.score_v2_components)
+
+
+def test_cli_signals_include_score_v2_fields(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run"])
+    assert r.exit_code == 0
+    row = json.loads(r.stdout)["ranked"][0]
+    for k in (
+        "score_v2",
+        "score_v2_components",
+        "r120",
+        "trend_quality",
+        "volume_ratio_25d",
+        "high_52w_distance_pct",
+        "overheat_flag",
+        "data_quality",
+    ):
+        assert k in row
+
+
+def test_syntheticbars_analyze_carries_expected_v2_shapes() -> None:
+    bars = synthetic_bars_for_code("TST1", n=320)
+    m = analyze_bars_for_code("TST1", bars)
+    assert m is not None
+    md = momentum_row_public_dict(m, bars_source="synthetic")
+    assert isinstance(md["score_v2"], int)
+    assert isinstance(md["score_v2_components"], dict)
 
 
 def test_load_bars_json_roundtrip(tmp_path: Path) -> None:
