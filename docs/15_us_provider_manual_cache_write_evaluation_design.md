@@ -13,7 +13,7 @@
 - **No workflow changes**.
 
 **Main R6.5.1** implements `--evaluate-cache-write` as a **refusal scaffold only**.
-- The flag is recognized and all 6 refusal orderings are deterministic (see §12 below).
+- The flag is recognized and all 6 refusal orderings are deterministic (see §11 below).
 - **No actual cache write** in R6.5.1.
 - **No live HTTP consumed** by the `--evaluate-cache-write` path.
 - **No raw response stored**, **no API key value in output**.
