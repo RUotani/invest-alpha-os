@@ -868,6 +868,13 @@ def build_manual_cache_write_dry_run_plan(
     No file writes, no writer calls, no HTTP.  Validates target path shape for future production use.
     """
     root = Path(output_root)
+    # Index original rows by symbol so sanitized_bars can be carried forward after eligibility strip
+    original_by_symbol: dict[str, dict[str, Any]] = {}
+    for r in plan_rows:
+        s = str(r.get("symbol") or "")
+        if s and s not in original_by_symbol:
+            original_by_symbol[s] = r
+
     eligibility = evaluate_manual_cache_write_eligibility_from_rows(plan_rows)
     eligible_rows = [r for r in eligibility["rows"] if r.get("cache_write_eligible") is True]
 
@@ -893,7 +900,7 @@ def build_manual_cache_write_dry_run_plan(
             })
             continue
         target = root / f"{safe}.json"
-        rows_out.append({
+        plan_row: dict[str, Any] = {
             "symbol": safe,
             "provider": provider,
             "planned_action": "manual_cache_write_dry_run_target",
@@ -906,7 +913,13 @@ def build_manual_cache_write_dry_run_plan(
             "live_http_performed": False,
             "raw_response_included": False,
             "provider_api_key_value_included": False,
-        })
+        }
+        # Carry sanitized_bars from original input row (eligibility output strips them)
+        orig = original_by_symbol.get(safe) or original_by_symbol.get(sym) or {}
+        src_bars = orig.get("sanitized_bars")
+        if isinstance(src_bars, list) and len(src_bars) > 0:
+            plan_row["sanitized_bars"] = src_bars
+        rows_out.append(plan_row)
         planned_write_count += 1
 
     for row in eligibility["rows"]:
@@ -1009,6 +1022,10 @@ def execute_manual_cache_write_dry_run_plan_with_injected_writer(
             "raw_response_included": False,
             "provider_api_key_value_included": False,
         }
+        # Pass sanitized_bars if present in dry-run plan row (required by save-cache adapter)
+        row_bars = row.get("sanitized_bars")
+        if isinstance(row_bars, list) and len(row_bars) > 0:
+            writer_payload["sanitized_bars"] = row_bars
         writer(writer_payload)
         invoked += 1
         row_results.append({"symbol": sym, "writer_invoked": True, "target_path": target, "sanitized_bar_count": bar_count})
@@ -1038,6 +1055,92 @@ def execute_manual_cache_write_dry_run_plan_with_injected_writer(
         "rejected_count": dry_run_plan.get("rejected_count", 0),
         "rows": row_results,
         "summary": dry_run_plan.get("summary", {}),
+    }
+
+
+def build_manual_cache_write_save_cache_writer_adapter(
+    save_cache_func: Any,
+    *,
+    cache_write_confirmed: bool = False,
+    provider: str = "stooq_preview",
+) -> dict[str, Any]:
+    """Save-cache writer adapter boundary (**Main R6.5.6**).
+
+    Returns a writer callable (under key ``writer``) for use with
+    execute_manual_cache_write_dry_run_plan_with_injected_writer.
+    No real save_us_daily_bars_cache call; production-like CLI integration remains R6.5.7+.
+    """
+    _refusal: dict[str, Any] = {
+        "status": "validation_error",
+        "observation_only": True,
+        "dry_run_only": True,
+        "live_http_performed": False,
+        "writer_invoked": False,
+        "save_cache_func_invoked": False,
+        "cache_write_performed": False,
+        "real_cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+    }
+
+    if save_cache_func is None:
+        return {**_refusal, "reason": "manual_batch_cache_write_requires_save_cache_func"}
+    if not callable(save_cache_func):
+        return {**_refusal, "reason": "manual_batch_cache_write_requires_callable_save_cache_func"}
+    if not cache_write_confirmed:
+        return {**_refusal, "reason": "manual_batch_cache_write_requires_confirmed_gate"}
+
+    invocation_log: list[dict[str, Any]] = []
+
+    def _writer(writer_payload: dict[str, Any]) -> None:
+        sym = str(writer_payload.get("symbol") or "")
+        if not sym:
+            invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_unexpected_writer_payload"})
+            return
+        if writer_payload.get("raw_response_included") is True:
+            invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_raw_response"})
+            return
+        if writer_payload.get("provider_api_key_value_included") is True:
+            invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_provider_api_key_value"})
+            return
+        bars = writer_payload.get("sanitized_bars")
+        if bars is None:
+            invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_requires_sanitized_bars"})
+            return
+        if not isinstance(bars, list) or len(bars) == 0:
+            invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_empty_sanitized_bars"})
+            return
+        _FORBIDDEN_BAR_KEYS = frozenset({
+            "raw_response", "raw_body", "raw_csv", "api_key", "authorization",
+            "bearer", "token", "secret", "credential",
+        })
+        for bar in bars:
+            if not isinstance(bar, dict):
+                invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_non_dict_sanitized_bar"})
+                return
+            bar_sym = bar.get("symbol")
+            if bar_sym is not None and bar_sym != sym:
+                invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_symbol_mismatch"})
+                return
+            bar_keys_lower = {k.lower() for k in bar.keys()}
+            if bar_keys_lower & _FORBIDDEN_BAR_KEYS:
+                invocation_log.append({"symbol": sym, "status": "rejected", "reason": "manual_batch_cache_write_rejects_forbidden_sanitized_bar_field"})
+                return
+        save_cache_func(sym, bars)
+        invocation_log.append({"symbol": sym, "status": "written"})
+
+    return {
+        "status": "manual_batch_cache_write_save_cache_adapter_ready",
+        "observation_only": True,
+        "dry_run_only": True,
+        "live_http_performed": False,
+        "cache_write_performed": False,
+        "real_cache_write_performed": False,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+        "provider": provider,
+        "writer": _writer,
+        "invocation_log": invocation_log,
     }
 
 

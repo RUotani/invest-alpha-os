@@ -1324,3 +1324,282 @@ def test_r6551_callable_writer_still_works() -> None:
     assert r["status"] == "manual_cache_write_injected_writer_completed"
     assert r["writer_invoked"] is True
     assert len(calls) == 1
+
+
+# ── R6.5.6 build_manual_cache_write_save_cache_writer_adapter tests ───────────
+
+
+def _fake_save_cache_factory() -> tuple[list, Any]:
+    calls: list = []
+    return calls, lambda sym, bars: calls.append((sym, bars))
+
+
+def _valid_writer_payload(symbol: str = "MSFT") -> dict:
+    return {
+        "symbol": symbol,
+        "provider": "stooq_preview",
+        "target_path": f"outputs/market_data/us_daily_bars/{symbol}.json",
+        "sanitized_bar_count": 3,
+        "sanitized_bars": [{"symbol": symbol, "date": "2024-01-01", "close": 100.0}],
+        "planned_action": "manual_cache_write_injected_writer_payload",
+        "dry_run_source": True,
+        "cache_write_confirmed": True,
+        "raw_response_included": False,
+        "provider_api_key_value_included": False,
+    }
+
+
+def test_r656_gate_false_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    r = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=False)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_confirmed_gate"
+    assert calls == []
+
+
+def test_r656_none_save_func_refuses() -> None:
+    r = mlbs.build_manual_cache_write_save_cache_writer_adapter(None, cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_save_cache_func"
+
+
+def test_r656_non_callable_save_func_refuses() -> None:
+    r = mlbs.build_manual_cache_write_save_cache_writer_adapter("not_callable", cache_write_confirmed=True)
+    assert r["status"] == "validation_error"
+    assert r["reason"] == "manual_batch_cache_write_requires_callable_save_cache_func"
+
+
+def test_r656_missing_sanitized_bars_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    w = adapter["writer"]
+    payload = {**_valid_writer_payload()}
+    del payload["sanitized_bars"]
+    w(payload)
+    log = adapter["invocation_log"]
+    assert any(e["reason"] == "manual_batch_cache_write_requires_sanitized_bars" for e in log)
+    assert calls == []
+
+
+def test_r656_empty_sanitized_bars_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"]({**_valid_writer_payload(), "sanitized_bars": []})
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_empty_sanitized_bars" for e in adapter["invocation_log"])
+    assert calls == []
+
+
+def test_r656_raw_response_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"]({**_valid_writer_payload(), "raw_response_included": True})
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_raw_response" for e in adapter["invocation_log"])
+    assert calls == []
+
+
+def test_r656_api_key_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"]({**_valid_writer_payload(), "provider_api_key_value_included": True})
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_provider_api_key_value" for e in adapter["invocation_log"])
+    assert calls == []
+
+
+def test_r656_missing_symbol_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    payload = {**_valid_writer_payload()}
+    payload["symbol"] = ""
+    adapter["writer"](payload)
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_unexpected_writer_payload" for e in adapter["invocation_log"])
+    assert calls == []
+
+
+def test_r656_symbol_mismatch_refuses() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    payload = {**_valid_writer_payload("MSFT"), "sanitized_bars": [{"symbol": "AAPL", "date": "2024-01-01"}]}
+    adapter["writer"](payload)
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_symbol_mismatch" for e in adapter["invocation_log"])
+    assert calls == []
+
+
+def test_r656_valid_payload_calls_save_func_once() -> None:
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"](_valid_writer_payload("MSFT"))
+    assert len(calls) == 1
+    assert calls[0][0] == "MSFT"
+    log = adapter["invocation_log"]
+    assert log[0]["status"] == "written"
+
+
+def test_r656_real_cache_write_performed_false() -> None:
+    _, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    assert adapter["real_cache_write_performed"] is False
+    assert adapter["live_http_performed"] is False
+
+
+def test_r656_no_secret_in_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r656_secret_key_never_echo_99999"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"](_valid_writer_payload())
+    assert secret not in str(adapter)
+    assert secret not in str(calls)
+
+
+def test_r656_never_calls_real_save_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(udbc, "save_us_daily_bars_cache", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call real")))
+    calls, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"](_valid_writer_payload())
+    assert calls[0][0] == "MSFT"
+
+
+def test_r656_never_calls_live_preview(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mlbs, "stooq_live_preview_sanitized_bars", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not call")))
+    _, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    assert adapter.get("live_http_performed") is False
+
+
+def test_r656_no_file_created(tmp_path: "pytest.TempPathFactory") -> None:
+    _, sf = _fake_save_cache_factory()
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    adapter["writer"](_valid_writer_payload())
+    assert not (tmp_path / "outputs").exists()
+
+
+# ── R6.5.6 integration: adapter + executor + sanitized_bars ──────────────────
+
+
+def _ok_row_with_bars(symbol: str = "MSFT") -> dict:
+    return {
+        **_ok_row(symbol),
+        "sanitized_bars": [{"symbol": symbol, "date": "2024-01-01", "close": 100.0}],
+    }
+
+
+def test_r656_dry_run_plan_preserves_sanitized_bars() -> None:
+    plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row_with_bars("MSFT")])
+    target_rows = [r for r in plan["rows"] if r.get("cache_write_eligible")]
+    assert len(target_rows) == 1
+    assert "sanitized_bars" in target_rows[0]
+    assert len(target_rows[0]["sanitized_bars"]) == 1
+
+
+def test_r656_dry_run_plan_without_bars_no_key() -> None:
+    plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row("MSFT")])
+    target_rows = [r for r in plan["rows"] if r.get("cache_write_eligible")]
+    assert "sanitized_bars" not in target_rows[0]
+
+
+def test_r656_executor_passes_bars_to_writer() -> None:
+    plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row_with_bars("MSFT")])
+    received: list[dict] = []
+    w = lambda p: received.append(p)  # noqa: E731
+    mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(plan, writer=w, cache_write_confirmed=True)
+    assert len(received) == 1
+    assert "sanitized_bars" in received[0]
+
+
+def test_r656_integration_adapter_executor_save_func_called_once() -> None:
+    """Full pipeline: eligible row with bars -> dry-run plan -> adapter -> executor -> fake save_cache_func."""
+    save_calls: list = []
+    _, sf = _fake_save_cache_factory()
+    # Override to capture
+    sf_cap = lambda sym, bars: save_calls.append((sym, bars))
+
+    plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row_with_bars("MSFT")])
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf_cap, cache_write_confirmed=True)
+    result = mlbs.execute_manual_cache_write_dry_run_plan_with_injected_writer(
+        plan, writer=adapter["writer"], cache_write_confirmed=True
+    )
+    assert len(save_calls) == 1
+    assert save_calls[0][0] == "MSFT"
+    assert result["real_cache_write_performed"] is False
+    assert result["live_http_performed"] is False
+    # no raw response in returned payload
+    result_str = str(result)
+    assert "raw_body" not in result_str
+    assert "raw_csv" not in result_str
+
+
+# ── R6.5.6 deep bar validation tests ─────────────────────────────────────────
+
+
+def _adapter_with_calls() -> tuple[list, dict]:
+    calls: list = []
+    sf = lambda sym, bars: calls.append((sym, bars))
+    adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
+    return calls, adapter
+
+
+def test_r656_second_bar_symbol_mismatch_refuses() -> None:
+    calls, adapter = _adapter_with_calls()
+    payload = {
+        **_valid_writer_payload("MSFT"),
+        "sanitized_bars": [
+            {"symbol": "MSFT", "date": "2024-01-01"},
+            {"symbol": "AAPL", "date": "2024-01-02"},  # mismatch
+        ],
+    }
+    adapter["writer"](payload)
+    assert calls == []
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_symbol_mismatch" for e in adapter["invocation_log"])
+
+
+def test_r656_bar_with_api_key_refuses() -> None:
+    calls, adapter = _adapter_with_calls()
+    payload = {
+        **_valid_writer_payload("MSFT"),
+        "sanitized_bars": [{"symbol": "MSFT", "date": "2024-01-01", "api_key": "secret_val"}],
+    }
+    adapter["writer"](payload)
+    assert calls == []
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_forbidden_sanitized_bar_field" for e in adapter["invocation_log"])
+
+
+def test_r656_bar_with_raw_response_key_refuses() -> None:
+    calls, adapter = _adapter_with_calls()
+    payload = {
+        **_valid_writer_payload("MSFT"),
+        "sanitized_bars": [{"symbol": "MSFT", "date": "2024-01-01", "raw_response": "..."}],
+    }
+    adapter["writer"](payload)
+    assert calls == []
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_forbidden_sanitized_bar_field" for e in adapter["invocation_log"])
+
+
+def test_r656_non_dict_bar_refuses() -> None:
+    calls, adapter = _adapter_with_calls()
+    payload = {**_valid_writer_payload("MSFT"), "sanitized_bars": ["not_a_dict"]}
+    adapter["writer"](payload)
+    assert calls == []
+    assert any(e["reason"] == "manual_batch_cache_write_rejects_non_dict_sanitized_bar" for e in adapter["invocation_log"])
+
+
+def test_r656_valid_bars_calls_save_func_once_deep() -> None:
+    calls, adapter = _adapter_with_calls()
+    payload = {
+        **_valid_writer_payload("MSFT"),
+        "sanitized_bars": [
+            {"symbol": "MSFT", "date": "2024-01-01", "close": 100.0},
+            {"symbol": "MSFT", "date": "2024-01-02", "close": 101.0},
+        ],
+    }
+    adapter["writer"](payload)
+    assert len(calls) == 1
+
+
+def test_r656_log_no_secret_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    secret = "r656deep_secret_never_echo_88888"
+    monkeypatch.setenv("STOOQ_APIKEY", secret)
+    calls, adapter = _adapter_with_calls()
+    payload = {**_valid_writer_payload("MSFT"), "sanitized_bars": [{"symbol": "MSFT", "api_key": secret}]}
+    adapter["writer"](payload)
+    assert calls == []
+    assert secret not in str(adapter["invocation_log"])

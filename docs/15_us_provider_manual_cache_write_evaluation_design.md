@@ -175,9 +175,15 @@ python -m invis_alpha_os.cli.main debug us-provider-manual-live-batch-smoke \
 - [x] `real_cache_write_performed` remains false; `writer_invoked` distinguishes injected-only invocation.
 - [x] 14 new tests (98 total); no real FS write, no live HTTP, no CLI change.
 
-**R6.5.6+ prerequisites (not yet satisfied):**
+**R6.5.6 items (already satisfied):**
 
-- [ ] Wire `save_us_daily_bars_cache` as the real production writer (injected at CLI call site).
+- [x] `build_manual_cache_write_save_cache_writer_adapter` adapter boundary implemented.
+- [x] Validates sanitized bars, symbol match, raw-response guard, API-key guard before calling injected save func.
+- [x] 15 new tests (116 total); no real FS write, no live HTTP, no CLI change.
+
+**R6.5.7+ prerequisites (not yet satisfied):**
+
+- [ ] Wire `save_us_daily_bars_cache` as the real production save func (injected at CLI call site).
 - [ ] CLI integration for `--execute-cache-write` or equivalent gate; no Makefile / workflow wiring.
 - [ ] Confirm CI remains offline-safe after production writer integration.
 
@@ -223,6 +229,7 @@ R6.5.1 refusal scaffold tests (44) and R6.5.2 eligibility classifier tests (55 t
 | **1.3.1** | **Main R6.5.3.1** | Clarify mock writer payload semantics — adds `writer_invoked` and `real_cache_write_performed: false` fields; `cache_write_performed` in mock path reflects injected writer exercised, **not** real FS persistence; 5 new tests (73 total). |
 | **1.4** | **Main R6.5.4** | `build_manual_cache_write_dry_run_plan` — dry-run filesystem path validation only; **no file writes**, **no writer calls**, **no live HTTP**; 11 new tests (84 total); production-like write remains R6.5.5+. |
 | **1.5** | **Main R6.5.5** | `execute_manual_cache_write_dry_run_plan_with_injected_writer` — injected-writer adapter contract; **no real FS write**, **no live HTTP**, **no CLI wiring**; 14 new tests (98 total); production-like real writer remains R6.5.6+. |
+| **1.6** | **Main R6.5.6** | `build_manual_cache_write_save_cache_writer_adapter` — save-cache writer adapter boundary; **injected fake save-func only**; validates **all sanitized_bars rows** (symbol match, forbidden fields, non-dict); **no real FS write**, **no CLI wiring**; 22 new tests (126 total); production-like CLI execution remains R6.5.7+. |
 
 ---
 
