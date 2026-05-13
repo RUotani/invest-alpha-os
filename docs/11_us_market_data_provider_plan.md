@@ -1,4 +1,4 @@
-# US equities / ETFs — market data provider plan (Main R2 + Main R3)
+# US equities / ETFs — market data provider plan (Main R2–Main R4)
 
 ## 1. Purpose
 
@@ -61,8 +61,9 @@ Observation only — no buy/sell advice, no automated trading.
 | Phase | Scope |
 |-------|--------|
 | **Main R2** | **Design** + **`config/us_market_data.yaml`** + **`build_us_provider_preview_plan`** / **`debug us-provider-preview`** — **no HTTP**, **no live ingestion**. |
-| **Main R3 (current)** | **Stooq one-symbol gated live preview** — **`stooq_live_preview_shape_digest`** + **`debug us-provider-live-preview`** + **`make us-provider-live-preview-dry-run`**. Live HTTP is **off by default** and requires **both** **`--live`** and **`CONFIRM_US_LIVE_HTTP=YES`**. Output is a **shape digest only** (row count, date span, column names, flags). **No cache write** in Main R3; **no `raw_response`** printed or persisted. Smoke path is **MSFT** via existing Stooq wire mapping (e.g. **`msft.us`**). **Stooq remains preview / prototype** — convenient for zero-key smoke tests, **not** asserted as the final production provider. |
-| **Main R4** | **Cache write path** wired with **human confirmation**, logging policy, and **no `raw_response` in payloads**. |
+| **Main R3** | **Stooq one-symbol gated live preview** — **`debug us-provider-live-preview`**: **`--live`** + **`CONFIRM_US_LIVE_HTTP=YES`**; **shape digest only** — **no cache write** — **no `raw_response`** (smoke symbol **MSFT**). |
+| **Main R4 (current)** | **Stooq CSV strict parse → sanitized OHLCV dicts** (`parse_stooq_daily_csv_to_rows`) + **`stooq_live_preview_sanitized_bars`** / **`debug us-provider-cache-preview`**. **`--live`** gates HTTP; **`--write-cache`** + **`CONFIRM_US_CACHE_WRITE=YES`** gates **`save_us_daily_bars_cache`**. Vendor **raw CSV is never stored** on disk — only **sanitized** JSON via the existing writer. **One-symbol manual smoke**, **not** watchlist automation or scheduled refresh. **Stooq remains preview/prototype.** |
+| **Beyond R4** | Multi-symbol / scheduled ingest, Alpha Vantage, and production-grade observability remain future slices. |
 
 ---
 

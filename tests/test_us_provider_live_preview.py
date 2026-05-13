@@ -43,6 +43,7 @@ def _patch_urlopen_ok(mock_urlopen: MagicMock, body: bytes) -> None:
 @pytest.fixture(autouse=True)
 def _clear_confirm_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(uplp.CONFIRM_US_LIVE_HTTP_ENV, raising=False)
+    monkeypatch.delenv(uplp.CONFIRM_US_CACHE_WRITE_ENV, raising=False)
 
 
 def test_dry_run_shape_no_http(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -223,11 +224,17 @@ def test_unsupported_provider_exit_2() -> None:
 
 
 def test_live_stooq_make_target_not_in_safe_push_recipe() -> None:
-    """Optional live Makefile target stays operator-only (not chained into safe-push)."""
+    """Optional live Makefile targets stay operator-only (not chained into safe-push)."""
     makefile = (REPO / "Makefile").read_text(encoding="utf-8").splitlines()
     for i, ln in enumerate(makefile):
         if ln.startswith("safe-push:"):
-            tail = "\n".join(makefile[i : i + 15])
-            assert "us-provider-live-preview-stooq" not in tail
+            tail = "\n".join(makefile[i : i + 20])
+            forbidden = (
+                "us-provider-live-preview-stooq",
+                "us-provider-cache-preview-stooq",
+                "us-provider-cache-write-stooq",
+            )
+            for needle in forbidden:
+                assert needle not in tail, needle
             return
     pytest.fail("Makefile missing safe-push target")

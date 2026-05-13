@@ -27,7 +27,8 @@ endif
 	jq-cache-preview jq-cache-live jq-cache-live-codes jq-refresh-workflow \
 	signals-cache-only daily-momentum-check investment-os-coverage ship ops-snapshot agent-final-check \
 	us-watchlist-preview us-cache-fixture-import us-momentum-check us-provider-preview \
-	us-provider-live-preview-dry-run us-provider-live-preview-stooq
+	us-provider-live-preview-dry-run us-provider-live-preview-stooq \
+	us-provider-cache-preview-dry-run us-provider-cache-preview-stooq us-provider-cache-write-stooq
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -148,6 +149,19 @@ us-provider-live-preview-dry-run:
 us-provider-live-preview-stooq:
 	@test "$(CONFIRM_US_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_US_LIVE_HTTP=YES required for real Stooq HTTP' >&2 && exit 2)
 	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-live-preview --symbol MSFT --provider stooq_preview --live
+
+# Main R4: strict Stooq CSV → sanitized bars + optional gated cache (one-symbol smoke only).
+us-provider-cache-preview-dry-run:
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-cache-preview --symbol MSFT --provider stooq_preview
+
+us-provider-cache-preview-stooq:
+	@test "$(CONFIRM_US_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_US_LIVE_HTTP=YES required' >&2 && exit 2)
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-cache-preview --symbol MSFT --provider stooq_preview --live
+
+us-provider-cache-write-stooq:
+	@test "$(CONFIRM_US_LIVE_HTTP)" = "YES" || (echo 'CONFIRM_US_LIVE_HTTP=YES required' >&2 && exit 2)
+	@test "$(CONFIRM_US_CACHE_WRITE)" = "YES" || (echo 'CONFIRM_US_CACHE_WRITE=YES required' >&2 && exit 2)
+	$(PYTHON) -m invis_alpha_os.cli.main debug us-provider-cache-preview --symbol MSFT --provider stooq_preview --live --write-cache
 
 # --- Main K: short ops (no secrets in repo; jq-cache-live uses real HTTP + quota when run) --------------------
 # make jq-cache-preview FROM=2024-02-18 TO=2026-02-17 [LIMIT=11]  — preview only, no HTTP

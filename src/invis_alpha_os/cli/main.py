@@ -22,7 +22,10 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
 )
 from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
 from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
-from invis_alpha_os.data.us_provider_live_preview import stooq_live_preview_shape_digest
+from invis_alpha_os.data.us_provider_live_preview import (
+    stooq_live_preview_sanitized_bars,
+    stooq_live_preview_shape_digest,
+)
 from invis_alpha_os.data.adapters import (
     EdinetStubAdapter,
     JQuantsClient,
@@ -1300,6 +1303,56 @@ def debug_us_provider_live_preview(
     typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
     st = payload.get("status")
     if st == "dry_run" or st == "live_preview_ok":
+        raise typer.Exit(0)
+    if st == "validation_error":
+        raise typer.Exit(2)
+    raise typer.Exit(1)
+
+
+@debug_app.command("us-provider-cache-preview")
+def debug_us_provider_cache_preview(
+    symbol: str = typer.Option(..., "--symbol", help="Single US symbol (Main R4: MSFT smoke path)."),
+    provider: str = typer.Option(
+        ...,
+        "--provider",
+        help="stooq_preview only (Main R4).",
+    ),
+    live: bool = typer.Option(
+        False,
+        "--live",
+        help="Perform one gated Stooq HTTP GET (requires CONFIRM_US_LIVE_HTTP=YES).",
+    ),
+    write_cache: bool = typer.Option(
+        False,
+        "--write-cache",
+        help="Persist sanitized bars (requires CONFIRM_US_CACHE_WRITE=YES; implies successful parse after live GET).",
+    ),
+) -> None:
+    """Stooq → strict sanitized OHLCV; optional gated cache write. Never emits raw CSV."""
+
+    prov = provider.strip()
+    if prov != "stooq_preview":
+        typer.echo(
+            json.dumps(
+                {
+                    "status": "validation_error",
+                    "reason": "unsupported_provider",
+                    "provider_input": prov,
+                    "detail": "Main R4 implements stooq_preview only.",
+                    "live_http_performed": False,
+                    "raw_response_included": False,
+                    "cache_write_performed": False,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+        )
+        raise typer.Exit(2)
+
+    payload = stooq_live_preview_sanitized_bars(symbol, live=live, write_cache=write_cache)
+    typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    st = payload.get("status")
+    if st in ("dry_run", "preview_ok", "success"):
         raise typer.Exit(0)
     if st == "validation_error":
         raise typer.Exit(2)

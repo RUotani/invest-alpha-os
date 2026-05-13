@@ -23,7 +23,7 @@ Going forward, **never report a single percentage without naming the scope**. Us
 | Lens | Approximate progress | Notes |
 |------|----------------------|-------|
 | **JP equities momentum pipeline subsystem** (sanitized OHLCV cache → Momentum Score v2 → daily section → observations → Action Watchlist for cache-only rows) | **about 80–85%** | **Not** broader JP equity research (fundamentals / earnings models / intrinsic valuation remain unintegrated here); strongest *technical OHLCV* vertical in-repo |
-| **Total Investment OS** (all rows in §3 treated as one programme) | **about 40–45%** (at most **slightly** higher after R3 smoke tooling) | Still early outside JP OHLCV + reporting; Main R3 does **not** add automated refresh or production ingest |
+| **Total Investment OS** (all rows in §3 treated as one programme) | **about 45%** (at most **slightly** higher after R4 tooling) | Early outside JP OHLCV + reporting; Main R4 adds **optional** gated vendor→cache for **one US symbol** — **not** watchlist-wide automated refresh |
 
 These numbers are **judgment calls for planning**, not audited metrics.
 
@@ -38,8 +38,8 @@ Progress % is directional (same caveat as §2).
 | Area | Implementation status | Progress % | Data source status | Signal status | Report status | Next priority |
 |------|-------------------------|------------|--------------------|--------------|---------------|---------------|
 | **JP equities / J-Quants** | Cache-backed daily bars → signals → daily Markdown | ~80–85% | Active (local sanitized JSON cache; optional live ingest behind gates elsewhere) | Momentum Score v2 + CLI | Daily section + Observations + Action Watchlist (cache-only) | Liquidity/context fields, QA on edge cases |
-| **US equities** | Main R / R1 / R2 + **R3**: **Stooq one-symbol gated live preview** (`debug us-provider-live-preview`, shape digest only, **no cache write**); bulk watchlist live fetch and automated refresh **not** in R3 | **~20–25%** | **Design + R2 previews + gated Stooq smoke** — **data fetching still not implemented** for automated production refresh | Momentum-ready when cache populated (local JSON / future ingest) | Hidden from daily unless `include_us_momentum_cache_only_section` | Main R4+: confirmed cache writes from vendor |
-| **US ETFs** | Same tray as US equities (watchlist grouping + shared cache/import path) | **~20–25%** | **No ETF-specific bulk vendor fetch** in R3; same fixture/R2/Stooq-smoke framing as equities | As above | As above | Bundled under **Main R** slice |
+| **US equities** | Through **Main R4**: **Stooq strict CSV parse → sanitized bars**; **optional gated cache write** via **`debug us-provider-cache-preview`** (`CONFIRM_US_LIVE_HTTP` + **`--live`**; **`CONFIRM_US_CACHE_WRITE`** + **`--write-cache`**); shape-only **`debug us-provider-live-preview`** (Main R3). **No bulk watchlist live fetch.** | **~25–30%** | **Operator-gated Stooq one-symbol smoke**; **`data fetching still not implemented`** for **automated** production-wide refresh | Momentum-ready when cache populated | Hidden from daily unless `include_us_momentum_cache_only_section` | Multi-symbol ingestion; scheduling beyond manual smoke |
+| **US ETFs** | Same tray; Stooq `*.us` may work per listing (**symbol-specific validation**) | **~25–30%** | Fixture / import + same gated framing as equities — **bulk production refresh**: **data fetching still not implemented** | As above | As above | Bundled under **Main R** slice |
 | **gold / silver / copper / metals** | Not started | ~0–5% | None in-repo | None | None | **Main S**: commodity / macro-adjacent design |
 | **bonds / rates** | Not started | ~0–5% | None in-repo | None | None | **Main S** |
 | **crypto proxies** (e.g. MSTR / COIN / MARA narrative scope) | **US watchlist** (`crypto_proxy` group); no quote ingest | ~5–15% | None in-repo | None | None | Main R1+ data path |
@@ -74,8 +74,9 @@ Use these stages to compare pillars without implying production readiness:
 - **Main R (this milestone)**: added **`config/us_watchlist.yaml`**, **`us_watchlist` / `us_daily_bars_cache`** modules, optional **gated** `render_us_momentum_cache_only_section`, and **`us-watchlist-preview`** — watchlist + on-disk contract + tests.
 - **Main R1**: committed **`tests/fixtures/us_daily_bars/`** OHLCV JSON, **`debug us-daily-bars-cache-import`**, **`make us-cache-fixture-import`**, **`make us-momentum-check`** — **fixture-only cache population** until provider ingest lands.
 - **Main R2**: **`docs/11_us_market_data_provider_plan.md`**, **`config/us_market_data.yaml`**, **`us_provider_preview`**, **`debug us-provider-preview`**, **`make us-provider-preview`** — **dry-run preview only** (**no HTTP**, **no `raw_response`**, **vendor fetch not implemented**).
-- **Main R3**: **`us_provider_live_preview`**, **`debug us-provider-live-preview`**, **`make us-provider-live-preview-dry-run`** — **Stooq-only**, **one-symbol** gated live preview → **shape digest**; **`CONFIRM_US_LIVE_HTTP=YES`** + **`--live`** required for HTTP; **no US cache write** from provider response.
-- **US equities / ETFs / listed crypto proxies**: now roughly **stage 1–2** for configuration and **stage 3-ish** *only after* you populate `outputs/market_data/us_daily_bars/*.json` manually (no automated ingest in-repo yet).
+- **Main R3**: **`debug us-provider-live-preview`**, **`make us-provider-live-preview-dry-run`** — gated **shape-only** Stooq preview (**no cache write**).
+- **Main R4**: **`us_stooq_daily_csv`**, **`stooq_live_preview_sanitized_bars`**, **`debug us-provider-cache-preview`**, **`make us-provider-cache-preview-dry-run`** — strict **CSV → sanitized OHLC**; optional **`save_us_daily_bars_cache`** when **`CONFIRM_US_CACHE_WRITE=YES`** **and** **`--write-cache`**; vendor **CSV never stored**.
+- **US equities / ETFs / listed crypto proxies**: configuration **stage ~2**; sanitized US cache **stage ~3** after manual fixture, **fixture import**, or **operator-triggered gated Stooq write** — still **no** unattended multi-symbol refresh pipeline.
 - **Metals**, **rates** (non-proxy): unchanged backlog until **Main S**.
 - **Macro regime**: conceptual and doc-level; **not fully integrated** as a repeatable data + signal pipe in-repo.
 - **Portfolio-aware decision support**: **still early** (aligns roughly with stages **1–3** depending on subsystem).
@@ -88,8 +89,8 @@ After Main Q / Q0:
 
 | Phase | Theme |
 |-------|--------|
-| **Main R / R3** | US equities / ETF — **fixture cache + provider design + dry-run URL preview + optional gated Stooq one-symbol live shape preview** — **automated vendor refresh remains Main R4+** |
-| **Main R4+** | **Cache write path** from confirmed vendor ingest |
+| **Main R4** | **Stooq parse + optional gated one-symbol vendor cache write** — **automated bulk refresh remains future work** |
+| **Main R5+** | Multi-symbol / scheduled ingest, additional providers |
 | **Main S** | Metals / macro / rates source design |
 | **Main T** | Portfolio holdings ingestion / allocation gap |
 | **Main U** | Cross-asset decision dashboard |
