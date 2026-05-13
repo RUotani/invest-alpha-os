@@ -1,9 +1,12 @@
-"""US provider **manual live batch smoke** scaffold (**Main R6.4.0**).
+"""US provider **manual live batch smoke** — scaffold, preflight, and bounded live preview (**Main R6.4.1**).
 
-Builds deterministic JSON / Markdown for **`debug us-provider-manual-live-batch-smoke`**.
+**`debug us-provider-manual-live-batch-smoke`** milestone summary:
 
-**Main R6.3:** scaffold only — **no vendor HTTP**, **no cache write**, **no scheduler**.
-**Main R6.4.0:** adds `--preflight` readiness validation — **still no vendor HTTP**, **no cache write**.
+- **R6.3 dry-run scaffold** (`manual_live_batch_smoke_dry_run`): no vendor HTTP, no cache write.
+- **R6.4.0 preflight** (`manual_live_batch_smoke_preflight_ready`): gate + cap validation only; no vendor HTTP.
+- **R6.4.1 bounded live preview** (`manual_live_batch_smoke_live_preview_completed`):
+  real HTTP under `--live --preflight --execute-live-http` + both gates + `--max-http > 0`;
+  **no cache write**, **no raw response stored**, **no API key value in output**.
 """
 
 from __future__ import annotations

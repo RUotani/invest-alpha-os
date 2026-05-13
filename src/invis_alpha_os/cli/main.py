@@ -1495,7 +1495,7 @@ def debug_us_provider_manual_live_batch_smoke(
     provider: str = typer.Option(
         "stooq_preview",
         "--provider",
-        help="stooq_preview only (Main R6.3 manual batch smoke scaffold).",
+        help="stooq_preview only (R6.3 dry-run / R6.4.0 preflight / R6.4.1 bounded live preview).",
     ),
     limit: Optional[int] = typer.Option(
         None,
@@ -1507,27 +1507,27 @@ def debug_us_provider_manual_live_batch_smoke(
         0,
         "--max-http",
         min=0,
-        help="Planned HTTP cap per run (R6.3 reports only; zero with --live is validation_error).",
+        help="HTTP cap per run; zero with --live or --execute-live-http is validation_error.",
     ),
     live: bool = typer.Option(
         False,
         "--live",
-        help="Request live execution path (R6.3 scaffold: always refused; R6.4.0: use with --preflight).",
+        help="Required for --preflight and --execute-live-http; alone returns scaffold refusal.",
     ),
     preflight: bool = typer.Option(
         False,
         "--preflight",
-        help="Validate R6.4.0 live-smoke readiness; requires --live; performs no vendor HTTP.",
+        help="Validate gate + cap readiness (R6.4.0); requires --live; no vendor HTTP unless --execute-live-http also set.",
     ),
     execute_live_http: bool = typer.Option(
         False,
         "--execute-live-http",
-        help="R6.4.1: perform bounded live HTTP; requires --live --preflight + gates + --max-http > 0.",
+        help="R6.4.1: bounded live HTTP; requires --live --preflight + CONFIRM_US_LIVE_HTTP=YES + CONFIRM_US_MANUAL_BATCH_SMOKE=YES + --max-http > 0; no cache write.",
     ),
     markdown: bool = typer.Option(
         False,
         "--markdown",
-        help="Emit copy-ready Markdown recap (JSON canonical). R6.3/R6.4.1.",
+        help="Emit copy-ready Markdown recap (JSON canonical).",
     ),
 ) -> None:
     """Manual live batch smoke (**R6.4.1**): bounded live HTTP under full gate set — **no cache write**."""
