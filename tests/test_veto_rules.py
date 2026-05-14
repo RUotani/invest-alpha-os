@@ -1,4 +1,4 @@
-from invis_alpha_os.risk.veto_rules import VetoEngine
+from invis_alpha_os.risk.veto_rules import VetoEngine, format_veto_table_cell
 
 
 def test_veto_rules_hard_and_soft():
@@ -86,4 +86,15 @@ def test_fomo_volume_price_chase_yaml_rule_fires() -> None:
     out = VetoEngine(rules=rules).evaluate({"fomo_volume_price_chase": 1.0, "price_spike_5d": 0.0})
     assert len(out) == 1
     assert out[0].rule_id == "fomo_volume_price_chase"
+
+
+def test_format_veto_table_cell_dash_when_not_triggered() -> None:
+    assert format_veto_table_cell({}) == "—"
+    assert format_veto_table_cell({"triggered": False, "rules": []}) == "—"
+    assert format_veto_table_cell({"triggered": True, "rules": []}) == "—"
+
+
+def test_format_veto_table_cell_lists_rule_ids() -> None:
+    vr = {"triggered": True, "rules": [{"rule_id": "a"}, {"rule_id": "b"}]}
+    assert format_veto_table_cell(vr) == "⚠ a, b"
 

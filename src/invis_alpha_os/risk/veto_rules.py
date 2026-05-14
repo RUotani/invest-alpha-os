@@ -6,6 +6,21 @@ from typing import Any
 from invis_alpha_os.core.models import VetoLevel, VetoResult
 
 
+def format_veto_table_cell(veto_result: Any) -> str:
+    """`veto_result`（`signals` JSON の `_veto_row` 形式）から Markdown 表用の Veto セル文字列を返す。"""
+    if not isinstance(veto_result, dict):
+        return "—"
+    if not veto_result.get("triggered"):
+        return "—"
+    rules = veto_result.get("rules")
+    if not isinstance(rules, list):
+        return "—"
+    ids = [str(d.get("rule_id", "")) for d in rules if isinstance(d, dict) and d.get("rule_id")]
+    if not ids:
+        return "—"
+    return "⚠ " + ", ".join(ids)
+
+
 def momentum_breakdown_veto_context(m: Any) -> dict[str, float]:
     """MomentumBreakdown 相当オブジェクトから VetoEngine 用の float コンテキストを組み立てる。"""
     r5 = float(m.r5 or 0.0)

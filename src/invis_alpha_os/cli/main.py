@@ -60,7 +60,7 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
-from invis_alpha_os.risk.veto_rules import VetoEngine, momentum_breakdown_veto_context
+from invis_alpha_os.risk.veto_rules import VetoEngine, format_veto_table_cell, momentum_breakdown_veto_context
 from invis_alpha_os.signals.momentum import (
     analyze_bars_for_code,
     build_momentum_signals,
@@ -496,8 +496,7 @@ def _signals_markdown(out: dict[str, Any]) -> str:
     lines.append("|---|---|---|---|---|---|---|---|---|---|")
     for i, row in enumerate(rows, 1):
         labels = ", ".join(row.get("labels", [])) or "—"
-        vr = row.get("veto_result", {})
-        veto_cell = "⚠ " + ", ".join(r["rule_id"] for r in vr.get("rules", [])) if vr.get("triggered") else "—"
+        veto_cell = format_veto_table_cell(row.get("veto_result", {}))
         lines.append(
             f"| {i} | {row['code']} | {row.get('score_v2', '—')} | {labels} "
             f"| {_fmt_pct_md(row.get('r5'))} | {_fmt_pct_md(row.get('r20'))} "
