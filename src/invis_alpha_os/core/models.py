@@ -26,6 +26,7 @@ class WatchlistTier(str, Enum):
 class VetoLevel(str, Enum):
     hard_veto = "hard_veto"
     soft_veto = "soft_veto"
+    fomo_veto = "fomo_veto"
 
 
 @dataclass(frozen=True)
