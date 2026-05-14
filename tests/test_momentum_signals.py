@@ -580,10 +580,74 @@ def test_285a_cache_only_source_appears_in_ranked(tmp_path: Path, monkeypatch) -
     assert r.exit_code == 0, r.output
     blob = json.loads(r.stdout)
     assert blob["observation_only"] is True
-    assert blob.get("veto_status") == "not_integrated_yet"
+    assert blob.get("veto_status") == "ok"
     codes = {row["code"] for row in blob["ranked"]}
     assert "285A" in codes, f"285A missing from cache-only ranked; got {codes}"
     row = next(x for x in blob["ranked"] if x["code"] == "285A")
     for field in ("r5", "r20", "r60", "volume_ratio_25d", "high_52w_distance_pct", "data_quality"):
         assert field in row, f"missing field {field!r}"
     assert row["bars_source"] == "cache"
+
+
+# R6.8-A: VetoEngine統合 — signals CLIの各候補行にveto_resultが付与されること
+def test_signals_ranked_rows_have_veto_result(monkeypatch) -> None:
+    """signals CLIのrankd各行にveto_result（拒否判定結果）フィールドが存在すること。"""
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run"])
+    assert r.exit_code == 0, r.output
+    blob = json.loads(r.stdout)
+    assert blob.get("veto_status") == "ok"
+    assert len(blob["ranked"]) == 1
+    row = blob["ranked"][0]
+    assert "veto_result" in row, "veto_result field missing from ranked row"
+    vr = row["veto_result"]
+    assert isinstance(vr["triggered"], bool)
+    assert isinstance(vr["count"], int)
+    assert isinstance(vr["rules"], list)
+
+
+def test_signals_overheat_triggers_veto(monkeypatch) -> None:
+    """overheat_flag=Trueの銘柄はveto_result.triggeredがTrueになること。"""
+    from invis_alpha_os.signals.momentum import MomentumBreakdown, build_momentum_signals
+
+    overheat_breakdown = MomentumBreakdown(
+        code="7011",
+        bar_count=280,
+        labels=("overheat",),
+        score=0,
+        r5=0.05,
+        r20=0.55,  # SCORE_V2_OVERHEAT_R20=0.5 超え
+        r60=1.1,   # SCORE_V2_OVERHEAT_R60=1.0 超え
+        r120=None,
+        volume_spike=False,
+        vol_avg25=None,
+        volume_ratio_25d=None,
+        high_52w_breakout=False,
+        high_52w_distance_pct=None,
+        trend_quality="up",
+        overheat_flag=True,
+        data_quality=(("enough_data", True),),
+        score_v2=0,
+        score_v2_components=(),
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.build_momentum_signals",
+        lambda mapping: [overheat_breakdown],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run"])
+    assert r.exit_code == 0, r.output
+    blob = json.loads(r.stdout)
+    row = blob["ranked"][0]
+    vr = row["veto_result"]
+    assert vr["triggered"] is True, "overheat銘柄はveto_result.triggered=Trueであるべき"
+    rule_ids = [x["rule_id"] for x in vr["rules"]]
+    assert "hard_momentum_overheat" in rule_ids, f"hard_momentum_overheat rule missing; got {rule_ids}"

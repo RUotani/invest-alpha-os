@@ -299,11 +299,23 @@ def signals_command(
             typer.echo(f"signals: failed to load bars file: {e}", err=True)
             raise typer.Exit(2) from e
         one = analyze_bars_for_code(label, bars)
+        _file_veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
+
+        def _file_veto_row(m: Any) -> dict[str, Any]:
+            hits = _file_veto_engine.evaluate({"price_spike_5d": abs(m.r5 or 0.0), "overheat_flag": 1.0 if m.overheat_flag else 0.0})
+            return {"triggered": len(hits) > 0, "count": len(hits), "rules": [{"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits]}
+
+        ranked_item: list[dict[str, Any]] = []
+        if one:
+            r = momentum_row_public_dict(one, bars_source="file")
+            r["veto_result"] = _file_veto_row(one)
+            ranked_item.append(r)
         payload: dict[str, Any] = {
             "mode": "local_bars_file",
             "bars_data_source": "file",
             "observation_only": True,
-            "ranked": [momentum_row_public_dict(one, bars_source="file")] if one else [],
+            "veto_status": "ok",
+            "ranked": ranked_item,
         }
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
@@ -325,14 +337,35 @@ def signals_command(
         "synthetic_dry_run" if src_norm == "synthetic" else "cache_preferred_dry_run"
     )
     bars_label = "cache" if src_norm == "cache-only" else _bars_data_source_label(srcmap)
+
+    veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
+
+    def _veto_context(m: Any) -> dict[str, float]:
+        return {
+            "price_spike_5d": abs(m.r5 or 0.0),
+            "overheat_flag": 1.0 if m.overheat_flag else 0.0,
+        }
+
+    def _veto_row(m: Any) -> dict[str, Any]:
+        hits = veto_engine.evaluate(_veto_context(m))
+        return {
+            "triggered": len(hits) > 0,
+            "count": len(hits),
+            "rules": [{"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits],
+        }
+
+    ranked_rows = []
+    for m in ranked:
+        row = momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic"))
+        row["veto_result"] = _veto_row(m)
+        ranked_rows.append(row)
+
     out: dict[str, Any] = {
         "mode": mode,
         "bars_data_source": bars_label,
         "observation_only": True,
-        "veto_status": "not_integrated_yet",
-        "ranked": [
-            momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic")) for m in ranked
-        ],
+        "veto_status": "ok",
+        "ranked": ranked_rows,
     }
     if src_norm == "cache-only":
         out["skipped_no_cache"] = len(skipped_no_cache)

@@ -3,6 +3,10 @@ hard_veto:
     metric: "market_heat"
     threshold: 0.9
     message: "Market overheat exceeds hard threshold"
+  - id: "hard_momentum_overheat"
+    metric: "overheat_flag"
+    threshold: 1.0
+    message: "Momentum overheat flag triggered (r20 or r60 extreme)"
 
 soft_veto:
   - id: "soft_valuation_stretch"
