@@ -91,21 +91,10 @@ def save_us_daily_bars_cache(
     return path
 
 
-def load_us_daily_bars_cache(symbol: str) -> tuple[list[DailyBar], dict[str, Any]] | None:
-    """Load cache when present and well-formed."""
-
-    try:
-        path = us_daily_bars_cache_path(symbol)
-    except ValueError:
-        return None
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
-        return None
-    if not isinstance(data, dict):
-        return None
+def parse_us_daily_bars_payload(
+    data: dict[str, Any], *, expect_symbol: str | None
+) -> tuple[list[DailyBar], dict[str, Any]] | None:
+    """Validate a US daily bars JSON object and return bars + meta (no disk I/O)."""
 
     extras = set(data.keys()) - _ALLOWED_PAYLOAD_KEYS_AT_ROOT
     if extras:
@@ -130,13 +119,13 @@ def load_us_daily_bars_cache(symbol: str) -> tuple[list[DailyBar], dict[str, Any
     if norm_stored is None:
         return None
 
-    requested: str | None
-    try:
-        requested = _symbol_slug_or_raise(symbol)
-    except ValueError:
-        requested = None
-    if requested is not None and norm_stored != requested:
-        return None
+    if expect_symbol is not None:
+        try:
+            requested = _symbol_slug_or_raise(expect_symbol)
+        except ValueError:
+            return None
+        if norm_stored != requested:
+            return None
 
     raw_bars = data.get("bars")
     if not isinstance(raw_bars, list) or not raw_bars:
@@ -155,6 +144,42 @@ def load_us_daily_bars_cache(symbol: str) -> tuple[list[DailyBar], dict[str, Any
         "symbol": norm_stored,
     }
     return bars, meta
+
+
+def load_us_daily_bars_json_file(
+    path: Path, *, expect_symbol: str | None = None
+) -> tuple[list[DailyBar], dict[str, Any]] | None:
+    """Load US daily bars from an explicit JSON path (fixture or offline file; no HTTP)."""
+
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    return parse_us_daily_bars_payload(data, expect_symbol=expect_symbol)
+
+
+def load_us_daily_bars_cache(symbol: str) -> tuple[list[DailyBar], dict[str, Any]] | None:
+    """Load cache when present and well-formed."""
+
+    try:
+        path = us_daily_bars_cache_path(symbol)
+    except ValueError:
+        return None
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    return parse_us_daily_bars_payload(data, expect_symbol=symbol)
 
 
 def try_load_cached_us_daily_bars(symbol: str) -> tuple[list[DailyBar], str] | None:

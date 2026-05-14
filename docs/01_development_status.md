@@ -348,7 +348,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.10-A**: **US equities** の **cache-only**（外部通信なし・既存キャッシュ／fixture のみ読む）MVP の設計・最小スケルトン（**`main` 反映は別判断**）
+- 下記 **R6.10-A** 節を参照（**`main` 未反映**の作業ブランチ）。
+
+---
+
+## R6.10-A — US equities cache-only MVP（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-a-us-equities-cache-only-mvp`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-a`）
+**内容**: **`parse_us_daily_bars_payload`** / **`load_us_daily_bars_json_file`**（`src/invis_alpha_os/data/us_daily_bars_cache.py`）と **`tests/test_us_equities_cache.py`**、設計メモ **[docs/19_r6_10_a_us_equities_cache_only_mvp.md](./19_r6_10_a_us_equities_cache_only_mvp.md)**。**live HTTP・production cache write・CLI 統合なし**。
 
 ---
 
