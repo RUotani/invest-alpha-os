@@ -518,3 +518,26 @@ def test_unsafe_symbols_rejected_signals_cli(monkeypatch) -> None:
     assert jquants_daily_bars_ticker_kind("TOOLONG1") != "ok"
     # 285A itself must be "ok"
     assert jquants_daily_bars_ticker_kind("285A") == "ok"
+
+
+# R6.6: volume_25d_ratio lookahead-exclusion regression
+def test_volume_ratio_25d_excludes_latest_bar_from_prior_average() -> None:
+    """Prior 25-session average must NOT include the latest bar (no lookahead)."""
+    # If the average included the latest bar, the result would be different.
+    prior = [1000.0] * 25
+    latest = 3000.0
+    # Correct: avg = mean(prior[0:25]) = 1000, ratio = 3000/1000 = 3.0
+    vols_exact = prior + [latest]
+    r = volume_ratio_25d_prior_mean(vols_exact)
+    assert r is not None
+    assert abs(r - 3.0) < 1e-9
+
+    # Verify: if we inject a spike in what should be the prior window,
+    # the ratio changes — confirming the window is the 25 bars BEFORE latest.
+    prior_with_spike = [1000.0] * 24 + [5000.0]  # spike in position -2
+    vols_with_spike = prior_with_spike + [latest]
+    r2 = volume_ratio_25d_prior_mean(vols_with_spike)
+    assert r2 is not None
+    expected_avg = (1000.0 * 24 + 5000.0) / 25
+    assert abs(r2 - latest / expected_avg) < 1e-9
+    assert r2 < r  # spike raised the prior avg, so ratio drops

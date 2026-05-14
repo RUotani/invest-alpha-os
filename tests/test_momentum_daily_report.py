@@ -386,3 +386,27 @@ def test_cache_only_ranking_row_has_stable_column_count(
     assert len(rows) == 1
     cells = [c.strip() for c in rows[0].strip().split("|") if c.strip() != ""]
     assert len(cells) == 12
+
+
+# R6.6: 285A explicit regression in daily report momentum section
+def test_daily_report_momentum_section_includes_285a(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """render_momentum_signals_cache_only_section must list 285A when cached bars exist."""
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["285A", "7011"],
+    )
+    _write_min_cache(tmp_path, "285A", n=280)
+    # Second code reuses already-created cache dir — write file directly.
+    import shutil, json as _json
+    src = tmp_path / "market_data" / "jquants_daily_bars" / "285A.json"
+    raw = _json.loads(src.read_text())
+    raw["code"] = "7011"
+    (tmp_path / "market_data" / "jquants_daily_bars" / "7011.json").write_text(_json.dumps(raw))
+
+    md = render_momentum_signals_cache_only_section()
+    assert "285A" in md, "285A must appear in Momentum Signals — Cache Only section"
+    assert "7011" in md
+    assert "## Momentum Signals — Cache Only" in md
