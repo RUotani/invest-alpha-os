@@ -338,10 +338,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.9-C — US / metals / macro / portfolio の優先順位整理（docs のみ・`main` 未反映）
+## R6.9-C — US / metals / macro / portfolio の優先順位整理（完了・main反映済み）
 
-**ブランチ**: `work/r6-9-c-priority-docs`（本節の内容は **`main` 未反映**）  
-**内容**: 四領域の **着手優先度たたき台** を **[docs/18_r6_9_c_priority_us_metals_macro_portfolio.md](./18_r6_9_c_priority_us_metals_macro_portfolio.md)** に整理（**実装・live HTTP・production cache write なし**）。
+**コミット**: `61b3bf2` docs: R6.9-C priority landscape (US, metals, macro, portfolio)
+**ブランチ**: `work/r6-9-c-priority-docs` → main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25867473310) — success
+**GitHub Actions（`main` 取り込み直後の push）**: `tests` (run ID: 25889946086) — success
+**内容**: **[docs/18_r6_9_c_priority_us_metals_macro_portfolio.md](./18_r6_9_c_priority_us_metals_macro_portfolio.md)** に **US → portfolio → macro → metals** の優先度メモを整理。**実装・live HTTP（実ネットワーク接続）・production cache write（本番キャッシュ書き込み）は追加していない**。
+
+### 次タスク（候補）
+
+- **R6.10-A**: **US equities** の **cache-only**（外部通信なし・既存キャッシュ／fixture のみ読む）MVP の設計・最小スケルトン（**`main` 反映は別判断**）
 
 ---
 

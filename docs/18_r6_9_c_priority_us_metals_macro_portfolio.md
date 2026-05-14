@@ -1,6 +1,6 @@
 # R6.9-C — 優先順位メモ（US / metals / macro / portfolio）（調査のみ・実装なし）
 
-**ステータス**: 優先度の整理のみ。**コード変更・`main` 取り込み・live HTTP・production cache write は対象外**。
+**ステータス**: 優先度の整理のみ。**コード変更・live HTTP・production cache write は対象外**。本文は **`main` に反映済み**（R6.9-C 取り込みコミット `61b3bf2`）。
 
 ---
 
