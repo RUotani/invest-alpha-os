@@ -263,6 +263,11 @@ def signals_command(
         min=1,
         help="Process only the first N JP watchlist tickers (dry-run).",
     ),
+    fmt: str = typer.Option(
+        "json",
+        "--format",
+        help="Output format: json (default) | markdown — human-readable table.",
+    ),
 ) -> None:
     """Observation-only JP momentum-style flags from daily bars (Main E MVP). Not trading advice."""
 
@@ -370,7 +375,12 @@ def signals_command(
     if src_norm == "cache-only":
         out["skipped_no_cache"] = len(skipped_no_cache)
         out["skipped_no_cache_codes"] = skipped_no_cache
-    typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm == "markdown":
+        typer.echo(_signals_markdown(out))
+    else:
+        typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
 
 @app.command("pack")
@@ -453,6 +463,52 @@ def _cli_optional_str(value: Optional[str]) -> Optional[str]:
         return None
     stripped = value.strip()
     return stripped if stripped else None
+
+
+def _fmt_pct_md(v: float | None) -> str:
+    if v is None:
+        return "—"
+    return f"{v * 100:+.1f}%"
+
+
+def _fmt_ratio_md(v: float | None) -> str:
+    if v is None:
+        return "—"
+    return f"{v:.2f}x"
+
+
+def _signals_markdown(out: dict[str, Any]) -> str:
+    """Render signals JSON payload as a human-readable Markdown table."""
+    rows = out.get("ranked", [])
+    skipped = out.get("skipped_no_cache", 0)
+    mode = out.get("mode", "")
+    lines: list[str] = [
+        "## Momentum Signals — JP Watchlist",
+        "",
+        f"*モード: `{mode}` / observation only / Not trading advice.*",
+        "",
+    ]
+    if skipped:
+        lines.append(f"**キャッシュなしでスキップ**: {skipped}件")
+        lines.append("")
+    if not rows:
+        lines.append("*(候補なし)*")
+        return "\n".join(lines)
+
+    lines.append("| # | Code | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto |")
+    lines.append("|---|---|---|---|---|---|---|---|---|---|")
+    for i, row in enumerate(rows, 1):
+        labels = ", ".join(row.get("labels", [])) or "—"
+        vr = row.get("veto_result", {})
+        veto_cell = "⚠ " + ", ".join(r["rule_id"] for r in vr.get("rules", [])) if vr.get("triggered") else "—"
+        lines.append(
+            f"| {i} | {row['code']} | {row.get('score_v2', '—')} | {labels} "
+            f"| {_fmt_pct_md(row.get('r5'))} | {_fmt_pct_md(row.get('r20'))} "
+            f"| {_fmt_pct_md(row.get('r60'))} | {_fmt_pct_md(row.get('high_52w_distance_pct'))} "
+            f"| {_fmt_ratio_md(row.get('volume_ratio_25d'))} | {veto_cell} |"
+        )
+    lines.append("")
+    return "\n".join(lines)
 
 
 def _jp_momentum_bar_mapping(

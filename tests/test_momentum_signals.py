@@ -651,3 +651,62 @@ def test_signals_overheat_triggers_veto(monkeypatch) -> None:
     assert vr["triggered"] is True, "overheat銘柄はveto_result.triggered=Trueであるべき"
     rule_ids = [x["rule_id"] for x in vr["rules"]]
     assert "hard_momentum_overheat" in rule_ids, f"hard_momentum_overheat rule missing; got {rule_ids}"
+
+
+# R6.8-B: --format markdown オプション
+def test_signals_format_markdown_outputs_table(monkeypatch) -> None:
+    """--format markdown指定でMarkdownテーブルが出力されること。"""
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011", "7203"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run", "--format", "markdown"])
+    assert r.exit_code == 0, r.output
+    out = r.stdout
+    assert "## Momentum Signals" in out
+    assert "| # | Code | Sv2 |" in out
+    assert "7011" in out
+    assert "7203" in out
+    assert "{" not in out, "JSON混入が検出された（markdownモードなのにJSONが出力されている）"
+
+
+def test_signals_format_markdown_veto_cell_shown(monkeypatch) -> None:
+    """overheat銘柄のVeto列に rule_id が表示されること。"""
+    from invis_alpha_os.signals.momentum import MomentumBreakdown
+
+    overheat = MomentumBreakdown(
+        code="7011", bar_count=280, labels=("overheat",), score=0,
+        r5=0.02, r20=0.55, r60=1.1, r120=None,
+        volume_spike=False, vol_avg25=None, volume_ratio_25d=None,
+        high_52w_breakout=False, high_52w_distance_pct=None,
+        trend_quality="up", overheat_flag=True,
+        data_quality=(("enough_data", True),),
+        score_v2=0, score_v2_components=(),
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.build_momentum_signals",
+        lambda mapping: [overheat],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run", "--format", "markdown"])
+    assert r.exit_code == 0, r.output
+    assert "hard_momentum_overheat" in r.stdout
+
+
+def test_signals_format_json_default_unchanged(monkeypatch) -> None:
+    """--format省略時はJSONが出力されること（既存動作の回帰確認）。"""
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run"])
+    assert r.exit_code == 0, r.output
+    blob = json.loads(r.stdout)
+    assert "ranked" in blob
+    assert blob["observation_only"] is True
