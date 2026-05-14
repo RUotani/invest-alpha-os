@@ -277,6 +277,28 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.8-E — `VetoEngine`（拒否・警戒判定エンジン）で `fomo_veto`（急騰追随・高値掴み警戒ルール群）を評価（完了・main反映済み）
+
+**コミット**: `75930f8` Main R6.8-E draft: Evaluate fomo_veto section in VetoEngine
+**ブランチ**: `work/r6-8-e-fomo-veto-evaluation` → main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（ブランチ push 時）**: `tests` (run ID: 25864935025) — success
+**GitHub Actions（main 取り込み後 push）**: `tests` (run ID: 25865410883) — success
+**テスト**: `tests/test_veto_rules.py` の focused pytest **4件** すべて成功 · full suite **573件** すべて成功
+
+### R6.8-Eで完了した内容
+
+- `VetoLevel`（拒否・警戒判定レベル）に `fomo_veto` を追加（`src/invis_alpha_os/core/models.py`）
+- `VetoEngine.evaluate()` の評価ループに `fomo_veto` セクションを追加し、`veto_rules.yaml` の `fomo_veto` 配下ルールを `hard_veto` / `soft_veto` と同様に閾値比較する（`src/invis_alpha_os/risk/veto_rules.py`）
+- `tests/test_veto_rules.py` に **3件** 追加（ファイル合計 **4件**）: `test_fomo_veto_is_evaluated` / `test_fomo_veto_does_not_fire_below_threshold` / `test_all_three_levels_can_fire_simultaneously`
+
+### R6.8-Eでやらなかったこと（次タスクへ）
+
+- `veto_rules.yaml` の閾値・ルール本文の変更（本タスクでは**変更なし**）
+- `volume_ratio_25d` を指標とする**新規**拒否ルールの実装（モメンタム側の既存指標は対象外）
+- 新しい signal engine の実装
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
