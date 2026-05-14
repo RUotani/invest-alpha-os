@@ -324,7 +324,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **ブランチ**: `work/r6-9-b-stage3-workflow-docs`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-9-b`）  
 **内容**: **Stage 3** を「Composer2 単独・1 指示で検証〜 CI 確認まで」と定義し、**Claude Code と Composer2 の同時並行**と誤読されないよう **[docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)** に追記。**`main` 取り込みは未実施**（ChatGPT 判断後の別作業）。  
-**GitHub Actions**: `tests` — branch push 後に success を確認（run ID は push 完了後に `gh run list --branch work/r6-9-b-stage3-workflow-docs` で取得）
+**GitHub Actions**: `tests` (run ID: 25866939001) — success
 
 ### 関連（コード系・`main` 未反映）
 
