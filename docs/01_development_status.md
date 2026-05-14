@@ -124,6 +124,84 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.6 — 285A JP momentum signals 回帰テスト（完了・main反映済み）
+
+**コミット**: `c3eaf7b` Main R6.6: Lock 285A JP momentum regression tests
+**GitHub Actions**: `tests` — success
+
+### R6.6 で完了した内容
+
+- **285A** が `normalize_jquants_equity_code` で `"ok"` と判定され、 `skipped_unsupported_code` にならないことを既存実装で確認
+- `signals/momentum.py` に `volume_ratio_25d`・`r5/r20/r60`・`high_52w_distance_pct` が実装済みであることを確認
+- `alpha-os signals` CLI が 285A を含む JP watchlist を処理することをテストで固定
+- `daily` コマンドの `render_momentum_signals_cache_only_section` が 285A をキャッシュ存在時にランク出力することをテストで固定
+- `volume_ratio_25d` がラストバーを prior 平均から除外していること（ルックアヘッドなし）をテストで固定
+
+### R6.6 追加テスト（`tests/test_momentum_signals.py` / `tests/test_momentum_daily_report.py`）
+
+- `test_285a_accepted_not_skipped_in_signals_cli`
+- `test_285a_momentum_row_has_required_fields`
+- `test_285a_synthetic_bars_analyze`
+- `test_traditional_4digit_still_works_alongside_285a`
+- `test_unsafe_symbols_rejected_signals_cli`
+- `test_volume_ratio_25d_excludes_latest_bar_from_prior_average`
+- `test_daily_report_momentum_section_includes_285a`
+
+---
+
+## R6.7 — signals CLI Phase 1a 出力確認 + `veto_status` マーカー追加（完了・main反映済み）
+
+**コミット**: `441f004` Main R6.7 draft: Expose veto_status gap and add 285A cache-only signals test
+**ブランチ**: `work/r6-7-signals-cli` → main へ fast-forward merge 済み
+**GitHub Actions**: `tests` (run ID: 25861307885) — success
+**テスト**: focused 44件・full suite 563件 — すべて成功
+
+### R6.7 で完了した内容
+
+- `alpha-os signals` CLI が Phase 1a 相当の JP momentum candidate 出力をすでに満たしていることを確認（新規実装は不要だった）
+- signals JSON 出力に **`veto_status: "not_integrated_yet"`** を追加（VetoEngine未統合であることを機械可読な形で明示）
+- **285A が `--source cache-only` のランク出力に出ること**をテストで固定（`test_285a_cache_only_source_appears_in_ranked`）
+
+### R6.7 で確認した signals CLI の出力フィールド
+
+`observation_only`、`mode`、`bars_data_source`、`veto_status`、`ranked[]` 内: `code`・`score`・`score_v2`・`labels`・`r5`・`r20`・`r60`・`high_52w_distance_pct`・`volume_ratio_25d`・`data_quality`・`bars_source`
+
+### R6.7 でやらなかったこと（次タスクへ）
+
+- VetoEngine の signals CLI 統合
+- `signals --format markdown` の追加
+- 新しい signal engine の実装
+- daily report / action watchlist とのさらなる整合
+
+---
+
+## R6.8 候補タスク（未着手）
+
+優先度は状況に応じて判断してください。
+
+**候補 A（推奨）**: VetoEngine を signals CLI に統合
+`veto_status: "not_integrated_yet"` → per-ticker の実際の veto 結果へ置き換え。
+`src/invis_alpha_os/risk/veto_rules.py` の `VetoEngine` が既存実装。
+
+**候補 B**: `signals --format markdown` の薄い追加
+`signals_command` に `--format` オプションを追加し、`render_momentum_signals_cache_only_section` を呼び出すだけ。新ロジック不要。
+
+**候補 C**: signals 結果と daily report / action watchlist の整合強化
+`render_momentum_signals_cache_only_section` の ランキング表と、`signals` CLI JSON 出力の列定義を揃える。
+
+---
+
+## AI向け作業指示言語の運用方針（R6.7以降）
+
+- Claude Code / Cursor / Codex への指示は、原則として**日本語**で書く
+- ただし、以下は原文のまま維持する:
+  - Gitコマンド・ブランチ名・コミットID・ファイルパス
+  - ワークフロー名・テストコマンド・CLI名
+  - コード内文字列・JSONキー
+  - エラーメッセージ
+
+---
+
 ## DevOps — ローカル運用ショートカット（完了）
 
 - **Makefile**：**`make env-doctor`**、**`make daily-check`**、**`make jquants-smoke-dry-run`**（必須 `DATE`,`LIMIT`。**dry-run + `--save-summary`**のみ）、**`make jquants-smoke-live`**（**`CONFIRM_LIVE_HTTP=YES`** 必須。子プロセスのみ **`JQUANTS_ALLOW_LIVE_HTTP=true`** + **`--live --save-summary`**）、**`make post-push-check`**（`gh` 任意）、**`make ops-check`**（上記 3 を **live HTTP なし**で順実行）。
