@@ -175,19 +175,60 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.8 候補タスク（未着手）
+## R6.8-A — VetoEngineをsignals CLIへ最小統合（完了・main反映済み）
+
+**コミット**: `922badd` Main R6.8-A draft: Integrate VetoEngine into signals CLI per-ticker output
+**ブランチ**: `work/r6-8-signals-veto` → main へ fast-forward merge 済み
+**GitHub Actions**: `tests` (run ID: 25862111843) — success
+**テスト**: full suite 565件 — すべて成功
+
+### R6.8-Aで完了した内容
+
+- `signals CLI`（シグナル出力コマンド）の各候補行に、銘柄別の拒否・警戒判定結果 `veto_result` を付与
+- top levelの拒否判定状態 `veto_status` を `"not_integrated_yet"` → `"ok"` へ変更
+- `config/veto_rules.yaml` に `hard_momentum_overheat` ルールを追加（`overheat_flag >= 1.0`）
+- `MomentumBreakdown` フィールドをveto context（コンテキスト辞書）へ薄くマッピング:
+  - `overheat_flag` → `1.0 / 0.0`
+  - `r5` → `price_spike_5d`（絶対値）
+- `overheat_flag=True` の銘柄は `hard_momentum_overheat` が発動し `veto_result.triggered=true` になる
+
+### R6.8-Aの出力例（signals CLIの各候補行）
+
+```json
+"veto_result": {
+  "triggered": true,
+  "count": 1,
+  "rules": [
+    {
+      "level": "hard_veto",
+      "rule_id": "hard_momentum_overheat",
+      "message": "Momentum overheat flag triggered (r20 or r60 extreme)"
+    }
+  ]
+}
+```
+
+### R6.8-Aでやらなかったこと（次タスクへ）
+
+- R6.8-BのMarkdown出力追加
+- `veto_rules.yaml` の拡充（出来高急増ルール等）
+- daily report側への `veto_result` 表示整合
+- 新しいsignal engineの実装
+
+---
+
+## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
-
-**候補 A（推奨）**: VetoEngine を signals CLI に統合
-`veto_status: "not_integrated_yet"` → per-ticker の実際の veto 結果へ置き換え。
-`src/invis_alpha_os/risk/veto_rules.py` の `VetoEngine` が既存実装。
 
 **候補 B**: `signals --format markdown` の薄い追加
 `signals_command` に `--format` オプションを追加し、`render_momentum_signals_cache_only_section` を呼び出すだけ。新ロジック不要。
 
-**候補 C**: signals 結果と daily report / action watchlist の整合強化
-`render_momentum_signals_cache_only_section` の ランキング表と、`signals` CLI JSON 出力の列定義を揃える。
+**候補 C**: daily report側への `veto_result` 表示整合
+`render_momentum_signals_cache_only_section` のランキング表と `signals` CLI JSON 出力の列定義を揃える。
+
+**候補 D**: `veto_rules.yaml` 拡充
+出来高急増（`volume_ratio_25d >= 3.0`）等のソフト警戒ルール追加。ただし過検知リスクがあるため、ルール設計を先に行うこと。
 
 ---
 
