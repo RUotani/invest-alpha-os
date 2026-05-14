@@ -243,12 +243,43 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.8-C — 日次レポートにVeto列を追加（完了・main反映済み）
+
+**コミット**: `ff48e97` Main R6.8-C draft: Add Veto column to daily report Momentum Signals table
+**ブランチ**: `work/r6-8-c-daily-veto-display` → main へ fast-forward merge 済み
+**GitHub Actions**: `tests` (run ID: 25864075937) — success
+**テスト**: full suite 570件 — すべて成功
+
+### R6.8-Cで完了した内容
+
+- `src/invis_alpha_os/reports/momentum_daily.py` に `_veto_cell(m: MomentumBreakdown) -> str` 関数を追加
+  - `m.overheat_flag` が True → `"⚠ hard_momentum_overheat"`（モメンタム過熱による強い警戒判定）
+  - False → `"—"`
+- `_append_ranking_table` のヘッダーに `| Veto |` 列を追加（12列 → 13列）
+- `VetoEngine`（拒否エンジン）のインポートなし。`overheat_flag` を直接参照することで依存を最小化
+- `tests/test_momentum_daily_report.py` に2件のテストを追加（計15件）
+  - `test_veto_cell_dash_when_no_overheat`: 通常銘柄は `—` を返すことを確認
+  - `test_veto_cell_shows_overheat_rule_when_flagged`: 過熱銘柄は `⚠ hard_momentum_overheat` を返すことを確認
+- 既存テスト `test_cache_only_ranking_row_has_stable_column_count` を13列対応に更新
+
+### 日次レポート（日次レポート）での実確認
+
+```
+| 3 | 5801 | … | cache | ⚠ hard_momentum_overheat |
+| 4 | 285A | … | cache | ⚠ hard_momentum_overheat |
+| 5 | 5803 | … | cache | — |
+```
+
+### R6.8-Cでやらなかったこと（次タスクへ）
+
+- `veto_rules.yaml` の拡充・新しい拒否ルール追加
+- 新しいsignal engineの実装
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
-
-**候補 C**: daily report側への `veto_result` 表示整合
-`render_momentum_signals_cache_only_section` のランキング表と `signals` CLI JSON 出力の列定義を揃える。
 
 **候補 D**: `veto_rules.yaml` 拡充
 出来高急増（`volume_ratio_25d >= 3.0`）等のソフト警戒ルール追加。ただし過検知リスクがあるため、ルール設計を先に行うこと。
