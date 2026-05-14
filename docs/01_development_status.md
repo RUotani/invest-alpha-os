@@ -217,18 +217,43 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.8-B — signals CLIにMarkdown出力を追加（完了・main反映済み）
+
+**コミット**: `e1005be` Main R6.8-B draft: Add --format markdown to signals CLI
+**ブランチ**: `work/r6-8-b-signals-markdown` → main へ fast-forward merge 済み
+**GitHub Actions**: `tests` (run ID: 25863066082) — success
+**テスト**: full suite 568件 — すべて成功
+
+### R6.8-Bで完了した内容
+
+- `signals CLI`（シグナル出力コマンド）に `--format markdown`（Markdown形式出力指定）を追加
+- `--format` 省略時は従来どおりJSON出力を維持（既存動作への影響なし）
+- Markdown表の列: `# | Code | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto`
+- Veto列: `veto_result.triggered=true` の場合に `⚠ rule_id` を表示
+- `--source cache-only --format markdown` で実確認:
+  - `285A` が表（4位）に表示される
+  - `285A`・`5801` に `⚠ hard_momentum_overheat` が表示される
+  - `cache_only_dry_run` モード・`observation only / Not trading advice` 表示あり
+
+### R6.8-Bでやらなかったこと（次タスクへ）
+
+- daily report側への `veto_result` 表示整合
+- `veto_rules.yaml` の拡充・新しい拒否ルール追加
+- 新しいsignal engineの実装
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
-
-**候補 B**: `signals --format markdown` の薄い追加
-`signals_command` に `--format` オプションを追加し、`render_momentum_signals_cache_only_section` を呼び出すだけ。新ロジック不要。
 
 **候補 C**: daily report側への `veto_result` 表示整合
 `render_momentum_signals_cache_only_section` のランキング表と `signals` CLI JSON 出力の列定義を揃える。
 
 **候補 D**: `veto_rules.yaml` 拡充
 出来高急増（`volume_ratio_25d >= 3.0`）等のソフト警戒ルール追加。ただし過検知リスクがあるため、ルール設計を先に行うこと。
+
+**その後**: signals CLI / daily report / action watchlistの表示整合（R6.8-C以降で順次対応）。
 
 ---
 
