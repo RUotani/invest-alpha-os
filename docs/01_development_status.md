@@ -299,14 +299,36 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.8-F — 出来高急増＋短期上昇の追随警戒（`fomo_volume_price_chase`）（完了・main反映済み）
+
+**コミット**: `7415b21` Main R6.8-F draft: FOMO volume-price chase veto via synthetic context
+**ブランチ**: `work/r6-8-f-volume-spike-risk-rule` → main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（ブランチ push 時）**: `tests` (run ID: 25866028775) — success
+**GitHub Actions（main 取り込み後 push）**: `tests` (run ID: 25866358212) — success
+**テスト**: `tests/test_veto_rules.py` · `tests/test_momentum_daily_report.py` · `tests/test_momentum_signals.py` の focused pytest **59件** すべて成功 · full suite **577件** すべて成功
+
+### R6.8-Fで完了した内容
+
+- **`volume_ratio_25d`（25日平均比の出来高倍率）≥ 3.0** かつ **直近5日リターン `r5` > 0.15** のときだけ立つ合成指標 **`fomo_volume_price_chase`** を `momentum_breakdown_veto_context()`（`src/invis_alpha_os/risk/veto_rules.py`）で定義し、**`fomo_veto`（急騰追随・高値掴み警戒ルール群）** の **`fomo_volume_price_chase`（出来高急増＋短期上昇の追随警戒ルール）** として `config/veto_rules.yaml` に追加（単独の `volume_ratio_25d >= 3.0` の **`soft_veto`（弱い警戒判定）** は**実装しない**方針を維持）
+- `signals`（`src/invis_alpha_os/cli/main.py`）の **`veto_result`** 経路と、日次レポート（`src/invis_alpha_os/reports/momentum_daily.py`）の **Veto列**を **`VetoEngine`（拒否・警戒判定エンジン）** 評価に揃え、`@lru_cache` で設定読み込みを日次レンダリング内で再利用
+- テスト追加: `tests/test_veto_rules.py`（コンテキスト・ルール発火）· `tests/test_momentum_daily_report.py` · `tests/test_momentum_signals.py`
+
+### R6.8-Fでやらなかったこと（次タスクへ）
+
+- **`risk_flag`（観察用の警戒表示）** 専用の別列・別JSONチャネル（本タスクでは **`fomo_veto` の `rule_id` 表示**に統一）
+- R6.9 本体の実装（並行開発の手順は **[docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)** に整理）
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
 
-**候補 D**: `veto_rules.yaml` 拡充
-出来高急増（`volume_ratio_25d >= 3.0`）等のソフト警戒ルール追加。ただし過検知リスクがあるため、ルール設計を先に行うこと。
+**候補（veto 拡張の残り）**: `veto_rules.yaml` の閾値調整・追加ルール（例: より保守的な単独閾値、`overheat_flag` との組み合わせ）。**R6.8-F** で複合条件の出来高＋短期上昇は実装済みのため、次は過検知・表示優先度の設計レビューから入るとよい。
 
 **その後**: signals CLI / daily report / action watchlistの表示整合（R6.8-C以降で順次対応）。
+
+**並行開発の進め方**: [docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)（**R6.9 実装は ChatGPT 確認後に開始**。本ドキュメントは準備メモのみ）
 
 ---
 

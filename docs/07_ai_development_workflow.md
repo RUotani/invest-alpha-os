@@ -115,4 +115,4 @@ Observation Only・No Auto Trading、`outputs/` 実行生成物の Git 非管理
 
 ---
 
-関連：[01_development_status.md](./01_development_status.md) · [06_phase0_completion_report.md](./06_phase0_completion_report.md)
+関連：[01_development_status.md](./01_development_status.md) · [17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md) · [06_phase0_completion_report.md](./06_phase0_completion_report.md)
