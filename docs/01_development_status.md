@@ -354,7 +354,9 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## R6.10-A — US equities cache-only MVP（作業ブランチ・`main` 未反映）
 
+**コミット**: `3438268` Main R6.10-A draft: Add US equities cache-only MVP scaffold
 **ブランチ**: `work/r6-10-a-us-equities-cache-only-mvp`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-a`）
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25890095708) — success
 **内容**: **`parse_us_daily_bars_payload`** / **`load_us_daily_bars_json_file`**（`src/invis_alpha_os/data/us_daily_bars_cache.py`）と **`tests/test_us_equities_cache.py`**、設計メモ **[docs/19_r6_10_a_us_equities_cache_only_mvp.md](./19_r6_10_a_us_equities_cache_only_mvp.md)**。**live HTTP・production cache write・CLI 統合なし**。
 
 ---
