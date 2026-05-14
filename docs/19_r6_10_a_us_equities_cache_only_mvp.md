@@ -1,6 +1,6 @@
 # R6.10-A — US equities cache-only MVP（設計・最小スケルトン）
 
-**ステータス**: 作業ブランチ `work/r6-10-a-us-equities-cache-only-mvp` のみ。**`main` 未反映**。実装は **読み取り専用の最小関数**に限定。
+**ステータス**: **`main` に反映済み**（先端に **R6.10-A** コミットを含む）。**コード変更・live HTTP・production cache write は本ドキュメント執筆時点のスコープ外**として維持。
 
 ---
 
