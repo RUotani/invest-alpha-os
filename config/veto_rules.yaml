@@ -20,3 +20,8 @@ fomo_veto:
     threshold: 0.15
     message: "Possible FOMO chase setup"
 
+  - id: "fomo_volume_price_chase"
+    metric: "fomo_volume_price_chase"
+    threshold: 1.0
+    message: "Volume vs 25d prior avg >= 3.0 with r5 > 15% (chase caution)"
+

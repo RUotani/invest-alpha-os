@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import statistics
 from collections.abc import Callable, Sequence
+from functools import lru_cache
+
 from invis_alpha_os.config.jp_watchlist import load_jp_watchlist_tickers, normalize_jquants_equity_code
 from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
 from invis_alpha_os.data.jquants_daily_bars_cache import try_load_cached_daily_bars
@@ -23,6 +25,16 @@ WATCH_NOTE_OVERHEATED_TREND = "overheated_trend"
 WATCH_NOTE_PULLBACK_UPTREND = "pullback_in_uptrend"
 WATCH_NOTE_WEAK_MIXED = "weak_or_mixed"
 WATCH_NOTE_LIMITED_HISTORY = "limited_history"
+
+
+@lru_cache(maxsize=1)
+def _momentum_veto_engine():
+    """設定ファイル読み込みは日次レンダリングで繰り返さない。"""
+    from invis_alpha_os.config.loader import load_yaml
+    from invis_alpha_os.config.paths import CONFIG_DIR
+    from invis_alpha_os.risk.veto_rules import VetoEngine
+
+    return VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
 
 
 def momentum_score_v2_glossary_lines() -> list[str]:
@@ -280,10 +292,13 @@ def _vol_r_cell(m: MomentumBreakdown) -> str:
 
 
 def _veto_cell(m: MomentumBreakdown) -> str:
-    """Veto列: overheat_flagがTrueの場合に警戒ルールIDを表示する。"""
-    if m.overheat_flag:
-        return "⚠ hard_momentum_overheat"
-    return "—"
+    """Veto列: 拒否・警戒判定エンジン（VetoEngine）のヒットを `rule_id` で表示する。"""
+    from invis_alpha_os.risk.veto_rules import momentum_breakdown_veto_context
+
+    hits = _momentum_veto_engine().evaluate(momentum_breakdown_veto_context(m))
+    if not hits:
+        return "—"
+    return "⚠ " + ", ".join(h.rule_id for h in hits)
 
 
 def _append_ranking_table(

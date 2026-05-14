@@ -52,3 +52,38 @@ def test_all_three_levels_can_fire_simultaneously():
     assert "soft_veto" in levels
     assert "fomo_veto" in levels
 
+
+def test_momentum_breakdown_veto_context_volume_price_chase() -> None:
+    """25日平均比の出来高倍率が閾値以上かつ r5>0.15 のときだけ合成指標が 1.0 になること。"""
+    from types import SimpleNamespace
+
+    from invis_alpha_os.risk.veto_rules import momentum_breakdown_veto_context
+
+    hot = SimpleNamespace(r5=0.20, volume_ratio_25d=3.5, overheat_flag=False)
+    assert momentum_breakdown_veto_context(hot)["fomo_volume_price_chase"] == 1.0
+    cold_ratio = SimpleNamespace(r5=0.20, volume_ratio_25d=2.9, overheat_flag=False)
+    assert momentum_breakdown_veto_context(cold_ratio)["fomo_volume_price_chase"] == 0.0
+    cold_r5 = SimpleNamespace(r5=0.10, volume_ratio_25d=5.0, overheat_flag=False)
+    assert momentum_breakdown_veto_context(cold_r5)["fomo_volume_price_chase"] == 0.0
+    neg_r5 = SimpleNamespace(r5=-0.20, volume_ratio_25d=5.0, overheat_flag=False)
+    assert momentum_breakdown_veto_context(neg_r5)["fomo_volume_price_chase"] == 0.0
+    none_vr = SimpleNamespace(r5=0.20, volume_ratio_25d=None, overheat_flag=False)
+    assert momentum_breakdown_veto_context(none_vr)["fomo_volume_price_chase"] == 0.0
+
+
+def test_fomo_volume_price_chase_yaml_rule_fires() -> None:
+    """config 相当の fomo_volume_price_chase ルールが合成指標で発火すること。"""
+    rules = {
+        "fomo_veto": [
+            {
+                "id": "fomo_volume_price_chase",
+                "metric": "fomo_volume_price_chase",
+                "threshold": 1.0,
+                "message": "Volume vs 25d prior avg >= 3.0 with r5 > 15% (chase caution)",
+            }
+        ]
+    }
+    out = VetoEngine(rules=rules).evaluate({"fomo_volume_price_chase": 1.0, "price_spike_5d": 0.0})
+    assert len(out) == 1
+    assert out[0].rule_id == "fomo_volume_price_chase"
+

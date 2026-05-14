@@ -6,6 +6,21 @@ from typing import Any
 from invis_alpha_os.core.models import VetoLevel, VetoResult
 
 
+def momentum_breakdown_veto_context(m: Any) -> dict[str, float]:
+    """MomentumBreakdown 相当オブジェクトから VetoEngine 用の float コンテキストを組み立てる。"""
+    r5 = float(m.r5 or 0.0)
+    vr = m.volume_ratio_25d
+    # R6.8-F: 出来高急増単独は避け、25日平均比 >= 3.0 かつ直近5日リターンが正で > 15% のときのみ 1.0
+    vol_price_chase = 0.0
+    if vr is not None and float(vr) >= 3.0 and r5 > 0.15:
+        vol_price_chase = 1.0
+    return {
+        "price_spike_5d": abs(r5),
+        "overheat_flag": 1.0 if bool(getattr(m, "overheat_flag", False)) else 0.0,
+        "fomo_volume_price_chase": vol_price_chase,
+    }
+
+
 @dataclass(frozen=True)
 class VetoEngine:
     rules: dict[str, Any]

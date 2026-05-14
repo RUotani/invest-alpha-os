@@ -653,6 +653,46 @@ def test_signals_overheat_triggers_veto(monkeypatch) -> None:
     assert "hard_momentum_overheat" in rule_ids, f"hard_momentum_overheat rule missing; got {rule_ids}"
 
 
+def test_signals_volume_price_chase_triggers_fomo_veto(monkeypatch) -> None:
+    """volume_ratio_25d>=3 かつ r5>0.15 のとき fomo_volume_price_chase が veto_result に含まれること。"""
+    from invis_alpha_os.signals.momentum import MomentumBreakdown
+
+    chase = MomentumBreakdown(
+        code="7011",
+        bar_count=280,
+        labels=(),
+        score=0,
+        r5=0.20,
+        r20=0.10,
+        r60=0.10,
+        r120=None,
+        volume_spike=True,
+        vol_avg25=None,
+        volume_ratio_25d=3.5,
+        high_52w_breakout=False,
+        high_52w_distance_pct=None,
+        trend_quality="up",
+        overheat_flag=False,
+        data_quality=(("enough_data", True),),
+        score_v2=0,
+        score_v2_components=(),
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.build_momentum_signals",
+        lambda mapping: [chase],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--dry-run"])
+    assert r.exit_code == 0, r.output
+    blob = json.loads(r.stdout)
+    rule_ids = [x["rule_id"] for x in blob["ranked"][0]["veto_result"]["rules"]]
+    assert "fomo_volume_price_chase" in rule_ids, f"expected fomo_volume_price_chase in {rule_ids}"
+
+
 # R6.8-B: --format markdown オプション
 def test_signals_format_markdown_outputs_table(monkeypatch) -> None:
     """--format markdown指定でMarkdownテーブルが出力されること。"""

@@ -469,3 +469,52 @@ def test_veto_cell_shows_overheat_rule_when_flagged(
     ]
     assert len(rows) == 1
     assert "hard_momentum_overheat" in rows[0]
+
+
+def test_veto_cell_shows_volume_price_chase_fomo_when_hot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """25日平均比の出来高倍率が3以上かつ r5>15% のとき Veto列に fomo_volume_price_chase が出ること。"""
+    from invis_alpha_os.signals.momentum import MomentumBreakdown
+
+    chase = MomentumBreakdown(
+        code="7011",
+        bar_count=280,
+        labels=("vol_hot",),
+        score=0,
+        r5=0.20,
+        r20=0.10,
+        r60=0.10,
+        r120=None,
+        volume_spike=True,
+        vol_avg25=None,
+        volume_ratio_25d=3.5,
+        high_52w_breakout=False,
+        high_52w_distance_pct=None,
+        trend_quality="up",
+        overheat_flag=False,
+        data_quality=(("enough_data", True),),
+        score_v2=0,
+        score_v2_components=(),
+    )
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.build_momentum_signals",
+        lambda mapping: [chase],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.try_load_cached_daily_bars",
+        lambda code: ([{"date": "2024-01-01", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}], "cache"),
+    )
+
+    md = render_momentum_signals_cache_only_section()
+    rows = [
+        ln for ln in md.splitlines()
+        if "7011" in ln and "Rank | Code |" not in ln and ln.startswith("| ")
+    ]
+    assert len(rows) == 1
+    assert "fomo_volume_price_chase" in rows[0]

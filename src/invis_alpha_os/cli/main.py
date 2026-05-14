@@ -60,7 +60,7 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
-from invis_alpha_os.risk.veto_rules import VetoEngine
+from invis_alpha_os.risk.veto_rules import VetoEngine, momentum_breakdown_veto_context
 from invis_alpha_os.signals.momentum import (
     analyze_bars_for_code,
     build_momentum_signals,
@@ -307,7 +307,7 @@ def signals_command(
         _file_veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
 
         def _file_veto_row(m: Any) -> dict[str, Any]:
-            hits = _file_veto_engine.evaluate({"price_spike_5d": abs(m.r5 or 0.0), "overheat_flag": 1.0 if m.overheat_flag else 0.0})
+            hits = _file_veto_engine.evaluate(momentum_breakdown_veto_context(m))
             return {"triggered": len(hits) > 0, "count": len(hits), "rules": [{"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits]}
 
         ranked_item: list[dict[str, Any]] = []
@@ -346,10 +346,7 @@ def signals_command(
     veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
 
     def _veto_context(m: Any) -> dict[str, float]:
-        return {
-            "price_spike_5d": abs(m.r5 or 0.0),
-            "overheat_flag": 1.0 if m.overheat_flag else 0.0,
-        }
+        return momentum_breakdown_veto_context(m)
 
     def _veto_row(m: Any) -> dict[str, Any]:
         hits = veto_engine.evaluate(_veto_context(m))
