@@ -541,3 +541,49 @@ def test_volume_ratio_25d_excludes_latest_bar_from_prior_average() -> None:
     expected_avg = (1000.0 * 24 + 5000.0) / 25
     assert abs(r2 - latest / expected_avg) < 1e-9
     assert r2 < r  # spike raised the prior avg, so ratio drops
+
+
+# R6.7: 285A with cache-source and veto_status field
+def test_285a_cache_only_source_appears_in_ranked(tmp_path: Path, monkeypatch) -> None:
+    """285A must appear in signals --source cache-only output when a cache file exists."""
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.load_jp_watchlist_tickers",
+        lambda: ["285A"],
+    )
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    cache_dir = tmp_path / "market_data" / "jquants_daily_bars"
+    cache_dir.mkdir(parents=True)
+    n = 280
+    bars = [
+        {
+            "date": f"2024-{(i // 28) % 12 + 1:02d}-{(i % 28) + 1:02d}",
+            "open": 1000.0 + i,
+            "high": 1001.0 + i,
+            "low": 999.0 + i,
+            "close": 1000.5 + i,
+            "volume": 5000.0,
+        }
+        for i in range(n)
+    ]
+    payload = {
+        "schema_version": 1,
+        "code": "285A",
+        "source": "jquants_v2_equities_bars_daily",
+        "fetched_at": "2026-01-01T00:00:00+00:00",
+        "generated_at": None,
+        "bar_count": n,
+        "bars": bars,
+    }
+    (cache_dir / "285A.json").write_text(json.dumps(payload))
+    runner = CliRunner()
+    r = runner.invoke(app, ["signals", "--source", "cache-only"])
+    assert r.exit_code == 0, r.output
+    blob = json.loads(r.stdout)
+    assert blob["observation_only"] is True
+    assert blob.get("veto_status") == "not_integrated_yet"
+    codes = {row["code"] for row in blob["ranked"]}
+    assert "285A" in codes, f"285A missing from cache-only ranked; got {codes}"
+    row = next(x for x in blob["ranked"] if x["code"] == "285A")
+    for field in ("r5", "r20", "r60", "volume_ratio_25d", "high_52w_distance_pct", "data_quality"):
+        assert field in row, f"missing field {field!r}"
+    assert row["bars_source"] == "cache"

@@ -329,6 +329,7 @@ def signals_command(
         "mode": mode,
         "bars_data_source": bars_label,
         "observation_only": True,
+        "veto_status": "not_integrated_yet",
         "ranked": [
             momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic")) for m in ranked
         ],
