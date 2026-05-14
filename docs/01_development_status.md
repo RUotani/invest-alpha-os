@@ -320,15 +320,25 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.9-B — Stage 3 運用の文書化（docs のみ・`main` 未反映）
+## R6.9-A — `format_veto_table_cell`（Veto 表セル整形関数）による表示共通化（完了・main反映済み）
 
-**ブランチ**: `work/r6-9-b-stage3-workflow-docs`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-9-b`）  
-**内容**: **Stage 3** を「Composer2 単独・1 指示で検証〜 CI 確認まで」と定義し、**Claude Code と Composer2 の同時並行**と誤読されないよう **[docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)** に追記。**`main` 取り込みは未実施**（ChatGPT 判断後の別作業）。  
-**GitHub Actions**: `tests` (run ID: 25866939001) — success
+**コミット**: `58efc4a` Main R6.9-A draft: Share veto Markdown cell formatting  
+**ブランチ**: `work/r6-9-a-veto-display-common` → main へ fast-forward merge（早送り取り込み）済み  
+**GitHub Actions（R6.9-A のみ取り込み直後の `main` push）**: `tests` (run ID: 25867212766) — success  
+**内容**: `signals` Markdown と日次レポートの Veto セルを **`format_veto_table_cell(veto_result)`** に集約（`VetoEngine`（拒否・警戒判定エンジン）の `veto_result` 形式に揃える）。
 
-### 関連（コード系・`main` 未反映）
+---
 
-- **R6.9-A**: `work/r6-9-a-veto-display-common` · `format_veto_table_cell` 共通化（`58efc4a`）— **`main` 未反映のまま**本節と併記
+## R6.9-B — Stage 3 運用の文書化（完了・main反映済み）
+
+**コミット（rebase 後）**: `15524c2` docs: R6.9-B Stage 3 workflow clarification (Composer2 solo) · `b1e0d4e` docs: Record R6.9-B tests workflow run id（rebase 前の `0f74f09` / `45ed3f1` と同内容）  
+**ブランチ**: `work/r6-9-b-stage3-workflow-docs`（当時の **`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-9-b`）→ **R6.9-A 取り込み後の `main` 上へ rebase** のうえ main へ fast-forward merge 済み  
+**内容**: **Stage 3** を「**Cursor Composer2** 単独・1 指示で検証〜 branch CI まで」と定義し、**Claude Code と Composer2 の同時並行**と誤読されないよう **[docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)** に追記。  
+**GitHub Actions（R6.9-B を含む `main` push）**: `tests` (run ID: 25867295622) — success
+
+### 次タスクへのメモ
+
+- **R6.9-C**: 優先順位の docs 整理のみ（**`main` 未反映**の作業ブランチで実施。実装は行わない）
 
 ---
 
