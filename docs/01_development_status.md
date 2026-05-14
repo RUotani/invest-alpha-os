@@ -336,9 +336,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 **内容**: **Stage 3** を「**Cursor Composer2** 単独・1 指示で検証〜 branch CI まで」と定義し、**Claude Code と Composer2 の同時並行**と誤読されないよう **[docs/17_r6_9_parallel_development_prep.md](./17_r6_9_parallel_development_prep.md)** に追記。  
 **GitHub Actions（R6.9-B を含む `main` push）**: `tests` (run ID: 25867295622) — success
 
-### 次タスクへのメモ
+---
 
-- **R6.9-C**: 優先順位の docs 整理のみ（**`main` 未反映**の作業ブランチで実施。実装は行わない）
+## R6.9-C — US / metals / macro / portfolio の優先順位整理（docs のみ・`main` 未反映）
+
+**ブランチ**: `work/r6-9-c-priority-docs`（本節の内容は **`main` 未反映**）  
+**内容**: 四領域の **着手優先度たたき台** を **[docs/18_r6_9_c_priority_us_metals_macro_portfolio.md](./18_r6_9_c_priority_us_metals_macro_portfolio.md)** に整理（**実装・live HTTP・production cache write なし**）。
 
 ---
 
