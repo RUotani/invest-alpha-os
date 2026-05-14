@@ -373,19 +373,18 @@ def test_cache_only_ranking_row_has_stable_column_count(
     (cache_dir / "7011.json").write_text(json.dumps(payload), encoding="utf-8")
 
     md = render_momentum_signals_cache_only_section()
-    assert "| Rank | Code | Sv2 | Key |" in md and "| Watch | Bars src |" in md
+    assert "| Rank | Code | Sv2 | Key |" in md and "| Watch | Bars src | Veto |" in md
     rows = [
         ln
         for ln in md.splitlines()
         if ln.startswith("| ")
         and "7011" in ln
-        and ln.rstrip().endswith("| cache |")
         and "Rank | Code |" not in ln
         and ln.strip().startswith("| 1 ")
     ]
     assert len(rows) == 1
     cells = [c.strip() for c in rows[0].strip().split("|") if c.strip() != ""]
-    assert len(cells) == 12
+    assert len(cells) == 13  # R6.8-C: Veto列追加により12→13
 
 
 # R6.6: 285A explicit regression in daily report momentum section
@@ -410,3 +409,63 @@ def test_daily_report_momentum_section_includes_285a(
     assert "285A" in md, "285A must appear in Momentum Signals — Cache Only section"
     assert "7011" in md
     assert "## Momentum Signals — Cache Only" in md
+
+
+# R6.8-C: daily reportのVeto列テスト
+def test_veto_cell_dash_when_no_overheat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """overheat_flagがFalseの銘柄はVeto列が「—」になること。"""
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    # 単調上昇だがoverheatにならない（r20/r60が閾値未満）程度のバー
+    bars = _flat_bar_rows([1000.0 + i * 0.5 for i in range(200)])
+    _write_payload_bars(tmp_path, "7011", bars)
+
+    md = render_momentum_signals_cache_only_section()
+    rows = [
+        ln for ln in md.splitlines()
+        if "7011" in ln and "Rank | Code |" not in ln and ln.startswith("| ")
+    ]
+    assert len(rows) == 1
+    assert rows[0].rstrip().endswith("| — |"), f"Veto列が '—' でない: {rows[0]}"
+
+
+def test_veto_cell_shows_overheat_rule_when_flagged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """overheat_flagがTrueの銘柄はVeto列にhard_momentum_overheatが表示されること。"""
+    from invis_alpha_os.signals.momentum import MomentumBreakdown, build_momentum_signals
+
+    overheat = MomentumBreakdown(
+        code="7011", bar_count=280, labels=("overheat",), score=0,
+        r5=0.05, r20=0.55, r60=1.1, r120=None,
+        volume_spike=False, vol_avg25=None, volume_ratio_25d=None,
+        high_52w_breakout=False, high_52w_distance_pct=None,
+        trend_quality="up", overheat_flag=True,
+        data_quality=(("enough_data", True),),
+        score_v2=0, score_v2_components=(),
+    )
+    monkeypatch.setattr("invis_alpha_os.data.jquants_daily_bars_cache.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.load_jp_watchlist_tickers",
+        lambda: ["7011"],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.build_momentum_signals",
+        lambda mapping: [overheat],
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.momentum_daily.try_load_cached_daily_bars",
+        lambda code: ([{"date": "2024-01-01", "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}], "cache"),
+    )
+
+    md = render_momentum_signals_cache_only_section()
+    assert "hard_momentum_overheat" in md, "Veto列にhard_momentum_overheatが表示されていない"
+    rows = [
+        ln for ln in md.splitlines()
+        if "7011" in ln and "Rank | Code |" not in ln and ln.startswith("| ")
+    ]
+    assert len(rows) == 1
+    assert "hard_momentum_overheat" in rows[0]

@@ -279,6 +279,13 @@ def _vol_r_cell(m: MomentumBreakdown) -> str:
     return f"{m.volume_ratio_25d:.2f}x"
 
 
+def _veto_cell(m: MomentumBreakdown) -> str:
+    """Veto列: overheat_flagがTrueの場合に警戒ルールIDを表示する。"""
+    if m.overheat_flag:
+        return "⚠ hard_momentum_overheat"
+    return "—"
+
+
 def _append_ranking_table(
     lines: list[str],
     ranked: list[MomentumBreakdown],
@@ -295,10 +302,10 @@ def _append_ranking_table(
     lines.append("Legacy integer ``score`` still appears in CLI JSON next to ``score_v2``.")
     lines.append("")
     lines.append(
-        "| Rank | Code | Sv2 | Key | r5 | r20 | r60 | HiDist | VolR | Flag | Watch | Bars src |",
+        "| Rank | Code | Sv2 | Key | r5 | r20 | r60 | HiDist | VolR | Flag | Watch | Bars src | Veto |",
     )
     lines.append(
-        "|------|------|-----|-----|-----|-----|-----|--------|------|------|-------|----------|",
+        "|------|------|-----|-----|-----|-----|-----|--------|------|------|-------|----------|------|",
     )
     for i, m in enumerate(ranked, start=1):
         key = _abbrev_labels(m)
@@ -309,7 +316,7 @@ def _append_ranking_table(
         watch = note_by[m.code]
         lines.append(
             f"| {i} | {m.code} | {m.score_v2} | {key} | {r5} | {r20} | {r60} | "
-            f"{_hi_dist_cell(m)} | {_vol_r_cell(m)} | {_flag_cell(m)} | {watch} | {bsrc} |",
+            f"{_hi_dist_cell(m)} | {_vol_r_cell(m)} | {_flag_cell(m)} | {watch} | {bsrc} | {_veto_cell(m)} |",
         )
     lines.append("")
     return note_by
