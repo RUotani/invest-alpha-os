@@ -1,6 +1,6 @@
 # R6.11-G — Universe-aware US cache signals preview
 
-**ステータス**: 作業ブランチ `work/r6-11-g-universe-aware-us-signals-preview` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`d6221ca` rebase 後 · original `e04cbc7`）。branch CI `25921702389` · main CI `25921938640` — success。
 
 ---
 
@@ -54,5 +54,5 @@ universe ファイル自体が invalid の場合: preview 全体を `status: inv
 
 ## 7. 次候補
 
-- **R6.11-H**: ETF 向け追加 fixture / golden
+- **R6.11-H**: universe edge-case golden hardening（disabled / skipped + universe）
 - **R6.12-A**: report section dry-run（設計 docs 先行）

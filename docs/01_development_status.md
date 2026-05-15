@@ -512,14 +512,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-G**: universe-aware US signals preview（`debug us-cache-signals-preview` へ optional `--universe-path`）。
+- **R6.11-H**: universe edge-case golden hardening（disabled / skipped + universe 表示）。
 
 ---
 
-## R6.11-G — Universe-aware US signals preview（作業ブランチ・`main` 未反映）
+## R6.11-G — Universe-aware US signals preview（完了・main反映済み）
 
-**ブランチ**: `work/r6-11-g-universe-aware-us-signals-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-g`）
-**内容**: optional `--universe-path` · `attach_us_asset_universe_metadata_to_signals_preview`。詳細は **[docs/33_r6_11_g_universe_aware_us_signals_preview.md](./33_r6_11_g_universe_aware_us_signals_preview.md)**。
+**コミット**: `d6221ca`（rebase 後 · original `e04cbc7`）Main R6.11-G draft: Add universe-aware US signals preview（branch CI `25921702389` · main CI `25921938640`）
+**内容**: `--universe-path` · `attach_us_asset_universe_metadata_to_signals_preview` · `US_CACHE_SIGNALS_UNIVERSE_EXTRA_KEYS` · default 非破壊 · `universe_status` matched/disabled/not_found · invalid universe → `universe_invalid`。live HTTP なし · production cache write なし · report / Veto / portfolio / macro 未接続。詳細は **[docs/33_r6_11_g_universe_aware_us_signals_preview.md](./33_r6_11_g_universe_aware_us_signals_preview.md)**。
+**検証**: focused 29 passed · full pytest 662 passed · agent-final-check success。
+
+### 次タスク（候補）
+
+- **R6.11-H**: universe edge-case golden hardening。
 
 ---
 
