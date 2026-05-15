@@ -1,6 +1,6 @@
 # R6.11-F — US asset universe fixture / metadata
 
-**ステータス**: 作業ブランチ `work/r6-11-f-us-asset-universe-fixture` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`adb1879`）。branch CI `25921366337` · main CI `25921579826` — success。
 
 ---
 
@@ -48,7 +48,14 @@
 | TLT / TMF | us_etf | rates_proxy |
 | MSTR / COIN / MARA | crypto_proxy | crypto_proxy |
 
-## 7. 次候補
+## 7. main 反映メモ
 
-- **R6.11-G**: report section dry-run 設計
+- **ブランチ**: `work/r6-11-f-us-asset-universe-fixture`
+- **worktree**: `/Users/uotani/Projects/invest-alpha-os-r6-11-f`
+- **16 entries**: `us_equity` / `us_etf` / `crypto_proxy` · loader / validator / index / `enabled_us_asset_symbols`
+- **非接続**: report / Veto / portfolio / macro · live HTTP · production cache write
+
+## 8. 次候補
+
+- **R6.11-G**: universe-aware US signals preview（optional `--universe-path`）
 - **R6.11-H**: ETF 向け追加 fixture / golden
