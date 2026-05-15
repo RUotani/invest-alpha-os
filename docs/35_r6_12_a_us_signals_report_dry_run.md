@@ -1,6 +1,6 @@
 # R6.12-A — US signals report dry-run MVP
 
-**ステータス**: 作業ブランチ `work/r6-12-a-us-signals-report-dry-run` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`6545bbf`）。branch CI `25922379413` · main CI `25922649486` — success。
 
 ---
 
@@ -38,4 +38,4 @@
 
 ## 6. 次候補
 
-- **R6.12-B**: 複数 symbol dry-run / daily report 接続設計
+- **R6.12-B**: multi-symbol dry-run renderer

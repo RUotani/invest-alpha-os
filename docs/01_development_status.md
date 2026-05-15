@@ -512,7 +512,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-A**: US signals report dry-run MVP（作業ブランチ候補）。
+- **R6.12-B**: multi-symbol US signals report dry-run（作業ブランチ候補）。
 
 ---
 
@@ -536,14 +536,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-A**: US signals report dry-run MVP。
+- **R6.12-B**: multi-symbol US signals report dry-run。
 
 ---
 
-## R6.12-A — US signals report dry-run MVP（作業ブランチ・`main` 未反映）
+## R6.12-A — US signals report dry-run MVP（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-a-us-signals-report-dry-run`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-a`）
-**内容**: `render_us_cache_signals_dry_run_section` · 単一 symbol 表形式 dry-run。詳細は **[docs/35_r6_12_a_us_signals_report_dry_run.md](./35_r6_12_a_us_signals_report_dry_run.md)**。
+**コミット**: `6545bbf` Main R6.12-A draft: Add US signals report dry-run renderer（branch CI `25922379413` · main CI `25922649486`）
+**内容**: `render_us_cache_signals_dry_run_section` · 単一 symbol 表形式 · daily report 未接続。詳細は **[docs/35_r6_12_a_us_signals_report_dry_run.md](./35_r6_12_a_us_signals_report_dry_run.md)**。
+**検証**: focused 34 passed · full pytest 673 passed · agent-final-check success。
+
+### 次タスク（候補）
+
+- **R6.12-B**: multi-symbol US signals report dry-run。
 
 ---
 
