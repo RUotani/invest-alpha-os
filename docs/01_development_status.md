@@ -406,10 +406,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-E — US cache-only basic metrics MVP（作業ブランチ・`main` 未反映）
+## R6.10-E — US cache-only basic metrics MVP（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-e-us-cache-basic-metrics`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-e`）
-**方針**: パターンA — **`compute_us_daily_bars_basic_metrics`**。詳細は **[docs/23_r6_10_e_us_cache_basic_metrics.md](./23_r6_10_e_us_cache_basic_metrics.md)**。**`main` 未反映**。
+**コミット**: `a7fd315` Main R6.10-E draft: Add US cache-only basic metrics
+**ブランチ**: `work/r6-10-e-us-cache-basic-metrics` → main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25918535243) — success
+**focused test**: US cache + preview + metrics — **40 passed** · full pytest **614 passed**
+**内容**: **`compute_us_daily_bars_basic_metrics`**（`us_daily_bars_metrics.py`）。`total_return` / `return_5d` / `return_20d` / `has_5d` / `has_20d`。詳細は **[docs/23_r6_10_e_us_cache_basic_metrics.md](./23_r6_10_e_us_cache_basic_metrics.md)**。**live HTTP・production cache write・JP momentum / Veto 変更なし**。
+
+### 次タスク（候補）
+
+- **R6.10-F**: basic metrics を preview / diagnostics へ安全接続（既存 preview デフォルト出力は非破壊）。
 
 ---
 

@@ -1,6 +1,6 @@
 # R6.10-E — US cache-only basic metrics MVP
 
-**ステータス**: 作業ブランチ `work/r6-10-e-us-cache-basic-metrics` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`a7fd315`）。branch CI `25918535243` — success。
 
 ---
 
