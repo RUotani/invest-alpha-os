@@ -420,6 +420,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+<<<<<<< HEAD
 ## R6.10-F — US cache metrics preview integration（完了・main反映済み）
 
 **コミット**: `13e1b6b` Main R6.10-F draft: Add US cache metrics debug command（rebase 後・元 branch CI `8db961a` / run `25918932189`）
@@ -429,6 +430,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 ### 次タスク（候補）
 
 - **R6.10-G**: metrics command の出力契約・異常系・回帰テスト強化。
+=======
+## R6.10-F — US cache metrics preview integration（main 反映済み・`13e1b6b`）
+
+詳細は **[docs/24_r6_10_f_us_cache_metrics_preview.md](./24_r6_10_f_us_cache_metrics_preview.md)**。
+
+---
+
+## R6.10-G — US cache metrics command hardening（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-g-us-cache-metrics-command-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-g`）
+**方針**: パターンA。詳細は **[docs/25_r6_10_g_us_cache_metrics_command_hardening.md](./25_r6_10_g_us_cache_metrics_command_hardening.md)**。
+>>>>>>> 8c9cc99 (Main R6.10-G draft: Harden US cache metrics command)
 
 ---
 

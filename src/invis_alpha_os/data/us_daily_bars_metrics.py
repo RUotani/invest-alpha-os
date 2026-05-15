@@ -9,6 +9,10 @@ from typing import Any, Final
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
 from invis_alpha_os.signals.momentum import DailyBar, calculate_returns
 
+METRICS_PREVIEW_INVALID_BASE_KEYS: Final[frozenset[str]] = frozenset(
+    {"status", "reason", "path", "live_http"}
+)
+
 METRICS_PREVIEW_OK_KEYS: Final[frozenset[str]] = frozenset(
     {
         "status",
