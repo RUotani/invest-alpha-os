@@ -597,10 +597,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.12-E — US daily report opt-in CLI（作業ブランチ・`main` 未反映）
+## R6.12-E — US daily report opt-in CLI（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-e-us-report-opt-in-cli`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-e`）
-**内容**: `--us-signals-dry-run-manifest` · `append_us_signals_dry_run_section` · default 非変更。詳細は **[docs/39_r6_12_e_us_report_opt_in_cli.md](./39_r6_12_e_us_report_opt_in_cli.md)**。
+**コミット**: `4b0aee8` Main R6.12-E draft: Add US signals dry-run report opt-in helper（branch CI `25924983580` · main CI 反映後 docs 追記）
+**ブランチ**: `work/r6-12-e-us-report-opt-in-cli`
+**内容**: `daily --us-signals-dry-run-manifest` · `append_us_signals_dry_run_section` · flag なし default **byte 同一**（二重 invoke テスト）· invalid manifest は skip · **exit 0**。live HTTP なし · production cache write なし · Veto / portfolio / macro 未接続。詳細は **[docs/39_r6_12_e_us_report_opt_in_cli.md](./39_r6_12_e_us_report_opt_in_cli.md)**。
+**検証**: focused 33 passed · full pytest **690** passed · agent-final-check success。
+
+### 次タスク（候補）
+
+- **R6.12-G**: opt-in golden / invalid UX hardening（作業ブランチ候補）。
+- **R6.13-A**: real daily 検証 / config 統合（任意）。
 
 ---
 

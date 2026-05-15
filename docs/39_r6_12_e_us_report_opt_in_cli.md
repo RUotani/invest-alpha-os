@@ -1,6 +1,6 @@
 # R6.12-E — US signals daily report opt-in CLI
 
-**ステータス**: 作業ブランチ `work/r6-12-e-us-report-opt-in-cli` のみ（**`main` 未反映**）。
+**ステータス**: **完了・main反映済み**（`4b0aee8` · branch CI `25924983580`）。次は **R6.12-G** hardening。
 
 ---
 
