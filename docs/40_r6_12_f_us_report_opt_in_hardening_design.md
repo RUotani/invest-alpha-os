@@ -1,6 +1,6 @@
 # R6.12-F — US report opt-in hardening design
 
-**ステータス**: 作業ブランチ `work/r6-12-f-us-report-opt-in-hardening-design` のみ（**docs-only** · **`main` 未反映**）。
+**ステータス**: **完了・main反映済み**（`2b2c1f7` · branch CI `25925044617`）。実装強化は **R6.12-G**。
 
 ---
 
