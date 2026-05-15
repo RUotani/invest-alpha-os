@@ -672,7 +672,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **本作業ブランチ**）。
+
+---
+
+## R6.14-A — Cleanup preflight inventory（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-a-cleanup-preflight-inventory`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-a`）
+**内容**: worktree／branch／`review_integrated_*.md` の **棚卸し表と分類案**。**削除操作なし**。詳細は **[docs/45_r6_14_a_cleanup_preflight_inventory.md](./45_r6_14_a_cleanup_preflight_inventory.md)**。
+
+### 次タスク（候補）
+
+- **R6.14-B**: cleanup execution proposal（**ユーザー明示承認なしに削除しない**）。
 
 ---
 
