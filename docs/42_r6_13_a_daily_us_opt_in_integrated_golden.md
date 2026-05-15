@@ -1,6 +1,6 @@
 # R6.13-A — daily integrated US opt-in golden
 
-**ステータス**: 作業ブランチ `work/r6-13-a-daily-us-opt-in-integrated-golden` のみ（**`main` 未反映**）。
+**ステータス**: **完了・`main` 反映済み**（merge commit `6ab8db1` · branch CI `25944357356` success · **`main` push CI `25944670951` success**）
 
 ---
 
@@ -26,6 +26,12 @@
 
 - PDF/Gmail 幅 · 実行時 watchlist と同一の字数 golden（本項は順序ロックのみ）
 
-## 5. 次候補
+## 5. 完了検証サマリ
 
-- **R6.13-B**: helper 抽出（任意）・momentum と **US section** を跨ぐ本文スナップショット縮約
+- **ブランチ**: `work/r6-13-a-daily-us-opt-in-integrated-golden`
+- **`main` に fast-forward で反映**したコミット: `6ab8db1146a6a82d53dd28ca699c1cf0087837e3`
+- **テスト**: focused（US opt-in／momentum／manifest／integrated golden 系）**37 passed** · full pytest **694 passed** · `make agent-final-check` success · live HTTP／production cache write／Veto・portfolio・macro なし
+
+## 6. 次候補
+
+- **R6.13-B**: US report opt-in **operational readiness**（runbook・invalid manifest 期待挙動・smoke。作業ブランチ `work/r6-13-b-us-report-opt-in-operational-readiness`）
