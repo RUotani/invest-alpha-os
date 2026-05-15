@@ -392,10 +392,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-D — US cache preview hardening（作業ブランチ・`main` 未反映）
+## R6.10-D — US cache preview hardening（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-d-us-cache-preview-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-d`）
-**方針**: パターンA — 出力契約定数 + CLI 異常系テスト拡充。詳細は **[docs/22_r6_10_d_us_cache_preview_hardening.md](./22_r6_10_d_us_cache_preview_hardening.md)**。**`main` 未反映**。
+**コミット**: `c2f2a8b` Main R6.10-D draft: Harden US cache preview CLI tests
+**ブランチ**: `work/r6-10-d-us-cache-preview-hardening` → main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25918269794) — success
+**focused test**: preview + US cache tests — **35 passed** · full pytest **609 passed**
+**内容**: **`PREVIEW_OK_KEYS`** / **`PREVIEW_INVALID_BASE_KEYS`** · CLI 異常系・JSON/Markdown 契約テスト。詳細は **[docs/22_r6_10_d_us_cache_preview_hardening.md](./22_r6_10_d_us_cache_preview_hardening.md)**。**live HTTP・production cache write・JP momentum / Veto 変更なし**。
+
+### 次タスク（候補）
+
+- **R6.10-E**: US daily bars **cache-only basic metrics** MVP（pure function + fixture test）。
 
 ---
 

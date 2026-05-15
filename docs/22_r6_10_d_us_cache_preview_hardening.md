@@ -1,6 +1,6 @@
 # R6.10-D — US cache preview / diagnostics hardening
 
-**ステータス**: 作業ブランチ `work/r6-10-d-us-cache-preview-hardening` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`c2f2a8b`）。branch CI `25918269794` — success（main CI run ID は完了 docs コミット後に追記）。
 
 ---
 
