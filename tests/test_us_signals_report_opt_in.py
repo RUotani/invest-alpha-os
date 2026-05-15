@@ -11,11 +11,28 @@ from invis_alpha_os.cli import main as cli_main
 from invis_alpha_os.cli.main import app
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.reports.us_signals_opt_in import append_us_signals_dry_run_section
-from invis_alpha_os.utils.date_utils import today_jst_iso
 
 runner = CliRunner()
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _VALID_MANIFEST = REPO_ROOT / "tests/fixtures/us_equities/us_cache_signals_batch_minimal.json"
+
+_GOLDEN_DAILY_BODY_NO_OPTS = """# Daily Report (2031-07-15)
+
+Phase 0 dummy report.
+- Observation only
+- No auto trading
+
+## Japan Signals
+- Phase 1a stub
+- J-Quants disabled / not configured
+- Watchlist count: 0"""
+
+_INVALID_APPENDIX_SNAPSHOT = """### US Signals Dry Run (opt-in)
+
+*(dry-run skipped: manifest_invalid)*
+
+- **live_http**: false
+"""
 
 
 def _daily_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> str:
@@ -27,7 +44,7 @@ def _daily_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: st
     monkeypatch.setattr("invis_alpha_os.reports.jquants_watchlist_daily.ROOT_DIR", tmp_path)
     r = runner.invoke(app, ["daily", *extra_args])
     assert r.exit_code == 0, r.stdout + r.stderr
-    return (OUTPUTS_DIR / "reports" / "daily" / f"{today_jst_iso()}.md").read_text(encoding="utf-8")
+    return (OUTPUTS_DIR / "reports" / "daily" / f"{cli_main.today_jst_iso()}.md").read_text(encoding="utf-8")
 
 
 def test_daily_without_manifest_has_no_us_signals_dry_run_section(
@@ -46,6 +63,21 @@ def test_daily_default_output_unchanged_when_flag_omitted(
     assert "### US Signals Dry Run (opt-in)" not in first
 
 
+def test_daily_flagless_matches_golden_fixed_date_and_watchlist_stub(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Deterministic JP header / watchlist counts / J‑Quants line (stub disabled env)."""
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.today_jst_iso", lambda: "2031-07-15")
+
+    def _tiny_watchlist_yaml(_path: object) -> dict:
+        return {"jp_watchlist": []}
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.load_yaml", _tiny_watchlist_yaml)
+    body = _daily_body(monkeypatch, tmp_path)
+    assert body == _GOLDEN_DAILY_BODY_NO_OPTS
+
+
 def test_daily_with_valid_manifest_appends_opt_in_section(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -54,6 +86,29 @@ def test_daily_with_valid_manifest_appends_opt_in_section(
     assert "### US Signals Dry Run (opt-in)" in body
     assert "| MSFT |" in body
     assert "**live_http**: false" in body
+
+
+def test_daily_valid_manifest_intro_and_table_anchor_order(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Stable dry-run disclaimers precede Markdown table."""
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.today_jst_iso", lambda: "2031-07-15")
+
+    def _tiny_watchlist_yaml(_path: object) -> dict:
+        return {"jp_watchlist": []}
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.load_yaml", _tiny_watchlist_yaml)
+
+    rel = _VALID_MANIFEST.relative_to(REPO_ROOT)
+    body = _daily_body(monkeypatch, tmp_path, "--us-signals-dry-run-manifest", str(rel))
+
+    ix_head = body.index("### US Signals Dry Run (opt-in)")
+    ix_intro = body.index("Appended via `--us-signals-dry-run-manifest`")
+    ix_table = body.index("| Symbol | Asset | Role | Signal |")
+    ix_row = body.index("| MSFT |")
+    assert ix_head < ix_intro < ix_table < ix_row
+    assert "not buy/sell advice" in body
 
 
 def test_daily_with_invalid_manifest_does_not_fail(
@@ -75,6 +130,8 @@ def test_append_helper_invalid_manifest_short_notice() -> None:
     )
     assert "manifest_invalid" in out
     assert "**live_http**: false" in out
+    appendix = out.split("\n\n", 1)[1]
+    assert appendix == _INVALID_APPENDIX_SNAPSHOT
 
 
 def test_append_helper_valid_manifest_multi_symbol_rows() -> None:

@@ -606,22 +606,27 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-G**: opt-in golden / invalid UX hardening（作業ブランチ候補）。
-- **R6.13-A**: real daily 検証 / config 統合（任意）。
+- **R6.13-A**: golden 拡張 / real daily / config opt-in（任意）。
 
 ---
 
 ## R6.12-F — US report opt-in hardening design（完了・main反映済み）
 
-**コミット**: `2b2c1f7` docs: R6.12-F US report opt-in hardening design（branch CI `25925044617` · main merge CI `25943934851`）
+**コミット**: `2b2c1f7` docs: R6.12-F US report opt-in hardening design（branch CI `25925044617` · main merge CI `25943934851` · 完了 docs `32c320f`）
 **ブランチ**: `work/r6-12-f-us-report-opt-in-hardening-design`
 **内容**: R6.12-E 後の hardening 計画（docs-only）。詳細は **[docs/40_r6_12_f_us_report_opt_in_hardening_design.md](./40_r6_12_f_us_report_opt_in_hardening_design.md)**。
 **検証**: full pytest **690** passed · docs-only · live HTTP なし · production cache write なし。
 
 ### 次タスク（候補）
 
-- **R6.12-G**: opt-in golden テスト / invalid UX の実装強化（作業ブランチ候補）。
-- **R6.13-A**: real daily 検証 / config 統合（任意）。
+- **R6.13-A**: golden 拡張 / real daily / config opt-in（任意）。
+
+---
+
+## R6.12-G — US report opt-in golden coverage（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-12-g-us-report-opt-in-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-g`）
+**内容**: opt-in / non-opt-in 回帰テスト強化。詳細は **[docs/41_r6_12_g_us_report_opt_in_hardening.md](./41_r6_12_g_us_report_opt_in_hardening.md)**。
 
 ---
 
