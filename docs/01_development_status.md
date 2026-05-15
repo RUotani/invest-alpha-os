@@ -478,14 +478,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-D**: golden regression + `debug us-cache-signals-preview`（作業ブランチ）。
+- **R6.11-E**: US equity / ETF policy and report staging（docs-only）。
 
 ---
 
-## R6.11-D — US cache signals debug CLI（作業ブランチ・`main` 未反映）
+## R6.11-D — US cache signals debug CLI（完了・main反映済み）
 
-**ブランチ**: `work/r6-11-d-us-signals-debug-cli`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-d`）
-**内容**: `debug us-cache-signals-preview` · preview formatters · golden 回帰。詳細は **[docs/30_r6_11_d_us_signals_debug_cli.md](./30_r6_11_d_us_signals_debug_cli.md)**。
+**コミット**: `1c9ce04` Main R6.11-D draft: Add US cache signals debug CLI（branch CI `25920687460`）
+**内容**: `debug us-cache-signals-preview` · golden 回帰 · 詳細は **[docs/30_r6_11_d_us_signals_debug_cli.md](./30_r6_11_d_us_signals_debug_cli.md)**。
+
+### 次タスク（候補）
+
+- **R6.11-E**: US equity / ETF policy and report staging。
 
 ---
 

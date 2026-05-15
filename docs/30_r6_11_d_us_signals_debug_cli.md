@@ -1,6 +1,6 @@
 # R6.11-D — US cache signals debug CLI / golden regression
 
-**ステータス**: 作業ブランチ `work/r6-11-d-us-signals-debug-cli` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`1c9ce04`）。branch CI `25920687460` — success。
 
 ---
 
