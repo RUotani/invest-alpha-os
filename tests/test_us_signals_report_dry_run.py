@@ -10,7 +10,10 @@ from invis_alpha_os.data.us_cache_signals import (
     attach_us_asset_universe_metadata_to_signals_preview,
     build_us_cache_signals_preview,
 )
-from invis_alpha_os.reports.us_signals_dry_run import render_us_cache_signals_dry_run_section
+from invis_alpha_os.reports.us_signals_dry_run import (
+    render_us_cache_signals_dry_run_section,
+    render_us_cache_signals_multi_symbol_dry_run_section,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
@@ -66,3 +69,24 @@ def test_dry_run_section_without_universe_defaults() -> None:
     md = render_us_cache_signals_dry_run_section(preview)
     assert "| MSFT | — | — | uptrend_aligned |" in md
     assert "| — |" in md
+
+
+def test_multi_symbol_dry_run_two_rows() -> None:
+    ok = attach_us_asset_universe_metadata_to_signals_preview(
+        build_us_cache_signals_preview(FIX_25), FIX_UNIVERSE
+    )
+    skipped = attach_us_asset_universe_metadata_to_signals_preview(
+        build_us_cache_signals_preview(FIX_MINIMAL), FIX_UNIVERSE
+    )
+    md = render_us_cache_signals_multi_symbol_dry_run_section([ok, skipped])
+    assert md.count("| MSFT |") == 2
+    assert "| uptrend_aligned |" in md
+    assert "| skipped |" in md
+    assert "**MSFT** · **status**: skipped_insufficient_bars" in md
+    assert md.count("- **live_http**: false") == 1
+
+
+def test_multi_symbol_dry_run_empty() -> None:
+    md = render_us_cache_signals_multi_symbol_dry_run_section([])
+    assert "no preview rows" in md
+    assert "| Symbol |" not in md
