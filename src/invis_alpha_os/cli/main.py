@@ -26,6 +26,11 @@ from invis_alpha_os.data.us_daily_bars_cache import (
     format_us_daily_bars_cache_preview_markdown,
     save_us_daily_bars_cache,
 )
+from invis_alpha_os.data.us_daily_bars_metrics import (
+    build_us_daily_bars_cache_metrics_preview,
+    format_us_daily_bars_cache_metrics_json,
+    format_us_daily_bars_cache_metrics_markdown,
+)
 from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
 from invis_alpha_os.data.us_provider_live_preview import (
     stooq_live_preview_sanitized_bars,
@@ -1379,6 +1384,35 @@ def debug_us_daily_bars_cache_preview(
         typer.echo("us-daily-bars-cache-preview: --format must be markdown or json", err=True)
         raise typer.Exit(2)
     raise typer.Exit(0 if preview.get("validation_status") == "ok" else 1)
+
+
+@debug_app.command("us-daily-bars-cache-metrics")
+def debug_us_daily_bars_cache_metrics(
+    path: Path = typer.Option(..., "--path", help="US daily bars cache JSON (envelope or fixture)."),
+    symbol: Optional[str] = typer.Option(
+        None,
+        "--symbol",
+        help="Optional symbol filter (normalized); mismatch yields invalid metrics.",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="markdown | json",
+    ),
+) -> None:
+    """Basic metrics diagnostics for a local US daily bars cache JSON (no HTTP, no cache write)."""
+
+    expect = symbol.strip() if isinstance(symbol, str) and symbol.strip() else None
+    metrics = build_us_daily_bars_cache_metrics_preview(Path(path), expect_symbol=expect)
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm == "json":
+        typer.echo(format_us_daily_bars_cache_metrics_json(metrics))
+    elif fmt_norm == "markdown":
+        typer.echo(format_us_daily_bars_cache_metrics_markdown(metrics))
+    else:
+        typer.echo("us-daily-bars-cache-metrics: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    raise typer.Exit(0 if metrics.get("status") == "ok" else 1)
 
 
 @debug_app.command("us-provider-preview")
