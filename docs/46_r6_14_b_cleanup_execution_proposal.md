@@ -1,8 +1,8 @@
 # R6.14-B — Cleanup execution proposal
 
-**ステータス**: 作業ブランチ `work/r6-14-b-cleanup-execution-proposal` のみ（**`main` 未反映**）。**本ドキュメントは「削除コマンド案」と承認ゲートの明文化のみ** — **ここに書かれたコマンドを自動実行しない** · **`git worktree remove` / `rm` / `git branch -d` / `git push --delete` は行わない**。
+**ステータス**: **完了・`main` 反映済み**（`55d1a75` · branch CI **`25945653660`** · main merge push CI **`25945800846`**）。**本ドキュメントは「削除コマンド案」と承認ゲートの明文化** — **R6.14-B コミット時点ではコマンドを実行しない** · **実 `git worktree remove` は R6.14-C（承認済み 1 本）で実施**。
 
-**`main` 基準 HEAD（本 proposal 作成時点）**: **`94b20bb`** — `docs: Record R6.14-A main completion`
+**`main` 基準 HEAD（本 proposal 文書の起点）**: **`55d1a75`** — `docs: R6.14-B cleanup execution proposal`
 
 ---
 
@@ -81,4 +81,12 @@ git -C /Users/uotani/Projects/invest-alpha-os branch --show-current
 
 ## 10.6 次候補
 
-- **R6.14-C**: **approved cleanup execution**（上記ゲートを満たした場合のみ · **承認なし実行禁止**）。
+- **R6.14-C**: **approved single worktree cleanup**（承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ** · **`git worktree remove` 1 回**）。
+
+## 10.7 完了検証サマリ（`main` 反映後）
+
+- **ブランチ**: `work/r6-14-b-cleanup-execution-proposal`
+- **実装コミット**: `55d1a75`（docs-only）
+- **CI**: branch tests **`25945653660`** · **main** merge 直後 tests **`25945800846`**
+- **テスト**: full pytest **697 passed** · `make agent-final-check` success
+- **次**: R6.14-C で **上記 1 path のみ** worktree 解除（**branch / remote 削除なし**）

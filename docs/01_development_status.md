@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映**）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映**）。
 
 ---
 
@@ -659,7 +659,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映**）。
 
 ---
 
@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **本作業ブランチ**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映** · 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ**）。
 
 ---
 
@@ -685,18 +685,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **本作業ブランチ**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映** · 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ**）。
 
 ---
 
-## R6.14-B — Cleanup execution proposal（作業ブランチ・`main` 未反映）
+## R6.14-B — Cleanup execution proposal（完了・main反映済み）
 
+**コミット**: `55d1a75` docs: R6.14-B cleanup execution proposal（branch CI **`25945653660`** · main merge push CI **`25945800846`**）
 **ブランチ**: `work/r6-14-b-cleanup-execution-proposal`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-b`）
-**内容**: R6.14-A inventory を踏まえた **削除実行前のコマンド案・承認ゲート**（**実行しない**）。詳細は **[docs/46_r6_14_b_cleanup_execution_proposal.md](./46_r6_14_b_cleanup_execution_proposal.md)**。
+**内容**: R6.14-A inventory を踏まえた **削除実行前のコマンド案・承認ゲート**（**本タスクではコマンド実行なし**）。詳細は **[docs/46_r6_14_b_cleanup_execution_proposal.md](./46_r6_14_b_cleanup_execution_proposal.md)**。
+**検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-C**: approved cleanup execution（**ユーザー明示承認なしに削除しない**）。
+- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **main 未反映** · 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ**）。
 
 ---
 
