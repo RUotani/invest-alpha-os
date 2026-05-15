@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "symbol": "MSFT",
+  "source": "fixture_test",
+  "fetched_at": null,
+  "generated_at": null,
+  "bar_count": 2,
+  "bars": [
+    {"date": "2024-01-02", "open": 380.0, "high": 381.0, "low": 378.0, "close": 380.5, "volume": 1000.0},
+    {"date": "2024-01-03", "open": 380.5, "high": 382.0, "low": 379.0, "close": 381.0, "volume": 1100.0}
+  ]
+}

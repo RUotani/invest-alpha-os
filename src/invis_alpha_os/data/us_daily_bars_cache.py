@@ -91,6 +91,26 @@ def save_us_daily_bars_cache(
     return path
 
 
+def _us_daily_bar_rows_valid(raw_bars: list[Any]) -> bool:
+    """Bar list must be non-empty dict rows with unique dates in ascending order."""
+
+    if not raw_bars:
+        return False
+    seen_dates: set[str] = set()
+    prior = ""
+    for row in raw_bars:
+        if not isinstance(row, dict):
+            return False
+        d = str(row.get("date", "")).strip()
+        if not d or d in seen_dates:
+            return False
+        if prior and d < prior:
+            return False
+        prior = d
+        seen_dates.add(d)
+    return True
+
+
 def parse_us_daily_bars_payload(
     data: dict[str, Any], *, expect_symbol: str | None
 ) -> tuple[list[DailyBar], dict[str, Any]] | None:
@@ -128,8 +148,15 @@ def parse_us_daily_bars_payload(
             return None
 
     raw_bars = data.get("bars")
-    if not isinstance(raw_bars, list) or not raw_bars:
+    if not isinstance(raw_bars, list) or not _us_daily_bar_rows_valid(raw_bars):
         return None
+    bar_count = data.get("bar_count")
+    if bar_count is not None:
+        try:
+            if int(bar_count) != len(raw_bars):
+                return None
+        except (TypeError, ValueError):
+            return None
     try:
         bars = bars_from_rows(raw_bars)
     except (TypeError, ValueError):

@@ -363,6 +363,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.10-B — US equities cache-only validation hardening（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-b-us-equities-cache-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-b`）
+**内容**: R6.10-A reader の **日付重複・昇順・`bar_count` 整合**を強化。fixture **`tests/fixtures/us_equities/minimal_msft_envelope.json`** と regression テスト追加。詳細は **[docs/20_r6_10_b_us_equities_cache_hardening.md](./20_r6_10_b_us_equities_cache_hardening.md)**。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
