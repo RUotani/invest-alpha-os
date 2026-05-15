@@ -9,7 +9,10 @@ import pytest
 
 from invis_alpha_os.data.us_cache_signals import (
     US_CACHE_SIGNAL_ROW_OK_KEYS,
+    US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS,
+    build_us_cache_signals_preview,
     compute_us_cache_signal_row,
+    format_us_cache_signals_preview_markdown,
     load_us_cache_signal_row_from_json_file,
 )
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
@@ -92,3 +95,25 @@ def test_pullback_short_label() -> None:
 
 def test_load_from_file_symbol_mismatch_returns_none() -> None:
     assert load_us_cache_signal_row_from_json_file(FIX_25, expect_symbol="AAPL") is None
+
+
+def test_preview_25bar_golden_json() -> None:
+    p = build_us_cache_signals_preview(FIX_25)
+    assert set(p.keys()) == US_CACHE_SIGNAL_ROW_OK_KEYS | {"path"}
+    assert p["status"] == "ok"
+    assert p["momentum_label"] == "uptrend_aligned"
+    assert p["return_5d"] == pytest.approx(124.0 / 119.0 - 1.0)
+
+
+def test_preview_minimal_skipped_golden_markdown() -> None:
+    p = build_us_cache_signals_preview(FIX_MINIMAL)
+    assert p["status"] == "skipped_insufficient_bars"
+    md = format_us_cache_signals_preview_markdown(p)
+    assert "**symbol**: MSFT" in md
+    assert "**momentum_label**: (insufficient bars)" in md
+
+
+def test_preview_invalid_path_contract() -> None:
+    p = build_us_cache_signals_preview(Path("/missing/signals.json"))
+    assert set(p.keys()) <= US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS
+    assert p["reason"] == "path_not_found"

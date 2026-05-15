@@ -31,6 +31,11 @@ from invis_alpha_os.data.us_daily_bars_metrics import (
     format_us_daily_bars_cache_metrics_json,
     format_us_daily_bars_cache_metrics_markdown,
 )
+from invis_alpha_os.data.us_cache_signals import (
+    build_us_cache_signals_preview,
+    format_us_cache_signals_preview_json,
+    format_us_cache_signals_preview_markdown,
+)
 from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
 from invis_alpha_os.data.us_provider_live_preview import (
     stooq_live_preview_sanitized_bars,
@@ -1413,6 +1418,35 @@ def debug_us_daily_bars_cache_metrics(
         typer.echo("us-daily-bars-cache-metrics: --format must be markdown or json", err=True)
         raise typer.Exit(2)
     raise typer.Exit(0 if metrics.get("status") == "ok" else 1)
+
+
+@debug_app.command("us-cache-signals-preview")
+def debug_us_cache_signals_preview(
+    path: Path = typer.Option(..., "--path", help="US daily bars cache JSON (envelope or fixture)."),
+    symbol: Optional[str] = typer.Option(
+        None,
+        "--symbol",
+        help="Optional symbol filter (normalized); mismatch yields invalid preview.",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="markdown | json",
+    ),
+) -> None:
+    """US cache-only signals diagnostics for a local envelope JSON (no HTTP, no cache write)."""
+
+    expect = symbol.strip() if isinstance(symbol, str) and symbol.strip() else None
+    preview = build_us_cache_signals_preview(Path(path), expect_symbol=expect)
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm == "json":
+        typer.echo(format_us_cache_signals_preview_json(preview))
+    elif fmt_norm == "markdown":
+        typer.echo(format_us_cache_signals_preview_markdown(preview))
+    else:
+        typer.echo("us-cache-signals-preview: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    raise typer.Exit(0 if preview.get("status") == "ok" else 1)
 
 
 @debug_app.command("us-provider-preview")

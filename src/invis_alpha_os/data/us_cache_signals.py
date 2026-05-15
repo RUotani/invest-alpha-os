@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Final
 
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
 from invis_alpha_os.data.us_daily_bars_metrics import compute_us_daily_bars_basic_metrics
 from invis_alpha_os.signals.momentum import DailyBar
+
+US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS: Final[frozenset[str]] = frozenset(
+    {"status", "reason", "path", "live_http", "expect_symbol"}
+)
 
 US_CACHE_SIGNAL_ROW_OK_KEYS: Final[frozenset[str]] = frozenset(
     {
@@ -128,3 +133,89 @@ def load_us_cache_signal_row_from_json_file(
     bars, meta = loaded
     sym = str(meta.get("symbol", ""))
     return compute_us_cache_signal_row(bars, symbol=sym, asset_class=asset_class)
+
+
+def build_us_cache_signals_preview(
+    path: Path,
+    *,
+    expect_symbol: str | None = None,
+    asset_class: str | None = None,
+) -> dict[str, Any]:
+    """Load cache JSON and return US signals diagnostics (no HTTP, no disk write)."""
+
+    rel_path = str(path)
+    if not path.is_file():
+        return {
+            "status": "invalid",
+            "reason": "path_not_found",
+            "path": rel_path,
+            "live_http": False,
+        }
+
+    row = load_us_cache_signal_row_from_json_file(
+        path, expect_symbol=expect_symbol, asset_class=asset_class
+    )
+    if row is None:
+        return {
+            "status": "invalid",
+            "reason": "parse_failed",
+            "path": rel_path,
+            "expect_symbol": expect_symbol,
+            "live_http": False,
+        }
+
+    out = dict(row)
+    out["path"] = rel_path
+    return out
+
+
+def format_us_cache_signals_preview_markdown(preview: dict[str, Any]) -> str:
+    lines = ["## US cache signals preview", ""]
+    status = preview.get("status", "unknown")
+    lines.append(f"- **status**: {status}")
+    if status not in ("ok", "skipped_insufficient_bars"):
+        reason = preview.get("reason", "")
+        if reason:
+            lines.append(f"- **reason**: {reason}")
+        path = preview.get("path", "")
+        if path:
+            lines.append(f"- **path**: `{path}`")
+        lines.append("- **live_http**: false")
+        return "\n".join(lines) + "\n"
+
+    sym = preview.get("symbol", "")
+    if sym:
+        lines.append(f"- **symbol**: {sym}")
+    label = preview.get("momentum_label")
+    if label:
+        lines.append(f"- **momentum_label**: {label}")
+    elif status == "skipped_insufficient_bars":
+        lines.append("- **momentum_label**: (insufficient bars)")
+    lines.extend(
+        [
+            f"- **bar_count**: {preview.get('bar_count', 0)}",
+            f"- **first_date**: {preview.get('first_date', '')}",
+            f"- **last_date**: {preview.get('last_date', '')}",
+            f"- **last_close**: {preview.get('last_close', '')}",
+        ]
+    )
+    tr = preview.get("total_return")
+    if tr is not None:
+        lines.append(f"- **total_return**: {tr}")
+    r5 = preview.get("return_5d")
+    if r5 is not None:
+        lines.append(f"- **return_5d**: {r5}")
+    elif preview.get("has_5d") is False:
+        lines.append("- **return_5d**: (insufficient bars)")
+    r20 = preview.get("return_20d")
+    if r20 is not None:
+        lines.append(f"- **return_20d**: {r20}")
+    elif preview.get("has_20d") is False:
+        lines.append("- **return_20d**: (insufficient bars)")
+    lines.append(f"- **path**: `{preview.get('path', '')}`")
+    lines.append("- **live_http**: false")
+    return "\n".join(lines) + "\n"
+
+
+def format_us_cache_signals_preview_json(preview: dict[str, Any]) -> str:
+    return json.dumps(preview, ensure_ascii=False, indent=2)
