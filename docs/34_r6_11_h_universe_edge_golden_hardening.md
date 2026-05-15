@@ -1,6 +1,6 @@
 # R6.11-H — Universe edge-case golden hardening
 
-**ステータス**: 作業ブランチ `work/r6-11-h-universe-edge-golden-hardening` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`5f546bd`）。branch CI `25922035968` · main CI `25922292372` — success。
 
 ---
 
@@ -39,4 +39,4 @@ report 接続時は本優先順位を維持し、二重ソースの暗黙マー�
 
 ## 6. 次候補
 
-- **R6.12-A**: report section dry-run design
+- **R6.12-A**: US signals report dry-run MVP
