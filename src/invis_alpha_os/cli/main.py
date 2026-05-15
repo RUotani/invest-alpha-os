@@ -20,7 +20,12 @@ from invis_alpha_os.data.jquants_daily_bars_cache import (
     try_load_cached_daily_bars,
     utc_now_iso,
 )
-from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
+from invis_alpha_os.data.us_daily_bars_cache import (
+    build_us_daily_bars_cache_preview,
+    format_us_daily_bars_cache_preview_json,
+    format_us_daily_bars_cache_preview_markdown,
+    save_us_daily_bars_cache,
+)
 from invis_alpha_os.data.us_provider_preview import build_us_provider_preview_plan
 from invis_alpha_os.data.us_provider_live_preview import (
     stooq_live_preview_sanitized_bars,
@@ -1345,6 +1350,35 @@ def debug_us_daily_bars_cache_import(
             indent=2,
         )
     )
+
+
+@debug_app.command("us-daily-bars-cache-preview")
+def debug_us_daily_bars_cache_preview(
+    path: Path = typer.Option(..., "--path", help="US daily bars cache JSON (envelope or fixture)."),
+    symbol: Optional[str] = typer.Option(
+        None,
+        "--symbol",
+        help="Optional symbol filter (normalized); mismatch yields invalid preview.",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="markdown | json",
+    ),
+) -> None:
+    """Preview/diagnose a local US daily bars cache JSON file (no HTTP, no cache write)."""
+
+    expect = symbol.strip() if isinstance(symbol, str) and symbol.strip() else None
+    preview = build_us_daily_bars_cache_preview(Path(path), expect_symbol=expect)
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm == "json":
+        typer.echo(format_us_daily_bars_cache_preview_json(preview))
+    elif fmt_norm == "markdown":
+        typer.echo(format_us_daily_bars_cache_preview_markdown(preview))
+    else:
+        typer.echo("us-daily-bars-cache-preview: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    raise typer.Exit(0 if preview.get("validation_status") == "ok" else 1)
 
 
 @debug_app.command("us-provider-preview")

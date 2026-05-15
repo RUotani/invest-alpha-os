@@ -217,3 +217,94 @@ def try_load_cached_us_daily_bars(symbol: str) -> tuple[list[DailyBar], str] | N
     if not bars:
         return None
     return bars, "cache"
+
+
+def build_us_daily_bars_cache_preview(
+    path: Path,
+    *,
+    expect_symbol: str | None = None,
+) -> dict[str, Any]:
+    """Build a short diagnostics dict from a cache JSON path (no HTTP, no disk write)."""
+
+    rel_path = str(path)
+    if not path.is_file():
+        return {
+            "validation_status": "invalid",
+            "reason": "path_not_found",
+            "path": rel_path,
+            "live_http": False,
+        }
+
+    loaded = load_us_daily_bars_json_file(path, expect_symbol=expect_symbol)
+    if loaded is None:
+        return {
+            "validation_status": "invalid",
+            "reason": "parse_failed",
+            "path": rel_path,
+            "expect_symbol": expect_symbol,
+            "live_http": False,
+        }
+
+    bars, meta = loaded
+    if not bars:
+        return {
+            "validation_status": "invalid",
+            "reason": "empty_bars",
+            "path": rel_path,
+            "live_http": False,
+        }
+
+    first = bars[0]
+    last = bars[-1]
+    return {
+        "validation_status": "ok",
+        "path": rel_path,
+        "symbol": meta.get("symbol", ""),
+        "bar_count": len(bars),
+        "first_date": first["date"],
+        "last_date": last["date"],
+        "last_close": last["close"],
+        "last_volume": last["volume"],
+        "source": meta.get("source", ""),
+        "asset_class": meta.get("asset_class"),
+        "fetched_at": meta.get("fetched_at"),
+        "generated_at": meta.get("generated_at"),
+        "live_http": False,
+    }
+
+
+def format_us_daily_bars_cache_preview_markdown(preview: dict[str, Any]) -> str:
+    """Human-readable preview (cache-only diagnostics)."""
+
+    lines = ["## US daily bars cache preview", ""]
+    status = preview.get("validation_status", "unknown")
+    lines.append(f"- **validation_status**: {status}")
+    if status != "ok":
+        reason = preview.get("reason", "")
+        if reason:
+            lines.append(f"- **reason**: {reason}")
+        path = preview.get("path", "")
+        if path:
+            lines.append(f"- **path**: `{path}`")
+        return "\n".join(lines) + "\n"
+
+    lines.extend(
+        [
+            f"- **symbol**: {preview.get('symbol', '')}",
+            f"- **bar_count**: {preview.get('bar_count', 0)}",
+            f"- **first_date**: {preview.get('first_date', '')}",
+            f"- **last_date**: {preview.get('last_date', '')}",
+            f"- **last_close**: {preview.get('last_close', '')}",
+            f"- **last_volume**: {preview.get('last_volume', '')}",
+            f"- **source**: {preview.get('source', '')}",
+        ]
+    )
+    ac = preview.get("asset_class")
+    if ac:
+        lines.append(f"- **asset_class**: {ac}")
+    lines.append(f"- **path**: `{preview.get('path', '')}`")
+    return "\n".join(lines) + "\n"
+
+
+def format_us_daily_bars_cache_preview_json(preview: dict[str, Any]) -> str:
+    return json.dumps(preview, ensure_ascii=False, indent=2)

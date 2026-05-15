@@ -378,6 +378,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.10-C — US equities cache-only preview / diagnostics（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-c-us-equities-cache-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-c`）
+**方針**: パターンA — **`debug us-daily-bars-cache-preview`** + data 層 preview helper。詳細は **[docs/21_r6_10_c_us_equities_cache_preview.md](./21_r6_10_c_us_equities_cache_preview.md)**。**live HTTP・production cache write・`main` 未反映**。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
