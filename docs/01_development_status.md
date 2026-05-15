@@ -471,10 +471,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.11-C — US signals regression plan（作業ブランチ・`main` 未反映）
+## R6.11-C — US signals regression plan（完了・main反映済み）
 
-**ブランチ**: `work/r6-11-c-us-signals-regression-plan`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-c`）
-**方針**: docs-only。詳細は **[docs/29_r6_11_c_us_signals_regression_plan.md](./29_r6_11_c_us_signals_regression_plan.md)**。
+**コミット**: `1c5eb4e` docs: R6.11-C US signals regression plan（rebase 後 · branch CI `25920419029`）
+**内容**: golden / CLI 次タスク計画。詳細は **[docs/29_r6_11_c_us_signals_regression_plan.md](./29_r6_11_c_us_signals_regression_plan.md)**。
+
+### 次タスク（候補）
+
+- **R6.11-D**: golden regression + `debug us-cache-signals-preview`（作業ブランチ）。
 
 ---
 

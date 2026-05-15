@@ -1,6 +1,6 @@
 # R6.11-C — US signals regression / golden test plan（設計のみ）
 
-**ステータス**: 作業ブランチ `work/r6-11-c-us-signals-regression-plan` のみ。**`main` 未反映**。本フェーズは **docs-only** — **追加実装なし**。
+**ステータス**: **main 反映済み**（`1c5eb4e`）。branch CI `25920419029` — success。実装は **R6.11-D** へ委譲。
 
 ---
 
