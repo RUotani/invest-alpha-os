@@ -209,6 +209,29 @@ def load_us_daily_bars_cache(symbol: str) -> tuple[list[DailyBar], dict[str, Any
     return parse_us_daily_bars_payload(data, expect_symbol=symbol)
 
 
+PREVIEW_OK_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "validation_status",
+        "path",
+        "symbol",
+        "bar_count",
+        "first_date",
+        "last_date",
+        "last_close",
+        "last_volume",
+        "source",
+        "asset_class",
+        "fetched_at",
+        "generated_at",
+        "live_http",
+    }
+)
+
+PREVIEW_INVALID_BASE_KEYS: Final[frozenset[str]] = frozenset(
+    {"validation_status", "reason", "path", "live_http"}
+)
+
+
 def try_load_cached_us_daily_bars(symbol: str) -> tuple[list[DailyBar], str] | None:
     loaded = load_us_daily_bars_cache(symbol)
     if loaded is None:
@@ -286,6 +309,7 @@ def format_us_daily_bars_cache_preview_markdown(preview: dict[str, Any]) -> str:
         path = preview.get("path", "")
         if path:
             lines.append(f"- **path**: `{path}`")
+        lines.append("- **live_http**: false")
         return "\n".join(lines) + "\n"
 
     lines.extend(

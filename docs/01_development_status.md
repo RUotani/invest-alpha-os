@@ -392,6 +392,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.10-D — US cache preview hardening（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-d-us-cache-preview-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-d`）
+**方針**: パターンA — 出力契約定数 + CLI 異常系テスト拡充。詳細は **[docs/22_r6_10_d_us_cache_preview_hardening.md](./22_r6_10_d_us_cache_preview_hardening.md)**。**`main` 未反映**。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
