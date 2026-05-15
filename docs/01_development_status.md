@@ -569,7 +569,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-D**: daily report opt-in design。
+- **R6.12-E**: opt-in implementation（候補）。
 
 ---
 
@@ -581,7 +581,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-D**: daily report opt-in design。
+- **R6.12-E**: opt-in implementation。
+
+---
+
+## R6.12-D — US daily report opt-in design（作業ブランチ・docs-only・`main` 未反映）
+
+**ブランチ**: `work/r6-12-d-us-report-opt-in-design`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-d`）  
+**内容**: daily report への opt-in 接続設計（実装なし）。詳細は **[docs/38_r6_12_d_us_report_opt_in_design.md](./38_r6_12_d_us_report_opt_in_design.md)**。
 
 ---
 
