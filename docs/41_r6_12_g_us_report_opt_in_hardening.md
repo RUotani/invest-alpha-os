@@ -1,6 +1,6 @@
 # R6.12-G — US report opt-in golden / invalid UX hardening
 
-**ステータス**: 作業ブランチ `work/r6-12-g-us-report-opt-in-hardening` のみ（**`main` 未反映**）。
+**ステータス**: **完了・main反映済み**（実装 SHA `52d3d49` · branch CI `25944029730`）。integrated golden は **R6.13-A**。
 
 ---
 

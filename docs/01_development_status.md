@@ -593,7 +593,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-G**: opt-in golden / invalid UX hardening（作業ブランチ候補）。
+- **R6.13-A**: momentum + JQ + US opt-in **結合順** golden（作業ブランチ候補）。
 
 ---
 
@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-A**: golden 拡張 / real daily / config opt-in（任意）。
+- **R6.13-A**: momentum + JQ + US opt-in integrated golden。
 
 ---
 
@@ -619,14 +619,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-A**: golden 拡張 / real daily / config opt-in（任意）。
+- **R6.13-A**: momentum + JQ + US opt-in integrated golden。
 
 ---
 
-## R6.12-G — US report opt-in golden coverage（作業ブランチ・`main` 未反映）
+## R6.12-G — US report opt-in golden coverage（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-g-us-report-opt-in-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-g`）
-**内容**: opt-in / non-opt-in 回帰テスト強化。詳細は **[docs/41_r6_12_g_us_report_opt_in_hardening.md](./41_r6_12_g_us_report_opt_in_hardening.md)**。
+**コミット**: `52d3d49` Main R6.12-G draft: Harden US report opt-in golden coverage（branch CI `25944029730` · main CI `25944228048`）
+**ブランチ**: `work/r6-12-g-us-report-opt-in-hardening`
+**内容**: `_GOLDEN_DAILY_BODY_NO_OPTS` · invalid appendix snapshot · `_daily_body` 読み戻しを **`cli_main.today_jst_iso()`** と整合。**product code 変更なし**。詳細は **[docs/41_r6_12_g_us_report_opt_in_hardening.md](./41_r6_12_g_us_report_opt_in_hardening.md)**。
+**検証**: focused 35 · full pytest **692** · agent-final-check success · live HTTP / production cache write なし。
+
+### 次タスク（候補）
+
+- **R6.13-A**: momentum + JQ + US opt-in **結合順** golden（作業ブランチ候補）。
 
 ---
 
