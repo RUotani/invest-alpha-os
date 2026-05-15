@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **本作業ブランチ**）。
 
 ---
 
@@ -685,7 +685,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **本作業ブランチ**）。
+
+---
+
+## R6.14-B — Cleanup execution proposal（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-b-cleanup-execution-proposal`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-b`）
+**内容**: R6.14-A inventory を踏まえた **削除実行前のコマンド案・承認ゲート**（**実行しない**）。詳細は **[docs/46_r6_14_b_cleanup_execution_proposal.md](./46_r6_14_b_cleanup_execution_proposal.md)**。
+
+### 次タスク（候補）
+
+- **R6.14-C**: approved cleanup execution（**ユーザー明示承認なしに削除しない**）。
 
 ---
 
