@@ -363,10 +363,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-B — US equities cache-only validation hardening（作業ブランチ・`main` 未反映）
+## R6.10-B — US equities cache-only validation hardening（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-b-us-equities-cache-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-b`）
-**内容**: R6.10-A reader の **日付重複・昇順・`bar_count` 整合**を強化。fixture **`tests/fixtures/us_equities/minimal_msft_envelope.json`** と regression テスト追加。詳細は **[docs/20_r6_10_b_us_equities_cache_hardening.md](./20_r6_10_b_us_equities_cache_hardening.md)**。
+**コミット**: `e37c38f` Main R6.10-B draft: Harden US equities cache-only validation
+**ブランチ**: `work/r6-10-b-us-equities-cache-hardening`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-b`）→ main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25917456523) — success
+**GitHub Actions（`main` 取り込み直後の push）**: `tests` (run ID: 25917862396) — success
+**focused test**: `tests/test_us_equities_cache.py` · `tests/test_us_daily_bars_cache.py` — 16 passed
+**内容**: **`_us_daily_bar_rows_valid`** · **`bar_count` 整合** · 重複日付拒否 · 日付昇順チェック · **`tests/fixtures/us_equities/minimal_msft_envelope.json`** · edge case regression。詳細は **[docs/20_r6_10_b_us_equities_cache_hardening.md](./20_r6_10_b_us_equities_cache_hardening.md)**。**live HTTP・production cache write・CLI / report 統合・JP momentum / Veto 変更なし**。
+
+### 次タスク（候補）
+
+- **R6.10-C**: US equities cache-only layer の **preview / diagnostics** 入口（fixture / cache JSON の短い要約）。CLI に自然に入らない場合は pure helper + docs のみ。
 
 ---
 

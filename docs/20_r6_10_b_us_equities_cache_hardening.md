@@ -1,6 +1,6 @@
 # R6.10-B — US equities cache-only layer hardening（validation / fixtures）
 
-**ステータス**: 作業ブランチ `work/r6-10-b-us-equities-cache-hardening` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`e37c38f`）。branch CI `25917456523` · main CI `25917862396` — いずれも success。
 
 ---
 
