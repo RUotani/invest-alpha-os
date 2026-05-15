@@ -32,7 +32,7 @@ PYTHONPATH=src python -m invis_alpha_os.cli.main daily --help
 PYTHONPATH=src python -m invis_alpha_os.cli.main daily --us-signals-dry-run-manifest tests/fixtures/us_equities/us_cache_signals_batch_minimal.json
 ```
 
-- ** cwd**: **リポジトリルート**を推奨（相対パスは `ROOT_DIR` 基準で解決される想定）。
+- **cwd**: **リポジトリルート**を推奨（相対パスは `ROOT_DIR` 基準で解決される想定）。
 - **出力**: `outputs/reports/daily/<YYYY-MM-DD>.md`（JST は CLI 側の既定日付）。
 - live HTTP：**使用しない**。cache：**読むだけ**（manifest の `cache_path` が指すローカル JSON／テストキャッシュのみ）。
 
@@ -47,7 +47,7 @@ PYTHONPATH=src python -m invis_alpha_os.cli.main daily --us-signals-dry-run-mani
 ## 5. Smoke（自動）
 
 - **`tests/test_us_report_opt_in_operational_readiness.py`**
-  - `--help` に `--us-signals-dry-run-manifest` が出ること。
+  - `--help` に `--us-signals-dry-run-manifest` が出ること（**subprocess の `python -m invis_alpha_os.cli.main …` と `PYTHONPATH`=`src` 相当で確認し、CLI runner／Rich の表示幅問題を避ける）。
   - **`cwd = REPO_ROOT`** で runbook と同じ相対パス文字列が通ること。
   - `entries: []` のような **構文は正しいが manifest 無効** のケースで **exit 0**＋短文 skip。
 
