@@ -329,10 +329,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.12-QA — FOMO Veto 意味論ホットフィックス（作業ブランチ候補）
+## R6.12-QA — FOMO Veto 意味論ホットフィックス（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-veto-fomo-centralization-hotfix`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-veto-hotfix`）
-**内容**: `config/veto_rules.yaml` から **`fomo_chase_warning`**（`price_spike_5d` 絶対値）を削除し **`fomo_volume_price_chase`** に一本化。急落銘柄での FOMO 誤発火を解消。`risk/__init__.py` に `format_veto_table_cell` · `momentum_breakdown_veto_context` · `veto_hits_to_result_dict` · `build_momentum_veto_result` を公開。R6.9-A rescue（`veto_result` dict 共通化）は **main 既反映**（`10d9701`）を前提に実施。live HTTP なし · production cache write なし。
+**コミット**: `b8f78ae` Main R6.12-QA draft: Fix FOMO veto semantics and centralize veto result（branch CI `25924540654` · main CI 反映後 docs 追記）  
+**ブランチ**: `work/r6-12-veto-fomo-centralization-hotfix`  
+**内容**: `config/veto_rules.yaml` から **`fomo_chase_warning`** を削除し **`fomo_volume_price_chase`** に一本化（急落誤発火解消）。`risk/__init__.py` export 追加。R6.9-A rescue（`10d9701`）は作業開始時点で main 済み。stale `work/r6-9-a-veto-display-common` / `5c45103` は **merge 禁止**。  
+**検証**: focused 65 passed · full pytest **684** passed · agent-final-check success · live HTTP なし · production cache write なし。
 
 ---
 
