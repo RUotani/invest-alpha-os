@@ -293,15 +293,9 @@ def _vol_r_cell(m: MomentumBreakdown) -> str:
 
 def _veto_cell(m: MomentumBreakdown) -> str:
     """Veto列: 拒否・警戒判定エンジン（VetoEngine）の結果を `signals` と同じ整形で表示する。"""
-    from invis_alpha_os.risk.veto_rules import format_veto_table_cell, momentum_breakdown_veto_context
+    from invis_alpha_os.risk.veto_rules import build_momentum_veto_result, format_veto_table_cell
 
-    hits = _momentum_veto_engine().evaluate(momentum_breakdown_veto_context(m))
-    vr = {
-        "triggered": len(hits) > 0,
-        "count": len(hits),
-        "rules": [{"level": h.level, "rule_id": h.rule_id, "message": h.message} for h in hits],
-    }
-    return format_veto_table_cell(vr)
+    return format_veto_table_cell(build_momentum_veto_result(m, _momentum_veto_engine()))
 
 
 def _append_ranking_table(

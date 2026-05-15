@@ -1,4 +1,9 @@
-from invis_alpha_os.risk.veto_rules import VetoEngine, format_veto_table_cell
+from invis_alpha_os.risk.veto_rules import (
+    VetoEngine,
+    build_momentum_veto_result,
+    format_veto_table_cell,
+    momentum_breakdown_veto_context,
+)
 
 
 def test_veto_rules_hard_and_soft():
@@ -97,4 +102,27 @@ def test_format_veto_table_cell_dash_when_not_triggered() -> None:
 def test_format_veto_table_cell_lists_rule_ids() -> None:
     vr = {"triggered": True, "rules": [{"rule_id": "a"}, {"rule_id": "b"}]}
     assert format_veto_table_cell(vr) == "⚠ a, b"
+
+
+def test_build_momentum_veto_result_json_and_markdown_aligned() -> None:
+    class _M:
+        r5 = 0.20
+        volume_ratio_25d = 4.0
+        overheat_flag = False
+
+    rules = {
+        "fomo_veto": [
+            {
+                "id": "fomo_volume_price_chase",
+                "metric": "fomo_volume_price_chase",
+                "threshold": 1.0,
+                "message": "chase",
+            }
+        ]
+    }
+    vr = build_momentum_veto_result(_M(), VetoEngine(rules=rules))
+    assert vr["triggered"] is True
+    assert vr["rules"][0]["rule_id"] == "fomo_volume_price_chase"
+    assert format_veto_table_cell(vr) == "⚠ fomo_volume_price_chase"
+    assert momentum_breakdown_veto_context(_M)["fomo_volume_price_chase"] == 1.0
 
