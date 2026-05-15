@@ -445,7 +445,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-A**: US signals boundary / roadmap（docs-only、本実装は別フェーズ）。
+- **R6.11-B**: US cache-only signals pure helper MVP（本ブランチ設計 docs 参照）。
+
+---
+
+## R6.11-A — US signals boundary / roadmap（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-11-a-us-signals-boundary-roadmap`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-a`）
+**方針**: docs-only / design。詳細は **[docs/27_r6_11_a_us_signals_boundary_roadmap.md](./27_r6_11_a_us_signals_boundary_roadmap.md)**。
+**制約**: live HTTP なし · production cache write なし · US signals 本実装なし。
 
 ---
 
