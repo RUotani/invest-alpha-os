@@ -478,7 +478,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-E**: US equity / ETF policy and report staging（docs-only）。
+- **R6.11-F**: US asset universe fixture / metadata（作業ブランチ候補）。
 
 ---
 
@@ -489,14 +489,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-F**: US asset universe fixture / metadata（本ブランチ設計 docs 参照）。
+- **R6.11-F**: US asset universe fixture / metadata。
 
 ---
 
-## R6.11-E — US equity / ETF policy and report staging（作業ブランチ・`main` 未反映）
+## R6.11-E — US equity / ETF policy and report staging（完了・main反映済み）
 
-**ブランチ**: `work/r6-11-e-us-etf-report-boundary`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-e`）
-**方針**: docs-only。詳細は **[docs/31_r6_11_e_us_etf_report_boundary.md](./31_r6_11_e_us_etf_report_boundary.md)**。
+**コミット**: `bf9968d` docs: R6.11-E US ETF and report boundary（branch CI `25920960706`）
+**内容**: equity/ETF 同一 cache · `asset_class` 方針 · report 段階接続。詳細は **[docs/31_r6_11_e_us_etf_report_boundary.md](./31_r6_11_e_us_etf_report_boundary.md)**。
+
+### 次タスク（候補）
+
+- **R6.11-F**: US asset universe fixture / metadata。
 
 ---
 
