@@ -10,6 +10,8 @@ import pytest
 from invis_alpha_os.data.us_cache_signals import (
     US_CACHE_SIGNAL_ROW_OK_KEYS,
     US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS,
+    US_CACHE_SIGNALS_UNIVERSE_EXTRA_KEYS,
+    attach_us_asset_universe_metadata_to_signals_preview,
     build_us_cache_signals_preview,
     compute_us_cache_signal_row,
     format_us_cache_signals_preview_markdown,
@@ -21,6 +23,7 @@ from invis_alpha_os.signals.momentum import DailyBar
 REPO = Path(__file__).resolve().parents[1]
 FIX_MINIMAL = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
+FIX_UNIVERSE = REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_minimal.json"
 
 
 def _synthetic_bars(n: int, *, base: float = 100.0, step: float = 1.0) -> list[DailyBar]:
@@ -117,3 +120,27 @@ def test_preview_invalid_path_contract() -> None:
     p = build_us_cache_signals_preview(Path("/missing/signals.json"))
     assert set(p.keys()) <= US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS
     assert p["reason"] == "path_not_found"
+
+
+def test_attach_universe_matched() -> None:
+    base = build_us_cache_signals_preview(FIX_25)
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, FIX_UNIVERSE)
+    assert out["status"] == "ok"
+    assert out["universe_status"] == "matched"
+    extra = US_CACHE_SIGNALS_UNIVERSE_EXTRA_KEYS | US_CACHE_SIGNAL_ROW_OK_KEYS | {"path"}
+    assert set(out.keys()) <= extra
+
+
+def test_attach_universe_not_found() -> None:
+    base = build_us_cache_signals_preview(FIX_25)
+    base["symbol"] = "ZZZ"
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, FIX_UNIVERSE)
+    assert out["universe_status"] == "not_found"
+    assert "role" not in out
+
+
+def test_attach_universe_invalid() -> None:
+    base = build_us_cache_signals_preview(FIX_25)
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, Path("/no/universe.json"))
+    assert out["status"] == "invalid"
+    assert out["reason"] == "universe_invalid"

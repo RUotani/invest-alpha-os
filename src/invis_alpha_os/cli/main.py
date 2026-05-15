@@ -32,6 +32,7 @@ from invis_alpha_os.data.us_daily_bars_metrics import (
     format_us_daily_bars_cache_metrics_markdown,
 )
 from invis_alpha_os.data.us_cache_signals import (
+    attach_us_asset_universe_metadata_to_signals_preview,
     build_us_cache_signals_preview,
     format_us_cache_signals_preview_json,
     format_us_cache_signals_preview_markdown,
@@ -1433,11 +1434,20 @@ def debug_us_cache_signals_preview(
         "--format",
         help="markdown | json",
     ),
+    universe_path: Optional[Path] = typer.Option(
+        None,
+        "--universe-path",
+        help="Optional US asset universe JSON; when set, adds universe metadata to output.",
+    ),
 ) -> None:
     """US cache-only signals diagnostics for a local envelope JSON (no HTTP, no cache write)."""
 
     expect = symbol.strip() if isinstance(symbol, str) and symbol.strip() else None
     preview = build_us_cache_signals_preview(Path(path), expect_symbol=expect)
+    if universe_path is not None:
+        preview = attach_us_asset_universe_metadata_to_signals_preview(
+            preview, Path(universe_path)
+        )
     fmt_norm = fmt.strip().lower()
     if fmt_norm == "json":
         typer.echo(format_us_cache_signals_preview_json(preview))

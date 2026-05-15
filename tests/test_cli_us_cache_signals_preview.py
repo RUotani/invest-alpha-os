@@ -18,6 +18,7 @@ from invis_alpha_os.data.us_cache_signals import (
 REPO = Path(__file__).resolve().parents[1]
 FIX_MINIMAL = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
+FIX_UNIVERSE = REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_minimal.json"
 
 runner = CliRunner()
 
@@ -116,3 +117,76 @@ def test_preview_helper_json_roundtrip() -> None:
     parsed = json.loads(format_us_cache_signals_preview_json(p))
     assert set(parsed.keys()) == US_CACHE_SIGNAL_ROW_OK_KEYS | {"path"}
     assert parsed["status"] == "ok"
+
+
+def test_cli_universe_path_default_unchanged() -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-cache-signals-preview", "--path", str(FIX_25), "--format", "json"],
+    )
+    assert r.exit_code == 0
+    body = json.loads(r.stdout.strip())
+    assert "universe_status" not in body
+
+
+def test_cli_universe_path_matched_msft() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            str(FIX_UNIVERSE),
+            "--format",
+            "json",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    body = json.loads(r.stdout.strip())
+    assert body["status"] == "ok"
+    assert body["universe_status"] == "matched"
+    assert body["asset_class"] == "us_equity"
+    assert body["role"] == "single_stock"
+    assert body["theme"] == "megacap_tech"
+    assert body["display_name"] == "Microsoft Corporation"
+
+
+def test_cli_universe_path_invalid_exit_one() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            "/no/universe.json",
+            "--format",
+            "json",
+        ],
+    )
+    assert r.exit_code == 1
+    body = json.loads(r.stdout.strip())
+    assert body["status"] == "invalid"
+    assert body["reason"] == "universe_invalid"
+
+
+def test_cli_universe_path_markdown_matched() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            str(FIX_UNIVERSE),
+            "--format",
+            "markdown",
+        ],
+    )
+    assert r.exit_code == 0
+    assert "**universe_status**: matched" in r.stdout
+    assert "**display_name**: Microsoft Corporation" in r.stdout

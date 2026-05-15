@@ -478,7 +478,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-G**: universe-aware US signals preview（作業ブランチ候補）。
+- **R6.11-F**: US asset universe fixture / metadata（作業ブランチ候補）。
 
 ---
 
@@ -489,7 +489,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-G**: universe-aware US signals preview。
+- **R6.11-F**: US asset universe fixture / metadata。
 
 ---
 
@@ -500,19 +500,26 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-G**: universe-aware US signals preview（`--universe-path` 候補）。
+- **R6.11-G**: report section dry-run 設計（本ブランチ設計 docs 参照）。
 
 ---
 
 ## R6.11-F — US asset universe fixture / metadata（完了・main反映済み）
 
-**コミット**: `adb1879` Main R6.11-F draft: Add US asset universe loader（branch CI `25921366337` · main CI `25921579826`）
+**コミット**: `adb1879` Main R6.11-F draft: Add US asset universe loader（branch CI `25921366337` · main CI `25921579826` · 完了 docs `5f507a9`）
 **内容**: `us_asset_universe.py` · `us_asset_universe_minimal.json`（16 entries）· parse / load / index / enabled symbols。live HTTP なし · production cache write なし · report / Veto / portfolio / macro 未接続。詳細は **[docs/32_r6_11_f_us_asset_universe_fixture.md](./32_r6_11_f_us_asset_universe_fixture.md)**。
 **検証**: focused 22 passed · full pytest 655 passed · agent-final-check success。
 
 ### 次タスク（候補）
 
 - **R6.11-G**: universe-aware US signals preview（`debug us-cache-signals-preview` へ optional `--universe-path`）。
+
+---
+
+## R6.11-G — Universe-aware US signals preview（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-11-g-universe-aware-us-signals-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-g`）
+**内容**: optional `--universe-path` · `attach_us_asset_universe_metadata_to_signals_preview`。詳細は **[docs/33_r6_11_g_universe_aware_us_signals_preview.md](./33_r6_11_g_universe_aware_us_signals_preview.md)**。
 
 ---
 

@@ -6,12 +6,26 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
+from invis_alpha_os.data.us_asset_universe import (
+    index_us_asset_universe_by_symbol,
+    load_us_asset_universe_json_file,
+)
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
 from invis_alpha_os.data.us_daily_bars_metrics import compute_us_daily_bars_basic_metrics
 from invis_alpha_os.signals.momentum import DailyBar
 
 US_CACHE_SIGNALS_PREVIEW_INVALID_BASE_KEYS: Final[frozenset[str]] = frozenset(
-    {"status", "reason", "path", "live_http", "expect_symbol"}
+    {"status", "reason", "path", "live_http", "expect_symbol", "universe_path"}
+)
+
+US_CACHE_SIGNALS_UNIVERSE_EXTRA_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "universe_status",
+        "universe_path",
+        "role",
+        "theme",
+        "display_name",
+    }
 )
 
 US_CACHE_SIGNAL_ROW_OK_KEYS: Final[frozenset[str]] = frozenset(
@@ -169,6 +183,45 @@ def build_us_cache_signals_preview(
     return out
 
 
+def attach_us_asset_universe_metadata_to_signals_preview(
+    preview: dict[str, Any],
+    universe_path: Path,
+) -> dict[str, Any]:
+    """Merge optional universe metadata into a signals preview (no HTTP; no disk write)."""
+
+    rel_uni = str(universe_path)
+    universe = load_us_asset_universe_json_file(universe_path)
+    if universe is None:
+        out: dict[str, Any] = {
+            "status": "invalid",
+            "reason": "universe_invalid",
+            "live_http": False,
+            "universe_path": rel_uni,
+        }
+        if preview.get("path"):
+            out["path"] = preview["path"]
+        return out
+
+    out = dict(preview)
+    out["universe_path"] = rel_uni
+    sym = str(out.get("symbol", "")).strip().upper()
+    if not sym:
+        out["universe_status"] = "not_found"
+        return out
+
+    entry = index_us_asset_universe_by_symbol(universe).get(sym)
+    if entry is None:
+        out["universe_status"] = "not_found"
+        return out
+
+    out["universe_status"] = "disabled" if not entry.get("enabled") else "matched"
+    out["asset_class"] = entry["asset_class"]
+    out["role"] = entry["role"]
+    out["theme"] = entry["theme"]
+    out["display_name"] = entry["display_name"]
+    return out
+
+
 def format_us_cache_signals_preview_markdown(preview: dict[str, Any]) -> str:
     lines = ["## US cache signals preview", ""]
     status = preview.get("status", "unknown")
@@ -186,6 +239,21 @@ def format_us_cache_signals_preview_markdown(preview: dict[str, Any]) -> str:
     sym = preview.get("symbol", "")
     if sym:
         lines.append(f"- **symbol**: {sym}")
+    uni_status = preview.get("universe_status")
+    if uni_status:
+        lines.append(f"- **universe_status**: {uni_status}")
+        role = preview.get("role")
+        if role:
+            lines.append(f"- **role**: {role}")
+        theme = preview.get("theme")
+        if theme:
+            lines.append(f"- **theme**: {theme}")
+        display = preview.get("display_name")
+        if display:
+            lines.append(f"- **display_name**: {display}")
+        ac = preview.get("asset_class")
+        if ac and uni_status in ("matched", "disabled"):
+            lines.append(f"- **asset_class**: {ac}")
     label = preview.get("momentum_label")
     if label:
         lines.append(f"- **momentum_label**: {label}")
