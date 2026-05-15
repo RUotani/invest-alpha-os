@@ -536,7 +536,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-B**: multi-symbol US signals report dry-run（作業ブランチ候補）。
+- **R6.12-C**: US signals batch manifest helper（作業ブランチ候補）。
 
 ---
 
@@ -561,6 +561,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 ### 次タスク（候補）
 
 - **R6.12-C**: explicit batch manifest / cache path helper。
+
+---
+
+## R6.12-C — US signals batch manifest helper（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-12-c-us-signals-batch-manifest`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-c`）
+**内容**: `us_cache_signals_batch_minimal.json` · `build_us_cache_signals_previews_from_batch_manifest`。詳細は **[docs/37_r6_12_c_us_signals_batch_manifest.md](./37_r6_12_c_us_signals_batch_manifest.md)**。
 
 ---
 

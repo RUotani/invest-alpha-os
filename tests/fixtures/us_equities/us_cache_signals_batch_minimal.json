@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "source": "fixture_test",
+  "universe_path": "tests/fixtures/us_equities/us_asset_universe_minimal.json",
+  "entries": [
+    {
+      "symbol": "MSFT",
+      "cache_path": "tests/fixtures/us_equities/msft_25bars_metrics_envelope.json"
+    },
+    {
+      "symbol": "MSFT",
+      "cache_path": "tests/fixtures/us_equities/minimal_msft_envelope.json"
+    }
+  ]
+}
