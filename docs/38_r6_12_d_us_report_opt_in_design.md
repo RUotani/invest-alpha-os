@@ -1,6 +1,6 @@
 # R6.12-D — US signals daily report opt-in design
 
-**ステータス**: 作業ブランチ `work/r6-12-d-us-report-opt-in-design` のみ（**docs-only**）。**`main` 未反映**。
+**ステータス**: **完了・main反映済み**（`1e4013c` · branch CI `25924652445`）。実装は **R6.12-E** へ。
 
 ---
 

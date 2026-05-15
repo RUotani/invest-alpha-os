@@ -585,10 +585,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.12-D — US daily report opt-in design（作業ブランチ・docs-only・`main` 未反映）
+## R6.12-D — US daily report opt-in design（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-d-us-report-opt-in-design`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-d`）  
-**内容**: daily report への opt-in 接続設計（実装なし）。詳細は **[docs/38_r6_12_d_us_report_opt_in_design.md](./38_r6_12_d_us_report_opt_in_design.md)**。
+**コミット**: `1e4013c` docs: R6.12-D US report opt-in design（branch CI `25924652445` · main CI 反映後 docs 追記）  
+**内容**: daily report opt-in 設計（実装なし）。manifest → batch builder → multi-symbol renderer · CLI `--us-signals-dry-run-manifest` 推奨 · default 非変更。詳細は **[docs/38_r6_12_d_us_report_opt_in_design.md](./38_r6_12_d_us_report_opt_in_design.md)**。  
+**検証**: full pytest 684 passed · docs-only · live HTTP なし · production cache write なし。
+
+### 次タスク（候補）
+
+- **R6.12-E**: opt-in CLI implementation（作業ブランチ候補）。
 
 ---
 
