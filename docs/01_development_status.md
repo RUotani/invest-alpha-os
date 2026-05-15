@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **本作業ブランチ**）。
+- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
 
 ---
 
@@ -685,7 +685,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-C**: approved single worktree cleanup（`work/r6-14-c-approved-single-worktree-cleanup` · **本作業ブランチ**）。
+- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
 
 ---
 
@@ -698,18 +698,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
 
 ---
 
-## R6.14-C — Approved single worktree cleanup（作業ブランチ・`main` 未反映）
+## R6.14-C — Approved single worktree cleanup（完了・main反映済み）
 
+**コミット（`main` 取り込み）**: `b5a6e0f` docs: R6.14-C approved single worktree cleanup（branch CI **`25945920148`** · main merge push CI **`25946097150`**）· **完了記録**: `docs: Record R6.14-C main completion`
 **ブランチ**: `work/r6-14-c-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-c`）
-**内容**: 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ** `git worktree remove`（**1 回**）。詳細は **[docs/47_r6_14_c_approved_single_worktree_cleanup.md](./47_r6_14_c_approved_single_worktree_cleanup.md)**。
+**内容**: 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash` のみ** `git worktree remove`（**1 回**）。**branch / remote branch 削除なし** · **`rm -rf` なし**。詳細は **[docs/47_r6_14_c_approved_single_worktree_cleanup.md](./47_r6_14_c_approved_single_worktree_cleanup.md)**。
+**検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-D**: approved single worktree cleanup（承認 path **`/Users/uotani/Projects/invest-alpha-os-r6-13-c`** · **`main` 未反映**）。
 
 ---
 
