@@ -632,7 +632,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-A**: momentum + JQ + US opt-in **結合順** golden（作業ブランチ候補）。
+- **R6.13-B**: integrated golden の helper 抽出 / 縮約 golden（任意）。
+
+---
+
+## R6.13-A — Daily integrated US opt-in golden（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-13-a-daily-us-opt-in-integrated-golden`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-a`）
+**内容**: JQ watchlist 節 · momentum 両節 · `--us-signals-dry-run-manifest` 指定時の **`##` / `###`** 見出し順固定。詳細は **[docs/42_r6_13_a_daily_us_opt_in_integrated_golden.md](./42_r6_13_a_daily_us_opt_in_integrated_golden.md)**。
 
 ---
 
