@@ -1,6 +1,6 @@
 # R6.10-G — US cache metrics command hardening
 
-**ステータス**: 作業ブランチ `work/r6-10-g-us-cache-metrics-command-hardening` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`47d95b8`）。branch CI `25919232539` — success。
 
 ---
 
