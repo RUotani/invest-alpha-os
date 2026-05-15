@@ -76,7 +76,11 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
-from invis_alpha_os.risk.veto_rules import VetoEngine, format_veto_table_cell, momentum_breakdown_veto_context
+from invis_alpha_os.risk.veto_rules import (
+    VetoEngine,
+    build_momentum_veto_result,
+    format_veto_table_cell,
+)
 from invis_alpha_os.signals.momentum import (
     analyze_bars_for_code,
     build_momentum_signals,
@@ -322,14 +326,10 @@ def signals_command(
         one = analyze_bars_for_code(label, bars)
         _file_veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
 
-        def _file_veto_row(m: Any) -> dict[str, Any]:
-            hits = _file_veto_engine.evaluate(momentum_breakdown_veto_context(m))
-            return {"triggered": len(hits) > 0, "count": len(hits), "rules": [{"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits]}
-
         ranked_item: list[dict[str, Any]] = []
         if one:
             r = momentum_row_public_dict(one, bars_source="file")
-            r["veto_result"] = _file_veto_row(one)
+            r["veto_result"] = build_momentum_veto_result(one, _file_veto_engine)
             ranked_item.append(r)
         payload: dict[str, Any] = {
             "mode": "local_bars_file",
@@ -361,21 +361,10 @@ def signals_command(
 
     veto_engine = VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
 
-    def _veto_context(m: Any) -> dict[str, float]:
-        return momentum_breakdown_veto_context(m)
-
-    def _veto_row(m: Any) -> dict[str, Any]:
-        hits = veto_engine.evaluate(_veto_context(m))
-        return {
-            "triggered": len(hits) > 0,
-            "count": len(hits),
-            "rules": [{"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits],
-        }
-
     ranked_rows = []
     for m in ranked:
         row = momentum_row_public_dict(m, bars_source=srcmap.get(m.code, "synthetic"))
-        row["veto_result"] = _veto_row(m)
+        row["veto_result"] = build_momentum_veto_result(m, veto_engine)
         ranked_rows.append(row)
 
     out: dict[str, Any] = {

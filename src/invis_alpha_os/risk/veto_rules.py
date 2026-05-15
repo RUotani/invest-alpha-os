@@ -21,6 +21,24 @@ def format_veto_table_cell(veto_result: Any) -> str:
     return "⚠ " + ", ".join(ids)
 
 
+def veto_hits_to_result_dict(hits: list[VetoResult]) -> dict[str, Any]:
+    """Serialize ``VetoEngine`` hits to the canonical ``veto_result`` dict (signals JSON)."""
+
+    return {
+        "triggered": len(hits) > 0,
+        "count": len(hits),
+        "rules": [
+            {"level": v.level, "rule_id": v.rule_id, "message": v.message} for v in hits
+        ],
+    }
+
+
+def build_momentum_veto_result(m: Any, engine: VetoEngine) -> dict[str, Any]:
+    """Evaluate a momentum row and return the canonical ``veto_result`` dict."""
+
+    return veto_hits_to_result_dict(engine.evaluate(momentum_breakdown_veto_context(m)))
+
+
 def momentum_breakdown_veto_context(m: Any) -> dict[str, float]:
     """MomentumBreakdown 相当オブジェクトから VetoEngine 用の float コンテキストを組み立てる。"""
     r5 = float(m.r5 or 0.0)
