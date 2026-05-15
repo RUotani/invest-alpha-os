@@ -21,6 +21,12 @@ from invis_alpha_os.data.us_daily_bars_metrics import (
 
 REPO = Path(__file__).resolve().parents[1]
 FIX = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
+FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
+
+# Golden expectations for FIX_25 (close 100..124, 2024-01-02 .. 2024-01-26)
+_GOLDEN_25_TOTAL_RETURN = 0.24
+_GOLDEN_25_RETURN_5D = 124.0 / 119.0 - 1.0
+_GOLDEN_25_RETURN_20D = 124.0 / 104.0 - 1.0
 _BARS = [
     {"date": "2024-01-02", "open": 380.0, "high": 381.0, "low": 378.0, "close": 380.5, "volume": 1000.0},
     {"date": "2024-01-03", "open": 380.5, "high": 382.0, "low": 379.0, "close": 381.0, "volume": 1100.0},
@@ -211,3 +217,59 @@ def test_markdown_ok_required_lines() -> None:
     md = format_us_daily_bars_cache_metrics_markdown(build_us_daily_bars_cache_metrics_preview(FIX))
     for needle in ("## US daily bars cache metrics", "**symbol**", "**bar_count**", "return_5d"):
         assert needle in md
+
+
+def test_metrics_25bar_fixture_golden_json() -> None:
+    m = build_us_daily_bars_cache_metrics_preview(FIX_25)
+    assert set(m.keys()) == METRICS_PREVIEW_OK_KEYS
+    assert m["status"] == "ok"
+    assert m["symbol"] == "MSFT"
+    assert m["bar_count"] == 25
+    assert m["first_date"] == "2024-01-02"
+    assert m["last_date"] == "2024-01-26"
+    assert m["last_close"] == pytest.approx(124.0)
+    assert m["total_return"] == pytest.approx(_GOLDEN_25_TOTAL_RETURN)
+    assert m["return_5d"] == pytest.approx(_GOLDEN_25_RETURN_5D)
+    assert m["return_20d"] == pytest.approx(_GOLDEN_25_RETURN_20D)
+    assert m["has_5d"] is True
+    assert m["has_20d"] is True
+    assert m["live_http"] is False
+
+
+def test_metrics_25bar_fixture_golden_markdown() -> None:
+    md = format_us_daily_bars_cache_metrics_markdown(build_us_daily_bars_cache_metrics_preview(FIX_25))
+    for needle in (
+        "## US daily bars cache metrics",
+        "**symbol**: MSFT",
+        "**bar_count**: 25",
+        "**first_date**: 2024-01-02",
+        "**last_date**: 2024-01-26",
+        "**total_return**: 0.24",
+        "**return_5d**: 0.04201680672268915",
+        "**return_20d**: 0.1923076923076923",
+        "**live_http**: false",
+    ):
+        assert needle in md
+
+
+def test_cli_metrics_25bar_fixture_json_golden() -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-daily-bars-cache-metrics", "--path", str(FIX_25), "--format", "json"],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    body = json.loads(r.stdout.strip())
+    assert set(body.keys()) == METRICS_PREVIEW_OK_KEYS
+    assert body["return_5d"] == pytest.approx(_GOLDEN_25_RETURN_5D)
+    assert body["return_20d"] == pytest.approx(_GOLDEN_25_RETURN_20D)
+
+
+def test_cli_metrics_25bar_fixture_markdown_golden() -> None:
+    r = runner.invoke(
+        app,
+        ["debug", "us-daily-bars-cache-metrics", "--path", str(FIX_25), "--format", "markdown"],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert "**symbol**: MSFT" in r.stdout
+    assert "**return_5d**: 0.04201680672268915" in r.stdout
+    assert "**return_20d**: 0.1923076923076923" in r.stdout
