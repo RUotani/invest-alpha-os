@@ -1,6 +1,6 @@
 # R6.10-C — US equities cache-only preview / diagnostics
 
-**ステータス**: 作業ブランチ `work/r6-10-c-us-equities-cache-preview` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`ec5a2af`）。branch CI `25917974312` — success（main CI run ID は完了 docs コミット後に追記）。
 
 ---
 

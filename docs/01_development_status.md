@@ -378,10 +378,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-C — US equities cache-only preview / diagnostics（作業ブランチ・`main` 未反映）
+## R6.10-C — US equities cache-only preview / diagnostics（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-c-us-equities-cache-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-c`）
-**方針**: パターンA — **`debug us-daily-bars-cache-preview`** + data 層 preview helper。詳細は **[docs/21_r6_10_c_us_equities_cache_preview.md](./21_r6_10_c_us_equities_cache_preview.md)**。**live HTTP・production cache write・`main` 未反映**。
+**コミット**: `ec5a2af` Main R6.10-C draft: Add US cache-only CLI preview
+**ブランチ**: `work/r6-10-c-us-equities-cache-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-c`）→ main へ fast-forward merge（早送り取り込み）済み
+**GitHub Actions（branch push 時）**: `tests` (run ID: 25917974312) — success
+**focused test**: `tests/test_us_equities_cache.py` · `tests/test_us_daily_bars_cache.py` · `tests/test_cli_us_daily_bars_cache_preview.py` — 25 passed · full pytest 599 passed
+**内容**: **`debug us-daily-bars-cache-preview`** · **`build_us_daily_bars_cache_preview`** 等（**markdown / json** 出力）。詳細は **[docs/21_r6_10_c_us_equities_cache_preview.md](./21_r6_10_c_us_equities_cache_preview.md)**。**live HTTP・production cache write・US scoring・JP momentum / Veto 変更なし**。
+
+### 次タスク（候補）
+
+- **R6.10-D**: US cache preview / diagnostics の **hardening**（出力契約・異常系・CLI 回帰テスト）。
 
 ---
 
