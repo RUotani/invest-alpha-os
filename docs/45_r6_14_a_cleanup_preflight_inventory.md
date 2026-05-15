@@ -1,6 +1,6 @@
 # R6.14-A — Cleanup preflight inventory
 
-**ステータス**: 作業ブランチ `work/r6-14-a-cleanup-preflight-inventory` のみ（**`main` 未反映**）。**本ドキュメントは棚卸し（inventory）のみ** — **`git worktree remove`・ディレクトリ削除・remote/local branch 削除は行わない**。
+**ステータス**: **完了・`main` 反映済み**（`cc33ef1` · branch CI **`25945410481`** · main merge push CI **`25945536823`**）。**本ドキュメントは棚卸し（inventory）のみ** — **`git worktree remove`・ディレクトリ削除・remote/local branch 削除は行わない**。
 
 ---
 
@@ -17,7 +17,8 @@
 
 ## 3. 現在の `main` HEAD（inventory 基準）
 
-- **`6d0989f`** — `docs: Record R6.13-C main completion`（= 本 worktree の checkout 基点）
+- **inventory 作成時点**: **`6d0989f`** — `docs: Record R6.13-C main completion`
+- **`main` に本 inventory をマージ後**（参照用）: **`cc33ef1`** — `docs: R6.14-A cleanup preflight inventory`
 
 ## 4. stale branch inventory（参照のみ）
 
@@ -69,6 +70,14 @@
 
 ## 10. 次フェーズ — R6.14-B cleanup execution proposal
 
-- **目的案**: 承認済みの候補に限り **`git worktree remove`** を順次適用。  
-- **制約**: **ユーザー明示承認なしに削除しない**。remote branch 削除も **別承認**。  
-- **product / workflow / Makefile**: 変更しない（cleanup のみ）。
+- **内容案**: R6.14-A の表を前提に、**削除候補ごとのコマンド案**と **承認ゲート**を **docs-only** で固定する（**実行しない**）。
+- **制約**: **ユーザー明示承認なしに削除しない**。R6.14-C 以降の **実 `git worktree remove` は別承認**。
+- **product / workflow / Makefile**: 変更しない。
+
+## 11. 完了検証サマリ（`main` 反映後）
+
+- **ブランチ**: `work/r6-14-a-cleanup-preflight-inventory`
+- **実装コミット**: `cc33ef1`（docs-only）
+- **CI**: branch tests **`25945410481`** · **main** merge 直後 tests **`25945536823`**
+- **テスト**: full pytest **697 passed** · `make agent-final-check` success
+- **方針**: **削除なし** · **`review_integrated` コミット禁止** · stale **`5c45103` merge 禁止** · 次 **R6.14-B**（コマンド案のみ）

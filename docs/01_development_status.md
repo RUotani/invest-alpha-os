@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
@@ -659,7 +659,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
@@ -672,18 +672,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **本作業ブランチ**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
-## R6.14-A — Cleanup preflight inventory（作業ブランチ・`main` 未反映）
+## R6.14-A — Cleanup preflight inventory（完了・main反映済み）
 
+**コミット**: `cc33ef1` docs: R6.14-A cleanup preflight inventory（branch CI **`25945410481`** · main merge push CI **`25945536823`**）
 **ブランチ**: `work/r6-14-a-cleanup-preflight-inventory`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-a`）
-**内容**: worktree／branch／`review_integrated_*.md` の **棚卸し表と分類案**。**削除操作なし**。詳細は **[docs/45_r6_14_a_cleanup_preflight_inventory.md](./45_r6_14_a_cleanup_preflight_inventory.md)**。
+**内容**: worktree／branch／`review_integrated_*.md` の **棚卸し表と分類案**。**削除操作なし**。**`review_integrated` はコミット禁止**。詳細は **[docs/45_r6_14_a_cleanup_preflight_inventory.md](./45_r6_14_a_cleanup_preflight_inventory.md)**。
+**検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-B**: cleanup execution proposal（**ユーザー明示承認なしに削除しない**）。
+- **R6.14-B**: cleanup execution proposal（`work/r6-14-b-cleanup-execution-proposal` · **main 未反映**）。
 
 ---
 
