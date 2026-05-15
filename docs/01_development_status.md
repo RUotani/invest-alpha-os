@@ -434,7 +434,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-B**: US cache-only signals pure helper MVP（作業ブランチ候補）。
+- **R6.11-C**: US signals regression plan（完了後は R6.11-D）。
 
 ---
 
@@ -456,14 +456,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-B**: US cache-only signals pure helper MVP（作業ブランチ）。
+- **R6.11-D**: US signals golden regression + debug CLI MVP。
 
 ---
 
-## R6.11-B — US cache-only signals pure helper MVP（作業ブランチ・`main` 未反映）
+## R6.11-B — US cache-only signals pure helper MVP（完了・main反映済み）
 
-**ブランチ**: `work/r6-11-b-us-signals-pure-helper-mvp`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-b`）
-**内容**: `compute_us_cache_signal_row` · `US_CACHE_SIGNAL_ROW_OK_KEYS`。詳細は **[docs/28_r6_11_b_us_cache_signals_pure_helper.md](./28_r6_11_b_us_cache_signals_pure_helper.md)**。
+**コミット**: `c0dbbb3` Main R6.11-B draft: Add US cache-only signals pure helper MVP（branch CI `25920373609`）
+**内容**: `compute_us_cache_signal_row` · `US_CACHE_SIGNAL_ROW_OK_KEYS` · `momentum_label`（観測用）。詳細は **[docs/28_r6_11_b_us_cache_signals_pure_helper.md](./28_r6_11_b_us_cache_signals_pure_helper.md)**。
+
+### 次タスク（候補）
+
+- **R6.11-C**: regression / golden / CLI 計画 docs。
 
 ---
 

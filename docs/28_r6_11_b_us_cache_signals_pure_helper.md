@@ -1,6 +1,6 @@
 # R6.11-B — US cache-only signals pure helper MVP
 
-**ステータス**: 作業ブランチ `work/r6-11-b-us-signals-pure-helper-mvp` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`c0dbbb3`）。branch CI `25920373609` — success。
 
 ---
 
