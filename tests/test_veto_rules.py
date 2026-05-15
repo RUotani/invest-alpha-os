@@ -1,9 +1,14 @@
-from invis_alpha_os.risk.veto_rules import (
+from types import SimpleNamespace
+
+from invis_alpha_os.config import CONFIG_DIR, load_yaml
+from invis_alpha_os.risk import (
     VetoEngine,
     build_momentum_veto_result,
     format_veto_table_cell,
     momentum_breakdown_veto_context,
+    veto_hits_to_result_dict,
 )
+from invis_alpha_os.risk.veto_rules import VetoEngine as VetoEngineFromModule
 
 
 def test_veto_rules_hard_and_soft():
@@ -20,27 +25,50 @@ def test_veto_rules_hard_and_soft():
     assert "soft_veto" in levels
 
 
-# R6.8-E: fomo_veto評価追加
-def test_fomo_veto_is_evaluated():
-    """fomo_vetoセクションのルールが評価対象になること（急騰追随・高値掴み警戒ルール群）。"""
-    rules = {
-        "hard_veto": [{"id": "h1", "metric": "market_heat", "threshold": 0.9, "message": "hard"}],
-        "soft_veto": [{"id": "s1", "metric": "valuation_stretch", "threshold": 0.6, "message": "soft"}],
-        "fomo_veto": [{"id": "fomo_chase_warning", "metric": "price_spike_5d", "threshold": 0.15, "message": "FOMO"}],
-    }
-    out = VetoEngine(rules=rules).evaluate({"market_heat": 0.5, "valuation_stretch": 0.5, "price_spike_5d": 0.20})
-    assert len(out) == 1
-    assert out[0].rule_id == "fomo_chase_warning"
-    assert out[0].level.value == "fomo_veto"
+def test_risk_package_exports_public_api() -> None:
+    """risk パッケージから Veto 公開 API を import できること。"""
+    assert VetoEngine is VetoEngineFromModule
+    assert callable(format_veto_table_cell)
+    assert callable(veto_hits_to_result_dict)
+    assert callable(build_momentum_veto_result)
+    assert callable(momentum_breakdown_veto_context)
 
 
-def test_fomo_veto_does_not_fire_below_threshold():
-    """price_spike_5dが閾値未満のとき、fomo_vetoは発火しないこと。"""
-    rules = {
-        "fomo_veto": [{"id": "fomo_chase_warning", "metric": "price_spike_5d", "threshold": 0.15, "message": "FOMO"}],
-    }
-    out = VetoEngine(rules=rules).evaluate({"price_spike_5d": 0.10})
-    assert len(out) == 0
+def _production_veto_engine() -> VetoEngine:
+    return VetoEngine(rules=load_yaml(CONFIG_DIR / "veto_rules.yaml"))
+
+
+def test_production_yaml_has_no_fomo_chase_warning_rule() -> None:
+    rules = load_yaml(CONFIG_DIR / "veto_rules.yaml")
+    fomo_ids = [r["id"] for r in rules.get("fomo_veto", [])]
+    assert "fomo_chase_warning" not in fomo_ids
+    assert "fomo_volume_price_chase" in fomo_ids
+
+
+def test_production_fomo_not_on_crash_r5() -> None:
+    """急落（r5 < -15%）では fomo_volume_price_chase が出ないこと（6501 型の誤発火防止）。"""
+    m = SimpleNamespace(r5=-0.158, volume_ratio_25d=1.56, overheat_flag=False)
+    vr = build_momentum_veto_result(m, _production_veto_engine())
+    rule_ids = [r["rule_id"] for r in vr.get("rules", [])]
+    assert "fomo_chase_warning" not in rule_ids
+    assert "fomo_volume_price_chase" not in rule_ids
+
+
+def test_production_fomo_not_on_high_r5_low_volume() -> None:
+    """r5 > 15% でも volume_ratio_25d < 3.0 なら fomo_volume_price_chase は出ないこと。"""
+    m = SimpleNamespace(r5=0.207, volume_ratio_25d=0.51, overheat_flag=True)
+    vr = build_momentum_veto_result(m, _production_veto_engine())
+    rule_ids = [r["rule_id"] for r in vr.get("rules", [])]
+    assert "fomo_volume_price_chase" not in rule_ids
+    assert "hard_momentum_overheat" in rule_ids
+
+
+def test_production_fomo_volume_price_chase_fires() -> None:
+    """r5 > 15% かつ volume_ratio_25d >= 3.0 で fomo_volume_price_chase が出ること。"""
+    m = SimpleNamespace(r5=0.20, volume_ratio_25d=3.5, overheat_flag=False)
+    vr = build_momentum_veto_result(m, _production_veto_engine())
+    rule_ids = [r["rule_id"] for r in vr.get("rules", [])]
+    assert "fomo_volume_price_chase" in rule_ids
 
 
 def test_all_three_levels_can_fire_simultaneously():
@@ -48,9 +76,22 @@ def test_all_three_levels_can_fire_simultaneously():
     rules = {
         "hard_veto": [{"id": "h1", "metric": "market_heat", "threshold": 0.9, "message": "hard"}],
         "soft_veto": [{"id": "s1", "metric": "valuation_stretch", "threshold": 0.6, "message": "soft"}],
-        "fomo_veto": [{"id": "fomo_chase_warning", "metric": "price_spike_5d", "threshold": 0.15, "message": "FOMO"}],
+        "fomo_veto": [
+            {
+                "id": "fomo_volume_price_chase",
+                "metric": "fomo_volume_price_chase",
+                "threshold": 1.0,
+                "message": "chase",
+            }
+        ],
     }
-    out = VetoEngine(rules=rules).evaluate({"market_heat": 0.95, "valuation_stretch": 0.7, "price_spike_5d": 0.20})
+    out = VetoEngine(rules=rules).evaluate(
+        {
+            "market_heat": 0.95,
+            "valuation_stretch": 0.7,
+            "fomo_volume_price_chase": 1.0,
+        }
+    )
     assert len(out) == 3
     levels = {x.level.value for x in out}
     assert "hard_veto" in levels

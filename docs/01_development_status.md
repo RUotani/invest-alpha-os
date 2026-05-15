@@ -329,6 +329,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.12-QA — FOMO Veto 意味論ホットフィックス（作業ブランチ候補）
+
+**ブランチ**: `work/r6-12-veto-fomo-centralization-hotfix`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-veto-hotfix`）
+**内容**: `config/veto_rules.yaml` から **`fomo_chase_warning`**（`price_spike_5d` 絶対値）を削除し **`fomo_volume_price_chase`** に一本化。急落銘柄での FOMO 誤発火を解消。`risk/__init__.py` に `format_veto_table_cell` · `momentum_breakdown_veto_context` · `veto_hits_to_result_dict` · `build_momentum_veto_result` を公開。R6.9-A rescue（`veto_result` dict 共通化）は **main 既反映**（`10d9701`）を前提に実施。live HTTP なし · production cache write なし。
+
+---
+
 ## R6.9-B — Stage 3 運用の文書化（完了・main反映済み）
 
 **コミット（rebase 後）**: `15524c2` docs: R6.9-B Stage 3 workflow clarification (Composer2 solo) · `b1e0d4e` docs: Record R6.9-B tests workflow run id（rebase 前の `0f74f09` / `45ed3f1` と同内容）  

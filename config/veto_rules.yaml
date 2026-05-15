@@ -15,11 +15,6 @@ soft_veto:
     message: "Valuation stretch exceeds soft threshold"
 
 fomo_veto:
-  - id: "fomo_chase_warning"
-    metric: "price_spike_5d"
-    threshold: 0.15
-    message: "Possible FOMO chase setup"
-
   - id: "fomo_volume_price_chase"
     metric: "fomo_volume_price_chase"
     threshold: 1.0
