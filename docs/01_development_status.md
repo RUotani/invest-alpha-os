@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -659,20 +659,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: next single cleanup or branch proposal（**main 未反映**）。
+- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
 ## R6.13-C — Project cleanup readiness（完了・main反映済み）
 
 **コミット**: `d034d16` docs: R6.13-C project cleanup readiness（branch CI **`25945163275`** · main merge push CI **`25945280440`**）
-**ブランチ**: `work/r6-13-c-project-cleanup-readiness`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-c`）
+**ブランチ**: `work/r6-13-c-project-cleanup-readiness`（当初 **`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-c`** · **R6.14-D で worktree remove 済み**）
 **内容**: 旧 worktree／stale branch／untracked review docs の **整理方針を docs-only で明文化**。**本タスクでは削除操作なし**。stale **`5c45103` merge 禁止** · `r6-10-g` 競合マーカーは **`main` とは別問題**。詳細は **[docs/44_r6_13_c_project_cleanup_readiness.md](./44_r6_13_c_project_cleanup_readiness.md)**。
 **検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
+- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -685,7 +685,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
+- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -698,7 +698,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: approved single worktree cleanup（`work/r6-14-d-approved-single-worktree-cleanup` · **`main` 未反映**）。
+- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -711,7 +711,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-D**: approved single worktree cleanup（承認 path **`/Users/uotani/Projects/invest-alpha-os-r6-13-c`** · **`main` 未反映**）。
+- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
+
+---
+
+## R6.14-D — Approved single worktree cleanup（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-d-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-d`）
+**内容**: 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-c` のみ** `git worktree remove`（**1 回**）。詳細は **[docs/48_r6_14_d_approved_single_worktree_cleanup.md](./48_r6_14_d_approved_single_worktree_cleanup.md)**。
+
+### 次タスク（候補）
+
+- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
