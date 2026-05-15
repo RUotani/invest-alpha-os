@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "source": "fixture_test",
+  "assets": [
+    {
+      "symbol": "MSFT",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Microsoft Corporation",
+      "enabled": true
+    },
+    {
+      "symbol": "NVDA",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "NVIDIA Corporation",
+      "enabled": true
+    },
+    {
+      "symbol": "AAPL",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Apple Inc.",
+      "enabled": true
+    },
+    {
+      "symbol": "AMZN",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Amazon.com Inc.",
+      "enabled": true
+    },
+    {
+      "symbol": "GOOGL",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Alphabet Inc. Class A",
+      "enabled": true
+    },
+    {
+      "symbol": "META",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Meta Platforms Inc.",
+      "enabled": true
+    },
+    {
+      "symbol": "TSLA",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "growth_proxy",
+      "display_name": "Tesla Inc.",
+      "enabled": true
+    },
+    {
+      "symbol": "GLDM",
+      "asset_class": "us_etf",
+      "role": "metals_bridge",
+      "theme": "gold_proxy",
+      "display_name": "SPDR Gold MiniShares Trust",
+      "enabled": true
+    },
+    {
+      "symbol": "SLV",
+      "asset_class": "us_etf",
+      "role": "metals_bridge",
+      "theme": "silver_proxy",
+      "display_name": "iShares Silver Trust",
+      "enabled": true
+    },
+    {
+      "symbol": "TLT",
+      "asset_class": "us_etf",
+      "role": "rates_proxy",
+      "theme": "long_duration_treasuries",
+      "display_name": "iShares 20+ Year Treasury Bond ETF",
+      "enabled": true
+    },
+    {
+      "symbol": "TMF",
+      "asset_class": "us_etf",
+      "role": "rates_proxy",
+      "theme": "levered_duration_treasuries",
+      "display_name": "Direxion Daily 20+ Year Treasury Bull 3X",
+      "enabled": true
+    },
+    {
+      "symbol": "SPY",
+      "asset_class": "us_etf",
+      "role": "market_proxy",
+      "theme": "us_equity_beta",
+      "display_name": "SPDR S&P 500 ETF Trust",
+      "enabled": true
+    },
+    {
+      "symbol": "QQQ",
+      "asset_class": "us_etf",
+      "role": "growth_proxy",
+      "theme": "us_growth_beta",
+      "display_name": "Invesco QQQ Trust",
+      "enabled": true
+    },
+    {
+      "symbol": "MSTR",
+      "asset_class": "crypto_proxy",
+      "role": "crypto_proxy",
+      "theme": "btc_proxy_equity",
+      "display_name": "MicroStrategy Incorporated",
+      "enabled": true
+    },
+    {
+      "symbol": "COIN",
+      "asset_class": "crypto_proxy",
+      "role": "crypto_proxy",
+      "theme": "crypto_exchange_proxy",
+      "display_name": "Coinbase Global Inc.",
+      "enabled": true
+    },
+    {
+      "symbol": "MARA",
+      "asset_class": "crypto_proxy",
+      "role": "crypto_proxy",
+      "theme": "btc_miner_proxy",
+      "display_name": "MARA Holdings Inc.",
+      "enabled": true
+    }
+  ]
+}

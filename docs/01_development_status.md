@@ -500,7 +500,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-F**: US asset universe fixture / metadata。
+- **R6.11-G**: report section dry-run 設計（本ブランチ設計 docs 参照）。
+
+---
+
+## R6.11-F — US asset universe fixture / metadata（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-11-f-us-asset-universe-fixture`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-f`）
+**内容**: `us_asset_universe_minimal.json` · `us_asset_universe.py`。詳細は **[docs/32_r6_11_f_us_asset_universe_fixture.md](./32_r6_11_f_us_asset_universe_fixture.md)**。
 
 ---
 
