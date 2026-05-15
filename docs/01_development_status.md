@@ -354,10 +354,11 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## R6.10-A — US equities cache-only MVP（完了・main反映済み）
 
-**コミット**: `3438268` Main R6.10-A draft: Add US equities cache-only MVP scaffold · `90e78d7` docs: Record R6.10-A branch CI run id
+**コミット**: `3438268` Main R6.10-A draft: Add US equities cache-only MVP scaffold · `90e78d7` docs: Record R6.10-A branch CI run id · `6a86f82` docs: Record R6.10-A main merge completion
 **ブランチ**: `work/r6-10-a-us-equities-cache-only-mvp`（当時の **`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-a`）→ main へ fast-forward merge（早送り取り込み）済み
 **GitHub Actions（branch push 時）**: `tests` (run ID: 25890095708) — success
 **GitHub Actions（`main` 取り込み直後の push）**: `tests` (run ID: 25890235423) — success
+**GitHub Actions（完了 docs push）**: `tests` (run ID: 25890275877) — success
 **内容**: **`parse_us_daily_bars_payload`** / **`load_us_daily_bars_json_file`**（`src/invis_alpha_os/data/us_daily_bars_cache.py`）と **`tests/test_us_equities_cache.py`**、設計メモ **[docs/19_r6_10_a_us_equities_cache_only_mvp.md](./19_r6_10_a_us_equities_cache_only_mvp.md)**。**live HTTP（実ネットワーク接続）・production cache write（本番キャッシュ書き込み）・CLI 統合なし**。
 
 ---
