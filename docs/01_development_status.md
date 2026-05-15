@@ -467,6 +467,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.11-C — US signals regression plan（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-11-c-us-signals-regression-plan`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-c`）
+**方針**: docs-only。詳細は **[docs/29_r6_11_c_us_signals_regression_plan.md](./29_r6_11_c_us_signals_regression_plan.md)**。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
