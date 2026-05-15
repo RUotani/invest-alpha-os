@@ -1,6 +1,6 @@
 # R6.12-C — US signals batch manifest helper
 
-**ステータス**: 作業ブランチ `work/r6-12-c-us-signals-batch-manifest` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`d88c9e0`）。branch CI `25923059540` · main CI `25924122523` — success。
 
 ---
 
