@@ -406,6 +406,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.10-E — US cache-only basic metrics MVP（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-e-us-cache-basic-metrics`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-e`）
+**方針**: パターンA — **`compute_us_daily_bars_basic_metrics`**。詳細は **[docs/23_r6_10_e_us_cache_basic_metrics.md](./23_r6_10_e_us_cache_basic_metrics.md)**。**`main` 未反映**。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
