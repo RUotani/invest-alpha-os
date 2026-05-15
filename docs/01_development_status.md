@@ -406,10 +406,16 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-E — US cache-only basic metrics MVP（作業ブランチ・`main` 未反映）
+## R6.10-E — US cache-only basic metrics MVP（main 反映済み・`a7fd315`）
 
-**ブランチ**: `work/r6-10-e-us-cache-basic-metrics`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-e`）
-**方針**: パターンA — **`compute_us_daily_bars_basic_metrics`**。詳細は **[docs/23_r6_10_e_us_cache_basic_metrics.md](./23_r6_10_e_us_cache_basic_metrics.md)**。**`main` 未反映**。
+詳細は **[docs/23_r6_10_e_us_cache_basic_metrics.md](./23_r6_10_e_us_cache_basic_metrics.md)**。
+
+---
+
+## R6.10-F — US cache metrics preview integration（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-10-f-us-cache-metrics-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-f`）
+**方針**: パターンB — **`debug us-daily-bars-cache-metrics`**（preview デフォルト非変更）。詳細は **[docs/24_r6_10_f_us_cache_metrics_preview.md](./24_r6_10_f_us_cache_metrics_preview.md)**。
 
 ---
 
