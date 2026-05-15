@@ -1,0 +1,130 @@
+"""US cache-only observation signals from validated daily bars (no HTTP)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Final
+
+from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
+from invis_alpha_os.data.us_daily_bars_metrics import compute_us_daily_bars_basic_metrics
+from invis_alpha_os.signals.momentum import DailyBar
+
+US_CACHE_SIGNAL_ROW_OK_KEYS: Final[frozenset[str]] = frozenset(
+    {
+        "status",
+        "reason",
+        "symbol",
+        "asset_class",
+        "bar_count",
+        "first_date",
+        "last_date",
+        "last_close",
+        "last_volume",
+        "total_return",
+        "return_5d",
+        "return_20d",
+        "has_5d",
+        "has_20d",
+        "momentum_label",
+        "source",
+        "live_http",
+    }
+)
+
+_SOURCE_CACHE_ONLY = "cache_only"
+
+
+def _momentum_label_from_metrics(metrics: dict[str, Any]) -> str | None:
+    if not metrics.get("has_5d"):
+        return None
+    r5 = metrics.get("return_5d")
+    r20 = metrics.get("return_20d")
+    if r5 is None:
+        return None
+    if metrics.get("has_20d") and r20 is not None and r5 > 0 and r20 > 0:
+        return "uptrend_aligned"
+    if r5 > 0:
+        return "uptrend_short"
+    if r5 < 0:
+        return "pullback_short"
+    return "neutral"
+
+
+def compute_us_cache_signal_row(
+    bars: list[DailyBar],
+    *,
+    symbol: str,
+    asset_class: str | None = None,
+) -> dict[str, Any]:
+    """Build one cache-only US signal observation row (no disk I/O)."""
+
+    base: dict[str, Any] = {
+        "symbol": symbol,
+        "asset_class": asset_class,
+        "source": _SOURCE_CACHE_ONLY,
+        "live_http": False,
+    }
+
+    if not bars:
+        return {
+            **base,
+            "status": "invalid",
+            "reason": "empty_bars",
+            "bar_count": 0,
+            "has_5d": False,
+            "has_20d": False,
+            "momentum_label": None,
+        }
+
+    metrics = compute_us_daily_bars_basic_metrics(bars)
+    if metrics.get("status") != "ok":
+        return {
+            **base,
+            "status": "invalid",
+            "reason": metrics.get("reason") or "metrics_invalid",
+            "bar_count": metrics.get("bar_count", 0),
+            "has_5d": metrics.get("has_5d", False),
+            "has_20d": metrics.get("has_20d", False),
+            "momentum_label": None,
+        }
+
+    row: dict[str, Any] = {
+        **base,
+        "status": "ok",
+        "reason": None,
+        "bar_count": metrics["bar_count"],
+        "first_date": metrics["first_date"],
+        "last_date": metrics["last_date"],
+        "last_close": metrics["last_close"],
+        "last_volume": metrics["last_volume"],
+        "total_return": metrics["total_return"],
+        "return_5d": metrics["return_5d"],
+        "return_20d": metrics["return_20d"],
+        "has_5d": metrics["has_5d"],
+        "has_20d": metrics["has_20d"],
+    }
+
+    if not metrics["has_5d"]:
+        row["status"] = "skipped_insufficient_bars"
+        row["reason"] = "insufficient_bars_for_5d"
+        row["momentum_label"] = None
+        return row
+
+    row["momentum_label"] = _momentum_label_from_metrics(metrics)
+    return row
+
+
+def load_us_cache_signal_row_from_json_file(
+    path: Path,
+    *,
+    expect_symbol: str | None = None,
+    asset_class: str | None = None,
+) -> dict[str, Any] | None:
+    """Load envelope JSON and return a signal row, or ``None`` if parse fails."""
+
+    loaded = load_us_daily_bars_json_file(path, expect_symbol=expect_symbol)
+    if loaded is None:
+        return None
+    bars, meta = loaded
+    sym = str(meta.get("symbol", ""))
+    return compute_us_cache_signal_row(bars, symbol=sym, asset_class=asset_class)

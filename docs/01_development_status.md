@@ -456,7 +456,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.11-B**: US cache-only signals pure helper MVP（`main` 未反映）。
+- **R6.11-B**: US cache-only signals pure helper MVP（作業ブランチ）。
+
+---
+
+## R6.11-B — US cache-only signals pure helper MVP（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-11-b-us-signals-pure-helper-mvp`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-11-b`）
+**内容**: `compute_us_cache_signal_row` · `US_CACHE_SIGNAL_ROW_OK_KEYS`。詳細は **[docs/28_r6_11_b_us_cache_signals_pure_helper.md](./28_r6_11_b_us_cache_signals_pure_helper.md)**。
 
 ---
 
