@@ -1,6 +1,6 @@
 # R6.10-F — US cache metrics preview / diagnostics integration
 
-**ステータス**: 作業ブランチ `work/r6-10-f-us-cache-metrics-preview` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`13e1b6b`）。branch CI `25918932189`（pre-rebase `8db961a`）— success。
 
 ---
 

@@ -420,10 +420,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.10-F — US cache metrics preview integration（作業ブランチ・`main` 未反映）
+## R6.10-F — US cache metrics preview integration（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-f-us-cache-metrics-preview`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-f`）
-**方針**: パターンB — **`debug us-daily-bars-cache-metrics`**（preview デフォルト非変更）。詳細は **[docs/24_r6_10_f_us_cache_metrics_preview.md](./24_r6_10_f_us_cache_metrics_preview.md)**。
+**コミット**: `13e1b6b` Main R6.10-F draft: Add US cache metrics debug command（rebase 後・元 branch CI `8db961a` / run `25918932189`）
+**ブランチ**: `work/r6-10-f-us-cache-metrics-preview` → main へ取り込み（`29140cd` 上に rebase 後 fast-forward）
+**内容**: **`debug us-daily-bars-cache-metrics`** · **`METRICS_PREVIEW_OK_KEYS`** · preview デフォルト非変更。詳細は **[docs/24_r6_10_f_us_cache_metrics_preview.md](./24_r6_10_f_us_cache_metrics_preview.md)**。
+
+### 次タスク（候補）
+
+- **R6.10-G**: metrics command の出力契約・異常系・回帰テスト強化。
 
 ---
 
