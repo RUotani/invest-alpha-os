@@ -1,6 +1,6 @@
 # R6.10-H — US cache metrics examples / regression hardening
 
-**ステータス**: 作業ブランチ `work/r6-10-h-us-cache-metrics-examples` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`fa6f1d3`）。branch CI `25919651109` — success。
 
 ---
 

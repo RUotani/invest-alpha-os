@@ -434,14 +434,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.10-H**: metrics command の実用 fixture・出力例・regression hardening（作業ブランチ）。
+- **R6.11-A**: US cache-only metrics から US signals MVP へ進む前の boundary / roadmap 整理。
 
 ---
 
-## R6.10-H — US cache metrics examples（作業ブランチ・`main` 未反映）
+## R6.10-H — US cache metrics examples（完了・main反映済み）
 
-**ブランチ**: `work/r6-10-h-us-cache-metrics-examples`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-10-h`）
-**方針**: パターンA。詳細は **[docs/26_r6_10_h_us_cache_metrics_examples.md](./26_r6_10_h_us_cache_metrics_examples.md)**。
+**コミット**: `fa6f1d3` Main R6.10-H draft: Add US cache metrics examples and regression fixtures（branch CI `25919651109`）
+**内容**: **`msft_25bars_metrics_envelope.json`** · JSON/Markdown golden-style 回帰 · 詳細は **[docs/26_r6_10_h_us_cache_metrics_examples.md](./26_r6_10_h_us_cache_metrics_examples.md)**。
+
+### 次タスク（候補）
+
+- **R6.11-A**: US signals boundary / roadmap（docs-only、本実装は別フェーズ）。
 
 ---
 
