@@ -593,7 +593,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-E**: opt-in CLI implementation（作業ブランチ候補）。
+- **R6.12-F**: opt-in hardening design（候補）。
+
+---
+
+## R6.12-E — US daily report opt-in CLI（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-12-e-us-report-opt-in-cli`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-e`）
+**内容**: `--us-signals-dry-run-manifest` · `append_us_signals_dry_run_section` · default 非変更。詳細は **[docs/39_r6_12_e_us_report_opt_in_cli.md](./39_r6_12_e_us_report_opt_in_cli.md)**。
 
 ---
 
