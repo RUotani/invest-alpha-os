@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-C**: project cleanup readiness（作業ブランチ）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-C**: project cleanup readiness（作業ブランチ）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-C**: project cleanup readiness（作業ブランチ）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-C**: project cleanup readiness（`work/r6-13-c-project-cleanup-readiness`）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 
@@ -659,19 +659,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-C**: project cleanup readiness（`work/r6-13-c-project-cleanup-readiness` · **本作業ブランチ**）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 
-## R6.13-C — Project cleanup readiness（作業ブランチ・`main` 未反映）
+## R6.13-C — Project cleanup readiness（完了・main反映済み）
 
+**コミット**: `d034d16` docs: R6.13-C project cleanup readiness（branch CI **`25945163275`** · main merge push CI **`25945280440`**）
 **ブランチ**: `work/r6-13-c-project-cleanup-readiness`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-c`）
-**内容**: 旧 worktree／stale branch／untracked review docs の **整理方針を docs-only で明文化**。**物理削除・branch merge・force push は行わない**。詳細は **[docs/44_r6_13_c_project_cleanup_readiness.md](./44_r6_13_c_project_cleanup_readiness.md)**。
-**検証**: full pytest · agent-final-check（本節追記後）。
+**内容**: 旧 worktree／stale branch／untracked review docs の **整理方針を docs-only で明文化**。**本タスクでは削除操作なし**。stale **`5c45103` merge 禁止** · `r6-10-g` 競合マーカーは **`main` とは別問題**。詳細は **[docs/44_r6_13_c_project_cleanup_readiness.md](./44_r6_13_c_project_cleanup_readiness.md)**。
+**検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-A**: cleanup **実行**フェーズ（ユーザー承認後・別依頼）。
+- **R6.14-A**: cleanup preflight inventory（`work/r6-14-a-cleanup-preflight-inventory` · **main 未反映**）。
 
 ---
 

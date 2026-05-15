@@ -1,6 +1,6 @@
 # R6.13-C — Project cleanup readiness
 
-**ステータス**: 作業ブランチ `work/r6-13-c-project-cleanup-readiness` のみ（**`main` 未反映**）。**本ドキュメントは方針の明文化のみ**（worktree の物理削除・branch の force 操作・stale の **merge は行わない**）。
+**ステータス**: **完了・`main` 反映済み**（`d034d16` · branch CI **`25945163275`** · main merge push CI **`25945280440`**）。**本ドキュメントは方針の明文化のみ**（worktree の物理削除・branch の force 操作・stale の **merge は行わない**）。
 
 ---
 
@@ -53,4 +53,13 @@
 
 ## 8. 次候補
 
-- **R6.14-A**（例）: cleanup **実行**フェーズ（別承認・別 PR／別 Composer 依頼）・`review_integrated_*.md` の扱いの正規化（**コミットする／しない**の方針固定）など。
+- **R6.14-A**: cleanup **preflight inventory**（tables・分類案のみ。**削除なし**）。
+- **R6.14-B**（案）: cleanup **実行**（ユーザー明示承認後のみ）・`review_integrated_*.md` 運用の正規化。
+
+## 9. 完了検証サマリ
+
+- **ブランチ**: `work/r6-13-c-project-cleanup-readiness`
+- **実装コミット**: `d034d16`（docs-only）
+- **CI**: branch tests **`25945163275`** · **main** merge 直後 tests **`25945280440`**
+- **テスト**: full pytest **697 passed** · `make agent-final-check` success
+- **方針**: stale **`5c45103` merge 禁止** · `r6-10-g` 競合は **main とは別問題** · **`review_integrated_20260515.md` はコミットしない**
