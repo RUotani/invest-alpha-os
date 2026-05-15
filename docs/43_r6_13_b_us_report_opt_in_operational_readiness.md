@@ -47,7 +47,7 @@ PYTHONPATH=src python -m invis_alpha_os.cli.main daily --us-signals-dry-run-mani
 ## 5. Smoke（自動）
 
 - **`tests/test_us_report_opt_in_operational_readiness.py`**
-  - `--help` に `--us-signals-dry-run-manifest` が出ること（**subprocess の `python -m invis_alpha_os.cli.main …` と `PYTHONPATH`=`src` 相当で確認し、CLI runner／Rich の表示幅問題を避ける）。
+  - Typer／Click に **`--us-signals-dry-run-manifest` が登録されている**こと（`daily --help` の Rich 表示はターミナル幅・CI で省略され得るため、**ヘルプ文字列への依存なし**で検証）。
   - **`cwd = REPO_ROOT`** で runbook と同じ相対パス文字列が通ること。
   - `entries: []` のような **構文は正しいが manifest 無効** のケースで **exit 0**＋短文 skip。
 

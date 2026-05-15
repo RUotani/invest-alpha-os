@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
-import subprocess
-import sys
 from pathlib import Path
 
+import click
 import pytest
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from invis_alpha_os.cli import main as cli_main
@@ -32,27 +31,17 @@ def _daily_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: st
     return (OUTPUTS_DIR / "reports" / "daily" / f"{cli_main.today_jst_iso()}.md").read_text(encoding="utf-8")
 
 
-def test_daily_help_documents_us_signals_dry_run_manifest_flag() -> None:
-    """Prefer a real subprocess (`python -m ...`) — matches runbook / avoids CliRunner coupling."""
+def test_daily_command_registers_manifest_opt_in_long_option() -> None:
+    """Assert Typer wires the flag (Rich `--help` output can truncate on CI)."""
 
-    env = os.environ.copy()
-    pp = env.get("PYTHONPATH", "").strip(os.pathsep)
-    env["PYTHONPATH"] = os.pathsep.join([str(REPO_ROOT / "src"), pp]).strip(os.pathsep)
-    env.setdefault("NO_COLOR", "1")
-    env["COLUMNS"] = "240"
-
-    proc = subprocess.run(
-        [sys.executable, "-m", "invis_alpha_os.cli.main", "daily", "--help"],
-        cwd=str(REPO_ROOT),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=False,
-    )
-    assert proc.returncode == 0, proc.stdout + proc.stderr
-    out = proc.stdout + proc.stderr
-    assert "--us-signals-dry-run-manifest" in out
+    root = get_command(app)
+    daily_cmd = root.get_command(None, "daily")
+    assert daily_cmd is not None
+    opts: list[str] = []
+    for param in daily_cmd.params:
+        if isinstance(param, click.Option):
+            opts.extend(param.opts)
+    assert "--us-signals-dry-run-manifest" in opts
 
 
 def test_operational_invoke_from_repo_root_with_runbook_relative_manifest(
