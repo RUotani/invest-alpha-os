@@ -1,6 +1,8 @@
 # R6.13-B — US report opt-in operational readiness
 
-**ステータス**: 作業ブランチ `work/r6-13-b-us-report-opt-in-operational-readiness` のみ（**`main` 未反映**）。
+**ステータス**: **完了・`main` 反映済み**（**squash 1 コミット** `f42ccf6` · clean branch CI **`25945006838`** · **main** merge push CI **`25945039205`** success）
+
+**履歴メモ**: 開発用の **original branch** `work/r6-13-b-us-report-opt-in-operational-readiness`（最終 `fa2741f` · CI **`25944862016`**）は **直接 `main` merge していない**。`main` へは **`work/r6-13-b-us-report-opt-in-operational-readiness-squash`** のみ fast-forward。
 
 ---
 
@@ -62,4 +64,12 @@ PYTHONPATH=src python -m invis_alpha_os.cli.main daily --us-signals-dry-run-mani
 
 ## 7. 次候補
 
-- **R6.13-C** または **R6.14**: integrated golden と runbook を跨ぐ縮約・PDF 配慮、`make`/`CI` での明示ターゲット化（**本ブランチでは Makefile／workflow は触らない**）。
+- **R6.13-C**: 旧 worktree／stale branch／untracked review docs の **cleanup readiness**（docs-only・**`main` 未反映**）。
+
+## 8. 完了検証サマリ（`main` 反映後）
+
+- **clean squash branch**: `work/r6-13-b-us-report-opt-in-operational-readiness-squash` · **`f42ccf6`** · CI **`25945006838`**
+- **original branch**（参照のみ）: `work/r6-13-b-us-report-opt-in-operational-readiness` · **`fa2741f`** · CI **`25944862016`**
+- **main**（実装マージ直後）: **`f42ccf6`** · tests CI **`25945039205`**
+- **テスト**: focused **29 passed** · full pytest **697 passed** · `make agent-final-check` success
+- **契約**: default daily **非変更** · flag 指定時のみ US 節 · invalid manifest **exit 0** + `manifest_invalid` · Typer／Click **Option 登録**で `--help` Rich 依存を回避 · live HTTP／production cache write／Veto・portfolio・macro **なし**

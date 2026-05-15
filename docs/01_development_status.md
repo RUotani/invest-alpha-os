@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-B**: US report opt-in operational readiness（作業ブランチ）。
+- **R6.13-C**: project cleanup readiness（作業ブランチ）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-B**: US report opt-in operational readiness。
+- **R6.13-C**: project cleanup readiness（作業ブランチ）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-B**: US report opt-in operational readiness（runbook／smoke・**作業ブランチのみ**）。
+- **R6.13-C**: project cleanup readiness（作業ブランチ）。
 
 ---
 
@@ -645,15 +645,21 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.13-B**: US report opt-in operational readiness（`work/r6-13-b-us-report-opt-in-operational-readiness` · 本作業）。
+- **R6.13-C**: project cleanup readiness（`work/r6-13-c-project-cleanup-readiness`）。
 
 ---
 
-## R6.13-B — US report opt-in operational readiness（作業ブランチ・`main` 未反映）
+## R6.13-B — US report opt-in operational readiness（完了・main反映済み）
 
-**ブランチ**: `work/r6-13-b-us-report-opt-in-operational-readiness`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-b`）
-**内容**: **`daily --us-signals-dry-run-manifest`** の runbook 固定・invalid／スキーマ不一致時の **exit 0** 期待値の明示・`cwd=REPO_ROOT` 相当の pytest smoke。**product code 変更なし**。詳細は **[docs/43_r6_13_b_us_report_opt_in_operational_readiness.md](./43_r6_13_b_us_report_opt_in_operational_readiness.md)**。
-**検証**: `tests/test_us_report_opt_in_operational_readiness.py` と US opt-in／momentum／integrated golden の focused。**live HTTP／production cache write／Veto・portfolio・macro なし**。**`main` へはマージしない**（ドラフトのみ）。
+**コミット（main 取り込み）**: `f42ccf6` Main R6.13-B draft: Add US report opt-in operational readiness coverage（**clean squash branch** `work/r6-13-b-us-report-opt-in-operational-readiness-squash` · branch CI **`25945006838`** · main merge push CI **`25945039205`**）
+**original branch（直接 main merge なし）**: `work/r6-13-b-us-report-opt-in-operational-readiness`（最終 `fa2741f` · branch CI **`25944862016`** success）
+**squash worktree**: `/Users/uotani/Projects/invest-alpha-os-r6-13-b-squash`
+**内容**: **`daily --us-signals-dry-run-manifest`** の runbook 固定 · invalid／スキーマ不一致時 **exit 0** + `manifest_invalid` · Typer／Click **Option 登録**でヘルプ文字列依存を回避（smoke）。**default daily 非変更**。**product code 変更なし**。詳細は **[docs/43_r6_13_b_us_report_opt_in_operational_readiness.md](./43_r6_13_b_us_report_opt_in_operational_readiness.md)**。
+**検証**: focused **29 passed** · full pytest **697 passed** · agent-final-check success · live HTTP／production cache write／Veto・portfolio・macro **なし**。
+
+### 次タスク（候補）
+
+- **R6.13-C**: project cleanup readiness（`work/r6-13-c-project-cleanup-readiness` · **main 未反映**）。
 
 ---
 
