@@ -19,6 +19,9 @@ REPO = Path(__file__).resolve().parents[1]
 FIX_MINIMAL = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
 FIX_UNIVERSE = REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_minimal.json"
+FIX_UNIVERSE_MSFT_DISABLED = (
+    REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_msft_disabled.json"
+)
 
 runner = CliRunner()
 
@@ -190,3 +193,82 @@ def test_cli_universe_path_markdown_matched() -> None:
     assert r.exit_code == 0
     assert "**universe_status**: matched" in r.stdout
     assert "**display_name**: Microsoft Corporation" in r.stdout
+
+
+def test_cli_universe_disabled_msft_json() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            str(FIX_UNIVERSE_MSFT_DISABLED),
+            "--format",
+            "json",
+        ],
+    )
+    assert r.exit_code == 0
+    body = json.loads(r.stdout.strip())
+    assert body["status"] == "ok"
+    assert body["universe_status"] == "disabled"
+    assert body["role"] == "single_stock"
+    assert body["display_name"] == "Microsoft Corporation"
+
+
+def test_cli_universe_disabled_msft_markdown() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            str(FIX_UNIVERSE_MSFT_DISABLED),
+            "--format",
+            "markdown",
+        ],
+    )
+    assert r.exit_code == 0
+    assert "**universe_status**: disabled" in r.stdout
+    assert "**universe**: disabled entry" in r.stdout
+
+
+def test_cli_skipped_with_universe_markdown() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_MINIMAL),
+            "--universe-path",
+            str(FIX_UNIVERSE),
+            "--format",
+            "markdown",
+        ],
+    )
+    assert r.exit_code == 1
+    assert "**status**: skipped_insufficient_bars" in r.stdout
+    assert "**universe_status**: matched" in r.stdout
+
+
+def test_cli_universe_invalid_markdown() -> None:
+    r = runner.invoke(
+        app,
+        [
+            "debug",
+            "us-cache-signals-preview",
+            "--path",
+            str(FIX_25),
+            "--universe-path",
+            "/no/universe.json",
+            "--format",
+            "markdown",
+        ],
+    )
+    assert r.exit_code == 1
+    assert "**reason**: universe_invalid" in r.stdout
+    assert "**universe_path**:" in r.stdout

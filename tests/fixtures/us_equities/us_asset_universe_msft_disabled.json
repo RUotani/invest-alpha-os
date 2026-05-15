@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "source": "fixture_test_disabled",
+  "assets": [
+    {
+      "symbol": "MSFT",
+      "asset_class": "us_equity",
+      "role": "single_stock",
+      "theme": "megacap_tech",
+      "display_name": "Microsoft Corporation",
+      "enabled": false
+    }
+  ]
+}

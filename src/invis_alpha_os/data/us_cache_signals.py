@@ -233,6 +233,9 @@ def format_us_cache_signals_preview_markdown(preview: dict[str, Any]) -> str:
         path = preview.get("path", "")
         if path:
             lines.append(f"- **path**: `{path}`")
+        uni_path = preview.get("universe_path")
+        if uni_path:
+            lines.append(f"- **universe_path**: `{uni_path}`")
         lines.append("- **live_http**: false")
         return "\n".join(lines) + "\n"
 
@@ -242,6 +245,8 @@ def format_us_cache_signals_preview_markdown(preview: dict[str, Any]) -> str:
     uni_status = preview.get("universe_status")
     if uni_status:
         lines.append(f"- **universe_status**: {uni_status}")
+        if uni_status == "disabled":
+            lines.append("- **universe**: disabled entry (metadata retained for observation)")
         role = preview.get("role")
         if role:
             lines.append(f"- **role**: {role}")

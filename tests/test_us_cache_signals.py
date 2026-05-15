@@ -24,6 +24,9 @@ REPO = Path(__file__).resolve().parents[1]
 FIX_MINIMAL = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
 FIX_UNIVERSE = REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_minimal.json"
+FIX_UNIVERSE_MSFT_DISABLED = (
+    REPO / "tests" / "fixtures" / "us_equities" / "us_asset_universe_msft_disabled.json"
+)
 
 
 def _synthetic_bars(n: int, *, base: float = 100.0, step: float = 1.0) -> list[DailyBar]:
@@ -144,3 +147,27 @@ def test_attach_universe_invalid() -> None:
     out = attach_us_asset_universe_metadata_to_signals_preview(base, Path("/no/universe.json"))
     assert out["status"] == "invalid"
     assert out["reason"] == "universe_invalid"
+
+
+def test_attach_universe_disabled() -> None:
+    base = build_us_cache_signals_preview(FIX_25)
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, FIX_UNIVERSE_MSFT_DISABLED)
+    assert out["status"] == "ok"
+    assert out["universe_status"] == "disabled"
+    assert out["asset_class"] == "us_equity"
+
+
+def test_skipped_with_universe_markdown_golden() -> None:
+    base = build_us_cache_signals_preview(FIX_MINIMAL)
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, FIX_UNIVERSE)
+    md = format_us_cache_signals_preview_markdown(out)
+    assert "**status**: skipped_insufficient_bars" in md
+    assert "**universe_status**: matched" in md
+
+
+def test_invalid_universe_markdown_golden() -> None:
+    base = build_us_cache_signals_preview(FIX_25)
+    out = attach_us_asset_universe_metadata_to_signals_preview(base, Path("/no/universe.json"))
+    md = format_us_cache_signals_preview_markdown(out)
+    assert "**reason**: universe_invalid" in md
+    assert "**universe_path**:" in md
