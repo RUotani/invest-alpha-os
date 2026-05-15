@@ -593,7 +593,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-F**: opt-in hardening design（候補）。
+- **R6.12-G**: opt-in golden / invalid UX hardening（作業ブランチ候補）。
 
 ---
 
@@ -608,6 +608,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 - **R6.12-G**: opt-in golden / invalid UX hardening（作業ブランチ候補）。
 - **R6.13-A**: real daily 検証 / config 統合（任意）。
+
+---
+
+## R6.12-F — US report opt-in hardening design（作業ブランチ・docs-only・`main` 未反映）
+
+**ブランチ**: `work/r6-12-f-us-report-opt-in-hardening-design`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-f`）
+**内容**: R6.12-E 後の hardening 計画（実装なし）。詳細は **[docs/40_r6_12_f_us_report_opt_in_hardening_design.md](./40_r6_12_f_us_report_opt_in_hardening_design.md)**。
 
 ---
 
