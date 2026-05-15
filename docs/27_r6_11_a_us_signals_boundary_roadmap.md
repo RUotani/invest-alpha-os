@@ -1,6 +1,6 @@
 # R6.11-A — US signals boundary / roadmap（設計のみ）
 
-**ステータス**: 作業ブランチ `work/r6-11-a-us-signals-boundary-roadmap` のみ。**`main` 未反映**。本フェーズは **docs / design** — **US signals 本実装なし**。
+**ステータス**: **main 反映済み**（`92d0a10`）。branch CI `25920084716` — success。本フェーズは **docs / design** — **US signals 本実装は R6.11-B 以降**。
 
 ---
 
