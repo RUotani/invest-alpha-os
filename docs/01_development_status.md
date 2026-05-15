@@ -320,12 +320,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.9-A — `format_veto_table_cell`（Veto 表セル整形関数）による表示共通化（完了・main反映済み）
+## R6.9-A — Veto 表示ロジック共通化（完了・main反映済み）
 
-**コミット**: `58efc4a` Main R6.9-A draft: Share veto Markdown cell formatting  
-**ブランチ**: `work/r6-9-a-veto-display-common` → main へ fast-forward merge（早送り取り込み）済み  
-**GitHub Actions（R6.9-A のみ取り込み直後の `main` push）**: `tests` (run ID: 25867212766) — success  
-**内容**: `signals` Markdown と日次レポートの Veto セルを **`format_veto_table_cell(veto_result)`** に集約（`VetoEngine`（拒否・警戒判定エンジン）の `veto_result` 形式に揃える）。
+**コミット（Markdown セル）**: `58efc4a` · **rescue（`veto_result` dict）**: `10d9701`（rebase 後 · stale `5c45103` は直接 merge せず rescue 経由）  
+**ブランチ**: `work/r6-9-a-veto-result-centralization-rebase` · branch CI `25923815461` · main CI `25924233571`  
+**内容**: `format_veto_table_cell` · `veto_hits_to_result_dict` · `build_momentum_veto_result` — signals JSON / Markdown / daily report の `veto_result` 形状を統一。  
+**stale 整理**: `work/r6-9-a-veto-display-common` / `5c45103` は **merge 禁止**（参照のみ · worktree 削除候補）。
 
 ---
 
