@@ -512,7 +512,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-B**: multi-symbol US signals report dry-run（作業ブランチ候補）。
+- **R6.12-C**: US signals batch manifest helper（作業ブランチ候補）。
 
 ---
 
@@ -548,14 +548,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.12-B**: multi-symbol US signals report dry-run。
+- **R6.12-C**: US signals batch manifest helper。
 
 ---
 
-## R6.12-B — Multi-symbol US signals report dry-run（作業ブランチ・`main` 未反映）
+## R6.12-B — Multi-symbol US signals report dry-run（完了・main反映済み）
 
-**ブランチ**: `work/r6-12-b-us-signals-report-multisymbol-dry-run`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-b`）
-**内容**: `render_us_cache_signals_multi_symbol_dry_run_section` · 単一 symbol API 非破壊。詳細は **[docs/36_r6_12_b_us_signals_multisymbol_dry_run.md](./36_r6_12_b_us_signals_multisymbol_dry_run.md)**。
+**コミット**: `11c676c` Main R6.12-B draft: Add multi-symbol US signals dry-run renderer（branch CI `25922726298` · main CI `25922972372`）
+**内容**: `render_us_cache_signals_multi_symbol_dry_run_section` · 単一 symbol API 非破壊 · 空リスト対応。live HTTP なし · daily report 未接続。詳細は **[docs/36_r6_12_b_us_signals_multisymbol_dry_run.md](./36_r6_12_b_us_signals_multisymbol_dry_run.md)**。
+**検証**: dry-run tests 6 passed · full pytest 675 passed · agent-final-check success。
+
+### 次タスク（候補）
+
+- **R6.12-C**: explicit batch manifest / cache path helper。
 
 ---
 

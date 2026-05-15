@@ -1,6 +1,6 @@
 # R6.12-B — Multi-symbol US signals report dry-run
 
-**ステータス**: 作業ブランチ `work/r6-12-b-us-signals-report-multisymbol-dry-run` のみ。**`main` 未反映**。
+**ステータス**: **main 反映済み**（`11c676c`）。branch CI `25922726298` · main CI `25922972372` — success。
 
 ---
 
@@ -30,4 +30,4 @@
 
 ## 5. 次候補
 
-- **R6.12-C**: daily report opt-in 接続設計
+- **R6.12-C**: explicit batch manifest / cache path helper
