@@ -791,12 +791,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily 冒頭文言と stale output（ブランチ作業のみ）。
-- **R6.14-J**: **next single cleanup** の継続（**別承認**）。
+- **R6.14-J**：R12 の **next single cleanup**。**R6.15-A** と独立。
 
 ---
 
-## R6.8以降の候補タスク（未着手）
+## R6.15-A — Daily header · stale **`2031-07-15` outputs（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-a-daily-header-and-stale-output-fix`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-a`）
+**`main` 反映**: **なし**。詳細は **[docs/54_r6_15_a_daily_header_and_stale_output_fix.md](./54_r6_15_a_daily_header_and_stale_output_fix.md)**。**CI**：`gh run list --branch work/r6-15-a-daily-header-and-stale-output-fix`
+
+### 次タスク（候補）
+
+- **`main`** への反映は **別フェーズ**。次ドキュメント候補: **R6.15-B**（review_integrated）/ **R6.15-C**（US cache runbook）/ **R6.14-J**。
+
 
 優先度は状況に応じて判断してください。
 

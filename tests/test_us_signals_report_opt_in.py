@@ -18,14 +18,11 @@ _VALID_MANIFEST = REPO_ROOT / "tests/fixtures/us_equities/us_cache_signals_batch
 
 _GOLDEN_DAILY_BODY_NO_OPTS = """# Daily Report (2031-07-15)
 
-Phase 0 dummy report.
-- Observation only
-- No auto trading
+Observation only — no auto trading.
 
-## Japan Signals
-- Phase 1a stub
-- J-Quants disabled / not configured
-- Watchlist count: 0"""
+## Japan Signals — Momentum Cache
+- Watchlist count: 0
+- J-Quants disabled / not configured"""
 
 _INVALID_APPENDIX_SNAPSHOT = """### US Signals Dry Run (opt-in)
 
