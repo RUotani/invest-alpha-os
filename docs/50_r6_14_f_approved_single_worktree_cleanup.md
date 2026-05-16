@@ -1,6 +1,6 @@
 # R6.14-F — Approved single old R6.12 worktree cleanup
 
-**ステータス**: 作業ブランチ `work/r6-14-f-approved-single-worktree-cleanup` のみ（**`main` 未反映**）。**実施したのは、承認条件を満たす単一 **`invest-alpha-os-r6-12-*` worktree** に対する `git worktree remove` のみ（1 回）** — **`rm -rf`・local/remote branch 削除・他 path の削除は行っていない**。
+**ステータス**: 作業ブランチ `work/r6-14-f-approved-single-worktree-cleanup` のみ（`main` 未反映）。承認条件を満たす **単一**の `invest-alpha-os-r6-12-*` worktree に対する `git worktree remove`（**1 回のみ**）を実施した — **`rm -rf`・local/remote branch 削除・他 path の削除は行っていない**。
 
 ---
 
