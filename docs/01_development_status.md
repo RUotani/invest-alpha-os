@@ -763,7 +763,8 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-J**: **next single cleanup** または **ユーザー承認付き `r6-10-g` の単一 worktree remove**（**別承認**）。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**（**R6.14-I** 記録・**`main` 未反映**）。
+- **R6.14-J**: **next single cleanup** または **ユーザー承認付き `r6-10-g` の単一 worktree remove**（**別承認**）。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**。
+- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily 冒頭文言と stale output（ブランチ作業のみ・**別承認**）。
 
 ---
 
@@ -776,16 +777,22 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-J**: **next single cleanup** または **ユーザー承認付き `r6-10-g` の単一 worktree remove**（**別承認**）。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**。
+- **R6.14-J**: **next single cleanup**（R12 残余）。
+- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily 冒頭文言と stale output（ブランチ作業のみ）。
 
 ---
 
-## R6.14-I — Approved single old R6.12 worktree cleanup（ブランチのみ・`main` 未反映）
+## R6.14-I — Approved single old R6.12 worktree cleanup（完了・main反映済み）
 
+**コミット（`main` 取り込み）**: `304b822` docs: R6.14-I approved single worktree cleanup（branch CI **`25951158250`** · main merge push CI **`25951287619`**）· **完了記録**: **`docs: Record R6.14-I main completion`**
 **ブランチ**: `work/r6-14-i-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-i`）
-**`main` 反映**: **なし**（本タスクは **PR / `main` merge 禁止**）
 **内容**: **`/Users/uotani/Projects/invest-alpha-os-r6-12-d` のみ** `git worktree remove`（**1 回**）。**`git worktree remove --force`** および **`rm -rf` なし**。**branch / remote branch 明示削除なし**。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**。
-**検証**: full pytest / agent-final-check（ブランチ上）。**CI**: `gh run list --branch work/r6-14-i-approved-single-worktree-cleanup --workflow tests`
+**検証**: full pytest **697 passed** · agent-final-check success。
+
+### 次タスク（候補）
+
+- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily 冒頭文言と stale output（ブランチ作業のみ）。
+- **R6.14-J**: **next single cleanup** の継続（**別承認**）。
 
 ---
 

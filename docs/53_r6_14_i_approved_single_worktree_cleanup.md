@@ -1,6 +1,12 @@
 # R6.14-I — Approved single old R6.12 worktree cleanup
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**。作業ブランチ: `work/r6-14-i-approved-single-worktree-cleanup`）。単一の **`invest-alpha-os-r6-12-*` worktree** に対して `git worktree remove` を **1 回**実施（**`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**）。**検証**: full pytest / agent-final-check（本書作成時記録。**branch CI は push 後 `gh`** で確認）。**`git worktree remove --force`** および **`rm -rf` は未使用**。
+**ステータス**: **完了・`main` 反映済み**。**`main` に取り込まれた tip**: `304b822`。**作業ブランチ**: `work/r6-14-i-approved-single-worktree-cleanup`。単一の **`invest-alpha-os-r6-12-*` worktree** に対して `git worktree remove` を **1 回**実施（**`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**）。**ブランチ CI**: **`25951158250`** success。**`main` push CI（`304b822` が `main` に反映）**: **`25951287619`** success。**検証**: full pytest **697 passed** · agent-final-check success（記録）。**`git worktree remove --force`**・**`rm -rf`** および **branch の明示削除**は **未実施**。
+
+---
+
+## `main` 反映完了記録（本書の追記パート）
+
+**完了記録 commit**: **`docs: Record R6.14-I main completion`**（その直後の `main` tip と CI は `gh run list --branch main` で確認。**本段落追記より前の merge tip は **`304b822`**。）
 
 ---
 
@@ -11,7 +17,7 @@
 
 ## 2. 非目的
 
-- **`invest-alpha-os`**（**main**）や **`invest-alpha-os-r6-14-i`** の削除。**本ブランチの `main` マージ**・**Pull Request**。
+- **`invest-alpha-os`**（**main worktree**）や **`invest-alpha-os-r6-14-i`** の削除。**許可されていない複数削除**。
 - **`invest-alpha-os-r6-10-g`** の削除・修復。**`rm -rf`**。許可のない **`invest-alpha-os-r6-12-*` の 2 本目削除**。**`review_integrated_*` の削除またはコミット**。**stale R6.9-A の merge**。**original R6.13-B 削除**。明示的な **local / remote branch** 削除単体。**`git worktree remove --force`**。
 
 ## 3. Candidate discovery と選定順
@@ -64,4 +70,4 @@ git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-12-d
 
 ## 11. 次候補
 
-- **R6.14-J**: **next single cleanup**、または **ユーザー承認付きの `git worktree remove`**（対象 **`r6-10-g`** など）。いずれも **別タスク・別承認**。**`main` に未マージ**のブランチ作業が前提になる場合あり。
+- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily report 冒頭文言の是正と **future stale output** の整理（**ブランチ作業のみ**）。**単一 R12 cleanup の継続**は **R6.14-J**。
