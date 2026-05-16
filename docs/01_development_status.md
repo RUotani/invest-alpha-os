@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -632,20 +632,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
 ## R6.13-A — Daily integrated US opt-in golden（完了・main反映済み）
 
 **コミット**: `6ab8db1` Main R6.13-A draft: Add daily US opt-in integrated golden coverage（branch CI `25944357356` · main merge push CI **`25944670951`**）
-**ブランチ**: `work/r6-13-a-daily-us-opt-in-integrated-golden`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-a`）
+**ブランチ**: `work/r6-13-a-daily-us-opt-in-integrated-golden`（当初 **`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-13-a`** · **R6.14-E で worktree remove 済み**）
 **内容**: JQ watchlist 節 · momentum 両節 · `--us-signals-dry-run-manifest` 指定時の **`##` / `###`** 見出し順固定（日付 `2031-07-15`）。live HTTP／production cache write／Veto・portfolio・macro **なし**。詳細は **[docs/42_r6_13_a_daily_us_opt_in_integrated_golden.md](./42_r6_13_a_daily_us_opt_in_integrated_golden.md)**。
 **検証**: focused **37 passed** · full pytest **694 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -659,7 +659,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -685,7 +685,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -698,7 +698,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -711,7 +711,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -724,7 +724,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-E**: approved single worktree cleanup（承認 path **`/Users/uotani/Projects/invest-alpha-os-r6-13-a`** · **`main` 未反映**）。
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
+
+---
+
+## R6.14-E — Approved single worktree cleanup（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-e-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-e`）
+**内容**: 承認済み **`/Users/uotani/Projects/invest-alpha-os-r6-13-a` のみ** `git worktree remove`（**1 回**）。詳細は **[docs/49_r6_14_e_approved_single_worktree_cleanup.md](./49_r6_14_e_approved_single_worktree_cleanup.md)**。
+
+### 次タスク（候補）
+
+- **R6.14-F**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
