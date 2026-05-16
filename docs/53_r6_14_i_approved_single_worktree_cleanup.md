@@ -1,0 +1,67 @@
+# R6.14-I — Approved single old R6.12 worktree cleanup
+
+**ステータス**: **ブランチ作業のみ**（**`main` 未反映**。作業ブランチ: `work/r6-14-i-approved-single-worktree-cleanup`）。単一の **`invest-alpha-os-r6-12-*` worktree** に対して `git worktree remove` を **1 回**実施（**`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**）。**検証**: full pytest / agent-final-check（本書作成時記録。**branch CI は push 後 `gh`** で確認）。**`git worktree remove --force`** および **`rm -rf` は未使用**。
+
+---
+
+## 1. 目的
+
+- **`invest-alpha-os-r6-12-*`** の残余から、優先順（**d → c → b → a → veto-hotfix**）で **preflight が最初に PASS した 1 path のみ**を `git worktree remove` する。**見つからなければ no-op**。今回は **`r6-12-d`** が PASS したため削除を実施した。
+- **`r6-10-g`** は **削除・修復・merge を行わず**、`main` と切り離した **「R12 clean 系完了後に別途承認」**方針のまま据え置く（本タスクは **docs に触れのみ**）。
+
+## 2. 非目的
+
+- **`invest-alpha-os`**（**main**）や **`invest-alpha-os-r6-14-i`** の削除。**本ブランチの `main` マージ**・**Pull Request**。
+- **`invest-alpha-os-r6-10-g`** の削除・修復。**`rm -rf`**。許可のない **`invest-alpha-os-r6-12-*` の 2 本目削除**。**`review_integrated_*` の削除またはコミット**。**stale R6.9-A の merge**。**original R6.13-B 削除**。明示的な **local / remote branch** 削除単体。**`git worktree remove --force`**。
+
+## 3. Candidate discovery と選定順
+
+優先順（依頼どおり）：**`/Users/uotani/Projects/invest-alpha-os-r6-12-d`** → **`-c`** → **`-b`** → **`-a`** → **`-veto-hotfix`**。
+
+**結果**: **`r6-12-d`** 〜 **`veto-hotfix`** は複数 **`git worktree list`** にあったが、`d` が **named branch・clean・`main` の ancestor** と確認できたため **単一許可どおりこの 1 本のみ**削除。他順位は評価前に試行終了した。
+
+## 4. TARGET（削除した absolute path）
+
+- **`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**
+- **branch**: `work/r6-12-d-us-report-opt-in-design`
+- **削除直前 HEAD**: **`1e4013c`**
+
+## 5. Preflight 結果（本 TARGET）
+
+| チェック | 結果 |
+|---|---|
+| **`invest-alpha-os-r6-12-*`** 対象である | OK |
+| **`invest-alpha-os`** / **`invest-alpha-os-r6-14-i` ではない** | OK |
+| **存在・`git worktree list` 登録** | OK |
+| **`git status --short`** | **clean**（空） |
+| **`merge-base --is-ancestor`（branch → `main`）** | **真** |
+| **`git branch --contains` に `main`** | **あり** |
+
+## 6. 実行コマンド（1 回のみ）
+
+```bash
+cd /Users/uotani/Projects/invest-alpha-os
+git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-12-d
+```
+
+## 7. 削除後確認
+
+- **`test ! -d /Users/uotani/Projects/invest-alpha-os-r6-12-d`** → **ディレクトリ不在**。
+- **`git worktree list`** に当該 path **なし**。
+
+## 8. No-op
+
+- **当てはまらず**（本タスクでは **remove を実行**）。
+
+## 9. **`r6-10-g`（未操作のまま）**
+
+- **`invest-alpha-os-r6-10-g`** は **本タスクでは削除・修復・merge しない**（**R6.14-H** の decision を踏襲）。
+
+## 10. 削除しなかったもの
+
+- **TARGET 以外**の **`invest-alpha-os-r6-12-*` worktree**（**2 本目以降は削除禁止**）。
+- **branch の明示削除・remote の明示削除**。**stale R6.9-A**。**original R6.13-B**。**`review_integrated_*`**。**`rm -rf`**。**`git worktree remove --force`**。
+
+## 11. 次候補
+
+- **R6.14-J**: **next single cleanup**、または **ユーザー承認付きの `git worktree remove`**（対象 **`r6-10-g`** など）。いずれも **別タスク・別承認**。**`main` に未マージ**のブランチ作業が前提になる場合あり。

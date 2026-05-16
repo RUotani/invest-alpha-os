@@ -763,7 +763,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: ブランチ **`work/r6-14-i-approved-single-worktree-cleanup`** — **R12** から safe な **1 path**（優先 **`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**）。
+- **R6.14-J**: **next single cleanup** または **ユーザー承認付き `r6-10-g` の単一 worktree remove**（**別承認**）。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**（**R6.14-I** 記録・**`main` 未反映**）。
 
 ---
 
@@ -776,7 +776,16 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: ブランチ **`work/r6-14-i-approved-single-worktree-cleanup`** — **R12 残余**から **safe 条件下で 1 のみ**。優先 **`/Users/uotani/Projects/invest-alpha-os-r6-12-d`**。**`main` に未マージ**。
+- **R6.14-J**: **next single cleanup** または **ユーザー承認付き `r6-10-g` の単一 worktree remove**（**別承認**）。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**。
+
+---
+
+## R6.14-I — Approved single old R6.12 worktree cleanup（ブランチのみ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-i-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-i`）
+**`main` 反映**: **なし**（本タスクは **PR / `main` merge 禁止**）
+**内容**: **`/Users/uotani/Projects/invest-alpha-os-r6-12-d` のみ** `git worktree remove`（**1 回**）。**`git worktree remove --force`** および **`rm -rf` なし**。**branch / remote branch 明示削除なし**。詳細は **[docs/53_r6_14_i_approved_single_worktree_cleanup.md](./53_r6_14_i_approved_single_worktree_cleanup.md)**。
+**検証**: full pytest / agent-final-check（ブランチ上）。**CI**: `gh run list --branch work/r6-14-i-approved-single-worktree-cleanup --workflow tests`
 
 ---
 
