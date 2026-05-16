@@ -1,6 +1,10 @@
 # R6.14-D — Approved single worktree cleanup
 
-**ステータス**: 作業ブランチ `work/r6-14-d-approved-single-worktree-cleanup` のみ（**`main` 未反映**）。**本記録は承認済み 1 worktree の `git worktree remove` のみ** — **`rm -rf`・local/remote branch 削除・他 path の削除は行っていない**。
+**ステータス**: **完了・`main` 反映済み**（`1dcc253` · branch CI **`25946270795`** · main merge push CI **`25950244257`**）。**本記録の実行は承認済み 1 worktree の `git worktree remove` のみ** — **`rm -rf`・local/remote branch 削除・他 path の削除は行っていない**。
+
+**作業ブランチ**（`main` へ fast-forward merge）: `work/r6-14-d-approved-single-worktree-cleanup`
+
+**検証（merge 直前・`main`）**: full pytest **697 passed** · agent-final-check success（`review_integrated_20260515.md` は **未コミットのまま**）。
 
 ---
 
@@ -62,4 +66,11 @@ git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-13-c
 
 ## 8. 次候補
 
-- **R6.14-E**: 次の **単一 cleanup** または **branch cleanup proposal**（**別承認** · **1 本ずつ**）。
+- **R6.14-E**: **承認済み単一 cleanup** — 対象 path **`/Users/uotani/Projects/invest-alpha-os-r6-13-a`**（**別ブランチ** · **`main` 未反映** · **1 本ずつ**）。
+
+## 9. `main` 反映完了記録
+
+- **`main` HEAD（R6.14-D 取り込み）**: `1dcc253` — `docs: R6.14-D approved single worktree cleanup`
+- **branch CI**: **`25946270795`** success
+- **main push CI（上記コミットの `main` push）**: **`25950244257`** success
+- **本節および `docs/01_development_status.md` の完了表記**: コミット **`docs: Record R6.14-D main completion`** で記録（その push 直後の `main` CI は `gh run list --branch main` で確認）
