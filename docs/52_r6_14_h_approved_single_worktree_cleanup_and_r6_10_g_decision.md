@@ -1,9 +1,14 @@
 # R6.14-H — Approved single R6.12 worktree cleanup and r6-10-g decision
 
-**ステータス**: 作業ブランチ `work/r6-14-h-approved-single-worktree-cleanup-and-r6-10-g-decision` のみ（**`main` に未マージ**）。許可されている **単一の `invest-alpha-os-r6-12-*` worktree** についてのみ `git worktree remove` を **1 回**実施。**`r6-10-g`** については **docs で方針を整理したのみで、削除・修復・merge は行わない**。
+**ステータス**: **完了・`main` 反映済み**。**`main` に取り込まれた tip**: `bf75781`。**作業ブランチ**: `work/r6-14-h-approved-single-worktree-cleanup-and-r6-10-g-decision`。単一の **`invest-alpha-os-r6-12-*` worktree** について `git worktree remove` を **1 回**実施（**`…-r6-12-e`**）。**`r6-10-g`** は **docs のみ**（削除・修復・merge なし）。**ブランチ CI**: **`25951001581`** success · **`main` push CI（`bf75781` の `main` merge）**: **`25951076732`** success。**検証**: full pytest **697 passed** · agent-final-check success（記録）。
 
 ---
 
+## `main` 反映完了記録（本書の追記パート）
+
+**完了記録 commit**: **`docs: Record R6.14-H main completion`**（追記後の `main` HEAD を参照。直後の `main` CI は `gh run list --branch main` で確認。）
+
+---
 ## 1. 目的
 
 1. `invest-alpha-os-r6-12-*` の残余について、優先順（**e → d → c → b → a → veto-hotfix**）で **preflight が最初に PASS した 1 path のみ**を `git worktree remove` する。**見つからなければ no-op**。今回は **`r6-12-e`** が PASS したため削除を実施した。
@@ -75,4 +80,4 @@ git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-12-e
 
 ## 11. 次候補
 
-- **R6.14-I**: **`r6-10-g`** を論点に含める **単一 cleanup**または follow-up proposal（**別タスク／別承認**）。
+- **R6.14-I**: ブランチ **`work/r6-14-i-approved-single-worktree-cleanup`** — **`invest-alpha-os-r6-12-*`** から safe な **1 本のみ**（優先 **`…/invest-alpha-os-r6-12-d`** の順で試行）。**残り R12 clean 系を終えた後の `r6-10-g`（承認付き）**は **後続で別判断**。**`main` に未マージ**。
