@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -619,20 +619,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
 ## R6.12-G — US report opt-in golden coverage（完了・main反映済み）
 
 **コミット**: `52d3d49` Main R6.12-G draft: Harden US report opt-in golden coverage（branch CI `25944029730` · main CI `25944228048`）
-**ブランチ**: `work/r6-12-g-us-report-opt-in-hardening`
+**ブランチ**: `work/r6-12-g-us-report-opt-in-hardening`（当初 **`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-12-g`** · **R6.14-G で worktree remove 済み**）
 **内容**: `_GOLDEN_DAILY_BODY_NO_OPTS` · invalid appendix snapshot · `_daily_body` 読み戻しを **`cli_main.today_jst_iso()`** と整合。**product code 変更なし**。詳細は **[docs/41_r6_12_g_us_report_opt_in_hardening.md](./41_r6_12_g_us_report_opt_in_hardening.md)**。
 **検証**: focused 35 · full pytest **692** · agent-final-check success · live HTTP / production cache write なし。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -659,7 +659,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -685,7 +685,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -698,7 +698,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -711,7 +711,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -724,7 +724,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-J**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -737,7 +737,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-G**: next single cleanup or **r6-10-g** decision（**別承認**）。
+- **R6.14-H**: next single cleanup or **r6-10-g** decision（**別承認**）。
 
 ---
 
@@ -750,7 +750,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-G**: 古い **`invest-alpha-os-r6-12-*` のみ**、`main` に ancestor で含まれ、かつ **clean** が確認できる **最大 1 本** の **approved single cleanup** — **優先** `/Users/uotani/Projects/invest-alpha-os-r6-12-g` · ブランチ **`work/r6-14-g-approved-single-worktree-cleanup`** · **`main` 未反映**。
+- **R6.14-H**: next single cleanup or **r6-10-g** decision（**別承認**）。
+
+---
+
+## R6.14-G — Approved single old R6.12 worktree cleanup（作業ブランチ・`main` 未反映）
+
+**ブランチ**: `work/r6-14-g-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-g`）
+**内容**: **優先** `/Users/uotani/Projects/invest-alpha-os-r6-12-g` に対応する **`invest-alpha-os-r6-12-*` を 1 のみ** `git worktree remove`（preflight PASS）。詳細は **[docs/51_r6_14_g_approved_single_worktree_cleanup.md](./51_r6_14_g_approved_single_worktree_cleanup.md)**。
+
+### 次タスク（候補）
+
+- **R6.14-H**: next single cleanup or **r6-10-g** decision（**別承認**）。
 
 ---
 
