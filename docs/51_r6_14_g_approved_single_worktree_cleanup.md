@@ -1,6 +1,12 @@
 # R6.14-G — Approved single old R6.12 worktree cleanup
 
-**ステータス**: 作業ブランチ `work/r6-14-g-approved-single-worktree-cleanup` のみ（`main` 未反映）。単一の `invest-alpha-os-r6-12-*` worktree に対する `git worktree remove`（**1 回のみ**）を実行した — **`rm -rf`／local／remote の branch 削除なし・他 path 削除なし**。
+**ステータス**: **完了・`main` 反映済み**。**作業ブランチ**: `work/r6-14-g-approved-single-worktree-cleanup`。単一の `invest-alpha-os-r6-12-*` worktree に対する `git worktree remove`（**1 回のみ**）。**検証**: full pytest **697 passed**・agent-final-check success（記録のみ）。**ブランチ CI**: **`25950768633`** success · **`main` push CI**（`488abfe` 取り込み）: **`25950906910`** success。
+
+---
+
+## `main` 反映完了記録（本ファイルの記録段落）
+
+**完了記録 commit**: **`docs: Record R6.14-G main completion`**（追記後 `main` HEAD を参照。その直後 `main` CI は `gh run list --branch main` で確認。）
 
 ---
 
@@ -61,4 +67,4 @@ git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-12-g
 
 ## 10. 次候補
 
-- **R6.14-H**: next single cleanup or **r6-10-g** decision（**別承認**）。
+- **R6.14-H**: **`work/r6-14-h-approved-single-worktree-cleanup-and-r6-10-g-decision`** — 古い **`invest-alpha-os-r6-12-*`** から **safe な 1 本** と **`r6-10-g` の方針を docs で整理**。**優先** **`/Users/uotani/Projects/invest-alpha-os-r6-12-e`**。**`main` に未マージ**。
