@@ -606,7 +606,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -619,7 +619,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -632,7 +632,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -645,7 +645,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -659,7 +659,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch proposal（**別承認**）。
 
 ---
 
@@ -672,7 +672,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -685,7 +685,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -698,7 +698,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -711,7 +711,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -724,7 +724,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.14-H**: next single cleanup or branch cleanup proposal（**別承認**）。
+- **R6.14-I**: next single cleanup or branch cleanup proposal（**別承認**）。
 
 ---
 
@@ -741,14 +741,16 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.14-F — Approved single old R6.12 worktree cleanup（作業ブランチ・`main` 未反映）
+## R6.14-F — Approved single old R6.12 worktree cleanup（完了・main反映済み）
 
+**コミット（`main` に取り込み）**: `63975b5` **`docs` 整形のみの追記**（親 `61e9715` と合わせ `docs` 追加）・ branch CI **`25950588454`** / **`25950660767`** · main merge push CI **`25950681929`** · **完了記録**: `docs: Record R6.14-F main completion`
 **ブランチ**: `work/r6-14-f-approved-single-worktree-cleanup`（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-14-f`）
-**内容**: **`invest-alpha-os-r6-12-*` のうち、`main` に **ancestor で含まれ**かつ **clean** な **`…-r6-12-f` のみ** `git worktree remove`（**1 回**。docs-only **design** の **R6.12-F** worktree を選定）。詳細は **[docs/50_r6_14_f_approved_single_worktree_cleanup.md](./50_r6_14_f_approved_single_worktree_cleanup.md)**。
+**内容**: **`/Users/uotani/Projects/invest-alpha-os-r6-12-f` のみ** `git worktree remove`（**1 回**。**docs-only の R6.12-F（design）** worktree を選定）。詳細は **[docs/50_r6_14_f_approved_single_worktree_cleanup.md](./50_r6_14_f_approved_single_worktree_cleanup.md)**。
+**検証**: full pytest **697 passed** · agent-final-check success。
 
 ### 次タスク（候補）
 
-- **R6.14-G**: next single cleanup or **r6-10-g** decision（**別承認**）。
+- **R6.14-G**: 古い **`invest-alpha-os-r6-12-*` のみ**、`main` に ancestor で含まれ、かつ **clean** が確認できる **最大 1 本** の **approved single cleanup** — **優先** `/Users/uotani/Projects/invest-alpha-os-r6-12-g` · ブランチ **`work/r6-14-g-approved-single-worktree-cleanup`** · **`main` 未反映**。
 
 ---
 

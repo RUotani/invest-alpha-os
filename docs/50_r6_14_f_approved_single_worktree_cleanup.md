@@ -1,6 +1,6 @@
 # R6.14-F — Approved single old R6.12 worktree cleanup
 
-**ステータス**: 作業ブランチ `work/r6-14-f-approved-single-worktree-cleanup` のみ（`main` 未反映）。承認条件を満たす **単一**の `invest-alpha-os-r6-12-*` worktree に対する `git worktree remove`（**1 回のみ**）を実施した — **`rm -rf`・local/remote branch 削除・他 path の削除は行っていない**。
+**ステータス**: **完了・`main` 反映済み**。**`main` に取り込まれた先頭コミット群**に **`docs` 整形コミット**（`63975b5` / `docs: Polish R6.14-F cleanup record heading`）を含む。**作業ブランチ**: `work/r6-14-f-approved-single-worktree-cleanup`。**ブランチ CI**: 初回記録 **`25950588454`** success · **`docs/50` 冒頭のみ整形** **`25950660767`** success。**`main` push CI**: **`25950681929`** success。**実実行は `git worktree remove` のみ（1 回）**。**`rm -rf`／local／remote の branch 削除なし・他 path 削除なし**。
 
 ---
 
@@ -77,4 +77,8 @@ git worktree remove /Users/uotani/Projects/invest-alpha-os-r6-12-f
 
 ## 10. 次候補
 
-- **R6.14-G**: next single cleanup or **r6-10-g** decision（**別承認** · **1 本ずつ**）。
+- **R6.14-G**: approved single **`invest-alpha-os-r6-12-*` worktree cleanup** — **優先** `/Users/uotani/Projects/invest-alpha-os-r6-12-g` · ブランチ **`work/r6-14-g-approved-single-worktree-cleanup`** · **`main` 未反映**。
+
+## 11. `main` 反映完了記録（本書の追記パート）
+
+- **完了記録 commit**: **`docs: Record R6.14-F main completion`**（追記後の `main` HEAD は当該コミットであり、その直後の `main` CI は `gh run list --branch main` で確認）。
