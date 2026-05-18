@@ -245,14 +245,11 @@ def daily(
             [
                 f"# Daily Report ({today})",
                 "",
-                "Phase 0 dummy report.",
-                "- Observation only",
-                "- No auto trading",
+                "Observation only — no auto trading.",
                 "",
-                "## Japan Signals",
-                "- Phase 1a stub",
-                f"- {jq_line}",
+                "## Japan Signals — Momentum Cache",
                 f"- Watchlist count: {jp_n}",
+                f"- {jq_line}",
             ]
         )
         + tail
