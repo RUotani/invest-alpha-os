@@ -1,6 +1,6 @@
 # R6.15-C — US daily bars cache population runbook
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**）。ブランチ: **`work/r6-15-c-us-cache-population-runbook`**。**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-c`。
+**ステータス**: **完了・`main` 反映済み**（PR **#3** · `f6250d8`）。本書は運用 runbook。
 
 本書は **実データ取得コードの追加**ではなく、US signals / daily report を **cache-only** で運用する前に、オペレータが **何を確認し・どこまで手動でできるか**を固定する **runbook（docs-only）** である。
 
@@ -123,6 +123,13 @@ ls -1 outputs/market_data/us_daily_bars/*.json 2>/dev/null | wc -l
 | **R6.17** | **daily / signals への US cache-only 接続判断**（cache 充足率しきい値 · `include_us_momentum_cache_only_section` は **別承認で default 変更可**） | **表示・意思決定支援** — cache が無い銘柄の UX |
 
 **R6.15-C では上記を実装しない**。docs とチェックリストのみ。
+
+### 7.1 R6.16-A 着手 entry criteria（read-only 棚卸しまで）
+
+- **ruleset `main` active** · required check **`test`** · **main CI green**
+- **cache inventory は read-only**（live HTTP なし · production cache write なし）
+- **US default report / `include_us_momentum_cache_only_section` default 変更なし**
+- **Veto / portfolio / macro 接続なし**
 
 ---
 

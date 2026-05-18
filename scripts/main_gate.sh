@@ -4,7 +4,9 @@ set -euo pipefail
 REPO="$(git rev-parse --show-toplevel)"
 cd "$REPO"
 
-[ "$(git branch --show-current)" != "main" ] || { echo "❌ main-gate must run on a feature branch before PR"; exit 1; }
+BRANCH="$(git branch --show-current)"
+[ -n "$BRANCH" ] || { echo "❌ main-gate must run on a named feature branch before PR"; exit 1; }
+[ "$BRANCH" != "main" ] || { echo "❌ main-gate must run on a feature branch before PR"; exit 1; }
 
 git fetch origin main --quiet
 git merge-base --is-ancestor origin/main HEAD || { echo "❌ Branch is behind or diverged from origin/main"; exit 1; }

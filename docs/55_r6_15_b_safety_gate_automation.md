@@ -1,6 +1,6 @@
 # R6.15-B — Safety gate automation (local PR gate)
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**）。ブランチ: **`work/r6-15-b-safety-gate-automation`**。**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-b`。
+**ステータス**: **完了・`main` 反映済み**（PR **#2** · `e6e10c5`）。本書は運用メモ。
 
 ---
 
@@ -21,7 +21,7 @@
 
 | ステップ | 内容 |
 |---|---|
-| ブランチ | **`main` 上では実行不可**（feature branch のみ） |
+| ブランチ | **名前付き feature branch のみ**（**`main` 拒否** · **detached HEAD 拒否**） |
 | 同期 | **`origin/main` が HEAD の祖先**であること |
 | テスト | **`pytest -q`** · **`make -s agent-final-check`** |
 | diff | **`git diff --check origin/main...HEAD`** |
@@ -38,7 +38,7 @@
 
 ## 5. Branch protection（運用メモ）
 
-- **GitHub リポジトリ設定**で **main** に **PR 必須**・**required checks（`tests`）** を有効化する（**本タスクは UI 操作を含まない**）。
+- **GitHub ruleset `main`**: **PR 必須** · required status check context **`test`**（workflow 名は `tests` だが check-run 名は job 名 `test`）。
 
 ## 6. 次候補
 
