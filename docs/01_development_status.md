@@ -795,14 +795,25 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.15-A — Daily header · stale outputs · review record（ブランチのみ・`main` 未反映）
+## R6.15-A — Daily header · stale outputs · review record（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-a-daily-header-stale-output-review-record`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-a`）
-**`main` 反映**: **なし**。詳細は **[docs/54_r6_15_a_daily_header_stale_output_review_record.md](./54_r6_15_a_daily_header_stale_output_review_record.md)**。**CI**: `gh run list --branch work/r6-15-a-daily-header-stale-output-review-record`
+**コミット（`main` 取り込み）**: **`587bd82`** · PR **#1** squash merge · main push CI **`26032578030`** success。
+**内容**: daily 冒頭文案更新 · stale **`2031-07-15`** outputs 整理 · **`docs/review_integrated_20260515.md`** を Git 管理。詳細は **[docs/54_r6_15_a_daily_header_stale_output_review_record.md](./54_r6_15_a_daily_header_stale_output_review_record.md)**。
 
 ### 次タスク（候補）
 
-- **R6.15-B** / **R6.15-C** / **R6.14-J**（いずれも **別承認**）。**`main` への R6.15-A 取り込み**は **別フェーズ**。
+- **R6.15-B**: safety gate automation（ブランチ作業中）。
+
+---
+
+## R6.15-B — Safety gate automation（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-b-safety-gate-automation`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-b`）
+**`main` 反映**: **なし**。詳細は **[docs/55_r6_15_b_safety_gate_automation.md](./55_r6_15_b_safety_gate_automation.md)**。**CI**: `gh run list --branch work/r6-15-b-safety-gate-automation`
+
+### 次タスク（候補）
+
+- **R6.15-C** / **R6.14-J**（**別承認**）。**`main` への R6.15-B 取り込み**は **PR 経由の別フェーズ**。
 
 ---
 
