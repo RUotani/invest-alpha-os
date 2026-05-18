@@ -838,10 +838,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.15-E — Codex light review result（ブランチのみ・`main` 未反映）
+## R6.15-E — Codex light review result（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-e-codex-light-review-result`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-e`）
-**`main` 反映**: **なし**（意図的）。詳細は **[docs/58_r6_15_e_codex_light_review_result.md](./58_r6_15_e_codex_light_review_result.md)**。
+**コミット（`main` 取り込み）**: **`b23ebe1`** · PR **#5** squash merge。
+**詳細**: **[docs/58_r6_15_e_codex_light_review_result.md](./58_r6_15_e_codex_light_review_result.md)**。
+
+**次候補**: **R6.15-F**（Codex MEDIUM follow-ups）· **R6.16-A**（read-only cache inventory · runbook §7.1）。
+
+---
+
+## R6.15-F — Codex safety gate follow-ups（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-f-codex-medium-safety-gate-fixes`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-f`）
+**内容**: `main_gate.sh` detached HEAD 拒否 · docs/55 required check **`test`** 整合 · runbook §7.1 entry criteria。
 
 ---
 
