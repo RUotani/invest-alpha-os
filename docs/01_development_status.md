@@ -802,7 +802,7 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.15-C**: US cache population runbook（ブランチ作業中）。
+- **R6.15-D**: Codex light review prompt（ブランチ作業中）。
 
 ---
 
@@ -813,18 +813,26 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.15-C**: US cache population runbook（**別ブランチ**）。
+- **R6.15-D** Codex review pack。
 
 ---
 
-## R6.15-C — US cache population runbook（ブランチのみ・`main` 未反映）
+## R6.15-C — US cache population runbook（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-c-us-cache-population-runbook`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-c`）
-**`main` 反映**: **なし**（**docs-only**）。詳細は **[docs/56_r6_15_c_us_cache_population_runbook.md](./56_r6_15_c_us_cache_population_runbook.md)**。**CI**: `gh run list --branch work/r6-15-c-us-cache-population-runbook`
+**コミット（`main` 取り込み）**: **`f6250d8`** · PR **#3** squash merge · branch CI **`26034938282`** · main push CI **`26035713428`**（記録）。
+**内容**: US cache population runbook（**docs-only**）。詳細は **[docs/56_r6_15_c_us_cache_population_runbook.md](./56_r6_15_c_us_cache_population_runbook.md)**。
+**ruleset 注記**: required check context を **`tests` → `test`** に API patch 後 merge（2026-05-18）。
 
 ### 次タスク（候補）
 
 - **R6.16** / **R6.17**（runbook §7 参照）· **R6.14-J**（**別承認**）。
+
+---
+
+## R6.15-D — Codex light review prompt（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-d-codex-light-review-prompt`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-d`）
+**`main` 反映**: **なし**。詳細は **[docs/57_r6_15_d_codex_light_review_prompt.md](./57_r6_15_d_codex_light_review_prompt.md)**。
 
 ---
 
