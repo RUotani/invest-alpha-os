@@ -829,10 +829,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.15-D — Codex light review prompt（ブランチのみ・`main` 未反映）
+## R6.15-D — Codex light review prompt（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-d-codex-light-review-prompt`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-d`）
-**`main` 反映**: **なし**。詳細は **[docs/57_r6_15_d_codex_light_review_prompt.md](./57_r6_15_d_codex_light_review_prompt.md)**。
+**コミット（`main` 取り込み）**: **`20bed56`** · PR **#4** squash merge · main push CI **`26035884499`** success。
+**詳細**: **[docs/57_r6_15_d_codex_light_review_prompt.md](./57_r6_15_d_codex_light_review_prompt.md)**。
+
+**次候補**: **R6.15-E**（Codex 結果 docs · 任意）· **R6.16**（runbook §7 · **別承認**）。
+
+---
+
+## R6.15-E — Codex light review result（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-e-codex-light-review-result`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-e`）
+**`main` 反映**: **なし**（意図的）。詳細は **[docs/58_r6_15_e_codex_light_review_result.md](./58_r6_15_e_codex_light_review_result.md)**。
 
 ---
 
