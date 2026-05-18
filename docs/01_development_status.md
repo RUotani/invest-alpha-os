@@ -802,18 +802,29 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.15-B**: safety gate automation（ブランチ作業中）。
+- **R6.15-C**: US cache population runbook（ブランチ作業中）。
 
 ---
 
-## R6.15-B — Safety gate automation（ブランチのみ・`main` 未反映）
+## R6.15-B — Safety gate automation（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-b-safety-gate-automation`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-b`）
-**`main` 反映**: **なし**。詳細は **[docs/55_r6_15_b_safety_gate_automation.md](./55_r6_15_b_safety_gate_automation.md)**。**CI**: `gh run list --branch work/r6-15-b-safety-gate-automation`
+**コミット（`main` 取り込み）**: **`e6e10c5`** · PR **#2** squash merge · main push CI **`26032950089`** success。
+**内容**: **`make main-gate`** · **`scripts/main_gate.sh`** · **`.pre-commit-config.yaml`**。詳細は **[docs/55_r6_15_b_safety_gate_automation.md](./55_r6_15_b_safety_gate_automation.md)**。
 
 ### 次タスク（候補）
 
-- **R6.15-C** / **R6.14-J**（**別承認**）。**`main` への R6.15-B 取り込み**は **PR 経由の別フェーズ**。
+- **R6.15-C**: US cache population runbook（**別ブランチ**）。
+
+---
+
+## R6.15-C — US cache population runbook（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-c-us-cache-population-runbook`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-c`）
+**`main` 反映**: **なし**（**docs-only**）。詳細は **[docs/56_r6_15_c_us_cache_population_runbook.md](./56_r6_15_c_us_cache_population_runbook.md)**。**CI**: `gh run list --branch work/r6-15-c-us-cache-population-runbook`
+
+### 次タスク（候補）
+
+- **R6.16** / **R6.17**（runbook §7 参照）· **R6.14-J**（**別承認**）。
 
 ---
 
