@@ -26,6 +26,11 @@ from invis_alpha_os.data.us_daily_bars_cache import (
     format_us_daily_bars_cache_preview_markdown,
     save_us_daily_bars_cache,
 )
+from invis_alpha_os.data.us_daily_bars_cache_inventory import (
+    build_us_daily_bars_cache_inventory,
+    format_us_daily_bars_cache_inventory_json,
+    format_us_daily_bars_cache_inventory_markdown,
+)
 from invis_alpha_os.data.us_daily_bars_metrics import (
     build_us_daily_bars_cache_metrics_preview,
     format_us_daily_bars_cache_metrics_json,
@@ -1389,6 +1394,53 @@ def debug_us_daily_bars_cache_preview(
         typer.echo("us-daily-bars-cache-preview: --format must be markdown or json", err=True)
         raise typer.Exit(2)
     raise typer.Exit(0 if preview.get("validation_status") == "ok" else 1)
+
+
+@debug_app.command("us-daily-bars-cache-inventory")
+def debug_us_daily_bars_cache_inventory(
+    cache_root: Path = typer.Option(
+        ...,
+        "--cache-root",
+        help="Directory of US daily bars cache JSON files ({SYMBOL}.json).",
+    ),
+    watchlist_path: Optional[Path] = typer.Option(
+        None,
+        "--watchlist-path",
+        help="Optional US watchlist YAML; default is config/us_watchlist.yaml when no --symbol.",
+    ),
+    symbol: Optional[list[str]] = typer.Option(
+        None,
+        "--symbol",
+        help="Repeatable symbol filter; when set, ignores default watchlist.",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="markdown | json",
+    ),
+) -> None:
+    """Read-only inventory of US daily bars cache files (no HTTP, no cache write)."""
+
+    syms = [s for s in (symbol or []) if str(s).strip()] or None
+    inventory = build_us_daily_bars_cache_inventory(
+        cache_root,
+        symbols=syms,
+        watchlist_path=watchlist_path,
+    )
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm == "json":
+        typer.echo(format_us_daily_bars_cache_inventory_json(inventory))
+    elif fmt_norm == "markdown":
+        typer.echo(format_us_daily_bars_cache_inventory_markdown(inventory))
+    else:
+        typer.echo("us-daily-bars-cache-inventory: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    bad = sum(
+        1
+        for row in inventory.get("rows") or []
+        if row.get("status") in ("missing", "invalid")
+    )
+    raise typer.Exit(0 if bad == 0 else 1)
 
 
 @debug_app.command("us-daily-bars-cache-metrics")

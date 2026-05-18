@@ -847,10 +847,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.15-F — Codex safety gate follow-ups（ブランチのみ・`main` 未反映）
+## R6.15-F — Codex safety gate follow-ups（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-15-f-codex-medium-safety-gate-fixes`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-f`）
+**コミット（`main` 取り込み）**: **`4a16043`** · PR **#6** squash merge。
 **内容**: `main_gate.sh` detached HEAD 拒否 · docs/55 required check **`test`** 整合 · runbook §7.1 entry criteria。
+
+---
+
+## R6.16-A — US cache inventory MVP（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-16-a-us-cache-inventory-mvp`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-16-a`）
+**内容**: read-only cache inventory CLI + pure helper。詳細 **[docs/59_r6_16_a_us_cache_inventory_mvp.md](./59_r6_16_a_us_cache_inventory_mvp.md)**。
+**制約**: live HTTP なし · cache write なし · default report 変更なし。
 
 ---
 
