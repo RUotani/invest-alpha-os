@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-yaml
+      - id: check-toml
+
+  - repo: local
+    hooks:
+      - id: forbidden-paths
+        name: forbidden paths check
+        entry: bash -c 'git diff --cached --name-only | grep -Eq "^(\.env$|credentials\.json$|token\.json$|secrets/|keys/)" && { echo "❌ Forbidden path staged"; exit 1; } || exit 0'
+        language: system
+        pass_filenames: false
+
+      - id: secret-scan
+        name: secret pattern scan
+        entry: bash -c 'STAGED=$(git diff --cached -U0); echo "$STAGED" | grep -qnE "AKIA[0-9A-Z]{16}|JQUANTS_API_KEY\s*=\s*[A-Za-z0-9]|BEGIN .*PRIVATE KEY|sk-[A-Za-z0-9]{20}" && { echo "❌ Secret pattern in staged changes"; exit 1; } || exit 0'
+        language: system
+        pass_filenames: false
+
+      - id: live-http-flag
+        name: prevent JQUANTS_ALLOW_LIVE_HTTP=true commit
+        entry: bash -c 'git diff --cached | grep -qnE "JQUANTS_ALLOW_LIVE_HTTP\s*=\s*[Tt]rue" && { echo "❌ JQUANTS_ALLOW_LIVE_HTTP=true must not be committed"; exit 1; } || exit 0'
+        language: system
+        pass_filenames: false

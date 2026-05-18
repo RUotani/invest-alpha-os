@@ -31,7 +31,7 @@ endif
 	us-provider-cache-preview-dry-run us-provider-cache-preview-stooq us-provider-cache-write-stooq \
 	us-provider-cache-preview-batch-dry-run \
 	us-provider-scheduled-ingest-plan-dry-run \
-	us-provider-manual-live-batch-smoke-dry-run
+	us-provider-manual-live-batch-smoke-dry-run main-gate
 
 setup:
 	$(PYTHON) -m pip install -U pip
@@ -232,4 +232,8 @@ ship:
 	$(MAKE) safe-push
 	$(MAKE) post-push-check
 	$(PYTHON) scripts/ops_write_json.py --mode ship
+
+.PHONY: main-gate
+main-gate:
+	@./scripts/main_gate.sh
 
