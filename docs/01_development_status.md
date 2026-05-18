@@ -791,8 +791,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ### 次タスク（候補）
 
-- **R6.15-A**: **`work/r6-15-a-daily-header-and-stale-output-fix`** — daily 冒頭文言と stale output（ブランチ作業のみ）。
-- **R6.14-J**: **next single cleanup** の継続（**別承認**）。
+- **R6.14-J**：R12 の **next single cleanup**。**R6.15-A** と独立。
+
+---
+
+## R6.15-A — Daily header · stale outputs · review record（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-15-a-daily-header-stale-output-review-record`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-15-a`）
+**`main` 反映**: **なし**。詳細は **[docs/54_r6_15_a_daily_header_stale_output_review_record.md](./54_r6_15_a_daily_header_stale_output_review_record.md)**。**CI**: `gh run list --branch work/r6-15-a-daily-header-stale-output-review-record`
+
+### 次タスク（候補）
+
+- **R6.15-B** / **R6.15-C** / **R6.14-J**（いずれも **別承認**）。**`main` への R6.15-A 取り込み**は **別フェーズ**。
 
 ---
 
