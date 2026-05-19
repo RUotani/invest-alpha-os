@@ -1,6 +1,6 @@
 # R6.16-B — US cache inventory summary hardening
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**）。ブランチ: **`work/r6-16-b-us-cache-inventory-hardening`**。
+**ステータス**: **完了・`main` 反映済み**（PR **#8** · `a34562f`）。
 
 ## 目的
 
@@ -20,5 +20,5 @@ R6.16-A inventory MVP に **operator 向け summary** を追加し、watchlist �
 
 ## 次候補
 
-- **R6.16-C**: operator-gated ingest design（**別承認**）
+- **R6.16-C**: [operator-gated ingest design](./61_r6_16_c_operator_gated_ingest_design.md)（**実装は別承認**）
 - **R6.17**: daily 接続判断
