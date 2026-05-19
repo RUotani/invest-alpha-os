@@ -854,11 +854,17 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.16-A — US cache inventory MVP（ブランチのみ・`main` 未反映）
+## R6.16-A — US cache inventory MVP（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-16-a-us-cache-inventory-mvp`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-16-a`）
+**コミット（`main` 取り込み）**: **`243f37c`** · PR **#7** squash merge。
 **内容**: read-only cache inventory CLI + pure helper。詳細 **[docs/59_r6_16_a_us_cache_inventory_mvp.md](./59_r6_16_a_us_cache_inventory_mvp.md)**。
-**制約**: live HTTP なし · cache write なし · default report 変更なし。
+
+---
+
+## R6.16-B — US cache inventory hardening（ブランチのみ・`main` 未反映）
+
+**ブランチ**: **`work/r6-16-b-us-cache-inventory-hardening`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-16-b`）
+**内容**: JSON `summary` · Markdown Summary · 安定 `reason` コード。詳細 **[docs/60_r6_16_b_us_cache_inventory_hardening.md](./60_r6_16_b_us_cache_inventory_hardening.md)**。
 
 ---
 

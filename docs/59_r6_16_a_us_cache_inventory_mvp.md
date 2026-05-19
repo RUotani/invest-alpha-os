@@ -31,11 +31,13 @@ invis-alpha-os debug us-daily-bars-cache-inventory \
 
 | status | 意味 |
 |---|---|
-| `missing` | `{cache_root}/{SYMBOL}.json` なし |
-| `invalid` | JSON パース / 検証失敗 |
-| `insufficient` | 有効だが bar 数がシグナル最小未満（&lt; 5） |
-| `stale_unknown` | 十分な bar だが freshness メタデータなし |
-| `ok` | 有効かつ freshness メタデータあり |
+| `missing` | `{cache_root}/{SYMBOL}.json` なし · reason `missing_file` |
+| `invalid` | JSON パース / 検証失敗 · reason `invalid_cache_payload` |
+| `insufficient` | 有効だが bar 数がシグナル最小未満（&lt; 5） · reason `insufficient_bars` |
+| `stale_unknown` | 十分な bar だが freshness メタデータなし · reason `stale_unknown` |
+| `ok` | 有効かつ freshness メタデータあり · reason `ok` |
+
+R6.16-B 以降、JSON に **`summary`** 集計ブロックあり（[docs/60](./60_r6_16_b_us_cache_inventory_hardening.md)）。
 
 常に **`source: cache_only`** · **`live_http: false`**。
 
