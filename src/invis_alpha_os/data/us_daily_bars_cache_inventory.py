@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Final
 
@@ -13,6 +14,7 @@ from invis_alpha_os.data.us_daily_bars_cache import (
 )
 
 _MIN_BARS_FOR_OK: Final[int] = 5
+_DEFAULT_FRESH_DAYS: Final[int] = 7
 _KNOWN_STATUSES: Final[tuple[str, ...]] = (
     "ok",
     "missing",
@@ -20,6 +22,88 @@ _KNOWN_STATUSES: Final[tuple[str, ...]] = (
     "insufficient",
     "stale_unknown",
 )
+
+
+def _parse_iso_date(raw: str | None) -> date | None:
+    if not raw or not str(raw).strip():
+        return None
+    s = str(raw).strip()[:10]
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def _apply_freshness_to_row(
+    row: dict[str, Any],
+    *,
+    reference_date: date,
+    fresh_days: int,
+) -> None:
+    """Attach ``latest_date`` / ``freshness_status`` / ``freshness_reason`` (read-only)."""
+
+    inv_status = str(row.get("status", ""))
+    if inv_status in ("missing", "invalid", "insufficient"):
+        row["latest_date"] = None
+        row["freshness_status"] = "not_applicable"
+        row["freshness_reason"] = inv_status
+        return
+
+    last = row.get("last_date")
+    if not last or not str(last).strip():
+        row["latest_date"] = None
+        row["freshness_status"] = "freshness_unknown"
+        row["freshness_reason"] = "no_latest_date"
+        return
+
+    row["latest_date"] = str(last).strip()
+    latest = _parse_iso_date(row["latest_date"])
+    if latest is None:
+        row["freshness_status"] = "freshness_unknown"
+        row["freshness_reason"] = "unparseable_latest_date"
+        return
+
+    cutoff = reference_date - timedelta(days=fresh_days)
+    if latest >= cutoff:
+        row["freshness_status"] = "fresh_enough"
+        row["freshness_reason"] = f"latest_date_gte_cutoff_{fresh_days}d"
+    else:
+        row["freshness_status"] = "stale"
+        row["freshness_reason"] = f"latest_date_lt_cutoff_{fresh_days}d"
+
+
+def _freshness_summary_fields(
+    rows: list[dict[str, Any]],
+    *,
+    reference_date: date,
+    fresh_days: int,
+) -> dict[str, Any]:
+    cutoff = reference_date - timedelta(days=fresh_days)
+    fresh_enough = stale = freshness_unknown = 0
+    parsed_dates: list[date] = []
+    for row in rows:
+        fs = row.get("freshness_status")
+        if fs == "fresh_enough":
+            fresh_enough += 1
+        elif fs == "stale":
+            stale += 1
+        elif fs == "freshness_unknown":
+            freshness_unknown += 1
+        ld = row.get("latest_date")
+        if ld:
+            d = _parse_iso_date(str(ld))
+            if d is not None:
+                parsed_dates.append(d)
+    return {
+        "fresh_enough_count": fresh_enough,
+        "stale_count": stale,
+        "freshness_unknown_count": freshness_unknown,
+        "freshness_cutoff_date": cutoff.isoformat(),
+        "freshness_reference_date": reference_date.isoformat(),
+        "freshness_fresh_days": fresh_days,
+        "oldest_latest_date": min(parsed_dates).isoformat() if parsed_dates else None,
+        "newest_latest_date": max(parsed_dates).isoformat() if parsed_dates else None,
+    }
 
 
 def resolve_us_daily_bars_cache_file(cache_root: Path, symbol: str) -> Path:
@@ -55,9 +139,12 @@ def build_us_daily_bars_cache_inventory_summary(
     cache_root: str,
     symbol_count: int,
     watchlist_path: Path | None = None,
+    reference_date: date | None = None,
+    fresh_days: int = _DEFAULT_FRESH_DAYS,
 ) -> dict[str, Any]:
     """Aggregate row statuses for operator diagnostics (read-only)."""
 
+    ref = reference_date or date.today()
     counts = {st: 0 for st in _KNOWN_STATUSES}
     other = 0
     for row in rows:
@@ -78,6 +165,7 @@ def build_us_daily_bars_cache_inventory_summary(
         "source": "cache_only",
         "live_http": False,
     }
+    summary.update(_freshness_summary_fields(rows, reference_date=ref, fresh_days=fresh_days))
     if watchlist_path is not None:
         summary["watchlist_path"] = str(watchlist_path.expanduser().resolve())
     return summary
@@ -86,9 +174,13 @@ def build_us_daily_bars_cache_inventory_summary(
 def build_us_daily_bars_cache_inventory_row(
     symbol: str,
     cache_root: Path,
+    *,
+    reference_date: date | None = None,
+    fresh_days: int = _DEFAULT_FRESH_DAYS,
 ) -> dict[str, Any]:
     """Single-symbol cache inventory row (read-only)."""
 
+    ref = reference_date or date.today()
     path = resolve_us_daily_bars_cache_file(cache_root, symbol)
     base: dict[str, Any] = {
         "symbol": normalize_us_symbol(symbol.strip()) or symbol.strip().upper(),
@@ -104,12 +196,14 @@ def build_us_daily_bars_cache_inventory_row(
     if not path.is_file():
         base["status"] = "missing"
         base["reason"] = "missing_file"
+        _apply_freshness_to_row(base, reference_date=ref, fresh_days=fresh_days)
         return base
 
     preview = build_us_daily_bars_cache_preview(path, expect_symbol=base["symbol"])
     if preview.get("validation_status") != "ok":
         base["status"] = "invalid"
         base["reason"] = "invalid_cache_payload"
+        _apply_freshness_to_row(base, reference_date=ref, fresh_days=fresh_days)
         return base
 
     bar_count = int(preview.get("bar_count") or 0)
@@ -120,6 +214,7 @@ def build_us_daily_bars_cache_inventory_row(
     if bar_count < _MIN_BARS_FOR_OK:
         base["status"] = "insufficient"
         base["reason"] = "insufficient_bars"
+        _apply_freshness_to_row(base, reference_date=ref, fresh_days=fresh_days)
         return base
 
     fetched_at = preview.get("fetched_at")
@@ -127,10 +222,11 @@ def build_us_daily_bars_cache_inventory_row(
     if not fetched_at and not generated_at:
         base["status"] = "stale_unknown"
         base["reason"] = "stale_unknown"
-        return base
+    else:
+        base["status"] = "ok"
+        base["reason"] = "ok"
 
-    base["status"] = "ok"
-    base["reason"] = "ok"
+    _apply_freshness_to_row(base, reference_date=ref, fresh_days=fresh_days)
     return base
 
 
@@ -139,13 +235,19 @@ def build_us_daily_bars_cache_inventory(
     *,
     symbols: list[str] | None = None,
     watchlist_path: Path | None = None,
+    reference_date: date | None = None,
+    fresh_days: int = _DEFAULT_FRESH_DAYS,
 ) -> dict[str, Any]:
     """Scan cache files under ``cache_root`` for watchlist symbols (read-only)."""
 
+    ref = reference_date or date.today()
     root = cache_root.expanduser().resolve()
     tickers = _inventory_symbols(symbols=symbols, watchlist_path=watchlist_path)
     default_root = us_daily_bars_cache_path("MSFT").parent.resolve()
-    rows = [build_us_daily_bars_cache_inventory_row(sym, root) for sym in tickers]
+    rows = [
+        build_us_daily_bars_cache_inventory_row(sym, root, reference_date=ref, fresh_days=fresh_days)
+        for sym in tickers
+    ]
     counts: dict[str, int] = {}
     for row in rows:
         st = str(row.get("status", "unknown"))
@@ -156,6 +258,8 @@ def build_us_daily_bars_cache_inventory(
         cache_root=root_s,
         symbol_count=len(tickers),
         watchlist_path=watchlist_path if symbols is None else None,
+        reference_date=ref,
+        fresh_days=fresh_days,
     )
     return {
         "source": "cache_only",
@@ -195,6 +299,15 @@ def format_us_daily_bars_cache_inventory_markdown(inventory: dict[str, Any]) -> 
         other = summary.get("other_count", 0)
         if other:
             lines.append(f"- **other**: {other}")
+        if "fresh_enough_count" in summary:
+            lines.append(f"- **fresh_enough**: {summary.get('fresh_enough_count', 0)}")
+            lines.append(f"- **stale**: {summary.get('stale_count', 0)}")
+            lines.append(f"- **freshness_unknown**: {summary.get('freshness_unknown_count', 0)}")
+            lines.append(f"- **freshness_cutoff_date**: {summary.get('freshness_cutoff_date', '')}")
+            if summary.get("oldest_latest_date"):
+                lines.append(f"- **oldest_latest_date**: {summary.get('oldest_latest_date')}")
+            if summary.get("newest_latest_date"):
+                lines.append(f"- **newest_latest_date**: {summary.get('newest_latest_date')}")
         wl = summary.get("watchlist_path")
         if wl:
             lines.append(f"- **watchlist_path**: `{wl}`")
@@ -208,14 +321,17 @@ def format_us_daily_bars_cache_inventory_markdown(inventory: dict[str, Any]) -> 
         lines.append("")
     lines.append("### rows")
     lines.append("")
-    lines.append("| symbol | status | file_exists | bar_count | first_date | last_date | reason |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- |")
+    lines.append(
+        "| symbol | status | freshness | latest_date | bar_count | first_date | last_date | reason |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
     for row in inventory.get("rows") or []:
         lines.append(
-            "| {symbol} | {status} | {file_exists} | {bar_count} | {first_date} | {last_date} | {reason} |".format(
+            "| {symbol} | {status} | {freshness} | {latest_date} | {bar_count} | {first_date} | {last_date} | {reason} |".format(
                 symbol=row.get("symbol", ""),
                 status=row.get("status", ""),
-                file_exists=row.get("file_exists", False),
+                freshness=row.get("freshness_status", ""),
+                latest_date=row.get("latest_date") or "",
                 bar_count=row.get("bar_count", ""),
                 first_date=row.get("first_date") or "",
                 last_date=row.get("last_date") or "",
