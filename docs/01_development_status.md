@@ -861,10 +861,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.16-B — US cache inventory hardening（ブランチのみ・`main` 未反映）
+## R6.16-B — US cache inventory hardening（完了・`main` 反映済み）
 
-**ブランチ**: **`work/r6-16-b-us-cache-inventory-hardening`**（**`git worktree`**: `/Users/uotani/Projects/invest-alpha-os-r6-16-b`）
+**コミット（`main` 取り込み）**: **`a34562f`** · PR **#8** squash merge。
 **内容**: JSON `summary` · Markdown Summary · 安定 `reason` コード。詳細 **[docs/60_r6_16_b_us_cache_inventory_hardening.md](./60_r6_16_b_us_cache_inventory_hardening.md)**。
+
+**real cache smoke（参考）**: total 16 · ok 3（MSFT/GOOGL/GLDM）· missing 13。
+
+---
+
+## R6.16-C — Operator-gated ingest design（ブランチのみ · docs-only · 実装なし）
+
+**ブランチ**: **`work/r6-16-c-operator-gated-ingest-design`**
+**内容**: missing-only · 二重ゲート · batch 上限 · inventory before/after · rollback。詳細 **[docs/61_r6_16_c_operator_gated_ingest_design.md](./61_r6_16_c_operator_gated_ingest_design.md)**。
+**実装着手**: **別承認**（本タスクは design docs PR のみ）。
 
 ---
 

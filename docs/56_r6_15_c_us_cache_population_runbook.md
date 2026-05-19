@@ -143,6 +143,7 @@ ls -1 outputs/market_data/us_daily_bars/*.json 2>/dev/null | wc -l
 
 ## 9. 次候補
 
-- **R6.16**: operator-gated US cache batch ingest（**別承認・実装タスク**）。
+- **R6.16-C**: operator-gated ingest 設計 — **[docs/61_r6_16_c_operator_gated_ingest_design.md](./61_r6_16_c_operator_gated_ingest_design.md)**（**実装は別承認**）。
+- **R6.16**: operator-gated US cache batch ingest **実装**（**別承認・実装タスク**）。
 - **R6.17**: US cache 充足後の daily / signals 接続判断（**別承認**）。
 - **R6.14-J**: R12 worktree cleanup 継続（**別承認**）。
