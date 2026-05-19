@@ -1,8 +1,7 @@
 # R6.16-C — Operator-gated US cache ingest（design only）
 
-**ステータス**: **design docs のみ**（**実装なし** · **`main` 未反映**はブランチ作業）。  
-**ブランチ**: **`work/r6-16-c-operator-gated-ingest-design`**。  
-**実装着手**: **ChatGPT / オペレータの別承認後**（本書は契約・手順の固定のみ）。
+**ステータス**: **design docs · `main` 反映済み**（PR **#9** · `45b3796`）。**ingest plan CLI 実装は別承認**。  
+**運用結果**: 手動 gated single-symbol ingest により watchlist **ok 16 / missing 0**（2026-05-19）— **[docs/62](./62_r6_16_d_us_cache_full_population_status.md)**。
 
 ---
 

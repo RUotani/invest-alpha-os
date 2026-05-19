@@ -870,11 +870,21 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.16-C — Operator-gated ingest design（ブランチのみ · docs-only · 実装なし）
+## R6.16-C — Operator-gated ingest design（完了・`main` 反映済み · docs-only）
 
-**ブランチ**: **`work/r6-16-c-operator-gated-ingest-design`**
+**コミット（`main` 取り込み）**: **`45b3796`** · PR **#9** squash merge。
 **内容**: missing-only · 二重ゲート · batch 上限 · inventory before/after · rollback。詳細 **[docs/61_r6_16_c_operator_gated_ingest_design.md](./61_r6_16_c_operator_gated_ingest_design.md)**。
-**実装着手**: **別承認**（本タスクは design docs PR のみ）。
+**実装着手**: **別承認**（ingest plan CLI は未実装）。
+
+---
+
+## R6.16-D — US cache full population status（ブランチのみ · docs-only）
+
+**ブランチ**: **`work/r6-16-d-us-cache-full-population-docs`**
+**内容**: 手動 gated ingest 完了後の inventory 記録（**ok 16 · missing 0**）。詳細 **[docs/62_r6_16_d_us_cache_full_population_status.md](./62_r6_16_d_us_cache_full_population_status.md)**。
+**注意**: cache JSON は gitignore · **コード変更なし** · daily/signals 接続は **別承認**。
+
+**次候補**: freshness extension · R6.16-C 実装 PR · **R6.17** daily 接続判断。
 
 ---
 
