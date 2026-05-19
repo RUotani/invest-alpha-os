@@ -13,6 +13,13 @@ from invis_alpha_os.data.us_daily_bars_cache import (
 )
 
 _MIN_BARS_FOR_OK: Final[int] = 5
+_KNOWN_STATUSES: Final[tuple[str, ...]] = (
+    "ok",
+    "missing",
+    "invalid",
+    "insufficient",
+    "stale_unknown",
+)
 
 
 def resolve_us_daily_bars_cache_file(cache_root: Path, symbol: str) -> Path:
@@ -42,6 +49,40 @@ def _inventory_symbols(
     return load_us_watchlist_tickers(watchlist_path)
 
 
+def build_us_daily_bars_cache_inventory_summary(
+    rows: list[dict[str, Any]],
+    *,
+    cache_root: str,
+    symbol_count: int,
+    watchlist_path: Path | None = None,
+) -> dict[str, Any]:
+    """Aggregate row statuses for operator diagnostics (read-only)."""
+
+    counts = {st: 0 for st in _KNOWN_STATUSES}
+    other = 0
+    for row in rows:
+        st = str(row.get("status", "unknown"))
+        if st in counts:
+            counts[st] += 1
+        else:
+            other += 1
+    summary: dict[str, Any] = {
+        "total_symbols": symbol_count,
+        "ok_count": counts["ok"],
+        "missing_count": counts["missing"],
+        "invalid_count": counts["invalid"],
+        "insufficient_count": counts["insufficient"],
+        "stale_unknown_count": counts["stale_unknown"],
+        "other_count": other,
+        "cache_root": cache_root,
+        "source": "cache_only",
+        "live_http": False,
+    }
+    if watchlist_path is not None:
+        summary["watchlist_path"] = str(watchlist_path.expanduser().resolve())
+    return summary
+
+
 def build_us_daily_bars_cache_inventory_row(
     symbol: str,
     cache_root: Path,
@@ -62,13 +103,13 @@ def build_us_daily_bars_cache_inventory_row(
     }
     if not path.is_file():
         base["status"] = "missing"
-        base["reason"] = "cache_file_absent"
+        base["reason"] = "missing_file"
         return base
 
     preview = build_us_daily_bars_cache_preview(path, expect_symbol=base["symbol"])
     if preview.get("validation_status") != "ok":
         base["status"] = "invalid"
-        base["reason"] = str(preview.get("reason") or "parse_failed")
+        base["reason"] = "invalid_cache_payload"
         return base
 
     bar_count = int(preview.get("bar_count") or 0)
@@ -78,18 +119,18 @@ def build_us_daily_bars_cache_inventory_row(
 
     if bar_count < _MIN_BARS_FOR_OK:
         base["status"] = "insufficient"
-        base["reason"] = f"bars_below_minimum_{_MIN_BARS_FOR_OK}"
+        base["reason"] = "insufficient_bars"
         return base
 
     fetched_at = preview.get("fetched_at")
     generated_at = preview.get("generated_at")
     if not fetched_at and not generated_at:
         base["status"] = "stale_unknown"
-        base["reason"] = "no_freshness_metadata"
+        base["reason"] = "stale_unknown"
         return base
 
     base["status"] = "ok"
-    base["reason"] = None
+    base["reason"] = "ok"
     return base
 
 
@@ -109,12 +150,20 @@ def build_us_daily_bars_cache_inventory(
     for row in rows:
         st = str(row.get("status", "unknown"))
         counts[st] = counts.get(st, 0) + 1
+    root_s = str(root)
+    summary = build_us_daily_bars_cache_inventory_summary(
+        rows,
+        cache_root=root_s,
+        symbol_count=len(tickers),
+        watchlist_path=watchlist_path if symbols is None else None,
+    )
     return {
         "source": "cache_only",
         "live_http": False,
-        "cache_root": str(root),
+        "cache_root": root_s,
         "default_outputs_cache_root": str(default_root),
         "symbol_count": len(tickers),
+        "summary": summary,
         "status_counts": counts,
         "rows": rows,
     }
@@ -133,6 +182,23 @@ def format_us_daily_bars_cache_inventory_markdown(inventory: dict[str, Any]) -> 
         f"- **live_http**: false",
         "",
     ]
+    summary = inventory.get("summary") or {}
+    if summary:
+        lines.append("### Summary")
+        lines.append("")
+        lines.append(f"- **total_symbols**: {summary.get('total_symbols', 0)}")
+        lines.append(f"- **ok**: {summary.get('ok_count', 0)}")
+        lines.append(f"- **missing**: {summary.get('missing_count', 0)}")
+        lines.append(f"- **invalid**: {summary.get('invalid_count', 0)}")
+        lines.append(f"- **insufficient**: {summary.get('insufficient_count', 0)}")
+        lines.append(f"- **stale_unknown**: {summary.get('stale_unknown_count', 0)}")
+        other = summary.get("other_count", 0)
+        if other:
+            lines.append(f"- **other**: {other}")
+        wl = summary.get("watchlist_path")
+        if wl:
+            lines.append(f"- **watchlist_path**: `{wl}`")
+        lines.append("")
     counts = inventory.get("status_counts") or {}
     if counts:
         lines.append("### status_counts")

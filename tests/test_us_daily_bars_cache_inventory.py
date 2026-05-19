@@ -1,4 +1,4 @@
-"""R6.16-A: read-only US daily bars cache inventory (no HTTP)."""
+"""R6.16-A/B: read-only US daily bars cache inventory (no HTTP)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from invis_alpha_os.data.us_daily_bars_cache_inventory import (
     build_us_daily_bars_cache_inventory,
     build_us_daily_bars_cache_inventory_row,
     format_us_daily_bars_cache_inventory_json,
+    format_us_daily_bars_cache_inventory_markdown,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -34,6 +35,7 @@ def _block_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_inventory_row_missing(tmp_path: Path) -> None:
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "missing"
+    assert row["reason"] == "missing_file"
     assert row["file_exists"] is False
     assert row["live_http"] is False
 
@@ -43,6 +45,7 @@ def test_inventory_row_insufficient(tmp_path: Path) -> None:
     dest.write_text(FIX_MINIMAL.read_text(encoding="utf-8"), encoding="utf-8")
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "insufficient"
+    assert row["reason"] == "insufficient_bars"
     assert row["bar_count"] == 2
 
 
@@ -51,6 +54,7 @@ def test_inventory_row_stale_unknown(tmp_path: Path) -> None:
     dest.write_text(FIX_25.read_text(encoding="utf-8"), encoding="utf-8")
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "stale_unknown"
+    assert row["reason"] == "stale_unknown"
     assert row["bar_count"] == 25
 
 
@@ -61,6 +65,7 @@ def test_inventory_row_ok_with_freshness(tmp_path: Path) -> None:
     dest.write_text(json.dumps(payload), encoding="utf-8")
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "ok"
+    assert row["reason"] == "ok"
 
 
 def test_inventory_row_invalid(tmp_path: Path) -> None:
@@ -68,15 +73,34 @@ def test_inventory_row_invalid(tmp_path: Path) -> None:
     bad.write_text("{not json", encoding="utf-8")
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "invalid"
+    assert row["reason"] == "invalid_cache_payload"
+
+
+def test_build_inventory_summary_counts(tmp_path: Path) -> None:
+    inv = build_us_daily_bars_cache_inventory(tmp_path, symbols=["MSFT", "AAPL"])
+    summary = inv["summary"]
+    assert summary["total_symbols"] == 2
+    assert summary["missing_count"] == 2
+    assert summary["ok_count"] == 0
+    assert summary["live_http"] is False
+    assert summary["cache_root"] == str(tmp_path.resolve())
 
 
 def test_build_inventory_json_symbols(tmp_path: Path) -> None:
     inv = build_us_daily_bars_cache_inventory(tmp_path, symbols=["MSFT", "AAPL"])
     assert inv["symbol_count"] == 2
     assert inv["live_http"] is False
-    raw = format_us_daily_bars_cache_inventory_json(inv)
-    parsed = json.loads(raw)
+    parsed = json.loads(format_us_daily_bars_cache_inventory_json(inv))
+    assert parsed["summary"]["missing_count"] == 2
     assert parsed["status_counts"]["missing"] == 2
+
+
+def test_markdown_summary_section(tmp_path: Path) -> None:
+    inv = build_us_daily_bars_cache_inventory(tmp_path, symbols=["MSFT"])
+    md = format_us_daily_bars_cache_inventory_markdown(inv)
+    assert "### Summary" in md
+    assert "**missing**:" in md
+    assert "### rows" in md
 
 
 def test_cli_inventory_json_exit_one_when_missing(tmp_path: Path) -> None:
@@ -95,6 +119,7 @@ def test_cli_inventory_json_exit_one_when_missing(tmp_path: Path) -> None:
     )
     assert r.exit_code == 1
     assert '"status": "missing"' in r.stdout
+    assert '"missing_count": 1' in r.stdout
 
 
 def test_cli_inventory_markdown_ok(tmp_path: Path) -> None:
@@ -117,3 +142,4 @@ def test_cli_inventory_markdown_ok(tmp_path: Path) -> None:
     )
     assert r.exit_code == 0
     assert "MSFT" in r.stdout
+    assert "### Summary" in r.stdout
