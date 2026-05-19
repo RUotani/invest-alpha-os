@@ -37,7 +37,8 @@ invis-alpha-os debug us-daily-bars-cache-inventory \
 | `stale_unknown` | 十分な bar だが freshness メタデータなし · reason `stale_unknown` |
 | `ok` | 有効かつ freshness メタデータあり · reason `ok` |
 
-R6.16-B 以降、JSON に **`summary`** 集計ブロックあり（[docs/60](./60_r6_16_b_us_cache_inventory_hardening.md)）。
+R6.16-B 以降、JSON に **`summary`** 集計ブロックあり（[docs/60](./60_r6_16_b_us_cache_inventory_hardening.md)）。  
+R6.16-E 以降、**`freshness_status`** / **`fresh_enough`** 分離（[docs/63](./63_r6_16_e_us_cache_inventory_freshness.md)）。
 
 常に **`source: cache_only`** · **`live_http: false`**。
 
