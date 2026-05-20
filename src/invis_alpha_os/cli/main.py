@@ -81,7 +81,10 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
-from invis_alpha_os.reports.us_cache_preview_opt_in import append_us_cache_preview_section
+from invis_alpha_os.reports.us_cache_preview_opt_in import (
+    append_us_cache_preview_section,
+    build_us_cache_opt_in_preview,
+)
 from invis_alpha_os.reports.us_signals_opt_in import append_us_signals_dry_run_section
 from invis_alpha_os.risk.veto_rules import (
     VetoEngine,
@@ -311,6 +314,11 @@ def signals_command(
         "--format",
         help="Output format: json (default) | markdown — human-readable table.",
     ),
+    us_cache_preview: bool = typer.Option(
+        False,
+        "--us-cache-preview",
+        help="Include US cache-only preview (read-only; default off).",
+    ),
 ) -> None:
     """Observation-only JP momentum-style flags from daily bars (Main E MVP). Not trading advice."""
 
@@ -361,6 +369,8 @@ def signals_command(
             "veto_status": "ok",
             "ranked": ranked_item,
         }
+        if us_cache_preview:
+            payload["us_cache_preview"] = build_us_cache_opt_in_preview()
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
         raise typer.Exit(0)
 
@@ -402,7 +412,13 @@ def signals_command(
         out["skipped_no_cache_codes"] = skipped_no_cache
 
     fmt_norm = fmt.strip().lower()
-    if fmt_norm == "markdown":
+    if us_cache_preview:
+        if fmt_norm == "markdown":
+            typer.echo(append_us_cache_preview_section(_signals_markdown(out)))
+        else:
+            out["us_cache_preview"] = build_us_cache_opt_in_preview()
+            typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
         typer.echo(_signals_markdown(out))
     else:
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))

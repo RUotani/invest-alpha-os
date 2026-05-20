@@ -1,4 +1,4 @@
-"""R6.17: Opt-in US cache preview on daily report (read-only)."""
+"""R6.17 / R6.18-E: Opt-in US cache preview on daily and signals (read-only)."""
 
 from __future__ import annotations
 
@@ -49,6 +49,18 @@ def _assert_preview_forbidden_terms(text: str) -> None:
     lowered = text.lower()
     for word in _FORBIDDEN:
         assert word not in lowered, f"forbidden term in preview section: {word!r}"
+
+
+def _signals_stdout(*extra_args: str) -> str:
+    r = runner.invoke(app, ["signals", "--dry-run", *extra_args])
+    assert r.exit_code == 0, r.stdout + r.stderr
+    return r.stdout
+
+
+def _signals_preview_section_text(stdout: str) -> str:
+    if _OPT_IN_HEADER in stdout:
+        return stdout[stdout.index(_OPT_IN_HEADER) :]
+    return ""
 
 
 def _daily_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> str:
@@ -151,3 +163,66 @@ def test_daily_opt_in_no_live_http_guard(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
     monkeypatch.setattr(urllib.request, "urlopen", _boom)
     _daily_body(monkeypatch, tmp_path, "--us-cache-preview")
+
+
+def test_signals_default_excludes_us_cache_preview() -> None:
+    stdout = _signals_stdout()
+    assert _OPT_IN_HEADER not in stdout
+    payload = json.loads(stdout)
+    assert "us_cache_preview" not in payload
+
+
+def test_signals_opt_in_json_includes_us_cache_preview(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    cache_dir = tmp_path / "outputs" / "market_data" / "us_daily_bars"
+    cache_dir.mkdir(parents=True)
+    shutil.copy(FIX_MINIMAL, cache_dir / "msft.json")
+    monkeypatch.setattr("invis_alpha_os.cli.main.OUTPUTS_DIR", tmp_path / "outputs")
+    monkeypatch.setattr("invis_alpha_os.reports.us_cache_preview_opt_in.OUTPUTS_DIR", tmp_path / "outputs")
+    stdout = _signals_stdout("--us-cache-preview")
+    payload = json.loads(stdout)
+    preview = payload["us_cache_preview"]
+    assert preview["status"] == "ok"
+    symbols = {row["symbol"] for row in preview["rows"]}
+    assert "MSFT" in symbols
+    assert "**live_http**: false" not in stdout
+
+
+def test_signals_opt_in_markdown_includes_us_cache_preview(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    cache_dir = tmp_path / "outputs" / "market_data" / "us_daily_bars"
+    cache_dir.mkdir(parents=True)
+    shutil.copy(FIX_MINIMAL, cache_dir / "msft.json")
+    monkeypatch.setattr("invis_alpha_os.cli.main.OUTPUTS_DIR", tmp_path / "outputs")
+    monkeypatch.setattr("invis_alpha_os.reports.us_cache_preview_opt_in.OUTPUTS_DIR", tmp_path / "outputs")
+    stdout = _signals_stdout("--us-cache-preview", "--format", "markdown")
+    assert _OPT_IN_HEADER in stdout
+    assert "MSFT" in stdout
+    _assert_preview_forbidden_terms(_signals_preview_section_text(stdout))
+
+
+def test_signals_opt_in_no_cache_write_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _boom(*_a: object, **_k: object) -> None:
+        raise AssertionError("signals --us-cache-preview must not write cache")
+
+    monkeypatch.setattr(
+        "invis_alpha_os.data.us_daily_bars_cache.save_us_daily_bars_cache",
+        _boom,
+    )
+    monkeypatch.setattr("invis_alpha_os.cli.main.OUTPUTS_DIR", tmp_path / "outputs")
+    monkeypatch.setattr("invis_alpha_os.reports.us_cache_preview_opt_in.OUTPUTS_DIR", tmp_path / "outputs")
+    _signals_stdout("--us-cache-preview")
+
+
+def test_signals_opt_in_no_live_http_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import urllib.request
+
+    def _boom(*_a: object, **_k: object) -> None:
+        raise AssertionError("signals --us-cache-preview must not use live HTTP")
+
+    monkeypatch.setattr(urllib.request, "urlopen", _boom)
+    monkeypatch.setattr("invis_alpha_os.cli.main.OUTPUTS_DIR", tmp_path / "outputs")
+    monkeypatch.setattr("invis_alpha_os.reports.us_cache_preview_opt_in.OUTPUTS_DIR", tmp_path / "outputs")
+    _signals_stdout("--us-cache-preview")
