@@ -991,7 +991,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ## R7.0-B3S2 — JP Core50 cache fill（完了 · 目標達成 · ローカル ingest · docs-only）
 
-**結果**: **1 銘柄/バッチ** · **120s** · gated live + write · Core50 **30→40/50**（目標 ≥40 **達成**）· HTTP 400/429 なし。証跡 **[docs/94](./94_r7_0_b3s2_core50_cache_fill_evidence.md)**。キャッシュ JSON はローカルのみ。**次**: **R7.0-B4** 再評価。
+**結果**: **1 銘柄/バッチ** · **120s** · gated live + write · Core50 **30→40/50**（目標 ≥40 **達成**）· HTTP 400/429 なし。証跡 **[docs/94](./94_r7_0_b3s2_core50_cache_fill_evidence.md)**。キャッシュ JSON はローカルのみ。続報 **[docs/95](./95_r7_0_b4_jp_discovery_reevaluation.md)**（**案 A: R7.0-C**）。
+
+---
+
+## R7.0-B4 — JP discovery re-evaluation after Core50 40/50（完了 · read-only · docs-only）
+
+**結果**: Core50 **40/50（≥80 bars）** を再確認 · `discover-jp` ranked **20** · insufficient **10**。推奨は **案 A: R7.0-C US MVP**。詳細 **[docs/95](./95_r7_0_b4_jp_discovery_reevaluation.md)** · ローカル証跡は `outputs/`（未コミット）。
 
 ---
 
