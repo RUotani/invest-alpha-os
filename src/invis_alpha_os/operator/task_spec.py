@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.loader import load_yaml
+from invis_alpha_os.operator.jquants_ingest_wiring import JquantsIngestWiring
 
 
 @dataclass(frozen=True)
@@ -22,6 +23,8 @@ class OperatorTaskStep:
     batch_size: int = 1
     delay_seconds: int = 0
     simulate: bool = True
+    from_date: str = ""
+    to_date: str = ""
 
 
 @dataclass(frozen=True)
@@ -33,7 +36,37 @@ class OperatorTaskSpec:
     simulate: bool
     ingest_batch_size: int
     ingest_delay_seconds: int
+    ingest_wiring: JquantsIngestWiring | None
     steps: tuple[OperatorTaskStep, ...]
+
+
+def resolve_step_wiring(task: OperatorTaskSpec, step: OperatorTaskStep) -> JquantsIngestWiring | None:
+    base = task.ingest_wiring
+    if base is None:
+        return None
+    from_date = step.from_date or base.from_date
+    to_date = step.to_date or base.to_date
+    if not from_date or not to_date:
+        return None
+    return JquantsIngestWiring(
+        cli_subcommand=base.cli_subcommand,
+        from_date=from_date,
+        to_date=to_date,
+    )
+
+
+def _load_ingest_wiring(raw: dict[str, Any]) -> JquantsIngestWiring | None:
+    block = raw.get("ingest_wiring")
+    if not block:
+        return None
+    if not isinstance(block, dict):
+        raise ValueError("ingest_wiring must be a mapping")
+    cli = str(block.get("cli_subcommand") or "jquants-watchlist-bars-cache").strip()
+    from_date = str(block.get("from_date") or "").strip()
+    to_date = str(block.get("to_date") or "").strip()
+    if not from_date or not to_date:
+        raise ValueError("ingest_wiring requires from_date and to_date")
+    return JquantsIngestWiring(cli_subcommand=cli, from_date=from_date, to_date=to_date)
 
 
 def _step_from_mapping(
@@ -68,6 +101,8 @@ def _step_from_mapping(
         batch_size=batch_size,
         delay_seconds=delay_seconds,
         simulate=simulate,
+        from_date=str(data.get("from_date") or "").strip(),
+        to_date=str(data.get("to_date") or "").strip(),
     )
 
 
@@ -83,6 +118,7 @@ def load_operator_task(path: Path) -> OperatorTaskSpec:
         ingest_defaults = {}
     ingest_batch_size = int(ingest_defaults.get("batch_size", 1))
     ingest_delay_seconds = int(ingest_defaults.get("delay_seconds", 0))
+    ingest_wiring = _load_ingest_wiring(raw)
     steps_raw = raw.get("steps") or []
     if not isinstance(steps_raw, list) or not steps_raw:
         raise ValueError(f"steps required: {path}")
@@ -108,5 +144,6 @@ def load_operator_task(path: Path) -> OperatorTaskSpec:
         simulate=task_simulate,
         ingest_batch_size=ingest_batch_size,
         ingest_delay_seconds=ingest_delay_seconds,
+        ingest_wiring=ingest_wiring,
         steps=tuple(steps),
     )

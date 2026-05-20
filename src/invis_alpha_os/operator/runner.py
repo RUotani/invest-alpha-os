@@ -21,8 +21,17 @@ from invis_alpha_os.operator.gated_ingest import (
     check_gated_ingest_gates,
     run_gated_ingest_batch,
 )
+from invis_alpha_os.operator.jquants_ingest_wiring import (
+    command_template_for_symbol,
+    make_jquants_ingest_executor,
+)
 from invis_alpha_os.operator.policy import OperatorRunnerPolicy, load_operator_runner_policy
-from invis_alpha_os.operator.task_spec import OperatorTaskSpec, OperatorTaskStep, load_operator_task
+from invis_alpha_os.operator.task_spec import (
+    OperatorTaskSpec,
+    OperatorTaskStep,
+    load_operator_task,
+    resolve_step_wiring,
+)
 
 RunMode = Literal["dry_run", "execute_readonly", "execute_gated"]
 
@@ -211,7 +220,9 @@ def _run_merge_discovery_step(
 def _run_gated_ingest_step(
     *,
     step: OperatorTaskStep,
+    task: OperatorTaskSpec,
     run_dir: Path,
+    repo_root: Path,
     policy: OperatorRunnerPolicy,
     mode: RunMode,
     gate_check: Any,
@@ -220,6 +231,7 @@ def _run_gated_ingest_step(
 ) -> StepRecord:
     if not step.symbols:
         raise RunnerStop("gated_ingest_batch requires symbols", step_id=step.step_id)
+    wiring = resolve_step_wiring(task, step)
     if mode == "execute_readonly":
         return StepRecord(
             step_id=step.step_id,
@@ -231,13 +243,55 @@ def _run_gated_ingest_step(
             blocked_count=len(step.symbols),
         )
     if mode == "dry_run":
+        planned: list[dict[str, str]] = []
+        if wiring:
+            for sym in step.symbols:
+                planned.append(
+                    {
+                        "symbol": sym,
+                        "dry_run_command": command_template_for_symbol(
+                            symbol=sym,
+                            wiring=wiring,
+                            include_live_flags=False,
+                        ),
+                        "gated_command": command_template_for_symbol(
+                            symbol=sym,
+                            wiring=wiring,
+                            include_live_flags=True,
+                        ),
+                    }
+                )
+        if step.output_artifact and planned:
+            payload = {
+                "step_id": step.step_id,
+                "mode": "dry_run",
+                "simulate": step.simulate,
+                "planned_commands": planned,
+            }
+            (run_dir / step.output_artifact).write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        detail = "dry_run — gated ingest not executed"
+        if planned:
+            detail = f"dry_run — planned {len(planned)} symbol command(s)"
         return StepRecord(
             step_id=step.step_id,
             kind=step.kind,
             status="planned",
-            detail="dry_run — gated ingest not executed",
+            detail=detail,
             output_artifact=step.output_artifact,
             attempted_count=len(step.symbols),
+        )
+
+    step_executor = ingest_executor
+    if step_executor is None and wiring is not None:
+        step_executor = make_jquants_ingest_executor(
+            wiring=wiring,
+            repo_root=repo_root,
+            policy=policy,
+            simulate=step.simulate,
+            gates_ok=bool(gate_check and gate_check.ok),
         )
 
     batch_results, progress, stop_reason = run_gated_ingest_batch(
@@ -250,7 +304,7 @@ def _run_gated_ingest_step(
         gates_ok=gate_check.ok,
         gate_status=gate_check.status,
         simulate=step.simulate,
-        executor=ingest_executor,
+        executor=step_executor,
         sleep_fn=sleep_fn,
     )
     completed = sum(1 for r in batch_results if r.status == "completed")
@@ -260,6 +314,7 @@ def _run_gated_ingest_step(
         payload = {
             "step_id": step.step_id,
             "simulate": step.simulate,
+            "ingest_wiring": asdict(wiring) if wiring else None,
             "results": [asdict(r) for r in batch_results],
             "progress": asdict(progress),
         }
@@ -321,6 +376,7 @@ def _write_evidence_summary(run_dir: Path, state: RunState, task: OperatorTaskSp
         "attempted_count": state.attempted_count,
         "completed_count": state.completed_count,
         "blocked_count": state.blocked_count,
+        "ingest_wiring": asdict(task.ingest_wiring) if task.ingest_wiring else None,
         "artifacts": [s.output_artifact for s in completed_steps if s.output_artifact],
     }
     (run_dir / "evidence_summary.json").write_text(
@@ -409,14 +465,27 @@ def run_operator_task(
         for step in task.steps:
             _validate_step_against_policy(step, policy)
             if effective_mode == "dry_run":
-                rec = StepRecord(
-                    step_id=step.step_id,
-                    kind=step.kind,
-                    status="planned",
-                    detail="dry_run — not executed",
-                    output_artifact=step.output_artifact,
-                    attempted_count=len(step.symbols) if _is_gated_step(step) else 0,
-                )
+                if _is_gated_step(step):
+                    rec = _run_gated_ingest_step(
+                        step=step,
+                        task=task,
+                        run_dir=out_base,
+                        repo_root=root,
+                        policy=policy,
+                        mode=effective_mode,
+                        gate_check=gate_check,
+                        ingest_executor=ingest_executor,
+                        sleep_fn=sleep_fn,
+                    )
+                else:
+                    rec = StepRecord(
+                        step_id=step.step_id,
+                        kind=step.kind,
+                        status="planned",
+                        detail="dry_run — not executed",
+                        output_artifact=step.output_artifact,
+                        attempted_count=0,
+                    )
                 state.steps.append(rec)
                 _accumulate_counts(state, rec)
                 _write_checkpoint(out_base, state)
@@ -425,7 +494,9 @@ def run_operator_task(
             if _is_gated_step(step):
                 rec = _run_gated_ingest_step(
                     step=step,
+                    task=task,
                     run_dir=out_base,
+                    repo_root=root,
                     policy=policy,
                     mode=effective_mode,
                     gate_check=gate_check,
