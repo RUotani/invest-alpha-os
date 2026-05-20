@@ -18,6 +18,7 @@ Cursor右側Agent（右ペイン）。ターミナル用ではない。
 - US cache: ok 16 / missing 0（local gitignored）
 - Freshness: R6.16-E on main（7 暦日 cutoff）
 - 設計: [docs/65_r6_17_opt_in_us_cache_preview_plan.md](../docs/65_r6_17_opt_in_us_cache_preview_plan.md)
+- Blockers: [docs/66_r6_17_pre_implementation_review_pack.md](../docs/66_r6_17_pre_implementation_review_pack.md) §0 — `return_1d` · `volume_status` · freshness gate **before** preview section
 
 ## 許可 scope
 
