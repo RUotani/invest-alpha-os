@@ -1055,6 +1055,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-Ops-E1 — dev-loop safety validators（進行中 · scope/dirty/forbidden 検査）
+
+**内容**: `dev-loop` に safety validator を追加。`allowed_paths` / `forbidden_paths` による scope 検査、dirty tree の secrets/cache/outputs 検出、forbidden command (`gh pr merge/close`, force push, branch/worktree delete) と forbidden text 検査を導入。evidence に validator 結果を記録。詳細 **[docs/105](./105_r7_0_ops_e1_dev_loop_safety_validators.md)**。
+
+---
+
 ## R7.0-B3R — JP Core50 cache retry diagnostics（完了 · 部分 ingest 成功 · docs-only）
 
 **結果**: 日付範囲短縮 + バッチ≤3 で **10 銘柄** cache 追加 · Core50 **9→19/50**。詳細 **[docs/87](./87_r7_0_b3r_jp_core50_cache_retry_diagnostics.md)**。残り 31 銘柄は追加 B3R バッチ待ち。

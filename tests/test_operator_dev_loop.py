@@ -25,6 +25,12 @@ def _queue_file(tmp_path: Path, tasks: list[dict[str, str]]) -> Path:
     return path
 
 
+def _queue_file_raw(tmp_path: Path, body: str) -> Path:
+    path = tmp_path / "queue.yaml"
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
 def _git_clean(cmd, **kwargs):  # type: ignore[no-untyped-def]
     if cmd[:3] == ["git", "status", "--short"]:
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -303,3 +309,185 @@ def test_forbidden_dirty_paths_stop(tmp_path: Path, monkeypatch) -> None:  # typ
     )
     assert result.status == "stopped"
     assert "forbidden dirty path" in result.stop_reason
+
+
+def test_allowed_paths_ok_docs_only(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: docs_task
+    pr_title: "Docs task"
+    branch: "work/docs-task"
+    pytest_cmd: "pytest -q"
+    allowed_paths:
+      - "docs/"
+""",
+    )
+
+    def dirty_docs(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/01_development_status.md\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_docs,
+        stop_on_dirty_tree=False,
+        pr_loop_runner=lambda **kwargs: PrLoopResult(  # type: ignore[no-untyped-def]
+            run_id="r",
+            status="completed",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+        ),
+    )
+    assert result.status == "completed"
+    assert result.scope_violations == []
+
+
+def test_allowed_paths_violation_docs_task_src_changed(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: docs_task
+    pr_title: "Docs task"
+    branch: "work/docs-task"
+    pytest_cmd: "pytest -q"
+    allowed_paths:
+      - "docs/"
+""",
+    )
+
+    def dirty_src(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M src/invis_alpha_os/operator/dev_loop.py\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_src,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert result.scope_violations
+    assert "scope violation" in result.stop_reason
+
+
+def test_forbidden_paths_violation(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: code_task
+    pr_title: "Code task"
+    branch: "work/code-task"
+    pytest_cmd: "pytest -q"
+    forbidden_paths:
+      - "pyproject.toml"
+""",
+    )
+
+    def dirty_forbidden(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M pyproject.toml\n", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_forbidden,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert result.scope_violations
+    assert "forbidden path" in result.stop_reason
+
+
+def test_dirty_tree_token_credentials_cache_detected(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+
+    def dirty_sensitive(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout=" M secrets/token_notes.md\n M config/credentials.txt\n M data/cache_dump.json\n",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_sensitive,
+    )
+    assert result.status == "stopped"
+    assert result.dirty_tree_violations
+
+
+def test_forbidden_command_detected(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: bad_cmd
+    pr_title: "Bad command task"
+    branch: "work/bad-cmd"
+    pytest_cmd: "gh pr merge 123"
+""",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+    )
+    assert result.status == "stopped"
+    assert result.forbidden_command_violations
+    assert "forbidden command" in result.stop_reason
+
+
+def test_forbidden_text_detected(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: bad_text
+    pr_title: "Buy signal task"
+    branch: "work/bad-text"
+    pytest_cmd: "pytest -q"
+""",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+    )
+    assert result.status == "stopped"
+    assert result.forbidden_text_violations
+    assert "forbidden text" in result.stop_reason
