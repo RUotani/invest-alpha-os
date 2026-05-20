@@ -1209,3 +1209,4 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 関連: [07_ai_development_workflow.md](./07_ai_development_workflow.md)
 - dev-loop smoke marker: 20260520T103350Z (2026-05-20T10:33:50Z)
+- dev-loop smoke marker: 20260520T103810Z (2026-05-20T10:38:11Z)
