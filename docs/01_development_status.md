@@ -1097,9 +1097,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-F — native true long-run mode（進行中）
+## R7.0-Ops-F — native true long-run mode（完了 · `main` 反映済 #70）
 
 **内容**: `--min-runtime-minutes` + `--no-early-success-exit` + cap 後 heartbeat。詳細 **[docs/113](./113_r7_0_ops_f_native_true_longrun_mode.md)**。
+
+---
+
+## R7.0-Ops-G2 — recovered true long-run profile（進行中 · #71 置換）
+
+**内容**: #70 merge 後に #71 conflict のため G 層を再適用。`true_longrun_3h` profile + `scripts/run_true_longrun_3h.sh`。詳細 **[docs/114](./114_r7_0_ops_g2_recovered_true_longrun_profile.md)**。
 
 ---
 

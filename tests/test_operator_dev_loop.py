@@ -8,10 +8,15 @@ from pathlib import Path
 
 import pytest
 
+from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.operator.dev_loop import (
+    _load_profile,
     _load_queue,
+    _native_longrun_enabled,
+    apply_profile_longrun_defaults,
     default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
+    default_profile_path,
     default_task_queue_path,
     dev_loop_should_exit_nonzero,
     resolve_branch_name,
@@ -1331,3 +1336,65 @@ def test_longrun_real_failure_still_nonzero(tmp_path: Path, monkeypatch) -> None
     assert result.safety_validator_status == "failed"
     assert dev_loop_should_exit_nonzero(result)
     assert not result.longrun_exit_success
+
+
+def test_true_longrun_3h_profile_resolves_native_flags() -> None:
+    profile = _load_profile("true_longrun_3h", profile_path=default_profile_path())
+    mr, ne, hb, cpr, ctk = apply_profile_longrun_defaults(
+        profile,
+        min_runtime_minutes=None,
+        no_early_success_exit=False,
+        heartbeat_interval_minutes=10,
+        continue_after_pr_limit=None,
+        continue_after_task_limit=None,
+    )
+    assert mr == 180
+    assert ne is True
+    assert hb == 10
+    assert cpr == "heartbeat"
+    assert ctk == "heartbeat"
+    assert _native_longrun_enabled(min_runtime_minutes=mr, no_early_success_exit=ne)
+
+
+def test_smoke_profile_has_no_min_runtime() -> None:
+    profile = _load_profile("smoke_20min", profile_path=default_profile_path())
+    mr, ne, _, _, _ = apply_profile_longrun_defaults(
+        profile,
+        min_runtime_minutes=None,
+        no_early_success_exit=False,
+        heartbeat_interval_minutes=10,
+        continue_after_pr_limit=None,
+        continue_after_task_limit=None,
+    )
+    assert mr is None
+    assert ne is False
+
+
+def test_run_true_longrun_script_includes_required_flags() -> None:
+    text = (ROOT_DIR / "scripts/run_true_longrun_3h.sh").read_text(encoding="utf-8")
+    assert "true_longrun_3h" in text
+    assert "autonomous_dev_queue_longrun.yaml" in text
+    assert "CONFIRM_OPERATOR_DEV_LOOP" in text
+    assert "CONFIRM_GITHUB_PR_CREATE" in text
+    assert "--min-runtime-minutes 180" in text
+    assert "--no-early-success-exit" in text
+    assert "--continue-after-pr-limit heartbeat" in text
+    assert "gh pr list" in text
+    assert "gh pr merge" not in text
+
+
+def test_profile_true_longrun_3h_heartbeats_until_min_runtime(tmp_path: Path) -> None:
+    clock = _AdvancingClock()
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        profile_name="true_longrun_3h",
+        profile_path=default_profile_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.longrun_exit_success
+    assert result.stop_reason == "min_runtime reached: 180"
+    assert not dev_loop_should_exit_nonzero(result)
