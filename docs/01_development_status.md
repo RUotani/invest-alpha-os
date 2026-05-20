@@ -914,19 +914,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.17 — Opt-in US cache-only preview（実装 PR · 未 merge）
+## R6.17 — Opt-in US cache-only preview（完了 · `main` 反映済み）
 
-**ブランチ**: **`work/r6-17-opt-in-us-cache-preview-implementation`**
-**内容**: `daily --us-cache-preview` · read-only cache table · `return_1d` / `volume_status` metrics。設計 **[docs/65](./65_r6_17_opt_in_us_cache_preview_plan.md)** · 実装メモ **[docs/67](./67_r6_17_opt_in_us_cache_preview_implementation.md)**。
-**境界**: **opt-in only** · **default 変更なし** · **live HTTP / cache write なし** · **Codex review before merge**。
+**コミット（`main` 取り込み）**: **`879fe47`** · PR **#16** squash merge。
+**内容**: `daily --us-cache-preview` · read-only cache 表 · `return_1d` / `volume_status` · freshness note。設計 **[docs/65](./65_r6_17_opt_in_us_cache_preview_plan.md)** · 実装 **[docs/67](./67_r6_17_opt_in_us_cache_preview_implementation.md)** · smoke **[docs/68](./68_r6_17_a_opt_in_us_cache_preview_smoke.md)**。
+**境界**: **opt-in only** · **default 変更なし** · **live HTTP / cache write なし** · **運用有効化は operator 判断**。
 
 ---
 
-## R6.17-pre — Pre-implementation review pack（ブランチのみ · prompts）
+## R6.17-pre — Pre-implementation review pack（完了 · `main` 反映済み · prompts）
 
-**ブランチ**: **`work/r6-17-pre-implementation-review-pack`**
-**内容**: Codex / Claude Code 向け **review prompts**（**実装なし**）。詳細 **[docs/66_r6_17_pre_implementation_review_pack.md](./66_r6_17_pre_implementation_review_pack.md)** · **`.agent/r6_17_codex_review_prompt.md`** · **`.agent/r6_17_claude_arch_review_prompt.md`**。
-**境界**: **implementation requires separate approval** · review prompts のみ · merge は別 PR 判断。
+**コミット（`main` 取り込み）**: PR **#15** · **`36615c9`** 系（review prompts on main）。
+**内容**: Codex / Claude Code 向け review prompts。詳細 **[docs/66_r6_17_pre_implementation_review_pack.md](./66_r6_17_pre_implementation_review_pack.md)**。
 
 ---
 
