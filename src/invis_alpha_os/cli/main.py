@@ -119,7 +119,7 @@ from invis_alpha_os.signals.momentum import (
     momentum_row_public_dict,
     synthetic_bars_for_code,
 )
-from invis_alpha_os.operator.runner import RunnerStop, default_policy_path, default_task_path, run_operator_task
+from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.utils.date_utils import today_jst_iso
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
@@ -611,6 +611,16 @@ def operator_runner_run(
         "--dry-run/--execute-readonly",
         help="Dry-run plans steps only; execute-readonly runs readonly steps.",
     ),
+    execute_gated: bool = typer.Option(
+        False,
+        "--execute-gated",
+        help="Execute gated ingest steps (requires CONFIRM_* gates).",
+    ),
+    resume_run_dir: Optional[str] = typer.Option(
+        None,
+        "--resume-run-dir",
+        help="Resume from an existing run directory under outputs/operator/runner/.",
+    ),
 ) -> None:
     """Run operator task under safety policy (checkpoint + evidence under outputs/operator/runner/)."""
 
@@ -622,17 +632,29 @@ def operator_runner_run(
     if not policy_path.is_file():
         typer.echo(f"operator-runner: policy file not found: {policy_path}", err=True)
         raise typer.Exit(2)
-    mode = "dry_run" if dry_run else "execute_readonly"
+    if execute_gated:
+        mode = "execute_gated"
+    elif not dry_run:
+        mode = "execute_readonly"
+    else:
+        mode = "dry_run"
+    resume_path = Path(resume_run_dir) if resume_run_dir else None
+    if resume_path is not None and not resume_path.is_dir():
+        typer.echo(f"operator-runner: resume run dir not found: {resume_path}", err=True)
+        raise typer.Exit(2)
     try:
         state = run_operator_task(
             task_path=task_path,
             policy_path=policy_path,
             mode=mode,
+            resume_run_dir=resume_path,
         )
     except RunnerStop as e:
         typer.echo(f"operator-runner: stopped: {e.reason}", err=True)
         raise typer.Exit(1) from e
     run_dir = OUTPUTS_DIR / "operator" / "runner" / state.task_id / state.run_id
+    if resume_path is not None:
+        run_dir = resume_path
     typer.echo(
         f"operator-runner: status={state.status} mode={state.mode} "
         f"steps={len(state.steps)} run_dir={run_dir}"
