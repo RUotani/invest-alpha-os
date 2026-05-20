@@ -1001,9 +1001,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-C — US Universe Scanner MVP（完了 · cache-only discovery · `main` 反映待ち）
+## R7.0-C — US Universe Scanner MVP（完了 · cache-only discovery · `main` 反映済 `111f122`）
 
 **結果**: `discover-us` CLI と US scanner を追加（cache read-only）。`config/us_universe_scanner_mvp.yaml` とテストを整備し、JP と同思想の observation-only 出力契約を固定。詳細 **[docs/96](./96_r7_0_c_us_universe_scanner_mvp.md)**。
+
+---
+
+## R7.0-C1 — JP/US cross-market discovery output contract（進行中 · docs + format helper）
+
+**内容**: `discovery/cross_market_contract.py` で `common_candidates` / 統一 Markdown 表 / `merge_cross_market_json_payloads` を追加。`discover-jp` / `discover-us` の JSON に `schema_version` と横断比較用配列を付与（legacy `candidates` 維持）。詳細 **[docs/97](./97_r7_0_c1_cross_market_discovery_output_contract.md)**。
 
 ---
 
