@@ -1211,3 +1211,4 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 - dev-loop smoke marker: 20260520T103350Z (2026-05-20T10:33:50Z)
 - dev-loop smoke marker: 20260520T103810Z (2026-05-20T10:38:11Z)
 - dev-loop smoke marker: 20260520T104235Z (2026-05-20T10:42:35Z)
+- dev-loop smoke marker: 20260520T104620Z (2026-05-20T10:46:20Z)
