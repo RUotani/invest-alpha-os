@@ -697,6 +697,21 @@ def operator_runner_pr_loop(
         "--pr-number",
         help="Existing PR number for --check-ci (optional if PR is created in the same run).",
     ),
+    wait_ci: bool = typer.Option(
+        False,
+        "--wait-ci",
+        help="Poll gh run list until CI completes, fails, cancels, or times out.",
+    ),
+    ci_timeout_seconds: int = typer.Option(
+        600,
+        "--ci-timeout-seconds",
+        help="Max seconds to wait when --wait-ci is set.",
+    ),
+    ci_poll_seconds: int = typer.Option(
+        30,
+        "--ci-poll-seconds",
+        help="Seconds between gh run list polls when --wait-ci is set.",
+    ),
 ) -> None:
     """PR loop foundation: task/evidence/tests/git → PR draft; gated gh pr create; no auto-merge."""
 
@@ -715,6 +730,9 @@ def operator_runner_pr_loop(
         execute_checks=not dry_run,
         create_pr=create_pr,
         check_ci=check_ci,
+        wait_ci=wait_ci,
+        ci_timeout_seconds=ci_timeout_seconds,
+        ci_poll_seconds=ci_poll_seconds,
         pr_number=pr_number,
     )
     typer.echo(
@@ -723,6 +741,11 @@ def operator_runner_pr_loop(
     )
     if result.pr_url:
         typer.echo(f"operator-runner pr-loop: pr_url={result.pr_url}")
+    if result.ci_wait_status:
+        typer.echo(
+            f"operator-runner pr-loop: ci_wait_status={result.ci_wait_status} "
+            f"polls={result.ci_wait_poll_count}"
+        )
     if result.stop_reason:
         typer.echo(f"operator-runner pr-loop: stop_reason={result.stop_reason}", err=True)
         raise typer.Exit(1)

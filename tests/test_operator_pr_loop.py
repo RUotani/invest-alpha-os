@@ -15,6 +15,7 @@ from invis_alpha_os.operator.pr_loop import (
     build_pr_body_draft,
     check_github_pr_create_gate,
     run_pr_loop,
+    wait_for_ci_runs,
 )
 
 GATED_TASK = CONFIG_DIR / "tasks" / "r7_0_jquants_ingest_gated_smoke.yaml"
@@ -226,3 +227,201 @@ def test_check_ci_without_pr_number_blocked(tmp_path: Path) -> None:
 def test_check_ci_forbids_merge_command() -> None:
     with pytest.raises(ValueError, match="forbidden gh command"):
         assert_gh_command_allowed(["gh", "pr", "close", "1"])
+
+
+def _run_list_response(runs: list[dict[str, str]]) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess(
+        ["gh", "run", "list"],
+        0,
+        stdout=json.dumps(runs),
+        stderr="",
+    )
+
+
+def test_default_no_ci_wait(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            raise AssertionError("gh run list should not run without --wait-ci")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        subprocess_run=route,
+    )
+    assert result.status == "completed"
+    assert result.ci_wait_status is None
+    assert result.ci_wait_poll_count == 0
+
+
+def test_wait_ci_success(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            return _run_list_response(
+                [{"status": "completed", "conclusion": "success", "workflowName": "test"}]
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        subprocess_run=route,
+    )
+    assert result.status == "completed"
+    assert result.ci_wait_status == "success"
+    assert result.ci_wait_poll_count == 1
+
+
+def test_wait_ci_pending_then_success(tmp_path: Path) -> None:
+    calls = {"n": 0}
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _run_list_response([{"status": "in_progress", "conclusion": ""}])
+            return _run_list_response(
+                [{"status": "completed", "conclusion": "success", "workflowName": "test"}]
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        ci_poll_seconds=1,
+        subprocess_run=route,
+        sleep_fn=lambda _s: None,
+    )
+    assert result.status == "completed"
+    assert result.ci_wait_status == "success"
+    assert result.ci_wait_poll_count == 2
+
+
+def test_wait_ci_failure_stops(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            return _run_list_response(
+                [{"status": "completed", "conclusion": "failure", "workflowName": "test"}]
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        subprocess_run=route,
+    )
+    assert result.status == "stopped"
+    assert result.ci_wait_status == "failing"
+    assert "ci_wait_status=failing" in result.stop_reason
+
+
+def test_wait_ci_cancelled_stops(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            return _run_list_response(
+                [{"status": "completed", "conclusion": "cancelled", "workflowName": "test"}]
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        subprocess_run=route,
+    )
+    assert result.status == "stopped"
+    assert result.ci_wait_status == "cancelled"
+
+
+def test_wait_ci_timeout(tmp_path: Path) -> None:
+    clock = {"t": 0.0}
+
+    def mono() -> float:
+        return clock["t"]
+
+    def advance(_s: float) -> None:
+        clock["t"] += 15.0
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            return _run_list_response([{"status": "queued", "conclusion": ""}])
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        ci_timeout_seconds=30,
+        ci_poll_seconds=10,
+        subprocess_run=route,
+        monotonic_fn=mono,
+        sleep_fn=advance,
+    )
+    assert result.status == "stopped"
+    assert result.ci_wait_status == "timeout"
+    assert result.ci_wait_poll_count >= 2
+
+
+def test_wait_ci_and_check_ci_combo(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "run", "list"]:
+            return _run_list_response(
+                [{"status": "completed", "conclusion": "success", "workflowName": "test"}]
+            )
+        if cmd[:3] == ["gh", "pr", "checks"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout="test pass 50s https://example.test/run\n",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        wait_ci=True,
+        check_ci=True,
+        pr_number=42,
+        subprocess_run=route,
+    )
+    assert result.status == "completed"
+    assert result.ci_wait_status == "success"
+    assert result.ci_status == "success"
+
+
+def test_wait_for_ci_runs_unit() -> None:
+    clock = {"t": 0.0}
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        return _run_list_response([{"status": "queued", "conclusion": ""}])
+
+    status, detail, polls = wait_for_ci_runs(
+        branch="work/example",
+        repo_root=Path("."),
+        timeout_seconds=20,
+        poll_seconds=5,
+        subprocess_run=route,
+        monotonic_fn=lambda: clock["t"],
+        sleep_fn=lambda s: clock.__setitem__("t", clock["t"] + s),
+    )
+    assert status == "timeout"
+    assert polls >= 2
+    assert "timeout=20s" in detail
