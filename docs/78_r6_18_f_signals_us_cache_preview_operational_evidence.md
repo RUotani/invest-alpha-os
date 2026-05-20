@@ -111,6 +111,8 @@ preview 節なし。opt-in は [docs/69](./69_r6_17_b_opt_in_us_cache_preview_ru
 | 2026-05-20 | `f349c50` | `signals --dry-run` · `signals --dry-run --us-cache-preview` | pass | pass | pass | pass | pass | preview ok · **16** rows · stale **0** · fresh_enough **16** | `pytest -q tests/test_us_cache_preview_opt_in.py` **12 passed** · main CI #24 success | **smoke evidence #1** · default enablement **blocked** · **2nd operational date still required** |
 | 2026-05-20 | `cd86396` | `signals --dry-run` · `signals --dry-run --us-cache-preview` | pass | pass | pass | pass | pass | preview ok · **16** rows · stale **0** · fresh_enough **16** | `pytest -q tests/test_us_cache_preview_opt_in.py` **12 passed** · PR #25 on main | **smoke evidence #2** · separate operator session（#2 Longpack 実行）· default **blocked** · **2/2+ complete** · R6.18-H は別承認 |
 
+**R6.18-H note（2026-05-20）**: 上記 **2 行は完了**（いずれも暦日 2026-05-20 · #2 は別セッション）。**2+ separate operational-day** は [docs/79](./79_r6_18_h_default_readiness_review_package.md) のとおり **未充足と分類** — default 承認前に **R6.18-I**（後日暦日 #3 smoke）を推奨。
+
 ---
 
 ## 5. Default Enablement Gate
