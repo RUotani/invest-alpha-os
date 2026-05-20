@@ -34,7 +34,7 @@
 
 1. Google Cloud で Gmail API 有効化 · OAuth client（Desktop）
 2. `gmail_credentials.json` → `~/.config/invest-alpha-os/`
-3. 初回トークン取得（R6.19-A docs/80 参照）
+3. 初回 `--send` でブラウザ OAuth（R6.19-D · docs/80/89）→ `gmail_token.json` 自動作成
 4. scope: `https://www.googleapis.com/auth/gmail.send`
 
 ---

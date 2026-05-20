@@ -512,7 +512,7 @@ def daily_email(
         typer.echo(f"daily-email: {e}", err=True)
         raise typer.Exit(2) from e
     if not credentials_configured():
-        typer.echo("daily-email: Gmail credentials/token files not configured", err=True)
+        typer.echo("daily-email: Gmail credentials file not configured (GMAIL_CREDENTIALS_FILE)", err=True)
         raise typer.Exit(2)
     try:
         result = send_gmail_message(raw)

@@ -14,7 +14,10 @@ from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.gmail_delivery import (
     GmailSendBlockedError,
     build_mime_message,
+    credentials_configured,
     encode_message_raw,
+    ensure_gmail_credentials,
+    send_gmail_message,
     validate_gmail_send_gates,
     write_email_previews,
 )
@@ -84,3 +87,175 @@ def test_daily_email_send_without_confirm_fails(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setenv("GMAIL_REPORT_TO", "self@example.com")
     r = runner.invoke(app, ["daily-email", "--bundle-dir", str(bundle), "--send"])
     assert r.exit_code == 2
+
+
+def test_subject_has_observation_report_spacing(tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle3"
+    bundle.mkdir()
+    (bundle / "operator_summary.md").write_text("stale 0", encoding="utf-8")
+    draft = build_daily_email_from_bundle(bundle)
+    assert "Daily Observation Report" in draft.subject
+    assert "ObservationReport" not in draft.subject
+
+
+def test_credentials_configured_requires_credentials_file_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text('{"installed": {}}', encoding="utf-8")
+    token = tmp_path / "missing_token.json"
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(token))
+    assert credentials_configured() is True
+    assert token.is_file() is False
+
+
+def test_ensure_gmail_credentials_missing_token_runs_oauth_flow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text('{"installed": {"client_id": "x", "client_secret": "y"}}', encoding="utf-8")
+    token = tmp_path / "gmail_token.json"
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(token))
+
+    mock_creds = type("Creds", (), {"valid": True, "expired": False, "refresh_token": None})()
+    mock_creds.to_json = lambda: '{"token": "saved"}'  # type: ignore[method-assign]
+
+    class MockFlow:
+        @staticmethod
+        def from_client_secrets_file(path: str, scopes: list[str]) -> "MockFlow":
+            assert path == str(cred)
+            return MockFlow()
+
+        def run_local_server(self, port: int = 0) -> object:
+            assert port == 0
+            return mock_creds
+
+    from google.oauth2.credentials import Credentials
+
+    monkeypatch.setattr(
+        Credentials,
+        "from_authorized_user_file",
+        lambda *_a, **_k: (_ for _ in ()).throw(ValueError("no token")),
+    )
+    monkeypatch.setattr("google_auth_oauthlib.flow.InstalledAppFlow", MockFlow)
+
+    out = ensure_gmail_credentials()
+    assert out is mock_creds
+    assert token.is_file()
+    assert "saved" in token.read_text(encoding="utf-8")
+
+
+def test_ensure_gmail_credentials_valid_token_skips_oauth(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    token = tmp_path / "gmail_token.json"
+    token.write_text('{"token": "ok"}', encoding="utf-8")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(token))
+
+    mock_creds = type("Creds", (), {"valid": True, "expired": False})()
+    oauth_called = {"n": 0}
+
+    class MockFlow:
+        @staticmethod
+        def from_client_secrets_file(*_a: object, **_k: object) -> object:
+            oauth_called["n"] += 1
+            raise AssertionError("OAuth should not run")
+
+    from google.oauth2.credentials import Credentials
+
+    monkeypatch.setattr(Credentials, "from_authorized_user_file", lambda *_a, **_k: mock_creds)
+    monkeypatch.setattr("google_auth_oauthlib.flow.InstalledAppFlow", MockFlow)
+    assert ensure_gmail_credentials() is mock_creds
+    assert oauth_called["n"] == 0
+
+
+def test_ensure_gmail_credentials_expired_refreshes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    token = tmp_path / "gmail_token.json"
+    token.write_text('{"token": "old"}', encoding="utf-8")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(token))
+
+    mock_creds = type(
+        "Creds",
+        (),
+        {"valid": False, "expired": True, "refresh_token": "rt"},
+    )()
+    mock_creds.to_json = lambda: '{"token": "refreshed"}'  # type: ignore[method-assign]
+    refreshed = {"called": False}
+
+    def fake_refresh(_req: object) -> None:
+        refreshed["called"] = True
+        mock_creds.valid = True
+        mock_creds.expired = False
+
+    mock_creds.refresh = fake_refresh  # type: ignore[method-assign]
+
+    class MockFlow:
+        @staticmethod
+        def from_client_secrets_file(*_a: object, **_k: object) -> object:
+            raise AssertionError("OAuth should not run when refresh_token exists")
+
+    from google.oauth2.credentials import Credentials
+
+    monkeypatch.setattr(Credentials, "from_authorized_user_file", lambda *_a, **_k: mock_creds)
+    monkeypatch.setattr("google_auth_oauthlib.flow.InstalledAppFlow", MockFlow)
+    ensure_gmail_credentials()
+    assert refreshed["called"] is True
+    assert "refreshed" in token.read_text(encoding="utf-8")
+
+
+def test_ensure_gmail_credentials_missing_credentials_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(tmp_path / "nope.json"))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(tmp_path / "token.json"))
+    with pytest.raises(GmailSendBlockedError, match="GMAIL_CREDENTIALS_FILE"):
+        ensure_gmail_credentials(allow_interactive_oauth=False)
+
+
+def test_send_gmail_message_uses_ensure_credentials(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(tmp_path / "token.json"))
+
+    mock_creds = object()
+    ensure_called = {"n": 0}
+
+    def fake_ensure(**_k: object) -> object:
+        ensure_called["n"] += 1
+        return mock_creds
+
+    monkeypatch.setattr("invis_alpha_os.reports.gmail_delivery.ensure_gmail_credentials", fake_ensure)
+
+    class MockService:
+        def users(self) -> "MockService":
+            return self
+
+        def messages(self) -> "MockService":
+            return self
+
+        def send(self, **kwargs: object) -> "MockService":
+            return self
+
+        def execute(self) -> dict[str, str]:
+            return {"id": "msg123"}
+
+    monkeypatch.setattr(
+        "googleapiclient.discovery.build",
+        lambda *_a, **_k: MockService(),
+    )
+    out = send_gmail_message("rawpayload")
+    assert out["id"] == "msg123"
+    assert ensure_called["n"] == 1

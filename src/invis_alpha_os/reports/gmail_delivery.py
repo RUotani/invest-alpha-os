@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Sequence
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+GMAIL_SCOPES = [GMAIL_SEND_SCOPE]
 
 
 class GmailSendBlockedError(RuntimeError):
@@ -84,16 +86,28 @@ def resolve_gmail_paths() -> tuple[Path | None, Path | None]:
 
 
 def credentials_configured() -> bool:
-    cred_path, token_path = resolve_gmail_paths()
-    return bool(cred_path and cred_path.is_file() and token_path and token_path.is_file())
+    """True when OAuth client credentials file exists (token may be bootstrapped on first send)."""
+
+    cred_path, _token_path = resolve_gmail_paths()
+    return bool(cred_path and cred_path.is_file())
 
 
-def send_gmail_message(raw_message: str, *, user_id: str = "me") -> dict[str, Any]:
-    """Call Gmail API users.messages.send (requires optional google packages)."""
+def _save_gmail_token(creds: Any, token_path: Path) -> None:
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    token_path.write_text(creds.to_json(), encoding="utf-8")
+    try:
+        os.chmod(token_path, 0o600)
+    except OSError:
+        pass
+
+
+def ensure_gmail_credentials(*, allow_interactive_oauth: bool = True) -> Any:
+    """Load, refresh, or bootstrap Gmail OAuth credentials. Never prints token contents."""
 
     try:
+        from google.auth.transport.requests import Request
         from google.oauth2.credentials import Credentials
-        from googleapiclient.discovery import build
+        from google_auth_oauthlib.flow import InstalledAppFlow
     except ImportError as e:
         raise GmailSendBlockedError(
             "Gmail API packages not installed. Install google-api-python-client and google-auth-oauthlib for send mode."
@@ -102,10 +116,44 @@ def send_gmail_message(raw_message: str, *, user_id: str = "me") -> dict[str, An
     cred_path, token_path = resolve_gmail_paths()
     if not cred_path or not cred_path.is_file():
         raise GmailSendBlockedError("GMAIL_CREDENTIALS_FILE missing or not found")
-    if not token_path or not token_path.is_file():
-        raise GmailSendBlockedError("GMAIL_TOKEN_FILE missing or not found")
+    if token_path is None:
+        raise GmailSendBlockedError("GMAIL_TOKEN_FILE path not configured")
 
-    creds = Credentials.from_authorized_user_file(str(token_path))
+    creds: Any | None = None
+    if token_path.is_file():
+        try:
+            creds = Credentials.from_authorized_user_file(str(token_path), GMAIL_SCOPES)
+        except (ValueError, OSError):
+            creds = None
+
+    if creds is not None and creds.valid:
+        return creds
+
+    if creds is not None and creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+        _save_gmail_token(creds, token_path)
+        return creds
+
+    if not allow_interactive_oauth:
+        raise GmailSendBlockedError("GMAIL_TOKEN_FILE missing or invalid; interactive OAuth not allowed")
+
+    flow = InstalledAppFlow.from_client_secrets_file(str(cred_path), GMAIL_SCOPES)
+    creds = flow.run_local_server(port=0)
+    _save_gmail_token(creds, token_path)
+    return creds
+
+
+def send_gmail_message(raw_message: str, *, user_id: str = "me") -> dict[str, Any]:
+    """Call Gmail API users.messages.send (requires optional google packages)."""
+
+    try:
+        from googleapiclient.discovery import build
+    except ImportError as e:
+        raise GmailSendBlockedError(
+            "Gmail API packages not installed. Install google-api-python-client and google-auth-oauthlib for send mode."
+        ) from e
+
+    creds = ensure_gmail_credentials()
     service = build("gmail", "v1", credentials=creds, cache_discovery=False)
     return (
         service.users()
