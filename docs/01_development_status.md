@@ -968,13 +968,28 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.18-F — Signals preview ops evidence（進行中 · docs/templates）
+## R6.18-F — Signals preview ops evidence（完了 · `main` 反映済み · docs/templates）
 
-**ブランチ**: `work/r6-18-f-signals-preview-ops-evidence` · **main 起点** `9c6f5e5`。
-**内容**: docs/01 R6.18-E 完了反映 · docs/77 空白修正 · **[docs/78](./78_r6_18_f_signals_us_cache_preview_operational_evidence.md)** 運用 evidence · `.agent/r6_18_g_*` smoke draft。
-**境界**: **docs/templates only** · **default enablement ブロック継続**。
+**コミット（`main` 取り込み）**: **`f349c50`** · PR **#24** squash merge。
+**内容**: R6.18-E 完了反映 · docs/77 修正 · **[docs/78](./78_r6_18_f_signals_us_cache_preview_operational_evidence.md)** 運用 evidence 枠。
 
-**次候補**: **R6.18-G** — 2+ read-only smoke 記録（別 Longpack）。
+---
+
+## R6.18-G — Signals preview smoke evidence（完了 · `main` 反映済み · docs-only）
+
+**コミット**: PR **#25**（smoke #1 · `cd86396`）· PR **#26**（smoke #2 · `318a7d9`）。
+**結果**: read-only smoke **2 件** · いずれも pass（stale 0 · fresh_enough 16）。
+**注意**: 両記録とも暦日 **2026-05-20**（#2 は別セッション）。
+
+---
+
+## R6.18-H — Default-readiness review package（進行中 · docs-only）
+
+**ブランチ**: `work/r6-18-h-default-readiness-review-package` · **main 起点** `318a7d9`。
+**内容**: default-readiness レビュー · 同一暦日 caveat · **default ブロック継続** · **R6.18-I**（後日 #3 smoke）推奨。詳細 **[docs/79](./79_r6_18_h_default_readiness_review_package.md)**。
+**決定**: default enablement **実装しない** · calendar-day gate は **#3 まで未充足**（推奨）。
+
+**次候補**: **R6.18-I** 後日暦日 smoke · その後 **R6.18-J** 再レビュー（別承認）。
 
 ---
 
