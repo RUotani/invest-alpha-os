@@ -946,14 +946,24 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.18-B+C — Cache-only connection planning（進行中 · docs/templates only）
+## R6.18-B+C — Cache-only connection planning（完了 · `main` 反映済み · docs/templates）
 
-**ブランチ**: `work/r6-18-bc-cache-only-connection-planning` · **main 起点** `ba38ee9`。
-**内容**: US cache preview の **cache-only 接続設計（B）** と **default enablement readiness（C）** · **B1 推奨**（`signals --us-cache-preview` opt-in）· **default 有効化は未承認**。
-**成果物**: **[docs/74](./74_r6_18_bc_cache_only_connection_design.md)** · **[docs/75](./75_r6_18_bc_default_enablement_readiness_checklist.md)** · **[docs/76](./76_r6_18_bc_implementation_review_pack.md)** · `.agent/r6_18_bc_*`。
-**境界**: **docs/templates only** · **no live HTTP** · **no cache write** · **no product code** · **no default enablement**。
+**コミット（`main` 取り込み）**: **`3e71743`** · PR **#21** squash merge。
+**内容**: US cache preview **cache-only 接続設計（B）** · **default enablement readiness（C）** · B1 推奨。 **[docs/74](./74_r6_18_bc_cache_only_connection_design.md)** · **[docs/75](./75_r6_18_bc_default_enablement_readiness_checklist.md)** · **[docs/76](./76_r6_18_bc_implementation_review_pack.md)**。
 
-**次候補**: Codex planning review → **R6.18 B1 implementation**（**別承認**）。
+---
+
+## R6.18-D — Docs whitespace microfix（完了 · `main` 反映済み · docs-only）
+
+**コミット（`main` 取り込み）**: PR **#22** · docs/74–76 行末空白除去。
+
+---
+
+## R6.18-E — B1 signals US cache preview（進行中 · product）
+
+**ブランチ**: `work/r6-18-e-b1-signals-us-cache-preview`。
+**内容**: opt-in **`signals --us-cache-preview`** · daily/signals **default 不変**。詳細 **[docs/77](./77_r6_18_e_b1_signals_us_cache_preview.md)**。
+**境界**: **no live HTTP** · **no cache write** · **default enablement 未承認**。
 
 ---
 
