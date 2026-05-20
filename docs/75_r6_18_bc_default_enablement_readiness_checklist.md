@@ -1,6 +1,6 @@
 # R6.18-B+C — Default enablement readiness checklist (planning)
 
-**日付**: 2026-05-20  
+**日付**: 2026-05-20
 **性質**: **checklist only** · **default は本 PR では有効化しない**
 
 ---

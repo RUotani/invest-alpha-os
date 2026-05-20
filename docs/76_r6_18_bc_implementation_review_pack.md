@@ -1,6 +1,6 @@
 # R6.18-B+C — Implementation review pack (planning)
 
-**日付**: 2026-05-20  
+**日付**: 2026-05-20
 **性質**: **implementation ではない** · 将来の B1 実装承認用
 
 ---
