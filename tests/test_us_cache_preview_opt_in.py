@@ -25,7 +25,30 @@ runner = CliRunner()
 REPO = Path(__file__).resolve().parents[1]
 FIX_MINIMAL = REPO / "tests" / "fixtures" / "us_equities" / "minimal_msft_envelope.json"
 FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_envelope.json"
-_FORBIDDEN = ("recommendation", "allocation", "portfolio")
+_FORBIDDEN = (
+    "recommendation",
+    "allocation",
+    "portfolio",
+    "buy",
+    "sell",
+    "veto",
+    "macro",
+    "production",
+)
+
+
+def _preview_section_text(body: str) -> str:
+    """Isolate opt-in preview markdown (exclude JP header / other sections)."""
+
+    if _OPT_IN_HEADER not in body:
+        return ""
+    return body[body.index(_OPT_IN_HEADER) :]
+
+
+def _assert_preview_forbidden_terms(text: str) -> None:
+    lowered = text.lower()
+    for word in _FORBIDDEN:
+        assert word not in lowered, f"forbidden term in preview section: {word!r}"
 
 
 def _daily_body(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *extra_args: str) -> str:
@@ -88,8 +111,7 @@ def test_render_includes_allowed_columns_only() -> None:
     md = render_us_cache_opt_in_preview_markdown(preview)
     assert "| symbol | latest_date | freshness_status | close | return_1d |" in md
     assert "SPY" in md
-    for word in _FORBIDDEN:
-        assert word not in md.lower()
+    _assert_preview_forbidden_terms(md)
 
 
 def test_daily_default_excludes_us_cache_preview(
@@ -107,8 +129,18 @@ def test_daily_opt_in_includes_us_cache_preview(monkeypatch: pytest.MonkeyPatch,
     assert _OPT_IN_HEADER in body
     assert "MSFT" in body
     assert "**live_http**: false" in body
-    for word in _FORBIDDEN:
-        assert word not in body.lower()
+    _assert_preview_forbidden_terms(_preview_section_text(body))
+
+
+def test_daily_opt_in_no_cache_write_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _boom(*_a: object, **_k: object) -> None:
+        raise AssertionError("daily --us-cache-preview must not write cache")
+
+    monkeypatch.setattr(
+        "invis_alpha_os.data.us_daily_bars_cache.save_us_daily_bars_cache",
+        _boom,
+    )
+    _daily_body(monkeypatch, tmp_path, "--us-cache-preview")
 
 
 def test_daily_opt_in_no_live_http_guard(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
