@@ -983,7 +983,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-B2 — JP universe/cache expansion（進行中 · Core50 + coverage audit）
+## R7.0-B3 — JP Core50 gated cache fill（完了 · ingest 失敗 · docs-only）
+
+**結果**: batch 1/5 試行 · **cache_written 0** · HTTP 400/429 · カバレッジ **9/50** 変化なし。詳細 **[docs/86](./86_r7_0_b3_jp_core50_cache_fill.md)**。再試行はレート制限/プラン確認後。
+
+---
+
+## R7.0-B2 — JP universe/cache expansion（完了 · `main` 反映済み · Core50）
 
 **内容**: `config/jp_universe_core50.yaml`（50 銘柄）· display names 拡張 · cache カバレッジ **9/50** · ingest は **R7.0-B3** へ。詳細 **[docs/85](./85_r7_0_b2_jp_universe_cache_expansion.md)**。
 
