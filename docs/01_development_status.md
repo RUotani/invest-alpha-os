@@ -897,11 +897,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.16-F — Agent workflow standardization（ブランチのみ · docs/templates）
+## R6.16-F — Agent workflow standardization（完了・`main` 反映済み · docs/templates）
 
-**ブランチ**: **`work/r6-16-f-agent-workflow-standardization`**
-**内容**: **最小人間貼り付け・最大自走**運用のテンプレート（**`.agent/*`** · **`CLAUDE.md`**）。Cursor / Codex / Claude の役割分担 · リスク別手順 · 単一 Markdown 最終報告。詳細 **[docs/64_r6_16_f_agent_workflow_standardization.md](./64_r6_16_f_agent_workflow_standardization.md)**。
-**境界**: **R6.17 前の運用基盤**。**daily / signals default 変更なし** · **live HTTP / cache write 実装なし** · **workflow / Makefile / pyproject 変更なし**。
+**コミット（`main` 取り込み）**: **`1fa2fb1`** · PR **#12** squash merge。
+**内容**: **最小人間貼り付け・最大自走**を標準化（**`.agent/*`** · **`CLAUDE.md`** on **`main`**）。Cursor / Codex / Claude 役割分担 · リスク別手順 · **単一 Markdown 最終報告圧縮** · **sound / notification policy**（`.agent/standard_clauses.md`）。詳細 **[docs/64_r6_16_f_agent_workflow_standardization.md](./64_r6_16_f_agent_workflow_standardization.md)**。
+**境界**: **product code / workflow / Makefile / pyproject 変更なし** · **live HTTP / cache write / daily·signals default 変更なし** · **R6.17 前の運用基盤**。
+
+**次候補**: **R6.17** opt-in cache-only preview（**別承認** · planning / 実装は別 PR）。
 
 ---
 

@@ -1,7 +1,8 @@
 # R6.16-D — US cache full population status（operator manual · docs-only）
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**）。ブランチ: **`work/r6-16-d-us-cache-full-population-docs`**。  
-**性質**: **運用記録**（手動 gated ingest の結果）。**コード変更なし** · **ingest plan CLI なし**。
+**ステータス**: **完了 · `main` 反映済み**（PR **#10** squash merge · branch **`work/r6-16-d-us-cache-full-population-docs`**）。  
+**性質**: **運用記録**（手動 / bulk **gated cache ingest** 完了）。watchlist **16 symbols · ok 16 · missing 0**（missing **13 → 0**）。**cache JSON** と **`.env` は local / gitignore · 未コミット**。**コード変更なし** · **ingest plan CLI なし** · **daily / signals 接続は別承認**。  
+**関連**: **R6.16-E** freshness 拡張（PR **#11** · **`39304a1`**）は **別物**（population 記録 vs `ok` / `fresh_enough`）。
 
 ---
 
