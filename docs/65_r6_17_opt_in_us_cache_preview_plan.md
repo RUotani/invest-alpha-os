@@ -25,7 +25,7 @@
 | daily / signals default | **接続なし**（別承認） |
 | cache JSON / `.env` | **local / gitignore** |
 
-**stale 方針（要決定）**: プレビューから **除外** / **警告付き表示** / **明示マーク** のいずれか（§5）。
+**stale 方針**: §5 に確定（プレビュー表では **明示マーク + 警告** · signal scoring には使わない）。
 
 ---
 
@@ -48,13 +48,56 @@
 
 ---
 
-## 5. Design questions（実装前に決める）
+## 5. 確定方針（実装前レビュー用 · planning）
 
-1. **Stale symbols**: プレビューに含めるか · 除外か · `STALE` 列で明示か
-2. **Benchmark freshness**: SPY/QQQ 等を **all fresh enough** 必須にするか
-3. **First preview symbol set**: watchlist 全16 vs コア subset
-4. **Output columns**: 許可列のみ（symbol · latest_date · freshness_status · close? · 注記）
-5. **Tests / golden**: opt-in 時のみの fixture · env 非依存
+### 5.1 Stale handling（確定）
+
+- **プレビュー表**: `stale` シンボルは **含めてよい**が、`freshness_status` で **明示マーク** 必須（inventory の `freshness_status` をそのまま表示）
+- **警告**: 1 件でも `stale` があればプレビュー節に **warning 行**（例: `note` / `warning` 列または節頭注記）
+- **signal scoring**: `stale` / `freshness_unknown` は **入力に使わない**（プレビュー表示のみ）
+- **fresh_enough 判定**: inventory freshness 拡張（R6.16-E）の `freshness_status` に準拠
+- **禁止**: stale を valid signal input として **黙って扱う**こと
+
+### 5.2 Benchmark requirements（初期確定）
+
+| シンボル | 役割 |
+|---|---|
+| **SPY** · **QQQ** | コア benchmark |
+| **TLT** · **GLDM** | regime / risk 参考 |
+
+- **初回 preview**: benchmark が `stale` でも **停止しない**（表に載せ warning）
+- **将来 hard gate（production 前）**: SPY/QQQ が `fresh_enough` でない場合は production use をブロック可能（**R6.17 初期実装では未適用**）
+
+### 5.3 First preview symbol set（初期）
+
+- **watchlist 全 16**（inventory と同じ universe）を第一候補
+- subset 化は実装 PR でフラグ化可能だが **default は全件表示**
+
+### 5.4 Output columns（許可 / 禁止）
+
+**許可列（初期）**:
+
+- `symbol` · `latest_date` · `freshness_status` · `close`
+- `return_1d` · `return_5d` · `return_20d`
+- `volume_status`
+- `note` または `warning`
+
+**禁止（列・節とも）**:
+
+- buy/sell recommendation · portfolio allocation
+- Veto 統合 · macro regime **最終判断**
+- default daily report 節の **自動 enable**
+
+### 5.5 Tests / golden（要件）
+
+- **opt-in フラグ ON 時のみ** golden / fixture 更新
+- **env 非依存**（`JQUANTS_*` 不要）
+- default パス golden は **変更しない**
+
+### 5.6 未決（実装 Longpack 前に ChatGPT 確認可）
+
+- `volume_status` の定義（既存 metrics 再利用 vs 新規）
+- warning 文言の固定テンプレート
 
 ---
 
