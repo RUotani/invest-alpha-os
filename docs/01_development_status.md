@@ -983,6 +983,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-B3S — JP Core50 cache fill continuation（完了 · 部分 ingest · 429 停止 · docs-only）
+
+**結果**: B3R 同ポリシーで **11 銘柄** cache 追加 · Core50 **19→30/50**（目標 ≥40 **未達**）· batch 4 で **429**（6594）により停止。詳細 **[docs/88](./88_r7_0_b3s_jp_core50_cache_fill_continuation.md)**。残り 20 銘柄は **B3S2**（長い待機 or 1 銘柄/バッチ）推奨。
+
+---
+
 ## R7.0-B3R — JP Core50 cache retry diagnostics（完了 · 部分 ingest 成功 · docs-only）
 
 **結果**: 日付範囲短縮 + バッチ≤3 で **10 銘柄** cache 追加 · Core50 **9→19/50**。詳細 **[docs/87](./87_r7_0_b3r_jp_core50_cache_retry_diagnostics.md)**。残り 31 銘柄は追加 B3R バッチ待ち。
