@@ -8,7 +8,10 @@ from pathlib import Path
 import pytest
 
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
-from invis_alpha_os.data.us_daily_bars_metrics import compute_us_daily_bars_basic_metrics
+from invis_alpha_os.data.us_daily_bars_metrics import (
+    compute_us_daily_bars_basic_metrics,
+    compute_volume_status,
+)
 from invis_alpha_os.signals.momentum import DailyBar
 
 REPO = Path(__file__).resolve().parents[1]
@@ -93,3 +96,54 @@ def test_metrics_from_loaded_fixture_file() -> None:
     assert m["first_date"] == "2024-01-02"
     assert m["last_date"] == "2024-01-03"
     assert meta["symbol"] == "MSFT"
+
+
+def test_return_1d_present_with_two_bars() -> None:
+    bars = _synthetic_bars(2, base=100.0, step=1.0)
+    m = compute_us_daily_bars_basic_metrics(bars)
+    assert m["has_1d"] is True
+    assert m["return_1d"] == pytest.approx(101.0 / 100.0 - 1.0)
+
+
+def test_return_1d_none_with_one_bar() -> None:
+    bars = _synthetic_bars(1)
+    m = compute_us_daily_bars_basic_metrics(bars)
+    assert m["has_1d"] is False
+    assert m["return_1d"] is None
+
+
+def test_volume_status_high() -> None:
+    bars = _synthetic_bars(10, base=100.0, step=0.0)
+    for i in range(9):
+        bars[i] = {**bars[i], "volume": 1000.0}
+    bars[-1] = {**bars[-1], "volume": 5000.0}
+    assert compute_volume_status([float(b["volume"]) for b in bars]) == "high"
+
+
+def test_volume_status_low() -> None:
+    bars = _synthetic_bars(10, base=100.0, step=0.0)
+    for i in range(9):
+        bars[i] = {**bars[i], "volume": 1000.0}
+    bars[-1] = {**bars[-1], "volume": 100.0}
+    assert compute_volume_status([float(b["volume"]) for b in bars]) == "low"
+
+
+def test_volume_status_normal() -> None:
+    bars = _synthetic_bars(10, base=100.0, step=0.0)
+    for i in range(9):
+        bars[i] = {**bars[i], "volume": 1000.0}
+    bars[-1] = {**bars[-1], "volume": 1000.0}
+    assert compute_volume_status([float(b["volume"]) for b in bars]) == "normal"
+
+
+def test_volume_status_unknown_insufficient_prior() -> None:
+    bars = _synthetic_bars(5)
+    assert compute_volume_status([float(b["volume"]) for b in bars]) == "unknown"
+
+
+def test_volume_status_unknown_zero_average() -> None:
+    bars = _synthetic_bars(8)
+    for b in bars:
+        b["volume"] = 0.0
+    bars[-1]["volume"] = 100.0
+    assert compute_volume_status([float(b["volume"]) for b in bars]) == "unknown"
