@@ -16,6 +16,7 @@ from invis_alpha_os.config.paths import OUTPUTS_DIR
 from invis_alpha_os.reports.us_cache_preview_opt_in import (
     _OPT_IN_HEADER,
     build_us_cache_opt_in_preview,
+    build_us_cache_opt_in_preview_row,
     preview_note_for_freshness,
     render_us_cache_opt_in_preview_markdown,
 )
@@ -48,16 +49,20 @@ def test_preview_note_stale_and_unknown() -> None:
     assert preview_note_for_freshness("fresh_enough") == ""
 
 
-def test_stale_inventory_row_gets_stale_note(tmp_path: Path) -> None:
-    cache_dir = tmp_path / "us_daily_bars"
-    cache_dir.mkdir(parents=True)
-    shutil.copy(FIX_25, cache_dir / "msft.json")
-    preview = build_us_cache_opt_in_preview(
-        cache_dir, reference_date=date(2099, 1, 1), symbols=["MSFT"]
-    )
-    row = next(r for r in preview["rows"] if r["symbol"] == "MSFT")
+def test_stale_inventory_row_gets_stale_note() -> None:
+    inv_row = {
+        "symbol": "MSFT",
+        "status": "ok",
+        "freshness_status": "stale",
+        "latest_date": "2024-01-26",
+        "last_date": "2024-01-26",
+        "path": str(FIX_25.resolve()),
+        "live_http": False,
+    }
+    row = build_us_cache_opt_in_preview_row(inv_row)
     assert row["freshness_status"] == "stale"
     assert row["note"] == "stale — returns not used"
+    assert row["return_1d"] is not None
 
 
 def test_render_includes_allowed_columns_only() -> None:
