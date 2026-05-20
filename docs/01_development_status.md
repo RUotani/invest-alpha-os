@@ -983,11 +983,11 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.19-B / R7.0-A — Daily 07:00 Gmail schedule + discovery planning（進行中 · ops/docs）
+## R6.19-B / R7.0-A — Daily 07:00 Gmail schedule + discovery planning（完了 · `main` 反映済み · ops/docs）
 
-**ブランチ**: `work/r6-19-b-r7-0-a-daily-gmail-schedule`。
+**コミット（`main` 取り込み）**: **`fd4bbaa`** · PR **#29** squash merge。
 **内容**: `scripts/run_daily_gmail_report.sh` · launchd 07:00 template · [docs/81](./81_r6_19_b_daily_0700_gmail_delivery_runbook.md) · [docs/82](./82_r7_0_a_discovery_engine_planning.md)。
-**境界**: Gmail **gated** · default 変更なし · discovery は planning のみ。
+**境界**: Gmail **gated** · default 変更なし · discovery は planning のみ · live send は OAuth 設定後。
 
 ---
 

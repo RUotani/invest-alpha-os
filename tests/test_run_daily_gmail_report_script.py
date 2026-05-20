@@ -19,3 +19,10 @@ def test_launchd_template_placeholders_exist() -> None:
     )
     assert "__REPO_ROOT__" in tpl
     assert "__LOG_DIR__" in tpl
+
+
+def test_run_daily_gmail_report_sent_marker_under_email_dir() -> None:
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert 'EMAIL_DIR="${BUNDLE_DIR}/email"' in text
+    assert 'SENT_MARKER="${EMAIL_DIR}/email_sent.json"' in text
+    assert "dry-run (pre-send)" in text

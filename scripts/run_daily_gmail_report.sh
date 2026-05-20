@@ -40,11 +40,12 @@ fi
 
 RUN_DATE="$("${PYTHON}" -c "from invis_alpha_os.utils.date_utils import today_jst_iso; print(today_jst_iso())")"
 BUNDLE_DIR="${ROOT}/outputs/operator/daily_usage/${RUN_DATE}"
+EMAIL_DIR="${BUNDLE_DIR}/email"
 LOG_FILE="${BUNDLE_DIR}/run_0700.log"
 STATUS_FILE="${BUNDLE_DIR}/status.json"
-SENT_MARKER="${BUNDLE_DIR}/email_sent.json"
+SENT_MARKER="${EMAIL_DIR}/email_sent.json"
 
-mkdir -p "${BUNDLE_DIR}"
+mkdir -p "${BUNDLE_DIR}" "${EMAIL_DIR}"
 exec >>"${LOG_FILE}" 2>&1
 echo "=== run_daily_gmail_report ${RUN_DATE} $(date -u +%Y-%m-%dT%H:%M:%SZ) mode=${MODE} ==="
 
@@ -103,6 +104,26 @@ cat > "${BUNDLE_DIR}/operator_summary.md" <<EOF
 Observation material only — not buy/sell advice.
 EOF
 
+CHATGPT_PROMPT="${BUNDLE_DIR}/chatgpt_investment_consultation_prompt.md"
+if [[ ! -f "${CHATGPT_PROMPT}" ]]; then
+  cat > "${CHATGPT_PROMPT}" <<EOF
+# ChatGPT Investment Consultation Prompt
+
+Observation-only daily bundle for ${RUN_DATE}. Not buy/sell advice.
+
+## Request
+1. Notable watchlist / US preview changes today
+2. Deep-dive candidates (research only)
+3. What to verify next (news, filings, liquidity)
+4. Limit actions to research / watch / alert — no trading orders
+
+## Bundle paths
+- \`${BUNDLE_DIR}/daily_us_cache_preview.md\`
+- \`${BUNDLE_DIR}/signals_us_cache_preview.md\`
+- \`${BUNDLE_DIR}/operator_summary.md\`
+EOF
+fi
+
 if [[ "${MODE}" == "dry-run" ]]; then
   echo "--- daily-email --dry-run ---"
   "${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --dry-run --main-commit "${MAIN_SHA}"
@@ -130,6 +151,9 @@ if [[ -z "${GMAIL_REPORT_TO:-}" ]]; then
   echo "ERROR: GMAIL_REPORT_TO required for --send"
   exit 2
 fi
+
+echo "--- daily-email --dry-run (pre-send) ---"
+"${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --dry-run --main-commit "${MAIN_SHA}"
 
 if "${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --send --main-commit "${MAIN_SHA}"; then
   "${PYTHON}" -c "
