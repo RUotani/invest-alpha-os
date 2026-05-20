@@ -983,9 +983,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-B — JP Universe Scanner MVP（進行中 · cache-only discovery）
+## R7.0-B1 — JP discovery scanner evaluation（完了 · docs-only · 評価記録）
 
-**ブランチ**: `work/r7-0-b-jp-universe-scanner-mvp`。
+**内容**: post-merge `discover-jp` 評価 · cache 11 銘柄 · **次推奨 R7.0-B2**（universe/cache 拡張）。詳細 **[docs/84](./84_r7_0_b1_jp_discovery_scanner_evaluation.md)**。
+
+---
+
+## R7.0-B — JP Universe Scanner MVP（完了 · `main` 反映済み · cache-only discovery）
+
+**コミット（`main` 取り込み）**: **`7891b3b`** · PR **#31** squash merge。
 **内容**: `discover-jp` CLI · `discovery/jp_universe_scanner.py` · [docs/83](./83_r7_0_b_jp_universe_scanner_mvp.md)。
 **境界**: cache/fixture only · observation-only · **default 変更なし** · R7.0-A planning を実装基準。
 
