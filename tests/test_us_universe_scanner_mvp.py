@@ -27,9 +27,11 @@ def _rows(n: int = 100, *, base: float = 100.0) -> list[dict[str, float | str]]:
     out: list[dict[str, float | str]] = []
     for i in range(n):
         c = base + i * 0.5
+        month = (i // 28) + 1
+        day = (i % 28) + 1
         out.append(
             {
-                "date": f"2025-{(i % 12) + 1:02d}-01",
+                "date": f"2025-{month:02d}-{day:02d}",
                 "open": c - 0.2,
                 "high": c + 0.4,
                 "low": c - 0.5,
@@ -42,6 +44,7 @@ def _rows(n: int = 100, *, base: float = 100.0) -> list[dict[str, float | str]]:
 
 def test_scan_us_universe_with_fixture_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.discovery.us_universe_scanner.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.data.us_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     save_us_daily_bars_cache("MSFT", _rows(), source="unit")
     save_us_daily_bars_cache("AAPL", _rows(base=120.0), source="unit")
     result = scan_us_universe(limit=10)
@@ -52,6 +55,7 @@ def test_scan_us_universe_with_fixture_cache(tmp_path: Path, monkeypatch: pytest
 
 def test_format_contract_and_forbidden_terms(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.discovery.us_universe_scanner.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.data.us_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     save_us_daily_bars_cache("MSFT", _rows(), source="unit")
     result = scan_us_universe(limit=5)
     md = format_us_discovery_markdown(result)
@@ -67,6 +71,7 @@ def test_format_contract_and_forbidden_terms(tmp_path: Path, monkeypatch: pytest
 
 def test_insufficient_history_marked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.discovery.us_universe_scanner.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.data.us_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     save_us_daily_bars_cache("MSFT", _rows(n=DISCOVERY_MIN_BARS - 10), source="unit")
     result = scan_us_universe(limit=10)
     assert any(x.symbol == "MSFT" for x in result.insufficient)
@@ -74,6 +79,7 @@ def test_insufficient_history_marked(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
 def test_cli_discover_us_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.discovery.us_universe_scanner.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.data.us_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     save_us_daily_bars_cache("MSFT", _rows(), source="unit")
     r = runner.invoke(app, ["discover-us", "--format", "json", "--limit", "5"])
     assert r.exit_code == 0
@@ -84,6 +90,7 @@ def test_cli_discover_us_json(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
 
 def test_cli_discover_us_markdown_with_universe_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("invis_alpha_os.discovery.us_universe_scanner.OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.data.us_daily_bars_cache.OUTPUTS_DIR", tmp_path)
     save_us_daily_bars_cache("MSFT", _rows(), source="unit")
     ufile = tmp_path / "us_universe.yaml"
     ufile.write_text("universe_scope: curated\nsymbols:\n  - symbol: MSFT\n", encoding="utf-8")
