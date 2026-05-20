@@ -85,3 +85,4 @@ cap 到達後も `min_runtime` まで heartbeat: **[docs/113](./113_r7_0_ops_f_n
 運用標準: **`true_longrun_3h`** + **`scripts/run_true_longrun_3h.sh`**。詳細 **[docs/114](./114_r7_0_ops_g2_recovered_true_longrun_profile.md)**。
 
 (dev-loop が実行時に marker 行を各 companion doc に追記)
+- dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
