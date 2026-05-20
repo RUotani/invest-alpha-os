@@ -17,7 +17,7 @@
 | バンドル生成 | `scripts/run_daily_gmail_report.sh` |
 | メール | `daily-email` CLI（R6.19-A） |
 | スケジュール | `ops/launchd/*.plist.template` |
-| 重複送信防止 | `email_sent.json`（`FORCE_DAILY_GMAIL_SEND=YES` で上書き可） |
+| 重複送信防止 | `email/email_sent.json`（`FORCE_DAILY_GMAIL_SEND=YES` で上書き可） |
 
 ---
 
@@ -109,7 +109,7 @@ rm "$HOME/Library/LaunchAgents/com.invest-alpha-os.daily-gmail-report.plist"
 
 | 症状 | 対処 |
 |---|---|
-| 重複スキップ | `email_sent.json` あり · 再送は `FORCE_DAILY_GMAIL_SEND=YES` |
+| 重複スキップ | `email/email_sent.json` あり · 再送は `FORCE_DAILY_GMAIL_SEND=YES` |
 | send 失敗 | `CONFIRM_GMAIL_SEND` · allowlist · token |
 | `daily-email` なし | main を R6.19-A 以降に更新 |
 
