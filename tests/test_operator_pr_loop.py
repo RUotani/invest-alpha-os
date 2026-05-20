@@ -157,3 +157,72 @@ def test_gate_check_env() -> None:
             os.environ.pop("CONFIRM_GITHUB_PR_CREATE", None)
         else:
             os.environ["CONFIRM_GITHUB_PR_CREATE"] = old
+
+
+def test_check_ci_success_readonly(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "pr", "checks"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout="test pass 50s https://example.test/run\n",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        create_pr=False,
+        check_ci=True,
+        pr_number=123,
+        subprocess_run=route,
+    )
+    assert result.status == "completed"
+    assert result.ci_status == "success"
+
+
+def test_check_ci_pending_stops(tmp_path: Path) -> None:
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "pr", "checks"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                stdout="test pending 0 https://example.test/run\n",
+                stderr="",
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        create_pr=False,
+        check_ci=True,
+        pr_number=123,
+        subprocess_run=route,
+    )
+    assert result.status == "stopped"
+    assert result.ci_status == "pending"
+    assert "ci_status=pending" in result.stop_reason
+
+
+def test_check_ci_without_pr_number_blocked(tmp_path: Path) -> None:
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        outputs_root=tmp_path,
+        execute_checks=False,
+        create_pr=False,
+        check_ci=True,
+    )
+    assert result.status == "blocked"
+    assert result.ci_status == "unknown"
+
+
+def test_check_ci_forbids_merge_command() -> None:
+    with pytest.raises(ValueError, match="forbidden gh command"):
+        assert_gh_command_allowed(["gh", "pr", "close", "1"])

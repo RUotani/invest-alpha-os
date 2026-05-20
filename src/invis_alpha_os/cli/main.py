@@ -687,6 +687,16 @@ def operator_runner_pr_loop(
         "--create-pr",
         help="Create GitHub PR (requires CONFIRM_GITHUB_PR_CREATE=YES and --execute-checks).",
     ),
+    check_ci: bool = typer.Option(
+        False,
+        "--check-ci",
+        help="Read-only CI check via gh pr checks; stops on pending/failing/cancelled/unknown.",
+    ),
+    pr_number: Optional[int] = typer.Option(
+        None,
+        "--pr-number",
+        help="Existing PR number for --check-ci (optional if PR is created in the same run).",
+    ),
 ) -> None:
     """PR loop foundation: task/evidence/tests/git → PR draft; gated gh pr create; no auto-merge."""
 
@@ -704,6 +714,8 @@ def operator_runner_pr_loop(
         pytest_cmd=pytest_cmd,
         execute_checks=not dry_run,
         create_pr=create_pr,
+        check_ci=check_ci,
+        pr_number=pr_number,
     )
     typer.echo(
         f"operator-runner pr-loop: status={result.status} mode={result.pr_create_mode} "
