@@ -1025,9 +1025,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-C — Gated J-Quants ingest wiring（進行中 · CLI配線 + command template）
+## R7.0-Ops-C — Gated J-Quants ingest wiring（完了 · `main` 反映済 `134717f`）
 
-**内容**: `jquants_ingest_wiring.py` · task `ingest_wiring` · dry-run planned commands · mock subprocess tests。詳細 **[docs/100](./100_r7_0_ops_c_gated_jquants_ingest_wiring.md)**。
+**内容**: `jquants-watchlist-bars-cache` 配線 · dry-run planned commands。詳細 **[docs/100](./100_r7_0_ops_c_gated_jquants_ingest_wiring.md)**。
+
+---
+
+## R7.0-Ops-D — Autonomous PR loop foundation（進行中 · draft-first · gated gh pr create）
+
+**内容**: `operator-runner pr-loop` · PR body draft · `--create-pr` + `CONFIRM_GITHUB_PR_CREATE` · auto-merge 禁止。詳細 **[docs/101](./101_r7_0_ops_d_autonomous_pr_loop.md)**。
 
 ---
 

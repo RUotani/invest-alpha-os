@@ -12,6 +12,9 @@ gates:
   gated_ingest:
     env_var: CONFIRM_OPERATOR_GATED_INGEST
     required_value: "YES"
+  github_pr_create:
+    env_var: CONFIRM_GITHUB_PR_CREATE
+    required_value: "YES"
 
 stop_on_http_status: [400, 429]
 stop_on_http_markers:
