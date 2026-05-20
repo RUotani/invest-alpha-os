@@ -56,6 +56,10 @@ class DevLoopTask:
     expected_files: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     risk_level: str = "low"
+    smoke_file: str = ""
+    change_file: str = ""
+    commit_message: str = ""
+    prepare_for_pr: bool = False
 
 
 @dataclass
@@ -63,6 +67,8 @@ class DevLoopTaskResult:
     task_id: str
     status: str
     stop_reason: str = ""
+    preparation_status: str = ""
+    preparation_detail: str = ""
     pr_url: str | None = None
     ci_wait_status: str | None = None
     ci_wait_poll_count: int = 0
@@ -117,6 +123,10 @@ def check_dev_loop_execute_gate() -> tuple[bool, list[str]]:
 
 def default_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue.yaml"
+
+
+def default_pr_create_smoke_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "dev_loop_pr_create_smoke_queue.yaml"
 
 
 def default_profile_path() -> Path:
@@ -183,9 +193,147 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
                 expected_files=tuple(str(x) for x in (item.get("expected_files") or [])),
                 stop_conditions=tuple(str(x) for x in (item.get("stop_conditions") or [])),
                 risk_level=str(item.get("risk_level") or item.get("risk") or "low").strip() or "low",
+                smoke_file=str(item.get("smoke_file") or item.get("change_file") or "").strip(),
+                change_file=str(item.get("change_file") or item.get("smoke_file") or "").strip(),
+                commit_message=str(item.get("commit_message") or "").strip(),
+                prepare_for_pr=bool(item.get("prepare_for_pr", False)),
             )
         )
     return tasks
+
+
+def _task_change_file(task: DevLoopTask) -> str:
+    return (task.change_file or task.smoke_file).strip()
+
+
+def _run_git(
+    argv: list[str],
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+) -> subprocess.CompletedProcess[str]:
+    runner = subprocess_run or subprocess.run
+    return runner(
+        argv,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _branch_on_origin(branch: str, *, repo_root: Path, subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None) -> bool:
+    proc = _run_git(
+        ["git", "rev-parse", "--verify", f"refs/remotes/origin/{branch}"],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    return proc.returncode == 0
+
+
+def _commits_ahead_of_main(
+    branch: str,
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    base: str = "main",
+) -> int:
+    if _branch_on_origin(branch, repo_root=repo_root, subprocess_run=subprocess_run):
+        ref_range = f"origin/{base}..origin/{branch}"
+    else:
+        ref_range = f"origin/{base}..HEAD"
+    proc = _run_git(
+        ["git", "rev-list", "--count", ref_range],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    if proc.returncode != 0:
+        return 0
+    try:
+        return int((proc.stdout or "0").strip())
+    except ValueError:
+        return 0
+
+
+def _check_pr_ready_preflight(
+    task: DevLoopTask,
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+) -> str | None:
+    branch = task.branch.strip()
+    if not branch:
+        return "preflight: empty branch"
+    if branch in {"main", "master"}:
+        return "preflight: cannot create PR from main/master"
+    if not _branch_on_origin(branch, repo_root=repo_root, subprocess_run=subprocess_run):
+        return f"preflight: branch not pushed to origin: {branch}"
+    ahead = _commits_ahead_of_main(branch, repo_root=repo_root, subprocess_run=subprocess_run)
+    if ahead <= 0:
+        return "preflight: no commits ahead of origin/main"
+    change_file = _task_change_file(task)
+    if task.prepare_for_pr and not change_file:
+        return "preflight: prepare_for_pr requires smoke_file or change_file"
+    if change_file and task.allowed_paths:
+        if not any(_path_matches_rule(change_file, allow) for allow in task.allowed_paths):
+            return f"preflight: change file outside allowed_paths: {change_file}"
+    return None
+
+
+def _prepare_smoke_task(
+    task: DevLoopTask,
+    *,
+    run_id: str,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    execute: bool,
+) -> tuple[bool, str, str]:
+    change_file = _task_change_file(task)
+    if not task.prepare_for_pr:
+        return True, "skipped", "prepare_for_pr not requested"
+    if not change_file:
+        return False, "preflight: prepare_for_pr requires smoke_file", ""
+    branch = task.branch.strip()
+    commit_msg = task.commit_message.strip() or f"R7.0-Ops-E4 smoke update ({run_id})"
+    plan = f"prepare branch={branch} file={change_file} commit={commit_msg}"
+    if not execute:
+        return True, "planned", plan
+    target = repo_root / change_file
+    target.parent.mkdir(parents=True, exist_ok=True)
+    marker = f"\n- dev-loop smoke marker: {run_id} ({_utc_now_iso()})\n"
+    if target.is_file():
+        existing = target.read_text(encoding="utf-8")
+        target.write_text(existing.rstrip() + marker, encoding="utf-8")
+    else:
+        target.write_text(f"# Dev-loop PR create smoke\n{marker}", encoding="utf-8")
+    checkout = _run_git(["git", "checkout", "-B", branch], repo_root=repo_root, subprocess_run=subprocess_run)
+    if checkout.returncode != 0:
+        return False, "prepare_failed", "git checkout failed"
+    add_proc = _run_git(["git", "add", change_file], repo_root=repo_root, subprocess_run=subprocess_run)
+    if add_proc.returncode != 0:
+        return False, "prepare_failed", "git add failed"
+    commit_proc = _run_git(
+        ["git", "commit", "-m", commit_msg],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    if commit_proc.returncode != 0:
+        detail = (commit_proc.stderr or commit_proc.stdout or "git commit failed").strip()[:200]
+        if "nothing to commit" in detail.lower():
+            return False, "no_diff_to_commit", detail
+        return False, "prepare_failed", detail
+    push_proc = _run_git(
+        ["git", "push", "-u", "origin", branch],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    if push_proc.returncode != 0:
+        detail = (push_proc.stderr or push_proc.stdout or "git push failed").strip()[:200]
+        return False, "prepare_failed", detail
+    ready_reason = _check_pr_ready_preflight(task, repo_root=repo_root, subprocess_run=subprocess_run)
+    if ready_reason:
+        return False, ready_reason, "post-prepare preflight failed"
+    return True, "prepared", plan
 
 
 def _git_status_paths(
@@ -345,143 +493,189 @@ def run_dev_loop(
         started_at=started_at,
         tasks_seen=len(tasks),
     )
-    if execute_dev_loop and not gate_ok:
-        result.status = "blocked"
-        result.stop_reason = f"missing gate {DEV_LOOP_EXEC_ENV}=YES"
-        result.ended_at = _utc_now_iso()
+    evidence_limits = {
+        "max_runtime_minutes": effective_max_runtime,
+        "max_tasks": effective_max_tasks,
+        "max_prs": effective_max_prs,
+        "wait_ci": effective_wait_ci,
+        "ci_timeout_seconds": effective_ci_timeout,
+        "ci_poll_seconds": effective_ci_poll,
+        "stop_on_failure": effective_stop_on_failure,
+        "stop_on_dirty_tree": effective_stop_on_dirty_tree,
+    }
+    evidence_pr_gate = {
+        "requested": create_pr,
+        "ok": pr_gate.ok,
+        "missing": pr_gate.missing,
+    }
+
+    def _finalize_evidence() -> None:
+        if not result.ended_at:
+            result.ended_at = _utc_now_iso()
         _write_dev_loop_evidence(
             out_dir,
             result,
-            gate_missing=gate_missing,
-            effective_limits={
-                "max_runtime_minutes": effective_max_runtime,
-                "max_tasks": effective_max_tasks,
-                "max_prs": effective_max_prs,
-                "wait_ci": effective_wait_ci,
-                "ci_timeout_seconds": effective_ci_timeout,
-                "ci_poll_seconds": effective_ci_poll,
-                "stop_on_failure": effective_stop_on_failure,
-                "stop_on_dirty_tree": effective_stop_on_dirty_tree,
-            },
-            pr_create_gate_status={
-                "requested": create_pr,
-                "ok": check_github_pr_create_gate().ok,
-                "missing": check_github_pr_create_gate().missing,
-            },
+            gate_missing=gate_missing if execute_dev_loop else [],
+            effective_limits=evidence_limits,
+            pr_create_gate_status=evidence_pr_gate,
         )
+
+    if execute_dev_loop and not gate_ok:
+        result.status = "blocked"
+        result.stop_reason = f"missing gate {DEV_LOOP_EXEC_ENV}=YES"
+        _finalize_evidence()
         return result
 
     pr_runner = pr_loop_runner or run_pr_loop
-    for task in tasks:
-        if result.tasks_executed >= effective_max_tasks:
-            result.status = "stopped"
-            result.stop_reason = f"max_tasks reached: {effective_max_tasks}"
-            break
-        if result.prs_created >= effective_max_prs:
-            result.status = "stopped"
-            result.stop_reason = f"max_prs reached: {effective_max_prs}"
-            break
-        if now() >= deadline:
-            result.status = "stopped"
-            result.stop_reason = f"max_runtime reached: {effective_max_runtime}m"
-            break
+    try:
+        for task in tasks:
+            if result.tasks_executed >= effective_max_tasks:
+                result.status = "stopped"
+                result.stop_reason = f"max_tasks reached: {effective_max_tasks}"
+                break
+            if result.prs_created >= effective_max_prs:
+                result.status = "stopped"
+                result.stop_reason = f"max_prs reached: {effective_max_prs}"
+                break
+            if now() >= deadline:
+                result.status = "stopped"
+                result.stop_reason = f"max_runtime reached: {effective_max_runtime}m"
+                break
 
-        if not execute_dev_loop:
-            result.tasks_executed += 1
-            result.task_results.append(
-                DevLoopTaskResult(task_id=task.task_id, status="planned", stop_reason="dry_run")
+            if not execute_dev_loop:
+                prep_ok, prep_status, prep_detail = _prepare_smoke_task(
+                    task,
+                    run_id=run_id,
+                    repo_root=root,
+                    subprocess_run=subprocess_run,
+                    execute=False,
+                )
+                result.tasks_executed += 1
+                result.task_results.append(
+                    DevLoopTaskResult(
+                        task_id=task.task_id,
+                        status="planned",
+                        stop_reason="dry_run",
+                        preparation_status=prep_status,
+                        preparation_detail=prep_detail,
+                    )
+                )
+                continue
+
+            prep_ok, prep_status, prep_detail = _prepare_smoke_task(
+                task,
+                run_id=run_id,
+                repo_root=root,
+                subprocess_run=subprocess_run,
+                execute=True,
             )
-            continue
+            if not prep_ok:
+                result.tasks_executed += 1
+                result.task_results.append(
+                    DevLoopTaskResult(
+                        task_id=task.task_id,
+                        status="stopped",
+                        stop_reason=prep_status,
+                        preparation_status=prep_status,
+                        preparation_detail=prep_detail,
+                    )
+                )
+                result.status = "stopped"
+                result.stop_reason = f"task_failed: {task.task_id} ({prep_status})"
+                break
 
-        dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
-        result.checked_paths.extend(dirty_paths)
-        dirty_violations = _has_forbidden_dirty_paths(dirty_paths)
-        if dirty_violations:
-            result.dirty_tree_violations.extend(dirty_violations)
-            result.status = "stopped"
-            result.stop_reason = dirty_violations[0]
-            result.safety_validator_status = "failed"
-            break
-        scope_violations = _check_scope(task, dirty_paths)
-        if scope_violations:
-            result.scope_violations.extend(scope_violations)
-            result.status = "stopped"
-            result.stop_reason = scope_violations[0]
-            result.safety_validator_status = "failed"
-            break
-        command_violations = _check_forbidden_commands(task)
-        if command_violations:
-            result.forbidden_command_violations.extend(command_violations)
-            result.status = "stopped"
-            result.stop_reason = command_violations[0]
-            result.safety_validator_status = "failed"
-            break
-        text_violations = _check_forbidden_text(task)
-        if text_violations:
-            result.forbidden_text_violations.extend(text_violations)
-            result.status = "stopped"
-            result.stop_reason = text_violations[0]
-            result.safety_validator_status = "failed"
-            break
-        if effective_stop_on_dirty_tree and dirty_paths:
-            result.status = "stopped"
-            result.stop_reason = "dirty tree detected"
-            result.safety_validator_status = "failed"
-            break
+            dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
+            result.checked_paths.extend(dirty_paths)
+            dirty_violations = _has_forbidden_dirty_paths(dirty_paths)
+            if dirty_violations:
+                result.dirty_tree_violations.extend(dirty_violations)
+                result.status = "stopped"
+                result.stop_reason = dirty_violations[0]
+                result.safety_validator_status = "failed"
+                break
+            scope_violations = _check_scope(task, dirty_paths)
+            if scope_violations:
+                result.scope_violations.extend(scope_violations)
+                result.status = "stopped"
+                result.stop_reason = scope_violations[0]
+                result.safety_validator_status = "failed"
+                break
+            command_violations = _check_forbidden_commands(task)
+            if command_violations:
+                result.forbidden_command_violations.extend(command_violations)
+                result.status = "stopped"
+                result.stop_reason = command_violations[0]
+                result.safety_validator_status = "failed"
+                break
+            text_violations = _check_forbidden_text(task)
+            if text_violations:
+                result.forbidden_text_violations.extend(text_violations)
+                result.status = "stopped"
+                result.stop_reason = text_violations[0]
+                result.safety_validator_status = "failed"
+                break
+            if effective_stop_on_dirty_tree and dirty_paths and not task.prepare_for_pr:
+                result.status = "stopped"
+                result.stop_reason = "dirty tree detected"
+                result.safety_validator_status = "failed"
+                break
 
-        loop_res = pr_runner(
-            branch=task.branch,
-            pr_title=task.pr_title,
-            pytest_cmd=task.pytest_cmd,
-            execute_checks=True,
-            create_pr=create_pr,
-            wait_ci=effective_wait_ci,
-            ci_timeout_seconds=effective_ci_timeout,
-            ci_poll_seconds=effective_ci_poll,
-            check_ci=False,
-            repo_root=root,
-            outputs_root=out_root,
-            subprocess_run=subprocess_run,
-        )
-        result.tasks_executed += 1
-        if loop_res.pr_url:
-            result.prs_created += 1
-        task_rec = DevLoopTaskResult(
-            task_id=task.task_id,
-            status=loop_res.status,
-            stop_reason=loop_res.stop_reason,
-            pr_url=loop_res.pr_url,
-            ci_wait_status=loop_res.ci_wait_status,
-            ci_wait_poll_count=loop_res.ci_wait_poll_count,
-            pr_loop_evidence_path=loop_res.evidence_path,
-        )
-        result.task_results.append(task_rec)
-        if effective_stop_on_failure and loop_res.status in {"stopped", "blocked"}:
-            result.status = "stopped"
-            result.stop_reason = f"task_failed: {task.task_id} ({loop_res.status})"
-            break
+            if create_pr:
+                ready_reason = _check_pr_ready_preflight(
+                    task,
+                    repo_root=root,
+                    subprocess_run=subprocess_run,
+                )
+                if ready_reason:
+                    result.tasks_executed += 1
+                    result.task_results.append(
+                        DevLoopTaskResult(
+                            task_id=task.task_id,
+                            status="stopped",
+                            stop_reason=ready_reason,
+                            preparation_status=prep_status,
+                            preparation_detail=prep_detail,
+                        )
+                    )
+                    result.status = "stopped"
+                    result.stop_reason = ready_reason
+                    break
 
-    result.ended_at = _utc_now_iso()
-    _write_dev_loop_evidence(
-        out_dir,
-        result,
-        gate_missing=gate_missing if execute_dev_loop else [],
-        effective_limits={
-            "max_runtime_minutes": effective_max_runtime,
-            "max_tasks": effective_max_tasks,
-            "max_prs": effective_max_prs,
-            "wait_ci": effective_wait_ci,
-            "ci_timeout_seconds": effective_ci_timeout,
-            "ci_poll_seconds": effective_ci_poll,
-            "stop_on_failure": effective_stop_on_failure,
-            "stop_on_dirty_tree": effective_stop_on_dirty_tree,
-        },
-        pr_create_gate_status={
-            "requested": create_pr,
-            "ok": pr_gate.ok,
-            "missing": pr_gate.missing,
-        },
-    )
+            loop_res = pr_runner(
+                branch=task.branch,
+                pr_title=task.pr_title,
+                pytest_cmd=task.pytest_cmd,
+                execute_checks=True,
+                create_pr=create_pr,
+                wait_ci=effective_wait_ci,
+                ci_timeout_seconds=effective_ci_timeout,
+                ci_poll_seconds=effective_ci_poll,
+                check_ci=False,
+                repo_root=root,
+                outputs_root=out_root,
+                subprocess_run=subprocess_run,
+            )
+            result.tasks_executed += 1
+            if loop_res.pr_url:
+                result.prs_created += 1
+            task_rec = DevLoopTaskResult(
+                task_id=task.task_id,
+                status=loop_res.status,
+                stop_reason=loop_res.stop_reason,
+                preparation_status=prep_status,
+                preparation_detail=prep_detail,
+                pr_url=loop_res.pr_url,
+                ci_wait_status=loop_res.ci_wait_status,
+                ci_wait_poll_count=loop_res.ci_wait_poll_count,
+                pr_loop_evidence_path=loop_res.evidence_path,
+            )
+            result.task_results.append(task_rec)
+            if effective_stop_on_failure and loop_res.status in {"stopped", "blocked"}:
+                result.status = "stopped"
+                result.stop_reason = f"task_failed: {task.task_id} ({loop_res.status})"
+                break
+    finally:
+        _finalize_evidence()
     return result
 
 

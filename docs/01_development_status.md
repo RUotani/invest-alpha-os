@@ -1067,9 +1067,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-E3 — graceful PR-create failure handling（進行中 · controlled stop）
+## R7.0-Ops-E3 — graceful PR-create failure handling（完了 · `main` 反映済 `95c6948`）
 
 **内容**: `gh pr create` 失敗時に traceback ではなく `stopped` + `pr_create_failed` で安全停止。preflight（branch 存在/main 禁止）と sanitized evidence（exit code / detail）を追加。dev-loop から task failure として後続停止。詳細 **[docs/107](./107_r7_0_ops_e3_pr_create_failure_handling.md)**。
+
+---
+
+## R7.0-Ops-E4 — dev-loop PR create smoke（進行中 · prepare + push + PR）
+
+**内容**: `config/tasks/dev_loop_pr_create_smoke_queue.yaml` を追加。`prepare_for_pr` で docs-only marker を commit/push し、origin 上の差分を確認してから PR 作成 gate 付き smoke を実行。evidence は try/finally で常時書き込み。詳細 **[docs/109](./109_r7_0_ops_e4_dev_loop_pr_create_smoke.md)**。
 
 ---
 
