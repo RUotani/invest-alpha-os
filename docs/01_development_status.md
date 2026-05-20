@@ -983,6 +983,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-B — JP Universe Scanner MVP（進行中 · cache-only discovery）
+
+**ブランチ**: `work/r7-0-b-jp-universe-scanner-mvp`。
+**内容**: `discover-jp` CLI · `discovery/jp_universe_scanner.py` · [docs/83](./83_r7_0_b_jp_universe_scanner_mvp.md)。
+**境界**: cache/fixture only · observation-only · **default 変更なし** · R7.0-A planning を実装基準。
+
+---
+
 ## R6.19-B / R7.0-A — Daily 07:00 Gmail schedule + discovery planning（完了 · `main` 反映済み · ops/docs）
 
 **コミット（`main` 取り込み）**: **`fd4bbaa`** · PR **#29** squash merge。

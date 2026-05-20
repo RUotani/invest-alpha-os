@@ -81,6 +81,11 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
+from invis_alpha_os.discovery.jp_universe_scanner import (
+    format_jp_discovery_json,
+    format_jp_discovery_markdown,
+    scan_jp_universe,
+)
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.gmail_delivery import (
     GmailSendBlockedError,
@@ -516,6 +521,42 @@ def daily_email(
         raise typer.Exit(2) from e
     msg_id = result.get("id", "") if isinstance(result, dict) else ""
     typer.echo(f"daily-email: sent message id={msg_id!r}")
+    raise typer.Exit(0)
+
+
+@app.command("discover-jp")
+def discover_jp(
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Output format: markdown or json.",
+    ),
+    limit: int = typer.Option(20, "--limit", help="Max ranked candidates to include."),
+    universe_file: Optional[str] = typer.Option(
+        None,
+        "--universe-file",
+        help="YAML universe spec (default: scan local jquants_daily_bars cache).",
+    ),
+) -> None:
+    """JP universe discovery MVP — cache/fixture only; observation-only deep-dive candidates."""
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in ("markdown", "json"):
+        typer.echo("discover-jp: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    u_path = Path(universe_file) if universe_file else None
+    if u_path is not None and not u_path.is_file():
+        typer.echo(f"discover-jp: universe file not found: {u_path}", err=True)
+        raise typer.Exit(2)
+    try:
+        result = scan_jp_universe(universe_file=u_path, limit=limit)
+    except ValueError as e:
+        typer.echo(f"discover-jp: {e}", err=True)
+        raise typer.Exit(2) from e
+    if fmt_norm == "json":
+        typer.echo(json.dumps(format_jp_discovery_json(result), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_jp_discovery_markdown(result))
     raise typer.Exit(0)
 
 
