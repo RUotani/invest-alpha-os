@@ -1,0 +1,28 @@
+# Operator local runner safety policy (R7.0-Ops-A)
+version: ops_runner_policy.v1
+default_mode: dry_run
+
+gates:
+  live_http:
+    env_var: CONFIRM_LIVE_HTTP
+    required_value: "YES"
+  cache_write:
+    env_var: CONFIRM_CACHE_WRITE
+    required_value: "YES"
+
+stop_on_http_status: [400, 429]
+forbidden_cli_flags:
+  - --live
+  - --write-cache
+  - --send
+
+forbidden_commit_path_prefixes:
+  - outputs/market_data/
+  - .env
+
+forbidden_output_terms_check: true
+max_step_stdout_bytes: 500000
+
+allowed_step_kinds:
+  - cli
+  - merge_discovery_json

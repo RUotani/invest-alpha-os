@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
 
@@ -25,6 +26,13 @@ FORBIDDEN_OUTPUT_TERMS: tuple[str, ...] = (
     "position size",
     "order",
 )
+
+
+def assert_no_forbidden_terms(text: str) -> None:
+    lower = text.lower()
+    for term in FORBIDDEN_OUTPUT_TERMS:
+        if re.search(rf"\b{re.escape(term)}\b", lower):
+            raise ValueError(f"forbidden output term: {term}")
 
 COMMON_CANDIDATE_KEYS: tuple[str, ...] = (
     "market",
