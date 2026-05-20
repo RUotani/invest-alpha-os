@@ -50,6 +50,8 @@ class PrLoopResult:
     ci_wait_detail: str = ""
     ci_wait_poll_count: int = 0
     pr_url: str | None = None
+    pr_create_exit_code: int | None = None
+    pr_create_detail: str = ""
     stop_reason: str = ""
 
 
@@ -160,6 +162,51 @@ def _run_git_status(
     return [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
 
 
+def _sanitize_gh_output(text: str, *, limit: int = 500) -> str:
+    lines: list[str] = []
+    for ln in (text or "").splitlines():
+        low = ln.lower()
+        if any(term in low for term in ("token", "secret", "credential", "password", "api_key", "apikey")):
+            lines.append("[redacted]")
+        else:
+            lines.append(ln.strip()[:200])
+    blob = "\n".join(lines[:20]).strip()
+    return blob[:limit] if blob else ""
+
+
+def _check_pr_create_preflight(
+    *,
+    branch: str,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> str | None:
+    norm = branch.strip()
+    if not norm:
+        return "preflight: empty branch"
+    if norm in {"main", "master"}:
+        return "preflight: cannot create PR from main/master"
+    runner = subprocess_run or subprocess.run
+    local = runner(
+        ["git", "rev-parse", "--verify", f"refs/heads/{norm}"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if local.returncode == 0:
+        return None
+    remote = runner(
+        ["git", "rev-parse", "--verify", f"refs/remotes/origin/{norm}"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if remote.returncode == 0:
+        return None
+    return f"preflight: branch not found locally or on origin: {norm}"
+
+
 def _run_gh_pr_create(
     *,
     title: str,
@@ -167,7 +214,7 @@ def _run_gh_pr_create(
     branch: str,
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
-) -> str:
+) -> tuple[str | None, int, str]:
     argv = [
         "gh",
         "pr",
@@ -189,10 +236,12 @@ def _run_gh_pr_create(
         check=False,
     )
     if proc.returncode != 0:
-        raise RuntimeError(f"gh pr create failed exit {proc.returncode}")
+        detail = _sanitize_gh_output((proc.stderr or "") + "\n" + (proc.stdout or ""))
+        return None, int(proc.returncode), detail or f"gh pr create exit {proc.returncode}"
     url = (proc.stdout or "").strip()
-    assert url.startswith("http"), "gh pr create did not return URL"
-    return url
+    if not url.startswith("http"):
+        return None, int(proc.returncode), "gh pr create did not return URL"
+    return url, 0, ""
 
 
 def _extract_pr_number_from_url(url: str) -> int | None:
@@ -473,6 +522,8 @@ def run_pr_loop(
     body_path.write_text(body, encoding="utf-8")
 
     pr_url: str | None = None
+    pr_create_exit_code: int | None = None
+    pr_create_detail = ""
     ci_status: str | None = None
     ci_detail = ""
     ci_wait_status: str | None = None
@@ -481,13 +532,26 @@ def run_pr_loop(
     status = "completed"
     stop_reason = ""
     if create_pr and gate.ok and execute_checks:
-        pr_url = _run_gh_pr_create(
-            title=pr_title,
-            body_path=body_path,
+        preflight_reason = _check_pr_create_preflight(
             branch=branch,
             repo_root=root,
             subprocess_run=subprocess_run,
         )
+        if preflight_reason:
+            status = "stopped"
+            stop_reason = preflight_reason
+            pr_create_detail = preflight_reason
+        else:
+            pr_url, pr_create_exit_code, pr_create_detail = _run_gh_pr_create(
+                title=pr_title,
+                body_path=body_path,
+                branch=branch,
+                repo_root=root,
+                subprocess_run=subprocess_run,
+            )
+            if pr_url is None:
+                status = "stopped"
+                stop_reason = "pr_create_failed"
     elif create_pr and not gate.ok:
         status = "blocked"
         stop_reason = f"missing gate {GITHUB_PR_CREATE_ENV}=YES"
@@ -544,6 +608,8 @@ def run_pr_loop(
         ci_wait_detail=ci_wait_detail,
         ci_wait_poll_count=ci_wait_poll_count,
         pr_url=pr_url,
+        pr_create_exit_code=pr_create_exit_code,
+        pr_create_detail=pr_create_detail,
         stop_reason=stop_reason,
     )
     _write_pr_loop_evidence(out_dir, result, task, gate)
@@ -569,6 +635,8 @@ def _write_pr_loop_evidence(
         "gate_ok": gate.ok,
         "gate_missing": gate.missing,
         "pr_url": result.pr_url,
+        "pr_create_exit_code": result.pr_create_exit_code,
+        "pr_create_detail": result.pr_create_detail,
         "ci_status": result.ci_status,
         "ci_detail": result.ci_detail,
         "ci_wait_status": result.ci_wait_status,
