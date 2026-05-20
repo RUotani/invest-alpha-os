@@ -1,7 +1,7 @@
 # R6.18-E — B1 opt-in signals US cache preview（実装）
 
-**日付**: 2026-05-20  
-**性質**: **B1 only** · **opt-in** · **default 変更なし**
+**日付**: 2026-05-20
+**性質**: **B1 only** · **opt-in** · **default 変更なし** · **main** `9c6f5e5` / PR **#23**
 
 ---
 
@@ -15,6 +15,8 @@
 | 再利用 | `reports/us_cache_preview_opt_in.py`（daily と同一 builder） |
 
 **変更なし**: `daily` default · `signals` default · scoring / ranking / Veto
+
+**エッジ経路**: `--bars-file` + `--us-cache-preview` は **JSON のみ** `us_cache_preview`（Markdown preview 節なし）。運用は [docs/78](./78_r6_18_f_signals_us_cache_preview_operational_evidence.md) §3.5。
 
 ---
 
@@ -36,4 +38,5 @@
 ## 4. 関連
 
 - 設計: [docs/74](./74_r6_18_bc_cache_only_connection_design.md)
+- 運用 evidence: [docs/78](./78_r6_18_f_signals_us_cache_preview_operational_evidence.md)
 - Planning: PR #21 · B+C docs
