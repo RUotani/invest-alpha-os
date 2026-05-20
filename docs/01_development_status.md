@@ -959,11 +959,22 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.18-E — B1 signals US cache preview（進行中 · product）
+## R6.18-E — B1 signals US cache preview（完了 · `main` 反映済み）
 
-**ブランチ**: `work/r6-18-e-b1-signals-us-cache-preview`。
-**内容**: opt-in **`signals --us-cache-preview`** · daily/signals **default 不変**。詳細 **[docs/77](./77_r6_18_e_b1_signals_us_cache_preview.md)**。
+**コミット（`main` 取り込み）**: **`9c6f5e5`** · PR **#23** squash merge。
+**内容**: opt-in **`signals --us-cache-preview`** · JSON `us_cache_preview` · Markdown preview 節。詳細 **[docs/77](./77_r6_18_e_b1_signals_us_cache_preview.md)**。
+**Codex post-merge**: `APPROVED_WITH_MINOR_NOTES`（blocker なし）。
 **境界**: **no live HTTP** · **no cache write** · **default enablement 未承認**。
+
+---
+
+## R6.18-F — Signals preview ops evidence（進行中 · docs/templates）
+
+**ブランチ**: `work/r6-18-f-signals-preview-ops-evidence` · **main 起点** `9c6f5e5`。
+**内容**: docs/01 R6.18-E 完了反映 · docs/77 空白修正 · **[docs/78](./78_r6_18_f_signals_us_cache_preview_operational_evidence.md)** 運用 evidence · `.agent/r6_18_g_*` smoke draft。
+**境界**: **docs/templates only** · **default enablement ブロック継続**。
+
+**次候補**: **R6.18-G** — 2+ read-only smoke 記録（別 Longpack）。
 
 ---
 
