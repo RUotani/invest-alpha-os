@@ -1,6 +1,6 @@
 # R6.18-B+C — Cache-only connection design (planning)
 
-**日付**: 2026-05-20 · **main 起点**: `ba38ee9`  
+**日付**: 2026-05-20 · **main 起点**: `ba38ee9`
 **性質**: **planning only** · **default enablement 未承認** · **product code 変更なし**
 
 ---
