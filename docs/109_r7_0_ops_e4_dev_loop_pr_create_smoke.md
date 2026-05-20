@@ -16,3 +16,10 @@
 ## Smoke marker
 
 (dev-loop が実行時に marker 行を追記)
+
+---
+
+## Follow-up (Ops-E5)
+
+- 固定 branch 再利用による non-fast-forward を回避するため、smoke queue は `work/dev-loop-smoke/{run_id}` を使用
+- 詳細 **[docs/110](./110_r7_0_ops_e5_unique_smoke_branch.md)**
