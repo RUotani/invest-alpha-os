@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -13,6 +12,21 @@ from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR
 from invis_alpha_os.data.jquants_daily_bars_cache import REL_CACHE_ROOT, load_jquants_daily_bars_cache
 from invis_alpha_os.reports.symbol_display_names import display_symbol
+from invis_alpha_os.discovery.cross_market_contract import (
+    DISCOVERY_SCORE_DISCLAIMER,
+    FORBIDDEN_OUTPUT_TERMS,
+    MARKET_JP,
+    OBSERVATION_DISCLAIMER,
+    RANKED_TABLE_HEADER as _RANKED_TABLE_HEADER,
+    RANKED_TABLE_SEPARATOR as _RANKED_TABLE_SEPARATOR,
+    DiscoveryScanEnvelope,
+    build_discovery_json_payload,
+    format_candidate_groups_markdown,
+    format_insufficient_bullets_markdown,
+    format_next_research_checklist,
+    format_ranked_table_row,
+    jp_candidate_to_common,
+)
 from invis_alpha_os.signals.momentum import (
     DailyBar,
     calculate_returns,
@@ -29,27 +43,6 @@ NEAR_HIGH_DIST_THRESHOLD = -0.05
 OVERHEAT_R20_THRESHOLD = 0.40
 OVERHEAT_R60_THRESHOLD = 0.80
 LOW_LIQUIDITY_AVG25_THRESHOLD = 500.0
-
-DISCOVERY_SCORE_DISCLAIMER = (
-    "Discovery score is only a sorting aid for follow-up research, not trading advice."
-)
-
-FORBIDDEN_OUTPUT_TERMS: tuple[str, ...] = (
-    "buy",
-    "sell",
-    "recommendation",
-    "allocation",
-    "target price",
-    "entry instruction",
-    "exit instruction",
-    "position size",
-    "order",
-)
-
-_OBSERVATION_DISCLAIMER = (
-    "Observation only — not trading advice. No automatic trading."
-)
-
 
 @dataclass(frozen=True)
 class JpDiscoveryCandidate:
@@ -82,18 +75,6 @@ class JpDiscoveryScanResult:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _fmt_pct(x: float | None) -> str:
-    if x is None:
-        return "—"
-    return f"{100.0 * x:.1f}%"
-
-
-def _fmt_num(x: float | None, *, digits: int = 2) -> str:
-    if x is None:
-        return "—"
-    return f"{x:,.{digits}f}"
 
 
 def load_universe_spec(universe_file: Path | None) -> tuple[str, list[str]]:
@@ -370,101 +351,56 @@ def candidate_to_dict(c: JpDiscoveryCandidate) -> dict[str, Any]:
 
 
 def format_jp_discovery_json(result: JpDiscoveryScanResult) -> dict[str, Any]:
-    return {
-        "universe_scope": result.universe_scope,
-        "generated_at": result.generated_at,
-        "safety": {
-            "observation_only": True,
-            "no_trading_advice": True,
-            "discovery_score_disclaimer": DISCOVERY_SCORE_DISCLAIMER,
-        },
-        "summary": {
-            "symbol_count": result.symbol_count,
-            "ranked_candidate_count": len(result.candidates),
-            "insufficient_count": len(result.insufficient),
-        },
-        "candidates": [candidate_to_dict(c) for c in result.candidates],
-        "insufficient": [candidate_to_dict(c) for c in result.insufficient],
-    }
-
-
-def _group_candidates(
-    candidates: Sequence[JpDiscoveryCandidate],
-    category: str,
-) -> list[JpDiscoveryCandidate]:
-    return [c for c in candidates if category in c.categories]
+    envelope = DiscoveryScanEnvelope(
+        market=MARKET_JP,
+        universe_scope=result.universe_scope,
+        generated_at=result.generated_at,
+        symbol_count=result.symbol_count,
+        ranked_candidate_count=len(result.candidates),
+        insufficient_count=len(result.insufficient),
+    )
+    return build_discovery_json_payload(
+        envelope=envelope,
+        common_ranked=[jp_candidate_to_common(c) for c in result.candidates],
+        common_insufficient=[jp_candidate_to_common(c) for c in result.insufficient],
+        legacy_ranked=[candidate_to_dict(c) for c in result.candidates],
+        legacy_insufficient=[candidate_to_dict(c) for c in result.insufficient],
+    )
 
 
 def format_jp_discovery_markdown(result: JpDiscoveryScanResult) -> str:
     lines: list[str] = [
         "# JP Universe Discovery Candidates",
         "",
-        _OBSERVATION_DISCLAIMER,
+        OBSERVATION_DISCLAIMER,
         "",
         DISCOVERY_SCORE_DISCLAIMER,
         "",
         "## Universe scope",
+        f"- market: `{MARKET_JP}`",
         f"- scope: `{result.universe_scope}`",
         f"- symbols scanned: {result.symbol_count}",
         f"- generated_at: {result.generated_at}",
+        f"- live_http: false",
         "",
-        "| rank | code/name | discovery_score | latest_date | close | r5 | r20 | r60 | vol_ratio | high_dist | labels | data_quality |",
-        "|---:|---|---:|---|---:|---:|---:|---:|---:|---:|---|---|",
+        _RANKED_TABLE_HEADER,
+        _RANKED_TABLE_SEPARATOR,
     ]
 
     for i, c in enumerate(result.candidates, start=1):
         lines.append(
-            "| {rank} | {name} | {score} | {date} | {close} | {r5} | {r20} | {r60} | {vr} | {hd} | {labels} | {dq} |".format(
+            format_ranked_table_row(
                 rank=i,
-                name=c.code_name,
-                score=c.discovery_score,
-                date=c.latest_date or "—",
-                close=_fmt_num(c.close, digits=0),
-                r5=_fmt_pct(c.return_5d),
-                r20=_fmt_pct(c.return_20d),
-                r60=_fmt_pct(c.return_60d),
-                vr=_fmt_num(c.volume_ratio_25d),
-                hd=_fmt_pct(c.high_distance_pct),
-                labels=", ".join(c.labels) if c.labels else "—",
-                dq=c.data_quality,
+                display_name=c.code_name,
+                row=c,
+                close_digits=0,
+                volume_status=None,
             )
         )
 
-    def section(title: str, cat: str) -> None:
-        rows = _group_candidates(result.candidates, cat)
-        lines.extend(["", f"### {title}"])
-        if not rows:
-            lines.append("- (none in ranked set)")
-            return
-        for c in rows:
-            lines.append(f"- **{c.code_name}** — {c.reason}")
-
-    lines.extend(["", "## Candidate Groups"])
-    section("Rapid movers", "rapid_mover")
-    section("Volume spikes", "volume_spike")
-    section("Near/new highs", "new_breakout_candidate")
-    section("Near-high quality trend", "near_high_quality_trend")
-    section("Overheat caution", "overheated_caution")
-    section("Insufficient data", "insufficient_data")
-
-    if result.insufficient:
-        lines.extend(["", "### Insufficient data (not ranked)"])
-        for c in result.insufficient[:15]:
-            lines.append(f"- **{c.code_name}** — {c.data_quality}: {c.reason}")
-
-    lines.extend(
-        [
-            "",
-            "## Next Research Checklist",
-            "- latest news / disclosure",
-            "- earnings",
-            "- valuation",
-            "- liquidity",
-            "- sector/theme",
-            "- existing holdings",
-            "",
-        ]
-    )
+    lines.extend(format_candidate_groups_markdown(result.candidates))
+    lines.extend(format_insufficient_bullets_markdown(result.insufficient))
+    lines.extend(format_next_research_checklist(market=MARKET_JP))
     return "\n".join(lines)
 
 

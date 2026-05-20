@@ -13,6 +13,21 @@ from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR
 from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers, normalize_us_symbol
 from invis_alpha_os.data.us_daily_bars_cache import REL_US_CACHE_ROOT, load_us_daily_bars_cache
 from invis_alpha_os.reports.symbol_display_names import display_symbol
+from invis_alpha_os.discovery.cross_market_contract import (
+    DISCOVERY_SCORE_DISCLAIMER,
+    FORBIDDEN_OUTPUT_TERMS,
+    MARKET_US,
+    OBSERVATION_DISCLAIMER,
+    RANKED_TABLE_HEADER as _RANKED_TABLE_HEADER,
+    RANKED_TABLE_SEPARATOR as _RANKED_TABLE_SEPARATOR,
+    DiscoveryScanEnvelope,
+    build_discovery_json_payload,
+    format_candidate_groups_markdown,
+    format_insufficient_bullets_markdown,
+    format_next_research_checklist,
+    format_ranked_table_row,
+    us_candidate_to_common,
+)
 from invis_alpha_os.signals.momentum import (
     DailyBar,
     calculate_returns,
@@ -29,24 +44,6 @@ NEAR_HIGH_DIST_THRESHOLD = -0.05
 OVERHEAT_R20_THRESHOLD = 0.40
 OVERHEAT_R60_THRESHOLD = 0.80
 LOW_LIQUIDITY_AVG25_THRESHOLD = 200_000.0
-
-DISCOVERY_SCORE_DISCLAIMER = (
-    "Discovery score is only a sorting aid for follow-up research, not trading advice."
-)
-_OBSERVATION_DISCLAIMER = "Observation only — not trading advice. No automatic trading."
-
-FORBIDDEN_OUTPUT_TERMS: tuple[str, ...] = (
-    "buy",
-    "sell",
-    "recommendation",
-    "allocation",
-    "target price",
-    "entry instruction",
-    "exit instruction",
-    "position size",
-    "order",
-)
-
 
 @dataclass(frozen=True)
 class UsDiscoveryCandidate:
@@ -80,14 +77,6 @@ class UsDiscoveryScanResult:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _fmt_pct(x: float | None) -> str:
-    return "—" if x is None else f"{100.0 * x:.1f}%"
-
-
-def _fmt_num(x: float | None, *, digits: int = 2) -> str:
-    return "—" if x is None else f"{x:,.{digits}f}"
 
 
 def load_us_universe_spec(universe_file: Path | None) -> tuple[str, list[str]]:
@@ -341,77 +330,54 @@ def candidate_to_dict(c: UsDiscoveryCandidate) -> dict[str, Any]:
 
 
 def format_us_discovery_json(result: UsDiscoveryScanResult) -> dict[str, Any]:
-    return {
-        "universe_scope": result.universe_scope,
-        "generated_at": result.generated_at,
-        "safety": {
-            "observation_only": True,
-            "no_trading_advice": True,
-            "discovery_score_disclaimer": DISCOVERY_SCORE_DISCLAIMER,
-            "cache_read_only": True,
-            "live_http": False,
-        },
-        "summary": {
-            "symbol_count": result.symbol_count,
-            "ranked_candidate_count": len(result.candidates),
-            "insufficient_count": len(result.insufficient),
-        },
-        "candidates": [candidate_to_dict(c) for c in result.candidates],
-        "insufficient": [candidate_to_dict(c) for c in result.insufficient],
-    }
+    envelope = DiscoveryScanEnvelope(
+        market=MARKET_US,
+        universe_scope=result.universe_scope,
+        generated_at=result.generated_at,
+        symbol_count=result.symbol_count,
+        ranked_candidate_count=len(result.candidates),
+        insufficient_count=len(result.insufficient),
+    )
+    return build_discovery_json_payload(
+        envelope=envelope,
+        common_ranked=[us_candidate_to_common(c) for c in result.candidates],
+        common_insufficient=[us_candidate_to_common(c) for c in result.insufficient],
+        legacy_ranked=[candidate_to_dict(c) for c in result.candidates],
+        legacy_insufficient=[candidate_to_dict(c) for c in result.insufficient],
+    )
 
 
 def format_us_discovery_markdown(result: UsDiscoveryScanResult) -> str:
     lines: list[str] = [
         "# US Universe Discovery Candidates",
         "",
-        _OBSERVATION_DISCLAIMER,
+        OBSERVATION_DISCLAIMER,
         "",
         DISCOVERY_SCORE_DISCLAIMER,
         "",
         "## Universe scope",
+        f"- market: `{MARKET_US}`",
         f"- scope: `{result.universe_scope}`",
         f"- symbols scanned: {result.symbol_count}",
         f"- generated_at: {result.generated_at}",
         f"- live_http: false",
         "",
-        "| rank | symbol/name | discovery_score | latest_date | close | r5 | r20 | r60 | vol_ratio | volume_status | high_dist | labels | data_quality |",
-        "|---:|---|---:|---|---:|---:|---:|---:|---:|---|---:|---|---|",
+        _RANKED_TABLE_HEADER,
+        _RANKED_TABLE_SEPARATOR,
     ]
     for i, c in enumerate(result.candidates, start=1):
         lines.append(
-            "| {rank} | {name} | {score} | {date} | {close} | {r5} | {r20} | {r60} | {vr} | {vs} | {hd} | {labels} | {dq} |".format(
+            format_ranked_table_row(
                 rank=i,
-                name=c.symbol_name,
-                score=c.discovery_score,
-                date=c.latest_date or "—",
-                close=_fmt_num(c.close, digits=2),
-                r5=_fmt_pct(c.return_5d),
-                r20=_fmt_pct(c.return_20d),
-                r60=_fmt_pct(c.return_60d),
-                vr=_fmt_num(c.volume_ratio_25d),
-                vs=c.volume_status,
-                hd=_fmt_pct(c.high_distance_pct),
-                labels=", ".join(c.labels) if c.labels else "—",
-                dq=c.data_quality,
+                display_name=c.symbol_name,
+                row=c,
+                close_digits=2,
+                volume_status=c.volume_status,
             )
         )
-    if result.insufficient:
-        lines.extend(["", "### Insufficient data (not ranked)"])
-        for c in result.insufficient[:15]:
-            lines.append(f"- **{c.symbol_name}** — {c.data_quality}: {c.reason}")
-    lines.extend(
-        [
-            "",
-            "## Next Research Checklist",
-            "- recent filings/news",
-            "- earnings trend",
-            "- liquidity / spread",
-            "- index/sector context",
-            "- existing holdings overlap",
-            "",
-        ]
-    )
+    lines.extend(format_candidate_groups_markdown(result.candidates))
+    lines.extend(format_insufficient_bullets_markdown(result.insufficient))
+    lines.extend(format_next_research_checklist(market=MARKET_US))
     return "\n".join(lines)
 
 

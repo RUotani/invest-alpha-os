@@ -111,12 +111,17 @@ def test_markdown_json_contract_and_forbidden_terms() -> None:
     md = format_jp_discovery_markdown(result)
     assert "Observation only" in md
     assert "Discovery score is only a sorting aid" in md
-    assert "| rank | code/name |" in md
+    assert "| rank | instrument |" in md
     assert_no_forbidden_terms(md)
     payload = format_jp_discovery_json(result)
     assert payload["universe_scope"] == "sample_jp_universe"
+    assert payload["market"] == "jp"
+    assert payload["schema_version"] == "discovery.cross_market.v1"
+    assert "common_candidates" in payload
+    assert payload["common_candidates"][0]["instrument_id"] == "7011"
     assert "candidates" in payload
-    assert "safety" in payload
+    assert payload["safety"]["live_http"] is False
+    assert payload["safety"]["cache_read_only"] is True
     blob = json.dumps(payload)
     for term in FORBIDDEN_OUTPUT_TERMS:
         assert not re.search(rf"\b{re.escape(term)}\b", blob.lower())
