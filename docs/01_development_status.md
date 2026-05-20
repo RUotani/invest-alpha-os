@@ -1061,9 +1061,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-E2 — overnight run profile and guarded PR-create smoke（進行中 · `--profile`）
+## R7.0-Ops-E2 — overnight run profile and guarded PR-create smoke（完了 · `main` 反映済 `2ef1412`）
 
 **内容**: `dev-loop` に `--profile` を追加し、`config/operator_dev_loop_profiles.yaml` から `smoke_20min` / `overnight_safe_3h` / `overnight_safe_6h` を読込。CLI引数で profile 値 override 可。evidence に profile・effective limits・PR create gate status・start/end を記録。夜間 runbook を追加。詳細 **[docs/106](./106_r7_0_ops_e2_overnight_run_profile.md)**。
+
+---
+
+## R7.0-Ops-E3 — graceful PR-create failure handling（進行中 · controlled stop）
+
+**内容**: `gh pr create` 失敗時に traceback ではなく `stopped` + `pr_create_failed` で安全停止。preflight（branch 存在/main 禁止）と sanitized evidence（exit code / detail）を追加。dev-loop から task failure として後続停止。詳細 **[docs/107](./107_r7_0_ops_e3_pr_create_failure_handling.md)**。
 
 ---
 

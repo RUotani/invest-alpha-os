@@ -670,3 +670,42 @@ def test_profile_name_not_found(tmp_path: Path) -> None:
     profile.write_text("version: ops_dev_loop_profiles.v1\nprofiles: {}\n", encoding="utf-8")
     with pytest.raises(ValueError, match="profile not found"):
         run_dev_loop(task_queue_path=queue, profile_name="missing", profile_path=profile, outputs_root=tmp_path)
+
+
+def test_dev_loop_pr_create_failure_stops_queue(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "Task 2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+        ],
+    )
+    gh_calls = {"n": 0}
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "pr", "create"]:
+            gh_calls["n"] += 1
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="create failed\n")
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        stop_on_failure=True,
+    )
+    assert gh_calls["n"] == 1
+    assert result.tasks_executed == 1
+    assert result.status == "stopped"
+    assert result.task_results[0].stop_reason == "pr_create_failed"
+    assert "task_failed: t1" in result.stop_reason
+    payload = Path(result.evidence_path).read_text(encoding="utf-8")
+    assert "pr_create_failed" in payload

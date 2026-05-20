@@ -82,6 +82,8 @@ def test_create_pr_with_gate_mock_gh(tmp_path: Path, monkeypatch: pytest.MonkeyP
         if cmd[0] == "gh":
             captured.append(list(cmd))
             return subprocess.CompletedProcess(cmd, 0, stdout="https://github.com/org/repo/pull/99", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc123", stderr="")
         if "status" in cmd:
             return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/x.md", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -127,6 +129,60 @@ def test_pytest_fail_stops_before_pr_create(tmp_path: Path, monkeypatch: pytest.
 def test_forbidden_gh_merge() -> None:
     with pytest.raises(ValueError, match="forbidden gh command"):
         assert_gh_command_allowed(["gh", "pr", "merge", "1"])
+
+
+def test_pr_create_failure_stops_without_traceback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["gh", "pr", "create"]:
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="pull request create failed\n")
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc123", stderr="")
+        if "status" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/example",
+        pr_title="Example PR",
+        pytest_cmd=f"{Path('.venv/bin/python')} -m pytest -q tests/test_operator_runner.py",
+        outputs_root=tmp_path,
+        execute_checks=True,
+        create_pr=True,
+        subprocess_run=route,
+    )
+    assert result.status == "stopped"
+    assert result.stop_reason == "pr_create_failed"
+    assert result.pr_create_exit_code == 1
+    assert result.pr_url is None
+    ev = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert ev["pr_create_exit_code"] == 1
+    assert "pull request create failed" in ev["pr_create_detail"]
+
+
+def test_pr_create_preflight_missing_branch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+        if cmd[0] == "gh":
+            raise AssertionError("gh should not run when preflight fails")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_pr_loop(
+        branch="work/missing-branch",
+        pr_title="Example PR",
+        pytest_cmd=f"{Path('.venv/bin/python')} -m pytest -q tests/test_operator_runner.py",
+        outputs_root=tmp_path,
+        execute_checks=True,
+        create_pr=True,
+        subprocess_run=route,
+    )
+    assert result.status == "stopped"
+    assert result.stop_reason.startswith("preflight:")
+    assert result.pr_url is None
 
 
 def test_pr_body_has_required_sections() -> None:
