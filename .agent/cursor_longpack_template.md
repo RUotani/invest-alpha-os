@@ -40,3 +40,4 @@ One paste for the human; the agent executes end-to-end with minimal follow-up.
 
 - Single Markdown code block only.
 - Include State Capsule, changed files, tests, CI, safety, failures, decisions needed, next actions (max 3).
+- Follow **sound / notification policy** in `.agent/standard_clauses.md` (one optional macOS completion sound at the very end only).

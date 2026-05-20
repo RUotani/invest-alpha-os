@@ -39,3 +39,12 @@ Agents MUST include or honor these clauses in every Longpack and final report.
 
 - Never print `.env` contents, API keys, or `STOOQ_APIKEY` / `JQUANTS_*` values.
 - Redact credentials in logs and reports.
+
+## Sound / notification policy
+
+- Do not intentionally play sounds during intermediate steps.
+- Keep progress updates text-only.
+- At the very end only, if running on macOS and audio is available, play one short completion sound:
+  `afplay /System/Library/Sounds/Glass.aiff`
+- Never loop sounds.
+- If audio fails, ignore and report silently.

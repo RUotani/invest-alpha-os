@@ -33,6 +33,11 @@ Investment research / signals tooling with strict safety gates: US equities cach
 - No full diffs, full files, or full test/CI logs.
 - Include State Capsule; at most 3 next actions.
 
+## Sound / notification
+
+- Text-only progress; no sounds during intermediate steps.
+- At task end on macOS only: optional once `afplay /System/Library/Sounds/Glass.aiff`; never loop; ignore audio failures.
+
 ## Worktrees
 
 - Dozens of registered worktrees may exist; **do not remove** unless instructed.
