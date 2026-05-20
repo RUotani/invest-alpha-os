@@ -86,6 +86,11 @@ from invis_alpha_os.discovery.jp_universe_scanner import (
     format_jp_discovery_markdown,
     scan_jp_universe,
 )
+from invis_alpha_os.discovery.us_universe_scanner import (
+    format_us_discovery_json,
+    format_us_discovery_markdown,
+    scan_us_universe,
+)
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.gmail_delivery import (
     GmailSendBlockedError,
@@ -547,6 +552,42 @@ def discover_jp(
         typer.echo(json.dumps(format_jp_discovery_json(result), ensure_ascii=False, indent=2))
     else:
         typer.echo(format_jp_discovery_markdown(result))
+    raise typer.Exit(0)
+
+
+@app.command("discover-us")
+def discover_us(
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Output format: markdown or json.",
+    ),
+    limit: int = typer.Option(20, "--limit", help="Max ranked candidates to include."),
+    universe_file: Optional[str] = typer.Option(
+        None,
+        "--universe-file",
+        help="YAML universe spec (default: config/us_watchlist.yaml, fallback local us_daily_bars cache).",
+    ),
+) -> None:
+    """US universe discovery MVP — cache-only; observation-only deep-dive candidates."""
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in ("markdown", "json"):
+        typer.echo("discover-us: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    u_path = Path(universe_file) if universe_file else None
+    if u_path is not None and not u_path.is_file():
+        typer.echo(f"discover-us: universe file not found: {u_path}", err=True)
+        raise typer.Exit(2)
+    try:
+        result = scan_us_universe(universe_file=u_path, limit=limit)
+    except ValueError as e:
+        typer.echo(f"discover-us: {e}", err=True)
+        raise typer.Exit(2) from e
+    if fmt_norm == "json":
+        typer.echo(json.dumps(format_us_discovery_json(result), ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_us_discovery_markdown(result))
     raise typer.Exit(0)
 
 
