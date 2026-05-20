@@ -5,6 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from invis_alpha_os.operator.dev_loop import run_dev_loop
 from invis_alpha_os.operator.pr_loop import PrLoopResult
 
@@ -491,3 +493,180 @@ tasks:
     assert result.status == "stopped"
     assert result.forbidden_text_violations
     assert "forbidden text" in result.stop_reason
+
+
+def test_profile_load_smoke_20min(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+    profile = tmp_path / "profiles.yaml"
+    profile.write_text(
+        """version: ops_dev_loop_profiles.v1
+profiles:
+  smoke_20min:
+    max_runtime_minutes: 20
+    max_tasks: 2
+    max_prs: 1
+    wait_ci: false
+    ci_timeout_seconds: 700
+    ci_poll_seconds: 11
+    stop_on_failure: true
+    stop_on_dirty_tree: true
+""",
+        encoding="utf-8",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        profile_name="smoke_20min",
+        profile_path=profile,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+    )
+    payload = (Path(result.evidence_path)).read_text(encoding="utf-8")
+    assert '"profile_name": "smoke_20min"' in payload
+    assert '"max_runtime_minutes": 20' in payload
+    assert '"ci_poll_seconds": 11' in payload
+
+
+def test_profile_override_priority(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+    profile = tmp_path / "profiles.yaml"
+    profile.write_text(
+        """version: ops_dev_loop_profiles.v1
+profiles:
+  smoke_20min:
+    max_runtime_minutes: 20
+    max_tasks: 5
+    max_prs: 5
+    wait_ci: false
+    ci_timeout_seconds: 600
+    ci_poll_seconds: 30
+    stop_on_failure: true
+    stop_on_dirty_tree: true
+""",
+        encoding="utf-8",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        profile_name="smoke_20min",
+        profile_path=profile,
+        max_tasks=1,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+    )
+    payload = (Path(result.evidence_path)).read_text(encoding="utf-8")
+    assert '"max_tasks": 1' in payload
+
+
+def test_default_compat_without_profile(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "Task 2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+        ],
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+    )
+    assert result.mode == "dry_run"
+    assert result.tasks_executed == 1
+
+
+def test_pr_create_gate_missing_no_pr(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.delenv("CONFIRM_GITHUB_PR_CREATE", raising=False)
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+    called = {"n": 0}
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        called["n"] += 1
+        return PrLoopResult(
+            run_id="r",
+            status="blocked",
+            pr_create_mode="blocked",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="missing gate CONFIRM_GITHUB_PR_CREATE=YES",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+    )
+    assert called["n"] == 1
+    assert result.prs_created == 0
+
+
+def test_pr_create_gate_ok_mock_pr_created(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        assert kwargs["create_pr"] is True
+        return PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="create",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            pr_url="https://example/pull/7",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+    )
+    assert result.prs_created == 1
+    payload = Path(result.evidence_path).read_text(encoding="utf-8")
+    assert '"ok": true' in payload
+
+
+def test_profile_name_not_found(tmp_path: Path) -> None:
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+    profile = tmp_path / "profiles.yaml"
+    profile.write_text("version: ops_dev_loop_profiles.v1\nprofiles: {}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="profile not found"):
+        run_dev_loop(task_queue_path=queue, profile_name="missing", profile_path=profile, outputs_root=tmp_path)
