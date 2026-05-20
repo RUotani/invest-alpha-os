@@ -1,0 +1,19 @@
+universe_scope: curated_us_watchlist
+# not full-market; cache-read observation subset only
+symbols:
+  - symbol: MSFT
+  - symbol: NVDA
+  - symbol: AAPL
+  - symbol: AMZN
+  - symbol: GOOGL
+  - symbol: META
+  - symbol: TSLA
+  - symbol: GLDM
+  - symbol: SLV
+  - symbol: TLT
+  - symbol: TMF
+  - symbol: SPY
+  - symbol: QQQ
+  - symbol: MSTR
+  - symbol: COIN
+  - symbol: MARA
