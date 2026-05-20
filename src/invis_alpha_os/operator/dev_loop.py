@@ -15,7 +15,7 @@ from typing import Any, Callable
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.operator.policy import GateSpec
-from invis_alpha_os.operator.pr_loop import PrLoopResult, run_pr_loop
+from invis_alpha_os.operator.pr_loop import PrLoopResult, check_github_pr_create_gate, run_pr_loop
 
 DEV_LOOP_REL_ROOT = Path("operator/dev_loop")
 DEV_LOOP_EXEC_ENV = "CONFIRM_OPERATOR_DEV_LOOP"
@@ -74,8 +74,11 @@ class DevLoopResult:
     run_id: str
     status: str
     mode: str
+    profile_name: str | None
     queue_path: str
     evidence_path: str
+    started_at: str
+    ended_at: str = ""
     stop_reason: str = ""
     tasks_seen: int = 0
     tasks_executed: int = 0
@@ -87,6 +90,19 @@ class DevLoopResult:
     forbidden_text_violations: list[str] = field(default_factory=list)
     checked_paths: list[str] = field(default_factory=list)
     task_results: list[DevLoopTaskResult] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class DevLoopProfile:
+    name: str
+    max_runtime_minutes: int
+    max_tasks: int
+    max_prs: int
+    wait_ci: bool
+    ci_timeout_seconds: int
+    ci_poll_seconds: int
+    stop_on_failure: bool
+    stop_on_dirty_tree: bool
 
 
 def dev_loop_execute_gate() -> GateSpec:
@@ -103,8 +119,38 @@ def default_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue.yaml"
 
 
+def default_profile_path() -> Path:
+    return ROOT_DIR / "config" / "operator_dev_loop_profiles.yaml"
+
+
 def _utc_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _load_profile(name: str, *, profile_path: Path | None = None) -> DevLoopProfile:
+    path = profile_path or default_profile_path()
+    raw = load_yaml(path)
+    profiles = raw.get("profiles") if isinstance(raw, dict) else None
+    if not isinstance(profiles, dict):
+        raise ValueError(f"profiles mapping required: {path}")
+    block = profiles.get(name)
+    if not isinstance(block, dict):
+        raise ValueError(f"profile not found: {name}")
+    return DevLoopProfile(
+        name=name,
+        max_runtime_minutes=int(block.get("max_runtime_minutes", 180)),
+        max_tasks=int(block.get("max_tasks", 3)),
+        max_prs=int(block.get("max_prs", 2)),
+        wait_ci=bool(block.get("wait_ci", False)),
+        ci_timeout_seconds=int(block.get("ci_timeout_seconds", 600)),
+        ci_poll_seconds=int(block.get("ci_poll_seconds", 30)),
+        stop_on_failure=bool(block.get("stop_on_failure", True)),
+        stop_on_dirty_tree=bool(block.get("stop_on_dirty_tree", True)),
+    )
 
 
 def _load_queue(path: Path) -> list[DevLoopTask]:
@@ -242,16 +288,18 @@ def _check_forbidden_text(task: DevLoopTask) -> list[str]:
 def run_dev_loop(
     *,
     task_queue_path: Path,
+    profile_name: str | None = None,
+    profile_path: Path | None = None,
     execute_dev_loop: bool = False,
     create_pr: bool = False,
-    wait_ci: bool = False,
-    ci_timeout_seconds: int = 600,
-    ci_poll_seconds: int = 30,
-    max_runtime_minutes: int = 180,
-    max_tasks: int = 3,
-    max_prs: int = 2,
-    stop_on_failure: bool = True,
-    stop_on_dirty_tree: bool = True,
+    wait_ci: bool | None = None,
+    ci_timeout_seconds: int | None = None,
+    ci_poll_seconds: int | None = None,
+    max_runtime_minutes: int | None = None,
+    max_tasks: int | None = None,
+    max_prs: int | None = None,
+    stop_on_failure: bool | None = None,
+    stop_on_dirty_tree: bool | None = None,
     repo_root: Path | None = None,
     outputs_root: Path | None = None,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
@@ -264,37 +312,78 @@ def run_dev_loop(
     out_dir = out_root / DEV_LOOP_REL_ROOT / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     tasks = _load_queue(task_queue_path)
+    profile = _load_profile(profile_name, profile_path=profile_path) if profile_name else None
+    effective_max_runtime = max_runtime_minutes if max_runtime_minutes is not None else (
+        profile.max_runtime_minutes if profile else 180
+    )
+    effective_max_tasks = max_tasks if max_tasks is not None else (profile.max_tasks if profile else 3)
+    effective_max_prs = max_prs if max_prs is not None else (profile.max_prs if profile else 2)
+    effective_wait_ci = wait_ci if wait_ci is not None else (profile.wait_ci if profile else False)
+    effective_ci_timeout = (
+        ci_timeout_seconds if ci_timeout_seconds is not None else (profile.ci_timeout_seconds if profile else 600)
+    )
+    effective_ci_poll = ci_poll_seconds if ci_poll_seconds is not None else (profile.ci_poll_seconds if profile else 30)
+    effective_stop_on_failure = (
+        stop_on_failure if stop_on_failure is not None else (profile.stop_on_failure if profile else True)
+    )
+    effective_stop_on_dirty_tree = (
+        stop_on_dirty_tree if stop_on_dirty_tree is not None else (profile.stop_on_dirty_tree if profile else True)
+    )
     now = monotonic_fn or time.monotonic
-    deadline = now() + float(max_runtime_minutes * 60)
+    started_at = _utc_now_iso()
+    deadline = now() + float(effective_max_runtime * 60)
     loop_mode = "execute" if execute_dev_loop else "dry_run"
     gate_ok, gate_missing = check_dev_loop_execute_gate()
+    pr_gate = check_github_pr_create_gate()
     result = DevLoopResult(
         run_id=run_id,
         status="completed",
         mode=loop_mode,
+        profile_name=profile_name,
         queue_path=str(task_queue_path),
         evidence_path=str(out_dir / "evidence_summary.json"),
+        started_at=started_at,
         tasks_seen=len(tasks),
     )
     if execute_dev_loop and not gate_ok:
         result.status = "blocked"
         result.stop_reason = f"missing gate {DEV_LOOP_EXEC_ENV}=YES"
-        _write_dev_loop_evidence(out_dir, result, gate_missing=gate_missing)
+        result.ended_at = _utc_now_iso()
+        _write_dev_loop_evidence(
+            out_dir,
+            result,
+            gate_missing=gate_missing,
+            effective_limits={
+                "max_runtime_minutes": effective_max_runtime,
+                "max_tasks": effective_max_tasks,
+                "max_prs": effective_max_prs,
+                "wait_ci": effective_wait_ci,
+                "ci_timeout_seconds": effective_ci_timeout,
+                "ci_poll_seconds": effective_ci_poll,
+                "stop_on_failure": effective_stop_on_failure,
+                "stop_on_dirty_tree": effective_stop_on_dirty_tree,
+            },
+            pr_create_gate_status={
+                "requested": create_pr,
+                "ok": check_github_pr_create_gate().ok,
+                "missing": check_github_pr_create_gate().missing,
+            },
+        )
         return result
 
     pr_runner = pr_loop_runner or run_pr_loop
     for task in tasks:
-        if result.tasks_executed >= max_tasks:
+        if result.tasks_executed >= effective_max_tasks:
             result.status = "stopped"
-            result.stop_reason = f"max_tasks reached: {max_tasks}"
+            result.stop_reason = f"max_tasks reached: {effective_max_tasks}"
             break
-        if result.prs_created >= max_prs:
+        if result.prs_created >= effective_max_prs:
             result.status = "stopped"
-            result.stop_reason = f"max_prs reached: {max_prs}"
+            result.stop_reason = f"max_prs reached: {effective_max_prs}"
             break
         if now() >= deadline:
             result.status = "stopped"
-            result.stop_reason = f"max_runtime reached: {max_runtime_minutes}m"
+            result.stop_reason = f"max_runtime reached: {effective_max_runtime}m"
             break
 
         if not execute_dev_loop:
@@ -334,7 +423,7 @@ def run_dev_loop(
             result.stop_reason = text_violations[0]
             result.safety_validator_status = "failed"
             break
-        if stop_on_dirty_tree and dirty_paths:
+        if effective_stop_on_dirty_tree and dirty_paths:
             result.status = "stopped"
             result.stop_reason = "dirty tree detected"
             result.safety_validator_status = "failed"
@@ -346,9 +435,9 @@ def run_dev_loop(
             pytest_cmd=task.pytest_cmd,
             execute_checks=True,
             create_pr=create_pr,
-            wait_ci=wait_ci,
-            ci_timeout_seconds=ci_timeout_seconds,
-            ci_poll_seconds=ci_poll_seconds,
+            wait_ci=effective_wait_ci,
+            ci_timeout_seconds=effective_ci_timeout,
+            ci_poll_seconds=effective_ci_poll,
             check_ci=False,
             repo_root=root,
             outputs_root=out_root,
@@ -367,21 +456,51 @@ def run_dev_loop(
             pr_loop_evidence_path=loop_res.evidence_path,
         )
         result.task_results.append(task_rec)
-        if stop_on_failure and loop_res.status in {"stopped", "blocked"}:
+        if effective_stop_on_failure and loop_res.status in {"stopped", "blocked"}:
             result.status = "stopped"
             result.stop_reason = f"task_failed: {task.task_id} ({loop_res.status})"
             break
 
-    _write_dev_loop_evidence(out_dir, result, gate_missing=gate_missing if execute_dev_loop else [])
+    result.ended_at = _utc_now_iso()
+    _write_dev_loop_evidence(
+        out_dir,
+        result,
+        gate_missing=gate_missing if execute_dev_loop else [],
+        effective_limits={
+            "max_runtime_minutes": effective_max_runtime,
+            "max_tasks": effective_max_tasks,
+            "max_prs": effective_max_prs,
+            "wait_ci": effective_wait_ci,
+            "ci_timeout_seconds": effective_ci_timeout,
+            "ci_poll_seconds": effective_ci_poll,
+            "stop_on_failure": effective_stop_on_failure,
+            "stop_on_dirty_tree": effective_stop_on_dirty_tree,
+        },
+        pr_create_gate_status={
+            "requested": create_pr,
+            "ok": pr_gate.ok,
+            "missing": pr_gate.missing,
+        },
+    )
     return result
 
 
-def _write_dev_loop_evidence(out_dir: Path, result: DevLoopResult, *, gate_missing: list[str]) -> None:
+def _write_dev_loop_evidence(
+    out_dir: Path,
+    result: DevLoopResult,
+    *,
+    gate_missing: list[str],
+    effective_limits: dict[str, Any],
+    pr_create_gate_status: dict[str, Any],
+) -> None:
     payload: dict[str, Any] = {
         "run_id": result.run_id,
         "status": result.status,
         "mode": result.mode,
+        "profile_name": result.profile_name,
         "queue_path": result.queue_path,
+        "started_at": result.started_at,
+        "ended_at": result.ended_at,
         "stop_reason": result.stop_reason,
         "tasks_seen": result.tasks_seen,
         "tasks_executed": result.tasks_executed,
@@ -393,6 +512,8 @@ def _write_dev_loop_evidence(out_dir: Path, result: DevLoopResult, *, gate_missi
         "forbidden_command_violations": result.forbidden_command_violations,
         "forbidden_text_violations": result.forbidden_text_violations,
         "checked_paths": result.checked_paths,
+        "effective_limits": effective_limits,
+        "pr_create_gate_status": pr_create_gate_status,
         "forbidden_auto_merge": True,
         "task_results": [asdict(t) for t in result.task_results],
     }

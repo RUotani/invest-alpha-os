@@ -1061,6 +1061,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-Ops-E2 — overnight run profile and guarded PR-create smoke（進行中 · `--profile`）
+
+**内容**: `dev-loop` に `--profile` を追加し、`config/operator_dev_loop_profiles.yaml` から `smoke_20min` / `overnight_safe_3h` / `overnight_safe_6h` を読込。CLI引数で profile 値 override 可。evidence に profile・effective limits・PR create gate status・start/end を記録。夜間 runbook を追加。詳細 **[docs/106](./106_r7_0_ops_e2_overnight_run_profile.md)**。
+
+---
+
 ## R7.0-B3R — JP Core50 cache retry diagnostics（完了 · 部分 ingest 成功 · docs-only）
 
 **結果**: 日付範囲短縮 + バッチ≤3 で **10 銘柄** cache 追加 · Core50 **9→19/50**。詳細 **[docs/87](./87_r7_0_b3r_jp_core50_cache_retry_diagnostics.md)**。残り 31 銘柄は追加 B3R バッチ待ち。

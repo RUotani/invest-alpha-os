@@ -43,3 +43,5 @@
 ## 5. Next phase
 
 guarded `--execute-dev-loop` smoke を小さな queue で実施し、false positive / false negative を確認する。
+
+- Ops-E2 で `--profile` と overnight runbook を追加（詳細 **[docs/106](./106_r7_0_ops_e2_overnight_run_profile.md)**）。
