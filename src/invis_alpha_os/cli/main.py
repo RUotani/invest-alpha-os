@@ -469,16 +469,6 @@ def daily_email(
     sender = os.environ.get("GMAIL_REPORT_FROM", "me").strip() or "me"
     recipient = os.environ.get("GMAIL_REPORT_TO", "").strip()
     email_out = bundle / "email"
-    attachments: list[tuple[str, bytes, str]] = []
-    for name in (
-        "operator_summary.md",
-        "daily_us_cache_preview.md",
-        "signals_us_cache_preview.md",
-    ):
-        p = bundle / name
-        if p.is_file():
-            attachments.append((name, p.read_bytes(), "text/markdown"))
-
     to_list = [recipient] if recipient else ["recipient@example.com"]
     if dry_run:
         to_list = [recipient or "dry-run@local"]
@@ -489,7 +479,7 @@ def daily_email(
         subject=draft.subject,
         text_body=draft.text_body,
         html_body=draft.html_body,
-        attachments=attachments if dry_run or recipient else attachments,
+        attachments=None,
     )
     preview_paths = write_email_previews(email_out, message=message)
     raw = encode_message_raw(message)

@@ -42,6 +42,9 @@ def test_build_daily_email_from_bundle(tmp_path: Path) -> None:
     assert "投資観測レポート" in draft.subject
     assert "2026-05-20" in draft.subject
     assert "## 日本株モメンタム観測" in draft.text_body
+    assert "## 今日の注目ポイント" in draft.text_body
+    assert "## 銘柄別コメント" in draft.text_body
+    assert "7203" in draft.text_body
     assert "コード / 銘柄名" in draft.text_body or "コード" in draft.text_body
 
 
@@ -84,6 +87,23 @@ def test_daily_email_dry_run_cli(tmp_path: Path) -> None:
     assert r.exit_code == 0, r.stdout + r.stderr
     assert (bundle / "email" / "email_preview.eml").is_file()
     assert "dry-run only" in r.stdout
+
+
+def test_daily_email_has_no_markdown_attachments(tmp_path: Path) -> None:
+    bundle = tmp_path / "bundle_attach"
+    bundle.mkdir()
+    (bundle / "operator_summary.md").write_text("stale 0", encoding="utf-8")
+    (bundle / "signals_us_cache_preview.md").write_text(
+        "| # | Code / Name | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1 | 7203 トヨタ | 6 | positive_20d_60d_momentum | +0.1% | +0.4% | +0.5% | -0.4% | 1.02x | — |\n",
+        encoding="utf-8",
+    )
+    r = runner.invoke(app, ["daily-email", "--bundle-dir", str(bundle), "--dry-run"])
+    assert r.exit_code == 0
+    eml = (bundle / "email" / "email_preview.eml").read_bytes()
+    assert b"Content-Disposition: attachment" not in eml
+    assert b"operator_summary.md" not in eml
 
 
 def test_daily_email_send_without_confirm_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
