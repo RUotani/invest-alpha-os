@@ -1,0 +1,156 @@
+universe_name: jp_core50_discovery_mvp
+universe_scope: curated_liquid_cross_sector_sample
+description: >
+  Initial broad JP discovery universe for R7.0-B2. Not full-market coverage.
+  Curated cross-sector liquid sample to expand beyond the original watchlist.
+symbols:
+  - code: "7203"
+    name: "トヨタ"
+    sector_hint: auto
+  - code: "6758"
+    name: "ソニーG"
+    sector_hint: electronics
+  - code: "6861"
+    name: "キーエンス"
+    sector_hint: factory_automation
+  - code: "8035"
+    name: "東京エレクトロン"
+    sector_hint: semiconductor_equipment
+  - code: "6857"
+    name: "アドバンテスト"
+    sector_hint: semiconductor_equipment
+  - code: "9984"
+    name: "ソフトバンクG"
+    sector_hint: tech_investment
+  - code: "9432"
+    name: "NTT"
+    sector_hint: telecom
+  - code: "9433"
+    name: "KDDI"
+    sector_hint: telecom
+  - code: "9983"
+    name: "ファストリ"
+    sector_hint: retail
+  - code: "8306"
+    name: "三菱UFJ"
+    sector_hint: bank
+  - code: "8316"
+    name: "三井住友FG"
+    sector_hint: bank
+  - code: "8411"
+    name: "みずほFG"
+    sector_hint: bank
+  - code: "8058"
+    name: "三菱商事"
+    sector_hint: trading_company
+  - code: "8001"
+    name: "伊藤忠"
+    sector_hint: trading_company
+  - code: "8031"
+    name: "三井物産"
+    sector_hint: trading_company
+  - code: "6501"
+    name: "日立"
+    sector_hint: industrial_ai
+  - code: "6503"
+    name: "三菱電機"
+    sector_hint: industrial
+  - code: "6506"
+    name: "安川電"
+    sector_hint: factory_automation
+  - code: "7011"
+    name: "三菱重工"
+    sector_hint: defense_power
+  - code: "7012"
+    name: "川崎重工"
+    sector_hint: defense_industrial
+  - code: "7013"
+    name: "IHI"
+    sector_hint: aerospace_industrial
+  - code: "5801"
+    name: "古河電工"
+    sector_hint: power_grid_cable
+  - code: "5802"
+    name: "住友電工"
+    sector_hint: power_grid_cable
+  - code: "5803"
+    name: "フジクラ"
+    sector_hint: power_grid_cable
+  - code: "5411"
+    name: "JFE"
+    sector_hint: steel
+  - code: "5401"
+    name: "日本製鉄"
+    sector_hint: steel
+  - code: "4063"
+    name: "信越化"
+    sector_hint: materials_semiconductor
+  - code: "4188"
+    name: "三菱ケミG"
+    sector_hint: chemicals
+  - code: "6098"
+    name: "リクルート"
+    sector_hint: internet_services
+  - code: "6594"
+    name: "ニデック"
+    sector_hint: motors
+  - code: "7267"
+    name: "ホンダ"
+    sector_hint: auto
+  - code: "7269"
+    name: "スズキ"
+    sector_hint: auto
+  - code: "6902"
+    name: "デンソー"
+    sector_hint: auto_parts
+  - code: "6920"
+    name: "レーザーテック"
+    sector_hint: semiconductor_equipment
+  - code: "6146"
+    name: "ディスコ"
+    sector_hint: semiconductor_equipment
+  - code: "6273"
+    name: "SMC"
+    sector_hint: factory_automation
+  - code: "6367"
+    name: "ダイキン"
+    sector_hint: hvac
+  - code: "6645"
+    name: "オムロン"
+    sector_hint: factory_automation
+  - code: "7735"
+    name: "SCREEN"
+    sector_hint: semiconductor_equipment
+  - code: "7741"
+    name: "HOYA"
+    sector_hint: precision_medical
+  - code: "7751"
+    name: "キヤノン"
+    sector_hint: electronics
+  - code: "7974"
+    name: "任天堂"
+    sector_hint: gaming
+  - code: "8766"
+    name: "東京海上"
+    sector_hint: insurance
+  - code: "8725"
+    name: "MS&AD"
+    sector_hint: insurance
+  - code: "8750"
+    name: "第一生命HD"
+    sector_hint: insurance
+  - code: "9020"
+    name: "JR東日本"
+    sector_hint: railway
+  - code: "9022"
+    name: "JR東海"
+    sector_hint: railway
+  - code: "9101"
+    name: "日本郵船"
+    sector_hint: shipping
+  - code: "9104"
+    name: "商船三井"
+    sector_hint: shipping
+  - code: "9503"
+    name: "関西電力"
+    sector_hint: utility_power

@@ -100,11 +100,20 @@ def load_universe_spec(universe_file: Path | None) -> tuple[str, list[str]]:
     if universe_file is None:
         return "", []
     data = load_yaml(universe_file)
-    scope = str(data.get("universe_scope") or "sample_jp_universe").strip()
+    scope = str(
+        data.get("universe_scope") or data.get("universe_name") or "sample_jp_universe"
+    ).strip()
     raw = data.get("symbols") or data.get("codes") or []
     if not isinstance(raw, list):
         raise ValueError("universe file symbols must be a list")
-    codes = [str(x).strip().upper() for x in raw if str(x).strip()]
+    codes: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            code = item.get("code") or item.get("symbol")
+            if code and str(code).strip():
+                codes.append(str(code).strip().upper())
+        elif str(item).strip():
+            codes.append(str(item).strip().upper())
     return scope, codes
 
 
