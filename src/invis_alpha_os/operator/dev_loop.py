@@ -118,6 +118,11 @@ class DevLoopProfile:
     ci_poll_seconds: int
     stop_on_failure: bool
     stop_on_dirty_tree: bool
+    min_runtime_minutes: int | None = None
+    no_early_success_exit: bool = False
+    heartbeat_interval_minutes: int | None = None
+    continue_after_pr_limit: str | None = None
+    continue_after_task_limit: str | None = None
 
 
 def dev_loop_execute_gate() -> GateSpec:
@@ -163,6 +168,10 @@ def _load_profile(name: str, *, profile_path: Path | None = None) -> DevLoopProf
     block = profiles.get(name)
     if not isinstance(block, dict):
         raise ValueError(f"profile not found: {name}")
+    min_runtime_raw = block.get("min_runtime_minutes")
+    heartbeat_raw = block.get("heartbeat_interval_minutes")
+    continue_pr_raw = block.get("continue_after_pr_limit")
+    continue_task_raw = block.get("continue_after_task_limit")
     return DevLoopProfile(
         name=name,
         max_runtime_minutes=int(block.get("max_runtime_minutes", 180)),
@@ -173,7 +182,44 @@ def _load_profile(name: str, *, profile_path: Path | None = None) -> DevLoopProf
         ci_poll_seconds=int(block.get("ci_poll_seconds", 30)),
         stop_on_failure=bool(block.get("stop_on_failure", True)),
         stop_on_dirty_tree=bool(block.get("stop_on_dirty_tree", True)),
+        min_runtime_minutes=int(min_runtime_raw) if min_runtime_raw is not None else None,
+        no_early_success_exit=bool(block.get("no_early_success_exit", False)),
+        heartbeat_interval_minutes=int(heartbeat_raw) if heartbeat_raw is not None else None,
+        continue_after_pr_limit=str(continue_pr_raw).strip() if continue_pr_raw else None,
+        continue_after_task_limit=str(continue_task_raw).strip() if continue_task_raw else None,
     )
+
+
+def apply_profile_longrun_defaults(
+    profile: DevLoopProfile | None,
+    *,
+    min_runtime_minutes: int | None,
+    no_early_success_exit: bool,
+    heartbeat_interval_minutes: int,
+    continue_after_pr_limit: str | None,
+    continue_after_task_limit: str | None,
+) -> tuple[int | None, bool, int, str | None, str | None]:
+    """Merge profile long-run settings; explicit CLI args take precedence when set."""
+    if profile is None:
+        return (
+            min_runtime_minutes,
+            no_early_success_exit,
+            heartbeat_interval_minutes,
+            continue_after_pr_limit,
+            continue_after_task_limit,
+        )
+    mr = min_runtime_minutes if min_runtime_minutes is not None else profile.min_runtime_minutes
+    ne = no_early_success_exit or profile.no_early_success_exit
+    hb = (
+        profile.heartbeat_interval_minutes
+        if profile.heartbeat_interval_minutes is not None
+        else heartbeat_interval_minutes
+    )
+    cpr = continue_after_pr_limit if continue_after_pr_limit is not None else profile.continue_after_pr_limit
+    ctk = (
+        continue_after_task_limit if continue_after_task_limit is not None else profile.continue_after_task_limit
+    )
+    return mr, ne, hb, cpr, ctk
 
 
 def _load_queue(path: Path) -> list[DevLoopTask]:
@@ -762,6 +808,16 @@ def run_dev_loop(
     )
     effective_stop_on_dirty_tree = (
         stop_on_dirty_tree if stop_on_dirty_tree is not None else (profile.stop_on_dirty_tree if profile else True)
+    )
+    min_runtime_minutes, no_early_success_exit, heartbeat_interval_minutes, continue_after_pr_limit, continue_after_task_limit = (
+        apply_profile_longrun_defaults(
+            profile,
+            min_runtime_minutes=min_runtime_minutes,
+            no_early_success_exit=no_early_success_exit,
+            heartbeat_interval_minutes=heartbeat_interval_minutes,
+            continue_after_pr_limit=continue_after_pr_limit,
+            continue_after_task_limit=continue_after_task_limit,
+        )
     )
     now = monotonic_fn or time.monotonic
     sleeper = sleep_fn or time.sleep
