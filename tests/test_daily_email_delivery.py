@@ -30,12 +30,19 @@ def test_build_daily_email_from_bundle(tmp_path: Path) -> None:
     bundle.mkdir()
     (bundle / "operator_summary.md").write_text("stale 0 fresh_enough 16", encoding="utf-8")
     (bundle / "daily_us_cache_preview.md").write_text("### US Cache Preview (opt-in)\n", encoding="utf-8")
-    (bundle / "signals_us_cache_preview.md").write_text("preview ok", encoding="utf-8")
+    (bundle / "signals_us_cache_preview.md").write_text(
+        "## Momentum Signals — JP Watchlist\n\n"
+        "| # | Code / Name | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto |\n"
+        "|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1 | 7203 トヨタ | 6 | positive_20d_60d_momentum | +0.1% | +0.4% | +0.5% | -0.4% | 1.02x | — |\n",
+        encoding="utf-8",
+    )
     draft = build_daily_email_from_bundle(bundle, main_commit="abc1234")
-    assert "Observation only" in draft.text_body
-    assert "not buy/sell" in draft.text_body.lower() or "not buy" in draft.text_body.lower()
+    assert "売買推奨" in draft.text_body
+    assert "投資観測レポート" in draft.subject
     assert "2026-05-20" in draft.subject
-    assert "daily_us_cache_preview" in draft.text_body or "US Cache Preview" in draft.text_body
+    assert "## 日本株モメンタム観測" in draft.text_body
+    assert "コード / 銘柄名" in draft.text_body or "コード" in draft.text_body
 
 
 def test_mime_raw_base64url() -> None:
@@ -89,13 +96,14 @@ def test_daily_email_send_without_confirm_fails(tmp_path: Path, monkeypatch: pyt
     assert r.exit_code == 2
 
 
-def test_subject_has_observation_report_spacing(tmp_path: Path) -> None:
+def test_subject_japanese_observation_report(tmp_path: Path) -> None:
     bundle = tmp_path / "bundle3"
     bundle.mkdir()
-    (bundle / "operator_summary.md").write_text("stale 0", encoding="utf-8")
+    (bundle / "operator_summary.md").write_text("stale 0 fresh_enough 16", encoding="utf-8")
     draft = build_daily_email_from_bundle(bundle)
-    assert "Daily Observation Report" in draft.subject
-    assert "ObservationReport" not in draft.subject
+    assert "投資観測レポート" in draft.subject
+    assert "Daily Observation Report" not in draft.subject
+    assert "期限切れ 0" in draft.subject
 
 
 def test_credentials_configured_requires_credentials_file_only(
