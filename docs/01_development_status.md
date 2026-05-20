@@ -1037,9 +1037,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-D2 — PR loop CI read-only integration（進行中 · `--check-ci`）
+## R7.0-Ops-D2 — PR loop CI read-only integration（完了 · `main` 反映済 `2572f16`）
 
 **内容**: `operator-runner pr-loop --check-ci` で `gh pr checks` を read-only 実行し、`success/pending/failing/cancelled/unknown` を evidence 記録。pending/failing/cancelled/unknown は stop。auto-merge は引き続き禁止。詳細 **[docs/102](./102_r7_0_ops_d2_pr_loop_ci_readonly.md)**。
+
+---
+
+## R7.0-Ops-D3 — PR loop CI wait policy（進行中 · `--wait-ci`）
+
+**内容**: `operator-runner pr-loop --wait-ci` で `gh run list` を read-only ポーリング。`--ci-timeout-seconds` / `--ci-poll-seconds` で待機制御。`--check-ci` と併用可。auto-merge 禁止。詳細 **[docs/103](./103_r7_0_ops_d3_ci_wait_policy.md)**。
 
 ---
 

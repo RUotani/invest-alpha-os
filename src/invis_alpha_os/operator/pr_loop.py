@@ -7,6 +7,7 @@ import os
 import re
 import shlex
 import subprocess
+import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +46,9 @@ class PrLoopResult:
     evidence_path: str
     ci_status: str | None = None
     ci_detail: str = ""
+    ci_wait_status: str | None = None
+    ci_wait_detail: str = ""
+    ci_wait_poll_count: int = 0
     pr_url: str | None = None
     stop_reason: str = ""
 
@@ -267,6 +271,114 @@ def _run_gh_pr_checks(
     return _rollup_ci_status(statuses), "\n".join(lines[:8])
 
 
+def _normalize_run_status(status: str, conclusion: str | None = None) -> str:
+    s = status.strip().lower()
+    c = (conclusion or "").strip().lower()
+    if s in {"queued", "in_progress", "pending", "waiting", "requested"}:
+        return "pending"
+    if s == "completed":
+        if c == "success":
+            return "success"
+        if c in {"cancelled", "canceled"}:
+            return "cancelled"
+        if c in {"failure", "failed", "timed_out", "startup_failure", "action_required"}:
+            return "failing"
+        return "unknown"
+    if s in {"failure", "failed"}:
+        return "failing"
+    if s in {"cancelled", "canceled"}:
+        return "cancelled"
+    return "unknown"
+
+
+def _rollup_run_list_status(runs: list[dict[str, Any]]) -> str:
+    if not runs:
+        return "pending"
+    statuses = [_normalize_run_status(str(r.get("status", "")), str(r.get("conclusion") or "")) for r in runs]
+    if any(s == "failing" for s in statuses):
+        return "failing"
+    if any(s == "cancelled" for s in statuses):
+        return "cancelled"
+    if any(s == "pending" for s in statuses):
+        return "pending"
+    if all(s == "success" for s in statuses):
+        return "success"
+    return "unknown"
+
+
+def _run_gh_run_list(
+    *,
+    branch: str,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> tuple[str, str, list[dict[str, Any]]]:
+    argv = [
+        "gh",
+        "run",
+        "list",
+        "--branch",
+        branch,
+        "--limit",
+        "5",
+        "--json",
+        "status,conclusion,workflowName,headBranch",
+    ]
+    assert_gh_command_allowed(argv)
+    runner = subprocess_run or subprocess.run
+    proc = runner(
+        argv,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return "unknown", "gh run list failed", []
+    try:
+        runs = json.loads(proc.stdout or "[]")
+    except json.JSONDecodeError:
+        return "unknown", "gh run list invalid json", []
+    if not isinstance(runs, list):
+        return "unknown", "gh run list unexpected payload", []
+    rollup = _rollup_run_list_status(runs)
+    detail = f"runs={len(runs)} rollup={rollup}"
+    return rollup, detail, runs
+
+
+def wait_for_ci_runs(
+    *,
+    branch: str,
+    repo_root: Path,
+    timeout_seconds: int = 600,
+    poll_seconds: int = 30,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    monotonic_fn: Callable[[], float] | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
+) -> tuple[str, str, int]:
+    """Poll gh run list until success, failure, cancel, or timeout."""
+    mono = monotonic_fn or time.monotonic
+    sleep = sleep_fn or time.sleep
+    deadline = mono() + float(timeout_seconds)
+    poll_count = 0
+    last_detail = ""
+    while mono() < deadline:
+        poll_count += 1
+        status, detail, _runs = _run_gh_run_list(
+            branch=branch,
+            repo_root=repo_root,
+            subprocess_run=subprocess_run,
+        )
+        last_detail = detail
+        if status == "success":
+            return "success", f"{detail} polls={poll_count}", poll_count
+        if status in {"failing", "cancelled"}:
+            return status, f"{detail} polls={poll_count}", poll_count
+        if status == "unknown":
+            return "unknown", f"{detail} polls={poll_count}", poll_count
+        sleep(float(poll_seconds))
+    return "timeout", f"{last_detail} polls={poll_count} timeout={timeout_seconds}s", poll_count
+
+
 def run_pr_loop(
     *,
     branch: str,
@@ -277,10 +389,15 @@ def run_pr_loop(
     execute_checks: bool = False,
     create_pr: bool = False,
     check_ci: bool = False,
+    wait_ci: bool = False,
+    ci_timeout_seconds: int = 600,
+    ci_poll_seconds: int = 30,
     pr_number: int | None = None,
     repo_root: Path | None = None,
     outputs_root: Path | None = None,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    monotonic_fn: Callable[[], float] | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
 ) -> PrLoopResult:
     """Run PR loop: optional runner dry-run, optional tests/git, draft body, gated gh pr create."""
     root = repo_root or ROOT_DIR
@@ -358,6 +475,9 @@ def run_pr_loop(
     pr_url: str | None = None
     ci_status: str | None = None
     ci_detail = ""
+    ci_wait_status: str | None = None
+    ci_wait_detail = ""
+    ci_wait_poll_count = 0
     status = "completed"
     stop_reason = ""
     if create_pr and gate.ok and execute_checks:
@@ -372,7 +492,21 @@ def run_pr_loop(
         status = "blocked"
         stop_reason = f"missing gate {GITHUB_PR_CREATE_ENV}=YES"
 
-    if check_ci:
+    if wait_ci and status not in {"blocked"}:
+        ci_wait_status, ci_wait_detail, ci_wait_poll_count = wait_for_ci_runs(
+            branch=branch,
+            repo_root=root,
+            timeout_seconds=ci_timeout_seconds,
+            poll_seconds=ci_poll_seconds,
+            subprocess_run=subprocess_run,
+            monotonic_fn=monotonic_fn,
+            sleep_fn=sleep_fn,
+        )
+        if ci_wait_status != "success":
+            status = "stopped"
+            stop_reason = f"ci_wait_status={ci_wait_status}"
+
+    if check_ci and status not in {"blocked", "stopped"}:
         check_target = pr_number
         if check_target is None and pr_url is not None:
             check_target = _extract_pr_number_from_url(pr_url)
@@ -406,6 +540,9 @@ def run_pr_loop(
         evidence_path=str(out_dir / "evidence_summary.json"),
         ci_status=ci_status,
         ci_detail=ci_detail,
+        ci_wait_status=ci_wait_status,
+        ci_wait_detail=ci_wait_detail,
+        ci_wait_poll_count=ci_wait_poll_count,
         pr_url=pr_url,
         stop_reason=stop_reason,
     )
@@ -434,6 +571,9 @@ def _write_pr_loop_evidence(
         "pr_url": result.pr_url,
         "ci_status": result.ci_status,
         "ci_detail": result.ci_detail,
+        "ci_wait_status": result.ci_wait_status,
+        "ci_wait_detail": result.ci_wait_detail,
+        "ci_wait_poll_count": result.ci_wait_poll_count,
         "stop_reason": result.stop_reason,
         "forbidden_auto_merge": True,
     }
