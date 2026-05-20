@@ -22,7 +22,9 @@ class OperatorRunnerPolicy:
     default_mode: str
     live_http_gate: GateSpec
     cache_write_gate: GateSpec
+    gated_ingest_gate: GateSpec
     stop_on_http_status: tuple[int, ...]
+    stop_on_http_markers: tuple[str, ...]
     forbidden_cli_flags: tuple[str, ...]
     forbidden_commit_path_prefixes: tuple[str, ...]
     forbidden_output_terms_check: bool
@@ -50,6 +52,13 @@ def load_operator_runner_policy(path: Path) -> OperatorRunnerPolicy:
         gates = {}
     stop_raw = raw.get("stop_on_http_status") or [400, 429]
     stop_on = tuple(int(x) for x in stop_raw)
+    markers_raw = raw.get("stop_on_http_markers") or [
+        "400",
+        "429",
+        "http_status_400",
+        "http_status_429",
+    ]
+    stop_markers = tuple(str(x) for x in markers_raw)
     flags_raw = raw.get("forbidden_cli_flags") or []
     forbidden_flags = tuple(str(x) for x in flags_raw)
     prefixes_raw = raw.get("forbidden_commit_path_prefixes") or []
@@ -61,7 +70,11 @@ def load_operator_runner_policy(path: Path) -> OperatorRunnerPolicy:
         default_mode=str(raw.get("default_mode") or "dry_run"),
         live_http_gate=_gate_from_mapping(gates, "live_http", default_env="CONFIRM_LIVE_HTTP"),
         cache_write_gate=_gate_from_mapping(gates, "cache_write", default_env="CONFIRM_CACHE_WRITE"),
+        gated_ingest_gate=_gate_from_mapping(
+            gates, "gated_ingest", default_env="CONFIRM_OPERATOR_GATED_INGEST"
+        ),
         stop_on_http_status=stop_on,
+        stop_on_http_markers=stop_markers,
         forbidden_cli_flags=forbidden_flags,
         forbidden_commit_path_prefixes=prefixes,
         forbidden_output_terms_check=bool(raw.get("forbidden_output_terms_check", True)),

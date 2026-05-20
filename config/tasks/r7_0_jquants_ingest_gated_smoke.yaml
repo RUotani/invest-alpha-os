@@ -1,0 +1,23 @@
+# Gated J-Quants ingest smoke task (simulation-only in Ops-B; no live ingest in CI)
+task_id: r7_0_jquants_ingest_gated_smoke
+version: ops_task.v2
+description: Gated J-Quants ingest foundation — 1 symbol/batch, 120s delay, 400/429 stop
+risk_class: gated_ingest
+simulate: true
+
+ingest_defaults:
+  batch_size: 1
+  delay_seconds: 120
+
+steps:
+  - id: ingest_sample_symbols
+    kind: gated_ingest_batch
+    risk_class: gated_ingest
+    symbols:
+      - "7011"
+      - "7203"
+      - "6501"
+    batch_size: 1
+    delay_seconds: 120
+    simulate: true
+    output_artifact: ingest_batch_results.json

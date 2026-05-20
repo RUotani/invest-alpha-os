@@ -1013,9 +1013,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-A — Autonomous local operator runner（進行中 · policy/task YAML + dry-run runner）
+## R7.0-Ops-A — Autonomous local operator runner（完了 · `main` 反映済 `9fc2f51`）
 
-**内容**: `config/operator_runner_policy.yaml` · `config/tasks/r7_0_discovery_readonly_smoke.yaml` · `operator-runner run`（dry-run デフォルト）· checkpoint/evidence under `outputs/operator/runner/`。詳細 **[docs/98](./98_r7_0_ops_a_autonomous_local_runner.md)**。
+**内容**: `operator-runner run` · dry-run default · policy/task YAML · checkpoint/evidence。詳細 **[docs/98](./98_r7_0_ops_a_autonomous_local_runner.md)**。
+
+---
+
+## R7.0-Ops-B — Gated ingest runner foundation（進行中 · execute-gated + checkpoint/resume）
+
+**内容**: `--execute-gated` · `CONFIRM_*` 3ゲート · `gated_ingest_batch` step · J-Quants ingest smoke task YAML（simulation only）。詳細 **[docs/99](./99_r7_0_ops_b_gated_ingest_runner.md)**。
 
 ---
 

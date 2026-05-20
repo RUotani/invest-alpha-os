@@ -1,4 +1,4 @@
-# Operator local runner safety policy (R7.0-Ops-A)
+# Operator local runner safety policy (R7.0-Ops-A / Ops-B)
 version: ops_runner_policy.v1
 default_mode: dry_run
 
@@ -9,8 +9,16 @@ gates:
   cache_write:
     env_var: CONFIRM_CACHE_WRITE
     required_value: "YES"
+  gated_ingest:
+    env_var: CONFIRM_OPERATOR_GATED_INGEST
+    required_value: "YES"
 
 stop_on_http_status: [400, 429]
+stop_on_http_markers:
+  - "400"
+  - "429"
+  - http_status_400
+  - http_status_429
 forbidden_cli_flags:
   - --live
   - --write-cache
@@ -26,3 +34,4 @@ max_step_stdout_bytes: 500000
 allowed_step_kinds:
   - cli
   - merge_discovery_json
+  - gated_ingest_batch
