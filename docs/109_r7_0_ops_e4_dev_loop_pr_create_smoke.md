@@ -23,3 +23,4 @@
 
 - 固定 branch 再利用による non-fast-forward を回避するため、smoke queue は `work/dev-loop-smoke/{run_id}` を使用
 - 詳細 **[docs/110](./110_r7_0_ops_e5_unique_smoke_branch.md)**
+- dev-loop smoke marker: 20260520T102245Z (2026-05-20T10:22:46Z)
