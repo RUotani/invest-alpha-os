@@ -1021,6 +1021,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.19-G — Japanese Gmail narrative + no attachments（完了 · PR #41 · gated send 確認）
+
+**内容**: `.md` 添付廃止 · ナラティブ（注目/銘柄別/次に確認）· HTML 本文 · **14 tests** pass · gated send OK。詳細 **[docs/92](./92_r6_19_g_japanese_gmail_narrative.md)**。
+
+---
+
 ## R6.19-E — Japanese daily Gmail report（完了 · 日本語レンダリング · gated send 確認済み）
 
 **結果**: `daily_email.py` 日本語化 · dry-run / **13 tests** pass · gated `--send` pass · ユーザー目視で日本語受信確認。詳細 **[docs/91](./91_r6_19_e_japanese_gmail_report.md)**。credentials/token 未コミット · live HTTP なし。
