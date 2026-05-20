@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import time
 from dataclasses import asdict, dataclass, field
@@ -18,6 +19,26 @@ from invis_alpha_os.operator.pr_loop import PrLoopResult, run_pr_loop
 
 DEV_LOOP_REL_ROOT = Path("operator/dev_loop")
 DEV_LOOP_EXEC_ENV = "CONFIRM_OPERATOR_DEV_LOOP"
+DEFAULT_FORBIDDEN_PATHS: tuple[str, ...] = (
+    ".github/workflows/",
+    "Makefile",
+    "pyproject.toml",
+    "outputs/",
+)
+DEFAULT_FORBIDDEN_COMMAND_PATTERNS: tuple[str, ...] = (
+    r"\bgh\s+pr\s+merge\b",
+    r"\bgh\s+pr\s+close\b",
+    r"\bgit\s+push\b.*\s--force\b",
+    r"\bgit\s+branch\s+-D\b",
+    r"\bgit\s+worktree\s+remove\b",
+)
+DEFAULT_FORBIDDEN_TEXT_PATTERNS: tuple[str, ...] = (
+    r"\bbuy\b",
+    r"\bsell\b",
+    r"\btarget\s+price\b",
+    r"\ballocation\b",
+    r"\btrading\s+recommendation\b",
+)
 
 
 @dataclass(frozen=True)
@@ -29,8 +50,12 @@ class DevLoopTask:
     scope: str = ""
     risk: str = "low"
     allowed_commands: tuple[str, ...] = ()
+    allowed_paths: tuple[str, ...] = ()
+    forbidden_paths: tuple[str, ...] = ()
+    forbidden_commands: tuple[str, ...] = ()
     expected_files: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
+    risk_level: str = "low"
 
 
 @dataclass
@@ -55,6 +80,12 @@ class DevLoopResult:
     tasks_seen: int = 0
     tasks_executed: int = 0
     prs_created: int = 0
+    safety_validator_status: str = "ok"
+    scope_violations: list[str] = field(default_factory=list)
+    dirty_tree_violations: list[str] = field(default_factory=list)
+    forbidden_command_violations: list[str] = field(default_factory=list)
+    forbidden_text_violations: list[str] = field(default_factory=list)
+    checked_paths: list[str] = field(default_factory=list)
     task_results: list[DevLoopTaskResult] = field(default_factory=list)
 
 
@@ -100,8 +131,12 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
                 scope=str(item.get("scope") or "").strip(),
                 risk=str(item.get("risk") or "low").strip() or "low",
                 allowed_commands=tuple(str(x) for x in (item.get("allowed_commands") or [])),
+                allowed_paths=tuple(str(x) for x in (item.get("allowed_paths") or [])),
+                forbidden_paths=tuple(str(x) for x in (item.get("forbidden_paths") or [])),
+                forbidden_commands=tuple(str(x) for x in (item.get("forbidden_commands") or [])),
                 expected_files=tuple(str(x) for x in (item.get("expected_files") or [])),
                 stop_conditions=tuple(str(x) for x in (item.get("stop_conditions") or [])),
+                risk_level=str(item.get("risk_level") or item.get("risk") or "low").strip() or "low",
             )
         )
     return tasks
@@ -132,17 +167,76 @@ def _git_status_paths(
     return paths
 
 
-def _has_forbidden_dirty_paths(paths: list[str]) -> str:
+def _has_forbidden_dirty_paths(paths: list[str]) -> list[str]:
+    violations: list[str] = []
     for path in paths:
         norm = path.strip()
         low = norm.lower()
         if low.startswith("outputs/"):
-            return f"forbidden dirty path: {norm}"
+            violations.append(f"forbidden dirty path: {norm}")
+            continue
         if low.endswith(".env") or low.endswith("/.env") or low.startswith(".env"):
-            return f"forbidden dirty path: {norm}"
+            violations.append(f"forbidden dirty path: {norm}")
+            continue
+        if any(term in low for term in ("token", "credential", "secret")):
+            violations.append(f"forbidden dirty path: {norm}")
+            continue
         if "cache" in low and low.endswith(".json"):
-            return f"forbidden dirty path: {norm}"
-    return ""
+            violations.append(f"forbidden dirty path: {norm}")
+    return violations
+
+
+def _path_matches_rule(path: str, rule: str) -> bool:
+    norm_path = path.strip().lstrip("./")
+    norm_rule = rule.strip().lstrip("./")
+    if not norm_rule:
+        return False
+    if norm_rule.endswith("/"):
+        return norm_path.startswith(norm_rule)
+    return norm_path == norm_rule or norm_path.startswith(norm_rule + "/")
+
+
+def _check_scope(task: DevLoopTask, changed_paths: list[str]) -> list[str]:
+    violations: list[str] = []
+    if task.allowed_paths:
+        for p in changed_paths:
+            if not any(_path_matches_rule(p, allow) for allow in task.allowed_paths):
+                violations.append(f"scope violation for task {task.task_id}: {p}")
+    for p in changed_paths:
+        for forbid in (*DEFAULT_FORBIDDEN_PATHS, *task.forbidden_paths):
+            if _path_matches_rule(p, forbid):
+                violations.append(f"forbidden path for task {task.task_id}: {p}")
+                break
+    return violations
+
+
+def _check_forbidden_commands(task: DevLoopTask) -> list[str]:
+    violations: list[str] = []
+    candidates = [task.pytest_cmd, *task.allowed_commands, *task.forbidden_commands]
+    patterns = [*DEFAULT_FORBIDDEN_COMMAND_PATTERNS, *(f"\\b{re.escape(x)}\\b" for x in task.forbidden_commands)]
+    for cmd in candidates:
+        text = cmd.strip()
+        if not text:
+            continue
+        for pat in patterns:
+            if re.search(pat, text, flags=re.IGNORECASE):
+                violations.append(f"forbidden command in task {task.task_id}: {text}")
+                break
+    return violations
+
+
+def _check_forbidden_text(task: DevLoopTask) -> list[str]:
+    violations: list[str] = []
+    texts = [task.pr_title, task.scope, *task.stop_conditions]
+    for text in texts:
+        probe = text.strip()
+        if not probe:
+            continue
+        for pat in DEFAULT_FORBIDDEN_TEXT_PATTERNS:
+            if re.search(pat, probe, flags=re.IGNORECASE):
+                violations.append(f"forbidden text in task {task.task_id}: {probe}")
+                break
+    return violations
 
 
 def run_dev_loop(
@@ -203,23 +297,48 @@ def run_dev_loop(
             result.stop_reason = f"max_runtime reached: {max_runtime_minutes}m"
             break
 
-        dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
-        forbidden_reason = _has_forbidden_dirty_paths(dirty_paths)
-        if forbidden_reason:
-            result.status = "stopped"
-            result.stop_reason = forbidden_reason
-            break
-        if stop_on_dirty_tree and dirty_paths:
-            result.status = "stopped"
-            result.stop_reason = "dirty tree detected"
-            break
-
         if not execute_dev_loop:
             result.tasks_executed += 1
             result.task_results.append(
                 DevLoopTaskResult(task_id=task.task_id, status="planned", stop_reason="dry_run")
             )
             continue
+
+        dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
+        result.checked_paths.extend(dirty_paths)
+        dirty_violations = _has_forbidden_dirty_paths(dirty_paths)
+        if dirty_violations:
+            result.dirty_tree_violations.extend(dirty_violations)
+            result.status = "stopped"
+            result.stop_reason = dirty_violations[0]
+            result.safety_validator_status = "failed"
+            break
+        scope_violations = _check_scope(task, dirty_paths)
+        if scope_violations:
+            result.scope_violations.extend(scope_violations)
+            result.status = "stopped"
+            result.stop_reason = scope_violations[0]
+            result.safety_validator_status = "failed"
+            break
+        command_violations = _check_forbidden_commands(task)
+        if command_violations:
+            result.forbidden_command_violations.extend(command_violations)
+            result.status = "stopped"
+            result.stop_reason = command_violations[0]
+            result.safety_validator_status = "failed"
+            break
+        text_violations = _check_forbidden_text(task)
+        if text_violations:
+            result.forbidden_text_violations.extend(text_violations)
+            result.status = "stopped"
+            result.stop_reason = text_violations[0]
+            result.safety_validator_status = "failed"
+            break
+        if stop_on_dirty_tree and dirty_paths:
+            result.status = "stopped"
+            result.stop_reason = "dirty tree detected"
+            result.safety_validator_status = "failed"
+            break
 
         loop_res = pr_runner(
             branch=task.branch,
@@ -268,6 +387,12 @@ def _write_dev_loop_evidence(out_dir: Path, result: DevLoopResult, *, gate_missi
         "tasks_executed": result.tasks_executed,
         "prs_created": result.prs_created,
         "gate_missing": gate_missing,
+        "safety_validator_status": result.safety_validator_status,
+        "scope_violations": result.scope_violations,
+        "dirty_tree_violations": result.dirty_tree_violations,
+        "forbidden_command_violations": result.forbidden_command_violations,
+        "forbidden_text_violations": result.forbidden_text_violations,
+        "checked_paths": result.checked_paths,
         "forbidden_auto_merge": True,
         "task_results": [asdict(t) for t in result.task_results],
     }

@@ -6,9 +6,17 @@ tasks:
     branch: "work/r7-0-ops-e-docs-status-microfix"
     scope: "docs/01 development status updates only"
     risk: "low"
+    risk_level: "low"
     pytest_cmd: "git diff --check"
     allowed_commands:
       - "git diff --check"
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
     expected_files:
       - "docs/01_development_status.md"
     stop_conditions:
@@ -19,16 +27,47 @@ tasks:
     branch: "work/r7-0-ops-e-runner-evidence-polish"
     scope: "operator runner evidence key naming polish"
     risk: "low"
+    risk_level: "low"
+    allowed_paths:
+      - "src/invis_alpha_os/operator/"
+      - "tests/"
+      - "docs/"
+      - ".agent/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
     pytest_cmd: "pytest -q tests/test_operator_runner.py tests/test_operator_runner_gated.py tests/test_operator_runner_jquants_wiring.py"
   - task_id: pr_loop_template_polish
     pr_title: "R7.0-Ops-E: PR loop report template polish"
     branch: "work/r7-0-ops-e-pr-loop-template-polish"
     scope: "pr loop draft/report template text polish"
     risk: "low"
+    risk_level: "low"
+    allowed_paths:
+      - "src/invis_alpha_os/operator/"
+      - "tests/"
+      - "docs/"
+      - ".agent/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
     pytest_cmd: "pytest -q tests/test_operator_pr_loop.py"
   - task_id: task_queue_smoke
     pr_title: "R7.0-Ops-E: task queue smoke"
     branch: "work/r7-0-ops-e-task-queue-smoke"
     scope: "dev-loop queue smoke only"
     risk: "low"
+    risk_level: "low"
+    allowed_paths:
+      - "src/invis_alpha_os/operator/"
+      - "tests/"
+      - "config/tasks/"
+      - "docs/"
+      - ".agent/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
     pytest_cmd: "pytest -q tests/test_operator_dev_loop.py"

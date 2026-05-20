@@ -51,3 +51,9 @@
 - 実際のコード生成・編集オーケストレーション（今回は runner 基盤のみ）
 - queue taskごとの高度な diff 安全解析
 - 朝の human review 連携（通知やダッシュボード）
+
+---
+
+## 6. Follow-up
+
+- Ops-E1 で scope/dirty-tree/forbidden command-text validator を追加（詳細 **[docs/105](./105_r7_0_ops_e1_dev_loop_safety_validators.md)**）。
