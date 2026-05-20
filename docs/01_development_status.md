@@ -1019,9 +1019,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-B — Gated ingest runner foundation（進行中 · execute-gated + checkpoint/resume）
+## R7.0-Ops-B — Gated ingest runner foundation（完了 · `main` 反映済 `e23d9fb`）
 
-**内容**: `--execute-gated` · `CONFIRM_*` 3ゲート · `gated_ingest_batch` step · J-Quants ingest smoke task YAML（simulation only）。詳細 **[docs/99](./99_r7_0_ops_b_gated_ingest_runner.md)**。
+**内容**: `--execute-gated` · 3ゲート · checkpoint/resume · `gated_ingest_batch`。詳細 **[docs/99](./99_r7_0_ops_b_gated_ingest_runner.md)**。
+
+---
+
+## R7.0-Ops-C — Gated J-Quants ingest wiring（進行中 · CLI配線 + command template）
+
+**内容**: `jquants_ingest_wiring.py` · task `ingest_wiring` · dry-run planned commands · mock subprocess tests。詳細 **[docs/100](./100_r7_0_ops_c_gated_jquants_ingest_wiring.md)**。
 
 ---
 
