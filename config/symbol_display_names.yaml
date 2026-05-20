@@ -1,0 +1,31 @@
+# Short display names for reports (read-only; no live lookup).
+jp:
+  "5802": "住友電工"
+  "6506": "安川電機"
+  "5801": "古河電工"
+  "285A": "キオクシア"
+  "5803": "フジクラ"
+  "7203": "トヨタ"
+  "5411": "JFE"
+  "7011": "三菱重工"
+  "6504": "富士電機"
+  "7267": "ホンダ"
+  "6501": "日立"
+
+us:
+  MSFT: Microsoft
+  NVDA: NVIDIA
+  AAPL: Apple
+  AMZN: Amazon
+  GOOGL: Alphabet
+  META: Meta
+  TSLA: Tesla
+  GLDM: GLDM
+  SLV: Silver ETF
+  TLT: 20Y Treasury ETF
+  TMF: 3x Long Treasury ETF
+  SPY: S&P 500 ETF
+  QQQ: Nasdaq 100 ETF
+  MSTR: MicroStrategy
+  COIN: Coinbase
+  MARA: MARA

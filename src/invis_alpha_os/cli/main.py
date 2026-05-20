@@ -81,6 +81,17 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
+from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
+from invis_alpha_os.reports.gmail_delivery import (
+    GmailSendBlockedError,
+    build_mime_message,
+    credentials_configured,
+    encode_message_raw,
+    send_gmail_message,
+    validate_gmail_send_gates,
+    write_email_previews,
+)
+from invis_alpha_os.reports.symbol_display_names import display_symbol
 from invis_alpha_os.reports.us_cache_preview_opt_in import (
     append_us_cache_preview_section,
     build_us_cache_opt_in_preview,
@@ -424,6 +435,90 @@ def signals_command(
         typer.echo(json.dumps(out, ensure_ascii=False, indent=2))
 
 
+@app.command("daily-email")
+def daily_email(
+    bundle_dir: str = typer.Option(
+        ...,
+        "--bundle-dir",
+        help="Operator bundle directory (e.g. outputs/operator/daily_usage/YYYY-MM-DD).",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--send",
+        help="Dry-run writes local previews only; --send requires CONFIRM_GMAIL_SEND=YES and GMAIL_REPORT_TO.",
+    ),
+    main_commit: Optional[str] = typer.Option(
+        None,
+        "--main-commit",
+        help="Optional main SHA for email meta (not read from git automatically).",
+    ),
+) -> None:
+    """Build daily observation email from operator bundle; Gmail send is gated."""
+
+    bundle = Path(bundle_dir)
+    if not bundle.is_dir():
+        typer.echo(f"daily-email: bundle directory not found: {bundle}", err=True)
+        raise typer.Exit(2)
+
+    draft = build_daily_email_from_bundle(bundle, main_commit=main_commit)
+    sender = os.environ.get("GMAIL_REPORT_FROM", "me").strip() or "me"
+    recipient = os.environ.get("GMAIL_REPORT_TO", "").strip()
+    email_out = bundle / "email"
+    attachments: list[tuple[str, bytes, str]] = []
+    for name in (
+        "operator_summary.md",
+        "daily_us_cache_preview.md",
+        "signals_us_cache_preview.md",
+    ):
+        p = bundle / name
+        if p.is_file():
+            attachments.append((name, p.read_bytes(), "text/markdown"))
+
+    to_list = [recipient] if recipient else ["recipient@example.com"]
+    if dry_run:
+        to_list = [recipient or "dry-run@local"]
+
+    message = build_mime_message(
+        sender=sender,
+        to=to_list,
+        subject=draft.subject,
+        text_body=draft.text_body,
+        html_body=draft.html_body,
+        attachments=attachments if dry_run or recipient else attachments,
+    )
+    preview_paths = write_email_previews(email_out, message=message)
+    raw = encode_message_raw(message)
+    (email_out / "email_raw.b64url.txt").write_text(raw, encoding="utf-8")
+
+    typer.echo(f"daily-email: subject={draft.subject!r}")
+    for key, path in preview_paths.items():
+        typer.echo(f"daily-email: {key}={path}")
+
+    if dry_run:
+        typer.echo("daily-email: dry-run only (no Gmail API call)")
+        raise typer.Exit(0)
+
+    if not recipient:
+        typer.echo("daily-email: GMAIL_REPORT_TO is required for --send", err=True)
+        raise typer.Exit(2)
+    try:
+        validate_gmail_send_gates(recipient=recipient)
+    except GmailSendBlockedError as e:
+        typer.echo(f"daily-email: {e}", err=True)
+        raise typer.Exit(2) from e
+    if not credentials_configured():
+        typer.echo("daily-email: Gmail credentials/token files not configured", err=True)
+        raise typer.Exit(2)
+    try:
+        result = send_gmail_message(raw)
+    except GmailSendBlockedError as e:
+        typer.echo(f"daily-email: {e}", err=True)
+        raise typer.Exit(2) from e
+    msg_id = result.get("id", "") if isinstance(result, dict) else ""
+    typer.echo(f"daily-email: sent message id={msg_id!r}")
+    raise typer.Exit(0)
+
+
 @app.command("pack")
 def pack(ticker: str = typer.Option(..., "--ticker")) -> None:
     today = today_jst_iso()
@@ -536,13 +631,14 @@ def _signals_markdown(out: dict[str, Any]) -> str:
         lines.append("*(候補なし)*")
         return "\n".join(lines)
 
-    lines.append("| # | Code | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto |")
+    lines.append("| # | Code / Name | Sv2 | Labels | r5 | r20 | r60 | HiDist | VolR | Veto |")
     lines.append("|---|---|---|---|---|---|---|---|---|---|")
     for i, row in enumerate(rows, 1):
         labels = ", ".join(row.get("labels", [])) or "—"
         veto_cell = format_veto_table_cell(row.get("veto_result", {}))
+        code_cell = display_symbol(str(row.get("code", "")), market="jp")
         lines.append(
-            f"| {i} | {row['code']} | {row.get('score_v2', '—')} | {labels} "
+            f"| {i} | {code_cell} | {row.get('score_v2', '—')} | {labels} "
             f"| {_fmt_pct_md(row.get('r5'))} | {_fmt_pct_md(row.get('r20'))} "
             f"| {_fmt_pct_md(row.get('r60'))} | {_fmt_pct_md(row.get('high_52w_distance_pct'))} "
             f"| {_fmt_ratio_md(row.get('volume_ratio_25d'))} | {veto_cell} |"

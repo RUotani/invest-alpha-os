@@ -983,13 +983,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.18-H — Default-readiness review package（進行中 · docs-only）
+## R6.19-A — Gmail delivery and display names（進行中 · product）
 
-**ブランチ**: `work/r6-18-h-default-readiness-review-package` · **main 起点** `318a7d9`。
-**内容**: default-readiness レビュー · 同一暦日 caveat · **default ブロック継続** · **R6.18-I**（後日 #3 smoke）推奨。詳細 **[docs/79](./79_r6_18_h_default_readiness_review_package.md)**。
-**決定**: default enablement **実装しない** · calendar-day gate は **#3 まで未充足**（推奨）。
+**ブランチ**: `work/r6-19-a-gmail-delivery-display-names`。
+**内容**: 表示名レジストリ · `daily-email` dry-run/ gated Gmail · 詳細 **[docs/80](./80_r6_19_a_gmail_delivery_and_display_names.md)**。
+**境界**: **default 変更なし** · **市場 live HTTP/cache write なし** · 資格情報未コミット。
 
-**次候補**: **R6.18-I** 後日暦日 smoke · その後 **R6.18-J** 再レビュー（別承認）。
+---
+
+## R6.18-H — Default-readiness review package（完了 · `main` 反映済み · docs-only）
+
+**コミット（`main` 取り込み）**: **`07c1235`** · PR **#27** squash merge。
+**内容**: default-readiness レビュー · 同一暦日 caveat · **default ブロック継続** · **R6.18-I** 推奨。詳細 **[docs/79](./79_r6_18_h_default_readiness_review_package.md)**。
+
+**次候補**: **R6.18-I** 後日暦日 smoke · **R6.19-A** Gmail/表示名。
 
 ---
 

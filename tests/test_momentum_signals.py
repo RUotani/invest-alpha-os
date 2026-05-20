@@ -705,7 +705,7 @@ def test_signals_format_markdown_outputs_table(monkeypatch) -> None:
     assert r.exit_code == 0, r.output
     out = r.stdout
     assert "## Momentum Signals" in out
-    assert "| # | Code | Sv2 |" in out
+    assert "| # | Code / Name | Sv2 |" in out
     assert "7011" in out
     assert "7203" in out
     assert "{" not in out, "JSON混入が検出された（markdownモードなのにJSONが出力されている）"

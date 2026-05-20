@@ -10,6 +10,7 @@ from invis_alpha_os.config.paths import OUTPUTS_DIR
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
 from invis_alpha_os.data.us_daily_bars_cache_inventory import build_us_daily_bars_cache_inventory
 from invis_alpha_os.data.us_daily_bars_metrics import compute_us_daily_bars_basic_metrics
+from invis_alpha_os.reports.symbol_display_names import format_us_preview_symbol_cell
 
 _OPT_IN_HEADER: Final[str] = "### US Cache Preview (opt-in)"
 _BENCHMARK_SYMBOLS: Final[frozenset[str]] = frozenset({"SPY", "QQQ", "TLT", "GLDM"})
@@ -150,12 +151,19 @@ def render_us_cache_opt_in_preview_markdown(preview: dict[str, Any]) -> str:
     if preview.get("benchmark_warnings"):
         bw = ", ".join(preview["benchmark_warnings"])
         lines.append(f"- **benchmark warning**: {bw} (stale or unknown freshness; preview does not stop)")
-    lines.extend(["", "| symbol | latest_date | freshness_status | close | return_1d | return_5d | return_20d | volume_status | note |", "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"])
+    lines.extend(
+        [
+            "",
+            "| symbol / name | latest_date | freshness_status | close | return_1d | return_5d | return_20d | volume_status | note |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        ]
+    )
 
     for row in preview.get("rows") or []:
+        sym = str(row.get("symbol", ""))
         lines.append(
             "| {symbol} | {latest_date} | {freshness_status} | {close} | {return_1d} | {return_5d} | {return_20d} | {volume_status} | {note} |".format(
-                symbol=row.get("symbol", ""),
+                symbol=format_us_preview_symbol_cell(sym),
                 latest_date=row.get("latest_date") or "",
                 freshness_status=row.get("freshness_status", ""),
                 close=_fmt_num(row.get("close")),

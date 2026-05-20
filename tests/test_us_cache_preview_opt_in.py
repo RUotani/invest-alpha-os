@@ -121,7 +121,7 @@ def test_render_includes_allowed_columns_only() -> None:
         "missing_symbols": [],
     }
     md = render_us_cache_opt_in_preview_markdown(preview)
-    assert "| symbol | latest_date | freshness_status | close | return_1d |" in md
+    assert "| symbol / name | latest_date | freshness_status | close | return_1d |" in md
     assert "SPY" in md
     _assert_preview_forbidden_terms(md)
 
