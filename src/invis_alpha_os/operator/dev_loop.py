@@ -33,6 +33,7 @@ DEFAULT_FORBIDDEN_COMMAND_PATTERNS: tuple[str, ...] = (
     r"\bgit\s+worktree\s+remove\b",
 )
 BRANCH_RUN_ID_PLACEHOLDER = "{run_id}"
+BRANCH_TASK_ID_PLACEHOLDER = "{task_id}"
 
 DEFAULT_FORBIDDEN_TEXT_PATTERNS: tuple[str, ...] = (
     r"\bbuy\b",
@@ -209,23 +210,25 @@ def _task_change_file(task: DevLoopTask) -> str:
     return (task.change_file or task.smoke_file).strip()
 
 
-def _sanitize_run_id_for_branch(run_id: str) -> str:
-    token = run_id.strip().lower()
+def _sanitize_branch_token(value: str) -> str:
+    token = value.strip().lower()
     token = re.sub(r"[^a-z0-9]+", "-", token).strip("-")
     return token or "run"
 
 
-def resolve_branch_name(template: str, run_id: str) -> str:
-    """Expand ``{run_id}`` in a branch template to a git-safe unique token."""
+def resolve_branch_name(template: str, run_id: str, *, task_id: str = "") -> str:
+    """Expand ``{task_id}`` / ``{run_id}`` branch template placeholders to git-safe tokens."""
     text = template.strip()
-    if BRANCH_RUN_ID_PLACEHOLDER not in text:
-        return text
-    return text.replace(BRANCH_RUN_ID_PLACEHOLDER, _sanitize_run_id_for_branch(run_id))
+    if task_id and BRANCH_TASK_ID_PLACEHOLDER in text:
+        text = text.replace(BRANCH_TASK_ID_PLACEHOLDER, _sanitize_branch_token(task_id))
+    if BRANCH_RUN_ID_PLACEHOLDER in text:
+        text = text.replace(BRANCH_RUN_ID_PLACEHOLDER, _sanitize_branch_token(run_id))
+    return text
 
 
 def _resolve_task_branch(task: DevLoopTask, run_id: str) -> tuple[DevLoopTask, str]:
     template = task.branch.strip()
-    resolved = resolve_branch_name(template, run_id)
+    resolved = resolve_branch_name(template, run_id, task_id=task.task_id)
     if resolved == template:
         return task, template
     return replace(task, branch=resolved), template
@@ -280,14 +283,19 @@ def _build_prepare_preflight(
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
     base_branch: str = "main",
+    changed_files: list[str] | None = None,
 ) -> dict[str, Any]:
     branch = task.branch.strip()
-    return {
+    change_file = _task_change_file(task)
+    payload: dict[str, Any] = {
         "run_id": run_id,
+        "task_id": task.task_id,
         "branch_template": branch_template,
         "intended_branch": branch,
         "current_branch": _current_git_branch(repo_root=repo_root, subprocess_run=subprocess_run),
         "base_branch": base_branch,
+        "prepare_for_pr": task.prepare_for_pr,
+        "change_file": change_file,
         "remote_branch_exists": _remote_branch_exists_lsremote(
             branch, repo_root=repo_root, subprocess_run=subprocess_run
         ),
@@ -295,6 +303,11 @@ def _build_prepare_preflight(
             branch, repo_root=repo_root, subprocess_run=subprocess_run, base=base_branch
         ),
     }
+    if changed_files is not None:
+        payload["changed_files"] = changed_files
+    elif change_file:
+        payload["changed_files"] = [change_file]
+    return payload
 
 
 def _format_preparation_detail(preflight: dict[str, Any], extra: str = "") -> str:
@@ -400,7 +413,10 @@ def _prepare_smoke_task(
     if not change_file:
         return False, "preflight: prepare_for_pr requires smoke_file", "", preflight
     branch = task.branch.strip()
-    commit_msg = task.commit_message.strip() or f"R7.0-Ops-E4 smoke update ({run_id})"
+    commit_msg = (
+        task.commit_message.strip()
+        or f"R7.0-Ops-E6 autonomous prep ({task.task_id}, {run_id})"
+    )
     plan = _format_preparation_detail(
         preflight,
         extra=f"prepare branch={branch} file={change_file} commit={commit_msg}",

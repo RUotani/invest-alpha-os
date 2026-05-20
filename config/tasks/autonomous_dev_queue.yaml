@@ -2,12 +2,15 @@ version: ops_dev_queue.v1
 description: Low-risk overnight autonomous development queue (dry-run default).
 tasks:
   - task_id: docs_status_microfix
-    pr_title: "R7.0-Ops-E: docs/status microfix"
-    branch: "work/r7-0-ops-e-docs-status-microfix"
+    pr_title: "R7.0-Ops-E6: docs/status microfix"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
     scope: "docs/01 development status updates only"
     risk: "low"
     risk_level: "low"
     pytest_cmd: "git diff --check"
+    change_file: "docs/01_development_status.md"
+    commit_message: "R7.0-Ops-E6: autonomous docs/status microfix marker"
+    prepare_for_pr: true
     allowed_commands:
       - "git diff --check"
     allowed_paths:
@@ -24,7 +27,7 @@ tasks:
       - "forbidden path touched"
   - task_id: runner_evidence_format_polish
     pr_title: "R7.0-Ops-E: runner evidence format polish"
-    branch: "work/r7-0-ops-e-runner-evidence-polish"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
     scope: "operator runner evidence key naming polish"
     risk: "low"
     risk_level: "low"
@@ -40,7 +43,7 @@ tasks:
     pytest_cmd: "pytest -q tests/test_operator_runner.py tests/test_operator_runner_gated.py tests/test_operator_runner_jquants_wiring.py"
   - task_id: pr_loop_template_polish
     pr_title: "R7.0-Ops-E: PR loop report template polish"
-    branch: "work/r7-0-ops-e-pr-loop-template-polish"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
     scope: "pr loop draft/report template text polish"
     risk: "low"
     risk_level: "low"
@@ -56,7 +59,7 @@ tasks:
     pytest_cmd: "pytest -q tests/test_operator_pr_loop.py"
   - task_id: task_queue_smoke
     pr_title: "R7.0-Ops-E: task queue smoke"
-    branch: "work/r7-0-ops-e-task-queue-smoke"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
     scope: "dev-loop queue smoke only"
     risk: "low"
     risk_level: "low"

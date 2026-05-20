@@ -66,3 +66,10 @@
 - 自動 merge 禁止を維持
 - live/cache/send/default/trading の禁止方針を維持
 - profile で無制限実行は許可しない
+
+---
+
+## 7. Follow-up (Ops-E6)
+
+- `overnight_safe_3h` trial が `branch not pushed` で停止したため、通常 `autonomous_dev_queue.yaml` に `prepare_for_pr` と一意 branch template を追加
+- 詳細 **[docs/111](./111_r7_0_ops_e6_autonomous_queue_branch_prep.md)**

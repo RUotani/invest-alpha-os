@@ -1079,9 +1079,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-E5 — unique smoke branch（進行中 · `{run_id}` template）
+## R7.0-Ops-E5 — unique smoke branch（完了 · `main` 反映済 `c78f8ca`）
 
 **内容**: smoke queue の branch を `work/dev-loop-smoke/{run_id}` に変更。push 前 `ls-remote`、non-fast-forward は controlled stop、`preparation_preflight` を evidence に記録。詳細 **[docs/110](./110_r7_0_ops_e5_unique_smoke_branch.md)**。
+
+---
+
+## R7.0-Ops-E6 — autonomous queue branch prep（進行中 · prepare + `{task_id}/{run_id}`）
+
+**内容**: `autonomous_dev_queue.yaml` の docs microfix に `prepare_for_pr` と一意 branch template を追加。`{task_id}` / `{run_id}` 展開、未 prepare task は branch 未 push で controlled stop。詳細 **[docs/111](./111_r7_0_ops_e6_autonomous_queue_branch_prep.md)**。
 
 ---
 

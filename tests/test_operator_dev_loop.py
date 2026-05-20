@@ -9,6 +9,7 @@ import pytest
 
 from invis_alpha_os.operator.dev_loop import (
     default_pr_create_smoke_queue_path,
+    default_task_queue_path,
     resolve_branch_name,
     run_dev_loop,
 )
@@ -893,6 +894,11 @@ def test_resolve_branch_name_template() -> None:
         "work/dev-loop-smoke/20260520t101501z"
     )
     assert resolve_branch_name("work/fixed", "20260520T101501Z") == "work/fixed"
+    assert resolve_branch_name(
+        "work/dev-loop/autonomous/{task_id}/{run_id}",
+        "20260520T102654Z",
+        task_id="docs_status_microfix",
+    ) == "work/dev-loop/autonomous/docs-status-microfix/20260520t102654z"
 
 
 def test_smoke_queue_uses_branch_template(tmp_path: Path) -> None:
@@ -1015,3 +1021,152 @@ tasks:
     payload = Path(result.evidence_path).read_text(encoding="utf-8")
     assert "push_rejected_non_ff" in payload
     assert "non-fast-forward" not in payload or "[rejected]" in payload
+
+
+def test_autonomous_queue_has_branch_templates() -> None:
+    text = default_task_queue_path().read_text(encoding="utf-8")
+    assert "{task_id}" in text
+    assert "{run_id}" in text
+    assert "prepare_for_pr: true" in text
+    assert "docs/01_development_status.md" in text
+
+
+def test_autonomous_docs_microfix_prepare_and_pr_mock(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "docs").mkdir()
+    (repo / "docs/01_development_status.md").write_text("# Status\n", encoding="utf-8")
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "ls-remote", "--heads"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
+        if cmd[:3] == ["git", "rev-list", "--count"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
+        if cmd[:3] == ["git", "checkout", "-B"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "add"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "commit"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "push"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "diff", "--check"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/01_development_status.md", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        execute_dev_loop=True,
+        create_pr=True,
+        repo_root=repo,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        pr_loop_runner=lambda **kwargs: PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="create",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            pr_url="https://example/pull/42",
+        ),
+        max_tasks=1,
+        max_prs=1,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert "max_tasks reached" in result.stop_reason
+    assert result.prs_created == 1
+    preflight = result.task_results[0].preparation_preflight
+    assert preflight.get("task_id") == "docs_status_microfix"
+    assert "docs-status-microfix" in preflight.get("intended_branch", "")
+    assert result.task_results[0].preparation_status == "prepared"
+    body = (repo / "docs/01_development_status.md").read_text(encoding="utf-8")
+    assert "dev-loop smoke marker" in body
+
+
+def test_branch_not_pushed_without_prepare_stops(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: no_prep
+    pr_title: "No prep"
+    branch: "work/fixed-branch"
+    pytest_cmd: "git diff --check"
+    allowed_paths:
+      - "docs/"
+""",
+    )
+    called = {"n": 0}
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        called["n"] += 1
+        return PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="create",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            pr_url="https://example/pull/1",
+        )
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "rev-parse", "--verify"] and "refs/remotes/origin/" in " ".join(cmd):
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="")
+        return _git_clean(cmd, **kwargs)
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        pr_loop_runner=pr_runner,
+        max_tasks=1,
+    )
+    assert result.status == "stopped"
+    assert "branch not pushed" in result.stop_reason
+    assert called["n"] == 0
+    assert Path(result.evidence_path).is_file()
+
+
+def test_overnight_profile_autonomous_first_task_dry_run(tmp_path: Path) -> None:
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        profile_name="overnight_safe_3h",
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        max_prs=1,
+    )
+    assert result.status == "stopped"
+    assert "max_tasks reached" in result.stop_reason
+    assert result.profile_name == "overnight_safe_3h"
+    assert result.task_results[0].task_id == "docs_status_microfix"
+    assert result.task_results[0].preparation_status == "planned"
+    preflight = result.task_results[0].preparation_preflight
+    assert preflight.get("prepare_for_pr") is True
+    assert "docs-status-microfix" in preflight.get("intended_branch", "")
