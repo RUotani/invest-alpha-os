@@ -1021,7 +1021,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.19-D — Gmail OAuth token bootstrap（進行中）
+## R6.19-F — Daily Gmail 07:00 launchd setup（完了 · ローカル LaunchAgent · docs-only）
+
+**結果**: `com.invest-alpha-os.daily-gmail-report` を **07:00 ローカル**で bootstrap · dry-run OK · 本日 `email_sent.json` なしのため追加送信は未実施。詳細 **[docs/90](./90_r6_19_f_launchd_0700_gmail_setup.md)**。**R6.19-E** マージ後に日本語 07:00 送信が恒久化。
+
+---
+
+## R6.19-D — Gmail OAuth token bootstrap（完了 · ローカル token 確認済み）
 
 **内容**: 初回 `daily-email --send` で OAuth token 作成/refresh · [docs/89](./89_r6_19_d_gmail_oauth_token_bootstrap.md)。
 
