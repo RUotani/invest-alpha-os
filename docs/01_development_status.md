@@ -983,11 +983,18 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.19-A — Gmail delivery and display names（進行中 · product）
+## R6.19-B / R7.0-A — Daily 07:00 Gmail schedule + discovery planning（進行中 · ops/docs）
 
-**ブランチ**: `work/r6-19-a-gmail-delivery-display-names`。
-**内容**: 表示名レジストリ · `daily-email` dry-run/ gated Gmail · 詳細 **[docs/80](./80_r6_19_a_gmail_delivery_and_display_names.md)**。
-**境界**: **default 変更なし** · **市場 live HTTP/cache write なし** · 資格情報未コミット。
+**ブランチ**: `work/r6-19-b-r7-0-a-daily-gmail-schedule`。
+**内容**: `scripts/run_daily_gmail_report.sh` · launchd 07:00 template · [docs/81](./81_r6_19_b_daily_0700_gmail_delivery_runbook.md) · [docs/82](./82_r7_0_a_discovery_engine_planning.md)。
+**境界**: Gmail **gated** · default 変更なし · discovery は planning のみ。
+
+---
+
+## R6.19-A — Gmail delivery and display names（完了 · `main` 反映済み）
+
+**コミット（`main` 取り込み）**: **`aa8c966`** · PR **#28** squash merge。
+**内容**: 表示名 · `daily-email` · 詳細 **[docs/80](./80_r6_19_a_gmail_delivery_and_display_names.md)**。
 
 ---
 
