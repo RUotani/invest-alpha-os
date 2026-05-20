@@ -86,3 +86,4 @@ cap 到達後も `min_runtime` まで heartbeat: **[docs/113](./113_r7_0_ops_f_n
 
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
+- dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)
