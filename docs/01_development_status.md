@@ -903,7 +903,22 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 **内容**: **最小人間貼り付け・最大自走**を標準化（**`.agent/*`** · **`CLAUDE.md`** on **`main`**）。Cursor / Codex / Claude 役割分担 · リスク別手順 · **単一 Markdown 最終報告圧縮** · **sound / notification policy**（`.agent/standard_clauses.md`）。詳細 **[docs/64_r6_16_f_agent_workflow_standardization.md](./64_r6_16_f_agent_workflow_standardization.md)**。
 **境界**: **product code / workflow / Makefile / pyproject 変更なし** · **live HTTP / cache write / daily·signals default 変更なし** · **R6.17 前の運用基盤**。
 
-**次候補**: **R6.17** opt-in cache-only preview（**別承認** · planning / 実装は別 PR）。
+**次候補**: **R6.17** opt-in cache-only preview（**別承認** · 下記 planning PR）。
+
+---
+
+## R6.16-G — Docs status microfix（完了・`main` 反映済み · docs-only）
+
+**コミット（`main` 取り込み）**: **`a625094`** · PR **#13** squash merge。
+**内容**: `docs/01` の R6.16-F **main 反映済み**表記 · `docs/62` 先頭の branch-only 表記修正。
+
+---
+
+## R6.17 — Opt-in US cache-only preview（planning のみ · 未実装）
+
+**ブランチ**: **`work/r6-17-opt-in-cache-preview-plan`**（planning PR · **merge 前**）
+**内容**: cache-only データの **opt-in** プレビュー設計 · Longpack 下書き。詳細 **[docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)** · **`.agent/r6_17_cursor_longpack_draft.md`**（**実行しない**）。
+**境界**: **default 変更なし** · **live HTTP / cache write なし** · **production decision 未使用** · **freshness gate 前提** · **実装・merge は別承認**。
 
 ---
 
