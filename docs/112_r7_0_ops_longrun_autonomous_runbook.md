@@ -74,4 +74,10 @@ runner は次のいずれかまで進む（早停のみ）:
 - force push / branch 削除禁止
 - merge は人間判断
 
+---
+
+## 7. Ops-F native mode
+
+cap 到達後も `min_runtime` まで heartbeat するには **[docs/113](./113_r7_0_ops_f_native_true_longrun_mode.md)** の `--min-runtime-minutes` + `--no-early-success-exit` を付与。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)

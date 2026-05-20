@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from invis_alpha_os.operator.dev_loop import (
     default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
     default_task_queue_path,
+    dev_loop_should_exit_nonzero,
     resolve_branch_name,
     run_dev_loop,
 )
@@ -1205,3 +1207,127 @@ def test_longrun_dry_run_plans_multiple_tasks(tmp_path: Path) -> None:
     assert "max_tasks reached: 3" in result.stop_reason
     assert len(result.task_results) == 3
     assert result.task_results[0].task_id == "longrun_runbook_anchor"
+
+
+class _AdvancingClock:
+    def __init__(self) -> None:
+        self.t = 0.0
+
+    def monotonic(self) -> float:
+        return self.t
+
+    def sleep(self, seconds: float) -> None:
+        self.t += float(seconds)
+
+
+def test_smoke_max_tasks_exits_nonzero_without_longrun(tmp_path: Path) -> None:
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+    )
+    assert "max_tasks reached: 1" in result.stop_reason
+    assert dev_loop_should_exit_nonzero(result)
+
+
+def test_longrun_task_cap_heartbeats_until_min_runtime(tmp_path: Path) -> None:
+    clock = _AdvancingClock()
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        min_runtime_minutes=2,
+        no_early_success_exit=True,
+        continue_after_task_limit="heartbeat",
+        heartbeat_interval_minutes=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.longrun_exit_success
+    assert result.stop_reason == "min_runtime reached: 2"
+    assert not dev_loop_should_exit_nonzero(result)
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"]["cap_reached"]["tasks"] is True
+    assert payload["longrun"]["longrun_state"] == "min_runtime_reached"
+
+
+def test_longrun_pr_cap_heartbeats_until_min_runtime(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+    clock = _AdvancingClock()
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "T1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "T2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+        ],
+    )
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        return PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="create",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            pr_url="https://example/pull/1",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        max_prs=1,
+        min_runtime_minutes=2,
+        no_early_success_exit=True,
+        continue_after_pr_limit="heartbeat",
+        heartbeat_interval_minutes=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.longrun_exit_success
+    assert result.stop_reason == "min_runtime reached: 2"
+    assert result.prs_created == 1
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"]["cap_reached"]["prs"] is True
+
+
+def test_longrun_real_failure_still_nonzero(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    clock = _AdvancingClock()
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "T", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+
+    def dirty_status(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M outputs/x.txt", stderr="")
+        return _git_clean(cmd, **kwargs)
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_status,
+        min_runtime_minutes=10,
+        no_early_success_exit=True,
+        continue_after_task_limit="heartbeat",
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.safety_validator_status == "failed"
+    assert dev_loop_should_exit_nonzero(result)
+    assert not result.longrun_exit_success
