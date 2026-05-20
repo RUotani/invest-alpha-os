@@ -929,13 +929,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.17-C — Operational readiness package（ブランチのみ · docs/templates）
+## R6.17-C — Operational readiness package（完了 · `main` 反映済み · docs/templates）
 
-**ブランチ**: **`work/r6-17-c-operational-readiness-package`**
-**内容**: post-merge **operational readiness** · **stale refresh approval package** · **default enablement checklist** · `.agent/r6_17_stale_refresh_longpack_draft.md`（**実行しない**）· `.agent/r6_17_post_merge_codex_review_prompt.md`。詳細 **[docs/70](./70_r6_17_c_operational_readiness.md)** · **[docs/71](./71_r6_17_c_stale_refresh_approval_package.md)** · **[docs/72](./72_r6_17_c_default_enablement_checklist.md)**。
-**境界**: **docs/templates only** · **product code / default 変更なし** · **live HTTP / cache write / stale refresh 実行なし**。
+**コミット（`main` 取り込み）**: **`ee8dda6`** · PR **#19** squash merge。
+**内容**: operational readiness · stale refresh approval · default enablement checklist · agent prompts。詳細 **[docs/70](./70_r6_17_c_operational_readiness.md)** · **[docs/71](./71_r6_17_c_stale_refresh_approval_package.md)** · **[docs/72](./72_r6_17_c_default_enablement_checklist.md)**。
+**Codex post-merge**: `APPROVED_WITH_MINOR_NOTES`（docs 表記のみ · blocker なし）。
 
-**次判断**: stale refresh 実行 vs stale warnings 維持。
+---
+
+## R6.17-D — Stale refresh MSFT/GOOGL/GLDM（完了 · operator · cache local only）
+
+**実施**: 2026-05-20 · **main 起点** `ee8dda6` · 詳細 **[docs/73_r6_17_d_stale_refresh_status.md](./73_r6_17_d_stale_refresh_status.md)**。
+**結果**: fresh_enough **13→16** · stale **3→0** · gated live HTTP + cache write（**3 symbols のみ**）。
+**境界**: **default 変更なし** · **cache JSON 未コミット** · **default enablement は別承認**。
 
 ---
 

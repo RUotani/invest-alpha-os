@@ -1,6 +1,6 @@
 # R6.17-C — Operational readiness（opt-in US cache preview）
 
-**ステータス**: **ブランチ作業のみ**（**`main` 未反映**）。ブランチ: **`work/r6-17-c-operational-readiness-package`**。
+**ステータス**: **完了 · `main` 反映済み**（PR **#19** · `ee8dda6`）。stale refresh 実施は **[docs/73](./73_r6_17_d_stale_refresh_status.md)**（R6.17-D · operator · cache local only）。
 
 ---
 
@@ -39,7 +39,7 @@
 | stale | 3 |
 | freshness_unknown | 0 |
 
-**stale symbols**: **MSFT** · **GOOGL** · **GLDM** — **default enable 検討の現ブロッカー**（方針未承認なら warnings 維持）
+**stale symbols（2026-05-20 refresh 前）**: MSFT · GOOGL · GLDM — **R6.17-D 後は stale 0**（[docs/73](./73_r6_17_d_stale_refresh_status.md)）
 
 ---
 
