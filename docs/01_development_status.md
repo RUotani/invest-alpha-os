@@ -1085,9 +1085,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-E6 — autonomous queue branch prep（進行中 · prepare + `{task_id}/{run_id}`）
+## R7.0-Ops-E6 — autonomous queue branch prep（完了 · `main` 反映済）
 
-**内容**: `autonomous_dev_queue.yaml` の docs microfix に `prepare_for_pr` と一意 branch template を追加。`{task_id}` / `{run_id}` 展開、未 prepare task は branch 未 push で controlled stop。詳細 **[docs/111](./111_r7_0_ops_e6_autonomous_queue_branch_prep.md)**。
+**内容**: `autonomous_dev_queue.yaml` の docs microfix に `prepare_for_pr` と一意 branch template を追加。詳細 **[docs/111](./111_r7_0_ops_e6_autonomous_queue_branch_prep.md)**。
+
+---
+
+## R7.0-Ops Long-Run Repair — queue + runbook（進行中）
+
+**内容**: `autonomous_dev_queue_longrun.yaml`（6 prepare tasks）と `docs/112` runbook。`--max-tasks 1 --max-prs 1` は smoke のみと明記。本番 long-run は `--max-tasks 6 --max-prs 3`。詳細 **[docs/112](./112_r7_0_ops_longrun_autonomous_runbook.md)**。
 
 ---
 
