@@ -43,6 +43,8 @@ class PrLoopResult:
     runner_run_dir: str | None
     pr_body_draft_path: str
     evidence_path: str
+    ci_status: str | None = None
+    ci_detail: str = ""
     pr_url: str | None = None
     stop_reason: str = ""
 
@@ -189,6 +191,82 @@ def _run_gh_pr_create(
     return url
 
 
+def _extract_pr_number_from_url(url: str) -> int | None:
+    m = re.search(r"/pull/(\d+)", url)
+    if m is None:
+        return None
+    return int(m.group(1))
+
+
+def _normalize_ci_status_token(token: str) -> str:
+    t = token.strip().lower()
+    if t in {"pass", "success"}:
+        return "success"
+    if t in {"pending", "in_progress", "queued", "waiting"}:
+        return "pending"
+    if t in {"fail", "failure", "error", "timed_out"}:
+        return "failing"
+    if t in {"cancel", "cancelled", "canceled"}:
+        return "cancelled"
+    return "unknown"
+
+
+def _rollup_ci_status(statuses: list[str]) -> str:
+    if not statuses:
+        return "unknown"
+    if any(s == "failing" for s in statuses):
+        return "failing"
+    if any(s == "pending" for s in statuses):
+        return "pending"
+    if any(s == "cancelled" for s in statuses):
+        return "cancelled"
+    if all(s == "success" for s in statuses):
+        return "success"
+    return "unknown"
+
+
+def _run_gh_pr_checks(
+    *,
+    pr_number: int,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> tuple[str, str]:
+    argv = ["gh", "pr", "checks", str(pr_number)]
+    assert_gh_command_allowed(argv)
+    runner = subprocess_run or subprocess.run
+    proc = runner(
+        argv,
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    lines = [ln for ln in (proc.stdout or "").splitlines() if ln.strip()]
+    statuses: list[str] = []
+    known_tokens = {
+        "pass",
+        "success",
+        "pending",
+        "in_progress",
+        "queued",
+        "waiting",
+        "fail",
+        "failure",
+        "error",
+        "timed_out",
+        "cancel",
+        "cancelled",
+        "canceled",
+    }
+    for ln in lines:
+        tokens = [t.strip().lower() for t in ln.split()]
+        hit = next((t for t in tokens if t in known_tokens), tokens[0] if tokens else "unknown")
+        statuses.append(_normalize_ci_status_token(hit))
+    if proc.returncode != 0 and not statuses:
+        return "unknown", "gh pr checks failed"
+    return _rollup_ci_status(statuses), "\n".join(lines[:8])
+
+
 def run_pr_loop(
     *,
     branch: str,
@@ -198,6 +276,8 @@ def run_pr_loop(
     pytest_cmd: str = "pytest -q tests/test_operator_runner.py tests/test_operator_runner_gated.py tests/test_operator_runner_jquants_wiring.py",
     execute_checks: bool = False,
     create_pr: bool = False,
+    check_ci: bool = False,
+    pr_number: int | None = None,
     repo_root: Path | None = None,
     outputs_root: Path | None = None,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
@@ -276,6 +356,8 @@ def run_pr_loop(
     body_path.write_text(body, encoding="utf-8")
 
     pr_url: str | None = None
+    ci_status: str | None = None
+    ci_detail = ""
     status = "completed"
     stop_reason = ""
     if create_pr and gate.ok and execute_checks:
@@ -290,6 +372,25 @@ def run_pr_loop(
         status = "blocked"
         stop_reason = f"missing gate {GITHUB_PR_CREATE_ENV}=YES"
 
+    if check_ci:
+        check_target = pr_number
+        if check_target is None and pr_url is not None:
+            check_target = _extract_pr_number_from_url(pr_url)
+        if check_target is None:
+            status = "blocked"
+            stop_reason = "check-ci requested but no PR number available"
+            ci_status = "unknown"
+            ci_detail = "provide --pr-number or create PR in this run"
+        else:
+            ci_status, ci_detail = _run_gh_pr_checks(
+                pr_number=check_target,
+                repo_root=root,
+                subprocess_run=subprocess_run,
+            )
+            if ci_status in {"pending", "failing", "cancelled", "unknown"}:
+                status = "stopped"
+                stop_reason = f"ci_status={ci_status}"
+
     result = PrLoopResult(
         run_id=run_id,
         status=status,
@@ -303,6 +404,8 @@ def run_pr_loop(
         runner_run_dir=str(runner_run_dir) if runner_run_dir else None,
         pr_body_draft_path=str(body_path),
         evidence_path=str(out_dir / "evidence_summary.json"),
+        ci_status=ci_status,
+        ci_detail=ci_detail,
         pr_url=pr_url,
         stop_reason=stop_reason,
     )
@@ -329,6 +432,8 @@ def _write_pr_loop_evidence(
         "gate_ok": gate.ok,
         "gate_missing": gate.missing,
         "pr_url": result.pr_url,
+        "ci_status": result.ci_status,
+        "ci_detail": result.ci_detail,
         "stop_reason": result.stop_reason,
         "forbidden_auto_merge": True,
     }
