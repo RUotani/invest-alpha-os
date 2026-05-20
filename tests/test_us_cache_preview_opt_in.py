@@ -52,7 +52,9 @@ def test_stale_inventory_row_gets_stale_note(tmp_path: Path) -> None:
     cache_dir = tmp_path / "us_daily_bars"
     cache_dir.mkdir(parents=True)
     shutil.copy(FIX_25, cache_dir / "msft.json")
-    preview = build_us_cache_opt_in_preview(cache_dir, reference_date=date(2099, 1, 1))
+    preview = build_us_cache_opt_in_preview(
+        cache_dir, reference_date=date(2099, 1, 1), symbols=["MSFT"]
+    )
     row = next(r for r in preview["rows"] if r["symbol"] == "MSFT")
     assert row["freshness_status"] == "stale"
     assert row["note"] == "stale — returns not used"

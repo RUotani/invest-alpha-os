@@ -97,11 +97,14 @@ def build_us_cache_opt_in_preview(
     cache_root: Path | None = None,
     *,
     reference_date: date | None = None,
+    symbols: list[str] | None = None,
 ) -> dict[str, Any]:
     """Build opt-in preview payload from cache inventory + metrics (read-only)."""
 
     root = (cache_root or (OUTPUTS_DIR / "market_data" / "us_daily_bars")).expanduser().resolve()
-    inventory = build_us_daily_bars_cache_inventory(root, reference_date=reference_date)
+    inventory = build_us_daily_bars_cache_inventory(
+        root, reference_date=reference_date, symbols=symbols
+    )
     preview_rows = [build_us_cache_opt_in_preview_row(r) for r in inventory.get("rows") or []]
 
     benchmark_warnings: list[str] = []
