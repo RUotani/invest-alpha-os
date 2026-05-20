@@ -1021,9 +1021,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.19-E — Japanese daily Gmail report（完了 · 日本語レンダリング · gated send 確認済み）
+
+**結果**: `daily_email.py` 日本語化 · dry-run / **13 tests** pass · gated `--send` pass · ユーザー目視で日本語受信確認。詳細 **[docs/91](./91_r6_19_e_japanese_gmail_report.md)**。credentials/token 未コミット · live HTTP なし。
+
+---
+
 ## R6.19-F — Daily Gmail 07:00 launchd setup（完了 · ローカル LaunchAgent · docs-only）
 
-**結果**: `com.invest-alpha-os.daily-gmail-report` を **07:00 ローカル**で bootstrap · dry-run OK · 本日 `email_sent.json` なしのため追加送信は未実施。詳細 **[docs/90](./90_r6_19_f_launchd_0700_gmail_setup.md)**。**R6.19-E** マージ後に日本語 07:00 送信が恒久化。
+**結果**: `com.invest-alpha-os.daily-gmail-report` を **07:00 ローカル**で bootstrap · dry-run OK · 本日 `email_sent.json` なしのため追加送信は未実施。詳細 **[docs/90](./90_r6_19_f_launchd_0700_gmail_setup.md)**。**R6.19-E** マージ後に 07:00 日本語送信が恒久化。
 
 ---
 
