@@ -922,11 +922,20 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.17-B — Opt-in US cache preview runbook（ブランチのみ · docs-only）
+## R6.17-B — Opt-in US cache preview runbook（完了 · `main` 反映済み · docs-only）
 
-**ブランチ**: **`work/r6-17-b-opt-in-preview-runbook`**
-**内容**: operator 向け **`daily --us-cache-preview`** 手順 · stale（MSFT/GOOGL/GLDM）扱い · **stale refresh 計画（未実行）** · default enable ポリシー。詳細 **[docs/69_r6_17_b_opt_in_us_cache_preview_runbook.md](./69_r6_17_b_opt_in_us_cache_preview_runbook.md)**。
-**境界**: **docs-only** · **product code / default 変更なし** · **live HTTP / cache write 実行なし** · stale refresh は **別承認 Longpack**。
+**コミット（`main` 取り込み）**: **`8a53013`** · PR **#18** squash merge。
+**内容**: operator 向け **`daily --us-cache-preview`** 手順 · stale（MSFT/GOOGL/GLDM）扱い · stale refresh 計画（未実行）。詳細 **[docs/69_r6_17_b_opt_in_us_cache_preview_runbook.md](./69_r6_17_b_opt_in_us_cache_preview_runbook.md)**。
+
+---
+
+## R6.17-C — Operational readiness package（ブランチのみ · docs/templates）
+
+**ブランチ**: **`work/r6-17-c-operational-readiness-package`**
+**内容**: post-merge **operational readiness** · **stale refresh approval package** · **default enablement checklist** · `.agent/r6_17_stale_refresh_longpack_draft.md`（**実行しない**）· `.agent/r6_17_post_merge_codex_review_prompt.md`。詳細 **[docs/70](./70_r6_17_c_operational_readiness.md)** · **[docs/71](./71_r6_17_c_stale_refresh_approval_package.md)** · **[docs/72](./72_r6_17_c_default_enablement_checklist.md)**。
+**境界**: **docs/templates only** · **product code / default 変更なし** · **live HTTP / cache write / stale refresh 実行なし**。
+
+**次判断**: stale refresh 実行 vs stale warnings 維持。
 
 ---
 

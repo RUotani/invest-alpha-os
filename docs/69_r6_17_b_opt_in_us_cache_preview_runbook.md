@@ -131,6 +131,9 @@ env -u JQUANTS_API_KEY -u JQUANTS_ENABLED -u JQUANTS_ALLOW_LIVE_HTTP -u JQUANTS_
 
 ## 8. 関連ドキュメント
 
+- [docs/70_r6_17_c_operational_readiness.md](./70_r6_17_c_operational_readiness.md)
+- [docs/71_r6_17_c_stale_refresh_approval_package.md](./71_r6_17_c_stale_refresh_approval_package.md)
+- [docs/72_r6_17_c_default_enablement_checklist.md](./72_r6_17_c_default_enablement_checklist.md)
 - [docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)
 - [docs/67_r6_17_opt_in_us_cache_preview_implementation.md](./67_r6_17_opt_in_us_cache_preview_implementation.md)
 - [docs/68_r6_17_a_opt_in_us_cache_preview_smoke.md](./68_r6_17_a_opt_in_us_cache_preview_smoke.md)
