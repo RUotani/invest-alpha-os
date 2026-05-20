@@ -1091,9 +1091,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops Long-Run Repair — queue + runbook（進行中）
+## R7.0-Ops Long-Run Repair — queue + runbook（完了 · `main` 反映済）
 
-**内容**: `autonomous_dev_queue_longrun.yaml`（6 prepare tasks）と `docs/112` runbook。`--max-tasks 1 --max-prs 1` は smoke のみと明記。本番 long-run は `--max-tasks 6 --max-prs 3`。詳細 **[docs/112](./112_r7_0_ops_longrun_autonomous_runbook.md)**。
+**内容**: `autonomous_dev_queue_longrun.yaml`（6 prepare tasks）と `docs/112` runbook。詳細 **[docs/112](./112_r7_0_ops_longrun_autonomous_runbook.md)**。
+
+---
+
+## R7.0-Ops-F — native true long-run mode（進行中）
+
+**内容**: `--min-runtime-minutes` + `--no-early-success-exit` + cap 後 heartbeat。詳細 **[docs/113](./113_r7_0_ops_f_native_true_longrun_mode.md)**。
 
 ---
 

@@ -10,7 +10,10 @@ import time
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Literal
+
+ContinueAfterLimit = Literal["wait", "heartbeat", "next-cycle", "stop"]
+CONTINUE_AFTER_LIMITS: frozenset[str] = frozenset({"wait", "heartbeat", "next-cycle", "stop"})
 
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
@@ -100,6 +103,8 @@ class DevLoopResult:
     forbidden_text_violations: list[str] = field(default_factory=list)
     checked_paths: list[str] = field(default_factory=list)
     task_results: list[DevLoopTaskResult] = field(default_factory=list)
+    longrun_state: str = ""
+    longrun_exit_success: bool = False
 
 
 @dataclass(frozen=True)
@@ -578,6 +583,122 @@ def _check_forbidden_commands(task: DevLoopTask) -> list[str]:
     return violations
 
 
+def _normalize_continue_after_limit(value: str | None, *, default: str = "stop") -> str:
+    token = (value or default).strip().lower()
+    if token not in CONTINUE_AFTER_LIMITS:
+        raise ValueError(f"continue-after limit must be one of {sorted(CONTINUE_AFTER_LIMITS)}")
+    return token
+
+
+def _native_longrun_enabled(*, min_runtime_minutes: int | None, no_early_success_exit: bool) -> bool:
+    return bool(no_early_success_exit and min_runtime_minutes is not None and min_runtime_minutes > 0)
+
+
+def _elapsed_minutes_since(start_mono: float, now_fn: Callable[[], float]) -> float:
+    return max(0.0, (now_fn() - start_mono) / 60.0)
+
+
+def _min_runtime_satisfied(
+    start_mono: float,
+    min_runtime_minutes: int | None,
+    now_fn: Callable[[], float],
+) -> bool:
+    if min_runtime_minutes is None or min_runtime_minutes <= 0:
+        return False
+    return _elapsed_minutes_since(start_mono, now_fn) >= float(min_runtime_minutes)
+
+
+def _should_continue_after_cap(*, native_longrun: bool, continue_mode: str) -> bool:
+    return native_longrun and continue_mode != "stop"
+
+
+def _is_real_failure_stop(result: DevLoopResult) -> bool:
+    if result.status == "blocked":
+        return True
+    if result.safety_validator_status == "failed":
+        return True
+    reason = result.stop_reason.strip()
+    if not reason:
+        return False
+    if reason.startswith("min_runtime reached:"):
+        return False
+    if reason.startswith("max_tasks reached:") or reason.startswith("max_prs reached:"):
+        return False
+    return result.status == "stopped"
+
+
+def dev_loop_should_exit_nonzero(result: DevLoopResult) -> bool:
+    """CLI exit code: zero on successful min-runtime long-run; non-zero on real failure."""
+    if result.longrun_exit_success:
+        return False
+    if result.status == "blocked":
+        return True
+    if result.status == "stopped" and result.stop_reason:
+        return True
+    return False
+
+
+def _run_longrun_post_phase(
+    result: DevLoopResult,
+    *,
+    start_mono: float,
+    min_runtime_minutes: int,
+    heartbeat_interval_minutes: int,
+    max_runtime_minutes: int,
+    cap_reached_tasks: bool,
+    cap_reached_prs: bool,
+    now_fn: Callable[[], float],
+    sleep_fn: Callable[[float], None],
+    finalize_evidence: Callable[[], None],
+    longrun_evidence: dict[str, Any],
+) -> None:
+    deadline_mono = start_mono + float(max_runtime_minutes * 60)
+    interval_secs = max(1.0, float(heartbeat_interval_minutes * 60))
+    longrun_evidence["min_runtime_minutes"] = min_runtime_minutes
+    longrun_evidence["no_early_success_exit"] = True
+    longrun_evidence["heartbeat_interval_minutes"] = heartbeat_interval_minutes
+    longrun_evidence["cap_reached"] = {"tasks": cap_reached_tasks, "prs": cap_reached_prs}
+
+    if cap_reached_tasks or cap_reached_prs:
+        result.longrun_state = "cap_reached_waiting"
+        longrun_evidence["longrun_state"] = "cap_reached_waiting"
+    else:
+        result.longrun_state = "heartbeat_waiting"
+        longrun_evidence["longrun_state"] = "heartbeat_waiting"
+
+    result.status = "completed"
+    result.stop_reason = ""
+
+    while not _min_runtime_satisfied(start_mono, min_runtime_minutes, now_fn):
+        longrun_evidence["elapsed_minutes"] = round(_elapsed_minutes_since(start_mono, now_fn), 2)
+        if now_fn() >= deadline_mono:
+            result.status = "stopped"
+            result.stop_reason = f"max_runtime reached: {max_runtime_minutes}m"
+            result.longrun_state = "controlled_stop"
+            longrun_evidence["longrun_state"] = "controlled_stop"
+            finalize_evidence()
+            return
+        result.longrun_state = "heartbeat_waiting"
+        longrun_evidence["longrun_state"] = "heartbeat_waiting"
+        finalize_evidence()
+        remaining_min = float(min_runtime_minutes) - _elapsed_minutes_since(start_mono, now_fn)
+        sleep_secs = min(interval_secs, max(0.0, remaining_min * 60.0))
+        if sleep_secs <= 0:
+            break
+        if longrun_evidence.get("continue_after_pr_limit") == "wait":
+            sleep_fn(sleep_secs)
+        else:
+            sleep_fn(sleep_secs)
+
+    result.status = "completed"
+    result.stop_reason = f"min_runtime reached: {min_runtime_minutes}"
+    result.longrun_state = "min_runtime_reached"
+    result.longrun_exit_success = True
+    longrun_evidence["longrun_state"] = "min_runtime_reached"
+    longrun_evidence["elapsed_minutes"] = round(_elapsed_minutes_since(start_mono, now_fn), 2)
+    finalize_evidence()
+
+
 def _check_forbidden_text(task: DevLoopTask) -> list[str]:
     violations: list[str] = []
     texts = [task.pr_title, task.scope, *task.stop_conditions]
@@ -612,6 +733,12 @@ def run_dev_loop(
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
     pr_loop_runner: Callable[..., PrLoopResult] | None = None,
     monotonic_fn: Callable[[], float] | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
+    min_runtime_minutes: int | None = None,
+    no_early_success_exit: bool = False,
+    heartbeat_interval_minutes: int = 10,
+    continue_after_pr_limit: str | None = None,
+    continue_after_task_limit: str | None = None,
 ) -> DevLoopResult:
     root = repo_root or ROOT_DIR
     out_root = outputs_root or OUTPUTS_DIR
@@ -637,8 +764,28 @@ def run_dev_loop(
         stop_on_dirty_tree if stop_on_dirty_tree is not None else (profile.stop_on_dirty_tree if profile else True)
     )
     now = monotonic_fn or time.monotonic
+    sleeper = sleep_fn or time.sleep
     started_at = _utc_now_iso()
-    deadline = now() + float(effective_max_runtime * 60)
+    run_start_mono = now()
+    deadline = run_start_mono + float(effective_max_runtime * 60)
+    continue_pr = _normalize_continue_after_limit(continue_after_pr_limit)
+    continue_task = _normalize_continue_after_limit(continue_after_task_limit)
+    native_longrun = _native_longrun_enabled(
+        min_runtime_minutes=min_runtime_minutes,
+        no_early_success_exit=no_early_success_exit,
+    )
+    cap_reached_tasks = False
+    cap_reached_prs = False
+    longrun_evidence: dict[str, Any] = {
+        "min_runtime_minutes": min_runtime_minutes,
+        "no_early_success_exit": no_early_success_exit,
+        "heartbeat_interval_minutes": heartbeat_interval_minutes,
+        "continue_after_pr_limit": continue_pr,
+        "continue_after_task_limit": continue_task,
+        "longrun_state": "",
+        "cap_reached": {"tasks": False, "prs": False},
+        "elapsed_minutes": 0.0,
+    }
     loop_mode = "execute" if execute_dev_loop else "dry_run"
     gate_ok, gate_missing = check_dev_loop_execute_gate()
     pr_gate = check_github_pr_create_gate()
@@ -669,6 +816,14 @@ def run_dev_loop(
     }
 
     def _finalize_evidence() -> None:
+        if native_longrun:
+            longrun_evidence["elapsed_minutes"] = round(_elapsed_minutes_since(run_start_mono, now), 2)
+            if result.longrun_state:
+                longrun_evidence["longrun_state"] = result.longrun_state
+            longrun_evidence["cap_reached"] = {
+                "tasks": cap_reached_tasks,
+                "prs": cap_reached_prs,
+            }
         if not result.ended_at:
             result.ended_at = _utc_now_iso()
         _write_dev_loop_evidence(
@@ -677,6 +832,7 @@ def run_dev_loop(
             gate_missing=gate_missing if execute_dev_loop else [],
             effective_limits=evidence_limits,
             pr_create_gate_status=evidence_pr_gate,
+            longrun_meta=longrun_evidence if (native_longrun or min_runtime_minutes) else None,
         )
 
     if execute_dev_loop and not gate_ok:
@@ -690,10 +846,16 @@ def run_dev_loop(
         for raw_task in tasks:
             task, branch_template = _resolve_task_branch(raw_task, run_id)
             if result.tasks_executed >= effective_max_tasks:
+                if _should_continue_after_cap(native_longrun=native_longrun, continue_mode=continue_task):
+                    cap_reached_tasks = True
+                    break
                 result.status = "stopped"
                 result.stop_reason = f"max_tasks reached: {effective_max_tasks}"
                 break
             if result.prs_created >= effective_max_prs:
+                if _should_continue_after_cap(native_longrun=native_longrun, continue_mode=continue_pr):
+                    cap_reached_prs = True
+                    break
                 result.status = "stopped"
                 result.stop_reason = f"max_prs reached: {effective_max_prs}"
                 break
@@ -840,6 +1002,24 @@ def run_dev_loop(
                 result.status = "stopped"
                 result.stop_reason = f"task_failed: {task.task_id} ({loop_res.status})"
                 break
+        if (
+            native_longrun
+            and not _is_real_failure_stop(result)
+            and not _min_runtime_satisfied(run_start_mono, min_runtime_minutes, now)
+        ):
+            _run_longrun_post_phase(
+                result,
+                start_mono=run_start_mono,
+                min_runtime_minutes=int(min_runtime_minutes or 0),
+                heartbeat_interval_minutes=heartbeat_interval_minutes,
+                max_runtime_minutes=effective_max_runtime,
+                cap_reached_tasks=cap_reached_tasks,
+                cap_reached_prs=cap_reached_prs,
+                now_fn=now,
+                sleep_fn=sleeper,
+                finalize_evidence=_finalize_evidence,
+                longrun_evidence=longrun_evidence,
+            )
     finally:
         _finalize_evidence()
     return result
@@ -852,6 +1032,7 @@ def _write_dev_loop_evidence(
     gate_missing: list[str],
     effective_limits: dict[str, Any],
     pr_create_gate_status: dict[str, Any],
+    longrun_meta: dict[str, Any] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "run_id": result.run_id,
@@ -876,7 +1057,10 @@ def _write_dev_loop_evidence(
         "pr_create_gate_status": pr_create_gate_status,
         "forbidden_auto_merge": True,
         "task_results": [asdict(t) for t in result.task_results],
+        "longrun_exit_success": result.longrun_exit_success,
     }
+    if longrun_meta:
+        payload["longrun"] = longrun_meta
     (out_dir / "evidence_summary.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

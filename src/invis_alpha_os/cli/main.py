@@ -119,7 +119,12 @@ from invis_alpha_os.signals.momentum import (
     momentum_row_public_dict,
     synthetic_bars_for_code,
 )
-from invis_alpha_os.operator.dev_loop import default_profile_path, default_task_queue_path, run_dev_loop
+from invis_alpha_os.operator.dev_loop import (
+    default_profile_path,
+    default_task_queue_path,
+    dev_loop_should_exit_nonzero,
+    run_dev_loop,
+)
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.operator.pr_loop import run_pr_loop
 from invis_alpha_os.utils.date_utils import today_jst_iso
@@ -783,6 +788,31 @@ def operator_runner_dev_loop(
     wait_ci: Optional[bool] = typer.Option(None, "--wait-ci/--no-wait-ci"),
     ci_timeout_seconds: Optional[int] = typer.Option(None, "--ci-timeout-seconds"),
     ci_poll_seconds: Optional[int] = typer.Option(None, "--ci-poll-seconds"),
+    min_runtime_minutes: Optional[int] = typer.Option(
+        None,
+        "--min-runtime-minutes",
+        help="Minimum wall time before successful long-run exit (requires --no-early-success-exit).",
+    ),
+    no_early_success_exit: bool = typer.Option(
+        False,
+        "--no-early-success-exit",
+        help="After task/PR caps, heartbeat until --min-runtime-minutes instead of stopping.",
+    ),
+    heartbeat_interval_minutes: int = typer.Option(
+        10,
+        "--heartbeat-interval-minutes",
+        help="Sleep interval during long-run heartbeat/wait phases.",
+    ),
+    continue_after_pr_limit: Optional[str] = typer.Option(
+        None,
+        "--continue-after-pr-limit",
+        help="wait|heartbeat|next-cycle|stop when max PRs reached (default: stop).",
+    ),
+    continue_after_task_limit: Optional[str] = typer.Option(
+        None,
+        "--continue-after-task-limit",
+        help="wait|heartbeat|next-cycle|stop when max tasks reached (default: stop).",
+    ),
 ) -> None:
     """Overnight autonomous development queue runner (dry-run default; no auto-merge)."""
 
@@ -812,6 +842,11 @@ def operator_runner_dev_loop(
             max_prs=max_prs,
             stop_on_failure=stop_on_failure,
             stop_on_dirty_tree=stop_on_dirty_tree,
+            min_runtime_minutes=min_runtime_minutes,
+            no_early_success_exit=no_early_success_exit,
+            heartbeat_interval_minutes=heartbeat_interval_minutes,
+            continue_after_pr_limit=continue_after_pr_limit,
+            continue_after_task_limit=continue_after_task_limit,
         )
     except ValueError as e:
         typer.echo(f"operator-runner dev-loop: {e}", err=True)
@@ -823,6 +858,7 @@ def operator_runner_dev_loop(
     typer.echo(f"operator-runner dev-loop: evidence={result.evidence_path}")
     if result.stop_reason:
         typer.echo(f"operator-runner dev-loop: stop_reason={result.stop_reason}", err=True)
+    if dev_loop_should_exit_nonzero(result):
         raise typer.Exit(1)
     raise typer.Exit(0)
 
