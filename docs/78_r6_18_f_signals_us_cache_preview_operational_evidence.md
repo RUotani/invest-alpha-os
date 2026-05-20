@@ -109,7 +109,7 @@ preview 節なし。opt-in は [docs/69](./69_r6_17_b_opt_in_us_cache_preview_ru
 | date | main commit | command | default excludes preview | opt-in includes preview | live HTTP absent | cache write absent | forbidden terms absent (preview only) | stale / fresh_enough | tests/CI | operator note |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-05-20 | `f349c50` | `signals --dry-run` · `signals --dry-run --us-cache-preview` | pass | pass | pass | pass | pass | preview ok · **16** rows · stale **0** · fresh_enough **16** | `pytest -q tests/test_us_cache_preview_opt_in.py` **12 passed** · main CI #24 success | **smoke evidence #1** · default enablement **blocked** · **2nd operational date still required** |
-| _pending_ | | `signals --dry-run` · `signals --dry-run --us-cache-preview` | | | | | | | | separate operational date |
+| 2026-05-20 | `cd86396` | `signals --dry-run` · `signals --dry-run --us-cache-preview` | pass | pass | pass | pass | pass | preview ok · **16** rows · stale **0** · fresh_enough **16** | `pytest -q tests/test_us_cache_preview_opt_in.py` **12 passed** · PR #25 on main | **smoke evidence #2** · separate operator session（#2 Longpack 実行）· default **blocked** · **2/2+ complete** · R6.18-H は別承認 |
 
 ---
 
