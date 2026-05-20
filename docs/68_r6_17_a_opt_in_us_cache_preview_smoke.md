@@ -67,5 +67,6 @@
 
 ## 5. 関連
 
+- [docs/69_r6_17_b_opt_in_us_cache_preview_runbook.md](./69_r6_17_b_opt_in_us_cache_preview_runbook.md) — operator runbook（R6.17-B）
 - [docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)
 - [docs/67_r6_17_opt_in_us_cache_preview_implementation.md](./67_r6_17_opt_in_us_cache_preview_implementation.md)

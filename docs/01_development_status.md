@@ -922,6 +922,14 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.17-B — Opt-in US cache preview runbook（ブランチのみ · docs-only）
+
+**ブランチ**: **`work/r6-17-b-opt-in-preview-runbook`**
+**内容**: operator 向け **`daily --us-cache-preview`** 手順 · stale（MSFT/GOOGL/GLDM）扱い · **stale refresh 計画（未実行）** · default enable ポリシー。詳細 **[docs/69_r6_17_b_opt_in_us_cache_preview_runbook.md](./69_r6_17_b_opt_in_us_cache_preview_runbook.md)**。
+**境界**: **docs-only** · **product code / default 変更なし** · **live HTTP / cache write 実行なし** · stale refresh は **別承認 Longpack**。
+
+---
+
 ## R6.17-pre — Pre-implementation review pack（完了 · `main` 反映済み · prompts）
 
 **コミット（`main` 取り込み）**: PR **#15** · **`36615c9`** 系（review prompts on main）。
