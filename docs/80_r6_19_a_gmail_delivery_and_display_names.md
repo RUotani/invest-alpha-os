@@ -42,10 +42,16 @@
 Optional packages（送信時）:
 
 ```bash
+pip install -e ".[gmail]"
+# または
 pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
 ```
 
 OAuth scope: `https://www.googleapis.com/auth/gmail.send`
+
+### 初回トークン（R6.19-D）
+
+`gmail_credentials.json` のみあれば **`daily-email --send` 初回**でブラウザ OAuth が開き、`GMAIL_TOKEN_FILE`（既定 `~/.config/invest-alpha-os/gmail_token.json`）に保存される。トークン期限切れ時は refresh token があれば自動更新。
 
 ローカル（**コミット禁止**）:
 
@@ -77,9 +83,9 @@ GMAIL_TOKEN_FILE="$HOME/.config/invest-alpha-os/gmail_token.json" \
 | `CONFIRM_GMAIL_SEND=YES` | はい |
 | `GMAIL_REPORT_TO` | はい |
 | `GMAIL_REPORT_ALLOWLIST` または `GMAIL_SELF_EMAIL` | 受信者制限 |
-| credentials + token ファイル存在 | はい |
+| `GMAIL_CREDENTIALS_FILE` 存在 | はい（token は初回 send で作成可） |
 
-dry-run は **Gmail API を呼ばない**。
+dry-run は **Gmail API を呼ばない**（OAuth フローなし）。
 
 ---
 

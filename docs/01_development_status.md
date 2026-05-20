@@ -1015,6 +1015,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.19-D — Gmail OAuth token bootstrap（進行中）
+
+**内容**: 初回 `daily-email --send` で OAuth token 作成/refresh · [docs/89](./89_r6_19_d_gmail_oauth_token_bootstrap.md)。
+
+---
+
 ## R6.19-B / R7.0-A — Daily 07:00 Gmail schedule + discovery planning（完了 · `main` 反映済み · ops/docs）
 
 **コミット（`main` 取り込み）**: **`fd4bbaa`** · PR **#29** squash merge。
