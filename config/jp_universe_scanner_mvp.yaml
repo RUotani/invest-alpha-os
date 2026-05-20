@@ -1,0 +1,6 @@
+# Sample JP universe for R7.0-B MVP tests and local dry-runs (not full-market coverage).
+universe_scope: sample_jp_universe
+symbols:
+  - "7011"
+  - "7203"
+  - "6501"
