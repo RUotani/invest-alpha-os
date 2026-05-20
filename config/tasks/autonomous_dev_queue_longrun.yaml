@@ -1,0 +1,101 @@
+version: ops_dev_queue.v1
+description: >
+  Bounded long-run autonomous queue (6 tasks). Use with overnight_safe_3h and
+  --max-tasks 6 --max-prs 3. Not for smoke (--max-tasks 1 --max-prs 1).
+tasks:
+  - task_id: longrun_runbook_anchor
+    pr_title: "R7.0-Ops: long-run runbook anchor"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "long-run runbook and caps documentation"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/112_r7_0_ops_longrun_autonomous_runbook.md"
+    commit_message: "R7.0-Ops: long-run runbook anchor marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: longrun_evidence_readability
+    pr_title: "R7.0-Ops: evidence summary readability notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "evidence field readability documentation"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/113_r7_0_ops_longrun_evidence_readability.md"
+    commit_message: "R7.0-Ops: evidence readability marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: longrun_stop_reason_guide
+    pr_title: "R7.0-Ops: stop_reason classification guide"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "stop_reason taxonomy for dev-loop evidence"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/114_r7_0_ops_longrun_stop_reason_guide.md"
+    commit_message: "R7.0-Ops: stop_reason guide marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: longrun_pr_body_quality
+    pr_title: "R7.0-Ops: PR body quality checklist"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "PR body draft quality checklist docs"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/115_r7_0_ops_longrun_pr_body_quality.md"
+    commit_message: "R7.0-Ops: PR body quality marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: longrun_queue_validation
+    pr_title: "R7.0-Ops: queue validation runbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "task queue safety validation notes"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/116_r7_0_ops_longrun_queue_validation.md"
+    commit_message: "R7.0-Ops: queue validation marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: longrun_operator_reporting
+    pr_title: "R7.0-Ops: operator reporting polish notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "operator-runner reporting consistency"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/117_r7_0_ops_longrun_operator_reporting.md"
+    commit_message: "R7.0-Ops: operator reporting marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"

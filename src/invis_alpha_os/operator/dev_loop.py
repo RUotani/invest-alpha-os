@@ -133,6 +133,10 @@ def default_pr_create_smoke_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "dev_loop_pr_create_smoke_queue.yaml"
 
 
+def default_longrun_task_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_longrun.yaml"
+
+
 def default_profile_path() -> Path:
     return ROOT_DIR / "config" / "operator_dev_loop_profiles.yaml"
 

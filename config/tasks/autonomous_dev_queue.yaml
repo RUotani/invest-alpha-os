@@ -1,5 +1,7 @@
 version: ops_dev_queue.v1
-description: Low-risk overnight autonomous development queue (dry-run default).
+description: >
+  Mixed autonomous queue (smoke/mini trial). For true long-run use
+  autonomous_dev_queue_longrun.yaml with --max-tasks 6 --max-prs 3 (not --max-tasks 1).
 tasks:
   - task_id: docs_status_microfix
     pr_title: "R7.0-Ops-E6: docs/status microfix"

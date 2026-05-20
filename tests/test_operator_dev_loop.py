@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from invis_alpha_os.operator.dev_loop import (
+    _load_queue,
+    default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
     default_task_queue_path,
     resolve_branch_name,
@@ -1170,3 +1172,36 @@ def test_overnight_profile_autonomous_first_task_dry_run(tmp_path: Path) -> None
     preflight = result.task_results[0].preparation_preflight
     assert preflight.get("prepare_for_pr") is True
     assert "docs-status-microfix" in preflight.get("intended_branch", "")
+
+
+def test_longrun_queue_has_six_prepare_tasks() -> None:
+    tasks = _load_queue(default_longrun_task_queue_path())
+    assert len(tasks) >= 6
+    assert all(t.prepare_for_pr for t in tasks)
+    task_ids = {t.task_id for t in tasks}
+    assert "docs_status_microfix" not in task_ids
+    assert "longrun_runbook_anchor" in task_ids
+
+
+def test_longrun_runbook_forbids_smoke_only_caps() -> None:
+    runbook = default_longrun_task_queue_path().parents[2] / "docs/112_r7_0_ops_longrun_autonomous_runbook.md"
+    text = runbook.read_text(encoding="utf-8")
+    assert "--max-tasks 6" in text
+    assert "--max-prs 3" in text
+    assert "max-tasks 1" in text
+    assert "smoke" in text.lower()
+
+
+def test_longrun_dry_run_plans_multiple_tasks(tmp_path: Path) -> None:
+    result = run_dev_loop(
+        task_queue_path=default_longrun_task_queue_path(),
+        profile_name="overnight_safe_3h",
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=3,
+        max_prs=2,
+    )
+    assert result.status == "stopped"
+    assert "max_tasks reached: 3" in result.stop_reason
+    assert len(result.task_results) == 3
+    assert result.task_results[0].task_id == "longrun_runbook_anchor"

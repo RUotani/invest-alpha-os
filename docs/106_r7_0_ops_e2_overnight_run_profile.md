@@ -37,6 +37,8 @@
 
 ## 4. Guarded smoke run (terminal paste)
 
+**Smoke only** — not a long-run:
+
 ```bash
 .venv/bin/python -m invis_alpha_os.cli.main operator-runner dev-loop \
   --task-queue config/tasks/autonomous_dev_queue.yaml \
@@ -44,6 +46,32 @@
   --execute-dev-loop \
   --max-tasks 1 \
   --max-prs 1 \
+  --stop-on-failure \
+  --stop-on-dirty-tree
+```
+
+`overnight_safe_3h` は **最大** 180 分であり、最小保証ではない。`--max-tasks 1 --max-prs 1` では 1 task/1 PR で必ず早期停止する。
+
+---
+
+## 4b. True long-run (standard caps)
+
+Queue: `config/tasks/autonomous_dev_queue_longrun.yaml` · caps: `--max-tasks 6 --max-prs 3`
+
+詳細 **[docs/112](./112_r7_0_ops_longrun_autonomous_runbook.md)**
+
+```bash
+export CONFIRM_OPERATOR_DEV_LOOP=YES
+export CONFIRM_GITHUB_PR_CREATE=YES
+
+operator-runner dev-loop \
+  --task-queue config/tasks/autonomous_dev_queue_longrun.yaml \
+  --profile overnight_safe_3h \
+  --execute-dev-loop \
+  --create-pr \
+  --wait-ci \
+  --max-tasks 6 \
+  --max-prs 3 \
   --stop-on-failure \
   --stop-on-dirty-tree
 ```
