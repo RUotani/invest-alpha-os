@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from invis_alpha_os.operator.dev_loop import run_dev_loop
+from invis_alpha_os.operator.dev_loop import default_pr_create_smoke_queue_path, run_dev_loop
 from invis_alpha_os.operator.pr_loop import PrLoopResult
 
 
@@ -36,6 +36,10 @@ def _queue_file_raw(tmp_path: Path, body: str) -> Path:
 def _git_clean(cmd, **kwargs):  # type: ignore[no-untyped-def]
     if cmd[:3] == ["git", "status", "--short"]:
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+    if cmd[:3] == ["git", "rev-parse", "--verify"]:
+        return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+    if cmd[:3] == ["git", "rev-list", "--count"]:
+        return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
     return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
 
@@ -690,6 +694,8 @@ def test_dev_loop_pr_create_failure_stops_queue(tmp_path: Path, monkeypatch) -> 
             return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="create failed\n")
         if cmd[:3] == ["git", "rev-parse", "--verify"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-list", "--count"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
@@ -709,3 +715,158 @@ def test_dev_loop_pr_create_failure_stops_queue(tmp_path: Path, monkeypatch) -> 
     assert "task_failed: t1" in result.stop_reason
     payload = Path(result.evidence_path).read_text(encoding="utf-8")
     assert "pr_create_failed" in payload
+
+
+def test_smoke_queue_dry_run_planned(tmp_path: Path) -> None:
+    queue = tmp_path / "smoke.yaml"
+    queue.write_text(
+        (default_pr_create_smoke_queue_path()).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+    )
+    assert result.status == "completed"
+    assert result.task_results[0].preparation_status == "planned"
+    assert Path(result.evidence_path).is_file()
+    assert (tmp_path / "operator/dev_loop").exists()
+
+
+def test_no_commits_ahead_stops_with_evidence(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: smoke
+    pr_title: "Smoke"
+    branch: "work/smoke"
+    pytest_cmd: "git diff --check"
+    smoke_file: "docs/smoke.md"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+""",
+    )
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "checkout", "-B"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "add"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "commit"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "push"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            if "origin/" in " ".join(cmd):
+                return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-list", "--count"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/smoke.md", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert "no commits ahead" in result.stop_reason
+    assert Path(result.evidence_path).is_file()
+    assert (Path(result.evidence_path).parent / "dev_loop_result.json").is_file()
+
+
+def test_mock_prepare_and_pr_create_success(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: smoke
+    pr_title: "Smoke PR"
+    branch: "work/smoke"
+    pytest_cmd: "git diff --check"
+    smoke_file: "docs/smoke.md"
+    commit_message: "smoke commit"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+""",
+    )
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "rev-parse", "--verify"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-list", "--count"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
+        if cmd[:3] == ["git", "checkout", "-B"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "add"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "commit"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "push"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "diff", "--check"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/smoke.md", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        create_pr=True,
+        repo_root=repo,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        pr_loop_runner=lambda **kwargs: PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="create",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            pr_url="https://example/pull/99",
+        ),
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "completed"
+    assert result.prs_created == 1
+    assert result.task_results[0].preparation_status == "prepared"
+    assert (repo / "docs/smoke.md").is_file()
+
+
+def test_evidence_written_when_execute_gate_blocked(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.delenv("CONFIRM_OPERATOR_DEV_LOOP", raising=False)
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "T", "branch": "work/t", "pytest_cmd": "pytest -q"}],
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+    )
+    assert result.status == "blocked"
+    out_dir = Path(result.evidence_path).parent
+    assert (out_dir / "evidence_summary.json").is_file()
+    assert (out_dir / "dev_loop_result.json").is_file()

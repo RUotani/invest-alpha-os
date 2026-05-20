@@ -40,7 +40,6 @@ dev-loop evidence は task_results と stop_reason に反映。
 
 ---
 
-## 5. Not done
+## 5. Follow-up
 
-- PR 作成失敗の自動リトライ
-- branch push 自動化
+- Ops-E4 で dev-loop 経由 PR-create smoke（詳細 **[docs/109](./109_r7_0_ops_e4_dev_loop_pr_create_smoke.md)**）

@@ -1,0 +1,19 @@
+version: ops_dev_queue.v1
+description: Dev-loop PR-create smoke queue (single docs-only task).
+tasks:
+  - task_id: dev_loop_pr_create_smoke
+    pr_title: "R7.0-Ops-E4: dev-loop PR create smoke"
+    branch: "work/r7-0-ops-e4-dev-loop-pr-create-smoke"
+    scope: "docs-only dev-loop PR create smoke"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+    smoke_file: "docs/109_r7_0_ops_e4_dev_loop_pr_create_smoke.md"
+    commit_message: "R7.0-Ops-E4: dev-loop PR create smoke marker"
+    prepare_for_pr: true
