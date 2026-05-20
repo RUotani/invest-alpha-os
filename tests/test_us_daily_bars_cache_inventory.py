@@ -1,8 +1,9 @@
-"""R6.16-A/B: read-only US daily bars cache inventory (no HTTP)."""
+"""R6.16-A/B/E: read-only US daily bars cache inventory (no HTTP)."""
 
 from __future__ import annotations
 
 import json
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,31 @@ FIX_25 = REPO / "tests" / "fixtures" / "us_equities" / "msft_25bars_metrics_enve
 runner = CliRunner()
 
 
+def _envelope_last_day(symbol: str, last: str, *, n: int = 25) -> dict:
+    end = date.fromisoformat(last)
+    start = end - timedelta(days=n - 1)
+    bars = [
+        {
+            "date": (start + timedelta(days=i)).isoformat(),
+            "open": 100.0,
+            "high": 101.0,
+            "low": 99.0,
+            "close": 100.0,
+            "volume": 1000.0,
+        }
+        for i in range(n)
+    ]
+    return {
+        "schema_version": 1,
+        "symbol": symbol,
+        "source": "fixture_test",
+        "fetched_at": "2026-05-01T00:00:00Z",
+        "generated_at": "2026-05-01T00:00:00Z",
+        "bar_count": n,
+        "bars": bars,
+    }
+
+
 @pytest.fixture(autouse=True)
 def _block_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
     import urllib.request
@@ -36,6 +62,8 @@ def test_inventory_row_missing(tmp_path: Path) -> None:
     row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
     assert row["status"] == "missing"
     assert row["reason"] == "missing_file"
+    assert row["freshness_status"] == "not_applicable"
+    assert row["latest_date"] is None
     assert row["file_exists"] is False
     assert row["live_http"] is False
 
@@ -59,13 +87,42 @@ def test_inventory_row_stale_unknown(tmp_path: Path) -> None:
 
 
 def test_inventory_row_ok_with_freshness(tmp_path: Path) -> None:
-    payload = json.loads(FIX_25.read_text(encoding="utf-8"))
-    payload["fetched_at"] = "2026-05-01T00:00:00Z"
-    dest = tmp_path / "MSFT.json"
-    dest.write_text(json.dumps(payload), encoding="utf-8")
-    row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path)
+    payload = _envelope_last_day("MSFT", "2026-05-15")
+    (tmp_path / "MSFT.json").write_text(json.dumps(payload), encoding="utf-8")
+    ref = date(2026, 5, 19)
+    row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path, reference_date=ref, fresh_days=7)
     assert row["status"] == "ok"
     assert row["reason"] == "ok"
+    assert row["latest_date"] == "2026-05-15"
+    assert row["freshness_status"] == "fresh_enough"
+
+
+def test_inventory_row_ok_but_stale_by_latest_date(tmp_path: Path) -> None:
+    payload = _envelope_last_day("MSFT", "2024-01-25")
+    (tmp_path / "MSFT.json").write_text(json.dumps(payload), encoding="utf-8")
+    ref = date(2026, 5, 19)
+    row = build_us_daily_bars_cache_inventory_row("MSFT", tmp_path, reference_date=ref, fresh_days=7)
+    assert row["status"] == "ok"
+    assert row["freshness_status"] == "stale"
+    assert row["latest_date"] == "2024-01-25"
+
+
+def test_freshness_summary_counts(tmp_path: Path) -> None:
+    ref = date(2026, 5, 19)
+    (tmp_path / "MSFT.json").write_text(
+        json.dumps(_envelope_last_day("MSFT", "2026-05-18")), encoding="utf-8"
+    )
+    (tmp_path / "AAPL.json").write_text(
+        json.dumps(_envelope_last_day("AAPL", "2024-01-10")), encoding="utf-8"
+    )
+    inv = build_us_daily_bars_cache_inventory(
+        tmp_path, symbols=["MSFT", "AAPL"], reference_date=ref, fresh_days=7
+    )
+    s = inv["summary"]
+    assert s["fresh_enough_count"] == 1
+    assert s["stale_count"] == 1
+    assert s["freshness_cutoff_date"] == "2026-05-12"
+    assert s["newest_latest_date"] == "2026-05-18"
 
 
 def test_inventory_row_invalid(tmp_path: Path) -> None:
@@ -100,6 +157,8 @@ def test_markdown_summary_section(tmp_path: Path) -> None:
     md = format_us_daily_bars_cache_inventory_markdown(inv)
     assert "### Summary" in md
     assert "**missing**:" in md
+    assert "**fresh_enough**:" in md or "**freshness_unknown**:" in md
+    assert "freshness" in md
     assert "### rows" in md
 
 

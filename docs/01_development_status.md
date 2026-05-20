@@ -888,6 +888,16 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R6.16-E — US cache inventory freshness（ブランチのみ · read-only 拡張）
+
+**ブランチ**: **`work/r6-16-e-us-cache-inventory-freshness`**
+**内容**: `ok` vs **`fresh_enough`** 分離（`latest_date` · `freshness_status` · summary · 初期 **7 暦日**）。詳細 **[docs/63_r6_16_e_us_cache_inventory_freshness.md](./63_r6_16_e_us_cache_inventory_freshness.md)**。
+**運用メモ**: 手動 ingest 後は watchlist **ok 16 / missing 0**（local · cache gitignore）。
+
+**次候補**: **R6.17** daily 接続判断 · R6.16-C ingest plan CLI（**別承認**）。
+
+---
+
 ## R6.8以降の候補タスク（未着手）
 
 優先度は状況に応じて判断してください。
