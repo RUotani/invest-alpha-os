@@ -81,6 +81,7 @@ from invis_alpha_os.reports.momentum_daily import (
     render_momentum_signals_mixed_section,
     render_us_momentum_cache_only_section,
 )
+from invis_alpha_os.reports.us_cache_preview_opt_in import append_us_cache_preview_section
 from invis_alpha_os.reports.us_signals_opt_in import append_us_signals_dry_run_section
 from invis_alpha_os.risk.veto_rules import (
     VetoEngine,
@@ -210,6 +211,11 @@ def daily(
         "--us-signals-dry-run-manifest",
         help="Optional US signals batch manifest JSON; appends dry-run section only when set.",
     ),
+    us_cache_preview: bool = typer.Option(
+        False,
+        "--us-cache-preview",
+        help="Append US cache-only preview table (read-only; default off).",
+    ),
 ) -> None:
     today = today_jst_iso()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
@@ -265,6 +271,8 @@ def daily(
             us_signals_dry_run_manifest,
             path_base=ROOT_DIR,
         )
+    if us_cache_preview:
+        report_body = append_us_cache_preview_section(report_body)
     out.write_text(report_body, encoding="utf-8")
     typer.echo(f"daily report created: {out}")
 

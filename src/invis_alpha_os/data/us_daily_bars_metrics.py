@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any, Final
 
@@ -26,13 +27,37 @@ METRICS_PREVIEW_OK_KEYS: Final[frozenset[str]] = frozenset(
         "last_close",
         "last_volume",
         "total_return",
+        "return_1d",
         "return_5d",
         "return_20d",
+        "has_1d",
         "has_5d",
         "has_20d",
+        "volume_status",
         "live_http",
     }
 )
+
+
+def compute_volume_status(volumes: list[float]) -> str:
+    """Classify latest volume vs average of prior bars (latest excluded from average)."""
+
+    if len(volumes) < 2:
+        return "unknown"
+    last = float(volumes[-1])
+    prior = [float(v) for v in volumes[:-1]]
+    if len(prior) < 5:
+        return "unknown"
+    window = prior[-25:]
+    avg = sum(window) / len(window)
+    if avg <= 0 or not math.isfinite(avg) or not math.isfinite(last):
+        return "unknown"
+    ratio = last / avg
+    if ratio >= 2.0:
+        return "high"
+    if ratio < 0.5:
+        return "low"
+    return "normal"
 
 
 def compute_us_daily_bars_basic_metrics(bars: list[DailyBar]) -> dict[str, Any]:
@@ -43,15 +68,19 @@ def compute_us_daily_bars_basic_metrics(bars: list[DailyBar]) -> dict[str, Any]:
             "status": "invalid",
             "reason": "empty_bars",
             "bar_count": 0,
+            "has_1d": False,
             "has_5d": False,
             "has_20d": False,
+            "volume_status": "unknown",
         }
 
     closes = [float(b["close"]) for b in bars]
     volumes = [float(b["volume"]) for b in bars]
-    rets = calculate_returns(closes, horizons=[5, 20])
+    rets = calculate_returns(closes, horizons=[1, 5, 20])
+    r1 = rets.get(1)
     r5 = rets.get(5)
     r20 = rets.get(20)
+    vol_st = compute_volume_status(volumes)
 
     total_return: float | None = None
     if len(closes) >= 2 and closes[0] != 0:
@@ -67,10 +96,13 @@ def compute_us_daily_bars_basic_metrics(bars: list[DailyBar]) -> dict[str, Any]:
         "last_close": closes[-1],
         "last_volume": volumes[-1],
         "total_return": total_return,
+        "return_1d": r1,
         "return_5d": r5,
         "return_20d": r20,
+        "has_1d": r1 is not None,
         "has_5d": r5 is not None,
         "has_20d": r20 is not None,
+        "volume_status": vol_st,
     }
 
 
@@ -138,6 +170,11 @@ def format_us_daily_bars_cache_metrics_markdown(metrics: dict[str, Any]) -> str:
     tr = metrics.get("total_return")
     if tr is not None:
         lines.append(f"- **total_return**: {tr}")
+    r1 = metrics.get("return_1d")
+    if r1 is not None:
+        lines.append(f"- **return_1d**: {r1}")
+    elif metrics.get("has_1d") is False:
+        lines.append("- **return_1d**: (insufficient bars)")
     r5 = metrics.get("return_5d")
     if r5 is not None:
         lines.append(f"- **return_5d**: {r5}")
@@ -148,6 +185,9 @@ def format_us_daily_bars_cache_metrics_markdown(metrics: dict[str, Any]) -> str:
         lines.append(f"- **return_20d**: {r20}")
     elif metrics.get("has_20d") is False:
         lines.append("- **return_20d**: (insufficient bars)")
+    vol_st = metrics.get("volume_status")
+    if vol_st:
+        lines.append(f"- **volume_status**: {vol_st}")
     lines.append(f"- **path**: `{metrics.get('path', '')}`")
     lines.append("- **live_http**: false")
     return "\n".join(lines) + "\n"

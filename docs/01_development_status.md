@@ -914,11 +914,11 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.17 — Opt-in US cache-only preview（planning 完了 · 実装未着手）
+## R6.17 — Opt-in US cache-only preview（実装 PR · 未 merge）
 
-**コミット（planning · `main` 取り込み）**: **`33f6f29`** · PR **#14** squash merge。
-**内容**: cache-only **opt-in** プレビュー設計（§5: stale / benchmark / 出力列）。詳細 **[docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)** · **`.agent/r6_17_cursor_longpack_draft.md`**（**実行しない**）。
-**境界**: **implementation not started** · **daily / signals default 変更なし** · **live HTTP / cache write 未着手** · **production decision 未使用**。
+**ブランチ**: **`work/r6-17-opt-in-us-cache-preview-implementation`**
+**内容**: `daily --us-cache-preview` · read-only cache table · `return_1d` / `volume_status` metrics。設計 **[docs/65](./65_r6_17_opt_in_us_cache_preview_plan.md)** · 実装メモ **[docs/67](./67_r6_17_opt_in_us_cache_preview_implementation.md)**。
+**境界**: **opt-in only** · **default 変更なし** · **live HTTP / cache write なし** · **Codex review before merge**。
 
 ---
 
