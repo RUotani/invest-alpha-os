@@ -120,6 +120,7 @@ from invis_alpha_os.signals.momentum import (
     synthetic_bars_for_code,
 )
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
+from invis_alpha_os.operator.pr_loop import run_pr_loop
 from invis_alpha_os.utils.date_utils import today_jst_iso
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
@@ -659,6 +660,60 @@ def operator_runner_run(
         f"operator-runner: status={state.status} mode={state.mode} "
         f"steps={len(state.steps)} run_dir={run_dir}"
     )
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("pr-loop")
+def operator_runner_pr_loop(
+    branch: str = typer.Option(..., "--branch", help="Head branch for PR."),
+    title: str = typer.Option(..., "--title", help="PR title."),
+    task_file: Optional[str] = typer.Option(
+        None,
+        "--task",
+        help="Optional operator task YAML to dry-run before PR loop.",
+    ),
+    pytest_cmd: str = typer.Option(
+        "pytest -q tests/test_operator_runner.py tests/test_operator_runner_gated.py tests/test_operator_runner_jquants_wiring.py",
+        "--pytest-cmd",
+        help="Pytest command (used with --execute-checks).",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--execute-checks",
+        help="Dry-run writes PR draft only; execute-checks runs runner/tests/git.",
+    ),
+    create_pr: bool = typer.Option(
+        False,
+        "--create-pr",
+        help="Create GitHub PR (requires CONFIRM_GITHUB_PR_CREATE=YES and --execute-checks).",
+    ),
+) -> None:
+    """PR loop foundation: task/evidence/tests/git → PR draft; gated gh pr create; no auto-merge."""
+
+    task_path = Path(task_file) if task_file else None
+    if task_path is not None and not task_path.is_file():
+        typer.echo(f"operator-runner pr-loop: task file not found: {task_path}", err=True)
+        raise typer.Exit(2)
+    if create_pr and dry_run:
+        typer.echo("operator-runner pr-loop: --create-pr requires --execute-checks", err=True)
+        raise typer.Exit(2)
+    result = run_pr_loop(
+        branch=branch,
+        pr_title=title,
+        task_path=task_path,
+        pytest_cmd=pytest_cmd,
+        execute_checks=not dry_run,
+        create_pr=create_pr,
+    )
+    typer.echo(
+        f"operator-runner pr-loop: status={result.status} mode={result.pr_create_mode} "
+        f"draft={result.pr_body_draft_path}"
+    )
+    if result.pr_url:
+        typer.echo(f"operator-runner pr-loop: pr_url={result.pr_url}")
+    if result.stop_reason:
+        typer.echo(f"operator-runner pr-loop: stop_reason={result.stop_reason}", err=True)
+        raise typer.Exit(1)
     raise typer.Exit(0)
 
 
