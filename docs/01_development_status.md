@@ -989,6 +989,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-B3S2 — JP Core50 cache fill（完了 · 目標達成 · ローカル ingest · docs-only）
+
+**結果**: **1 銘柄/バッチ** · **120s** · gated live + write · Core50 **30→40/50**（目標 ≥40 **達成**）· HTTP 400/429 なし。証跡 **[docs/94](./94_r7_0_b3s2_core50_cache_fill_evidence.md)**。キャッシュ JSON はローカルのみ。**次**: **R7.0-B4** 再評価。
+
+---
+
 ## R7.0-B3R — JP Core50 cache retry diagnostics（完了 · 部分 ingest 成功 · docs-only）
 
 **結果**: 日付範囲短縮 + バッチ≤3 で **10 銘柄** cache 追加 · Core50 **9→19/50**。詳細 **[docs/87](./87_r7_0_b3r_jp_core50_cache_retry_diagnostics.md)**。残り 31 銘柄は追加 B3R バッチ待ち。
