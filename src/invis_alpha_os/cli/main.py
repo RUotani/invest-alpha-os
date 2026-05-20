@@ -119,16 +119,19 @@ from invis_alpha_os.signals.momentum import (
     momentum_row_public_dict,
     synthetic_bars_for_code,
 )
+from invis_alpha_os.operator.runner import RunnerStop, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.utils.date_utils import today_jst_iso
 
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
 snapshot_app = typer.Typer(help="Snapshot commands")
 log_app = typer.Typer(help="Log commands")
 debug_app = typer.Typer(help="Debug commands")
+operator_runner_app = typer.Typer(help="Policy-gated local operator runner (dry-run default)")
 
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(log_app, name="log")
 app.add_typer(debug_app, name="debug")
+app.add_typer(operator_runner_app, name="operator-runner")
 
 
 def _obs_service() -> ObservationService:
@@ -588,6 +591,52 @@ def discover_us(
         typer.echo(json.dumps(format_us_discovery_json(result), ensure_ascii=False, indent=2))
     else:
         typer.echo(format_us_discovery_markdown(result))
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("run")
+def operator_runner_run(
+    task_file: str = typer.Option(
+        str(default_task_path()),
+        "--task",
+        help="Task YAML path.",
+    ),
+    policy_file: Optional[str] = typer.Option(
+        None,
+        "--policy",
+        help="Safety policy YAML (default: config/operator_runner_policy.yaml).",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--execute-readonly",
+        help="Dry-run plans steps only; execute-readonly runs readonly steps.",
+    ),
+) -> None:
+    """Run operator task under safety policy (checkpoint + evidence under outputs/operator/runner/)."""
+
+    task_path = Path(task_file)
+    if not task_path.is_file():
+        typer.echo(f"operator-runner: task file not found: {task_path}", err=True)
+        raise typer.Exit(2)
+    policy_path = Path(policy_file) if policy_file else default_policy_path()
+    if not policy_path.is_file():
+        typer.echo(f"operator-runner: policy file not found: {policy_path}", err=True)
+        raise typer.Exit(2)
+    mode = "dry_run" if dry_run else "execute_readonly"
+    try:
+        state = run_operator_task(
+            task_path=task_path,
+            policy_path=policy_path,
+            mode=mode,
+        )
+    except RunnerStop as e:
+        typer.echo(f"operator-runner: stopped: {e.reason}", err=True)
+        raise typer.Exit(1) from e
+    run_dir = OUTPUTS_DIR / "operator" / "runner" / state.task_id / state.run_id
+    typer.echo(
+        f"operator-runner: status={state.status} mode={state.mode} "
+        f"steps={len(state.steps)} run_dir={run_dir}"
+    )
     raise typer.Exit(0)
 
 

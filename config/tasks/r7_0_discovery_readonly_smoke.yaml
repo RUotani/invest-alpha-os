@@ -1,0 +1,33 @@
+# Sample read-only operator task (R7.0-Ops-A)
+task_id: r7_0_discovery_readonly_smoke
+version: ops_task.v1
+description: JP/US discovery read-only smoke with cross-market merge
+risk_class: readonly
+
+steps:
+  - id: discover_jp
+    kind: cli
+    command: discover-jp
+    args:
+      - --universe-file
+      - config/jp_universe_core50.yaml
+      - --format
+      - json
+    output_artifact: discover_jp.json
+
+  - id: discover_us
+    kind: cli
+    command: discover-us
+    args:
+      - --universe-file
+      - config/us_universe_scanner_mvp.yaml
+      - --format
+      - json
+    output_artifact: discover_us_mvp.json
+
+  - id: merge_cross_market
+    kind: merge_discovery_json
+    inputs:
+      - discover_jp.json
+      - discover_us_mvp.json
+    output_artifact: discovery_cross_market.json

@@ -1007,9 +1007,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-C1 — JP/US cross-market discovery output contract（進行中 · docs + format helper）
+## R7.0-C1 — JP/US cross-market discovery output contract（完了 · `main` 反映済 `2a36e1b`）
 
-**内容**: `discovery/cross_market_contract.py` で `common_candidates` / 統一 Markdown 表 / `merge_cross_market_json_payloads` を追加。`discover-jp` / `discover-us` の JSON に `schema_version` と横断比較用配列を付与（legacy `candidates` 維持）。詳細 **[docs/97](./97_r7_0_c1_cross_market_discovery_output_contract.md)**。
+**内容**: `discovery/cross_market_contract.py` で `common_candidates` / 統一 Markdown 表 / `merge_cross_market_json_payloads` を追加。詳細 **[docs/97](./97_r7_0_c1_cross_market_discovery_output_contract.md)**。
+
+---
+
+## R7.0-Ops-A — Autonomous local operator runner（進行中 · policy/task YAML + dry-run runner）
+
+**内容**: `config/operator_runner_policy.yaml` · `config/tasks/r7_0_discovery_readonly_smoke.yaml` · `operator-runner run`（dry-run デフォルト）· checkpoint/evidence under `outputs/operator/runner/`。詳細 **[docs/98](./98_r7_0_ops_a_autonomous_local_runner.md)**。
 
 ---
 
