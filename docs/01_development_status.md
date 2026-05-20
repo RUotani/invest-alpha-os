@@ -878,23 +878,22 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.16-D — US cache full population status（ブランチのみ · docs-only）
+## R6.16-D — US cache full population status（完了・`main` 反映済み · docs-only）
 
-**ブランチ**: **`work/r6-16-d-us-cache-full-population-docs`**
-**内容**: 手動 gated ingest 完了後の inventory 記録（**ok 16 · missing 0**）。詳細 **[docs/62_r6_16_d_us_cache_full_population_status.md](./62_r6_16_d_us_cache_full_population_status.md)**。
-**注意**: cache JSON は gitignore · **コード変更なし** · daily/signals 接続は **別承認**。
-
-**次候補**: freshness extension · R6.16-C 実装 PR · **R6.17** daily 接続判断。
+**コミット（`main` 取り込み）**: PR **#10** squash merge（**`work/r6-16-d-us-cache-full-population-docs`**）。
+**内容**: 手動 / bulk **gated cache ingest** 完了後の **population 運用記録**（watchlist **16 symbols · ok 16 · missing 0** · missing **13 → 0** · invalid / insufficient / stale_unknown **0 維持**）。詳細 **[docs/62_r6_16_d_us_cache_full_population_status.md](./62_r6_16_d_us_cache_full_population_status.md)**。
+**境界**: **R6.16-E freshness 拡張とは別物**（population 記録 vs `ok` / `fresh_enough` 分離）。cache JSON と **`.env` は local / gitignore · 未コミット**。**コード変更なし** · **daily / signals default 接続なし** · **ingest plan CLI は別承認** · **R6.17 は別承認**。
 
 ---
 
-## R6.16-E — US cache inventory freshness（ブランチのみ · read-only 拡張）
+## R6.16-E — US cache inventory freshness（完了・`main` 反映済み · read-only 拡張）
 
-**ブランチ**: **`work/r6-16-e-us-cache-inventory-freshness`**
-**内容**: `ok` vs **`fresh_enough`** 分離（`latest_date` · `freshness_status` · summary · 初期 **7 暦日**）。詳細 **[docs/63_r6_16_e_us_cache_inventory_freshness.md](./63_r6_16_e_us_cache_inventory_freshness.md)**。
-**運用メモ**: 手動 ingest 後は watchlist **ok 16 / missing 0**（local · cache gitignore）。
+**コミット（`main` 取り込み）**: **`39304a1`** · PR **#11** squash merge。
+**内容**: inventory **`ok`** vs **`fresh_enough`** 分離（`latest_date` · `freshness_status` · summary · 初期 **7 暦日** cutoff）。詳細 **[docs/63_r6_16_e_us_cache_inventory_freshness.md](./63_r6_16_e_us_cache_inventory_freshness.md)**。
+**CI**: GitHub Actions **`test`** — pass（PR #11 · main post-merge）。
+**境界**: **R6.16-D population 記録とは別物**。**daily / signals default 接続なし** · **ingest plan CLI / R6.17 は別承認**。
 
-**次候補**: **R6.17** daily 接続判断 · R6.16-C ingest plan CLI（**別承認**）。
+**次候補**: **R6.16-F** agent workflow 標準化 · **R6.17** daily 接続判断（**別承認**）。
 
 ---
 
