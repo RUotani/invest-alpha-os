@@ -914,11 +914,19 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R6.17 — Opt-in US cache-only preview（planning のみ · 未実装）
+## R6.17 — Opt-in US cache-only preview（planning 完了 · 実装未着手）
 
-**ブランチ**: **`work/r6-17-opt-in-cache-preview-plan`**（planning PR · **merge 前**）
-**内容**: cache-only データの **opt-in** プレビュー設計 · Longpack 下書き。詳細 **[docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)** · **`.agent/r6_17_cursor_longpack_draft.md`**（**実行しない**）。
-**境界**: **default 変更なし** · **live HTTP / cache write なし** · **production decision 未使用** · **freshness gate 前提** · **実装・merge は別承認**。
+**コミット（planning · `main` 取り込み）**: **`33f6f29`** · PR **#14** squash merge。
+**内容**: cache-only **opt-in** プレビュー設計（§5: stale / benchmark / 出力列）。詳細 **[docs/65_r6_17_opt_in_us_cache_preview_plan.md](./65_r6_17_opt_in_us_cache_preview_plan.md)** · **`.agent/r6_17_cursor_longpack_draft.md`**（**実行しない**）。
+**境界**: **implementation not started** · **daily / signals default 変更なし** · **live HTTP / cache write 未着手** · **production decision 未使用**。
+
+---
+
+## R6.17-pre — Pre-implementation review pack（ブランチのみ · prompts）
+
+**ブランチ**: **`work/r6-17-pre-implementation-review-pack`**
+**内容**: Codex / Claude Code 向け **review prompts**（**実装なし**）。詳細 **[docs/66_r6_17_pre_implementation_review_pack.md](./66_r6_17_pre_implementation_review_pack.md)** · **`.agent/r6_17_codex_review_prompt.md`** · **`.agent/r6_17_claude_arch_review_prompt.md`**。
+**境界**: **implementation requires separate approval** · review prompts のみ · merge は別 PR 判断。
 
 ---
 

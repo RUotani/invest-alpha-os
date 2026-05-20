@@ -94,10 +94,11 @@
 - **env 非依存**（`JQUANTS_*` 不要）
 - default パス golden は **変更しない**
 
-### 5.6 未決（実装 Longpack 前に ChatGPT 確認可）
+### 5.6 実装 PR で確定（Claude review 反映）
 
-- `volume_status` の定義（既存 metrics 再利用 vs 新規）
-- warning 文言の固定テンプレート
+- **`volume_status`**: prior-25 平均（最新 bar 除外）· ratio ≥2.0 high · &lt;0.5 low · それ以外 normal · prior &lt;5 → unknown
+- **`return_1d`**: horizons `[1, 5, 20]` · `METRICS_PREVIEW_OK_KEYS` に含める
+- **warning 文言**: `stale — returns not used` · `freshness unknown — returns not used`
 
 ---
 
