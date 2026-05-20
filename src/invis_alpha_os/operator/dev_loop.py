@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -32,6 +32,8 @@ DEFAULT_FORBIDDEN_COMMAND_PATTERNS: tuple[str, ...] = (
     r"\bgit\s+branch\s+-D\b",
     r"\bgit\s+worktree\s+remove\b",
 )
+BRANCH_RUN_ID_PLACEHOLDER = "{run_id}"
+
 DEFAULT_FORBIDDEN_TEXT_PATTERNS: tuple[str, ...] = (
     r"\bbuy\b",
     r"\bsell\b",
@@ -69,6 +71,7 @@ class DevLoopTaskResult:
     stop_reason: str = ""
     preparation_status: str = ""
     preparation_detail: str = ""
+    preparation_preflight: dict[str, Any] = field(default_factory=dict)
     pr_url: str | None = None
     ci_wait_status: str | None = None
     ci_wait_poll_count: int = 0
@@ -206,6 +209,101 @@ def _task_change_file(task: DevLoopTask) -> str:
     return (task.change_file or task.smoke_file).strip()
 
 
+def _sanitize_run_id_for_branch(run_id: str) -> str:
+    token = run_id.strip().lower()
+    token = re.sub(r"[^a-z0-9]+", "-", token).strip("-")
+    return token or "run"
+
+
+def resolve_branch_name(template: str, run_id: str) -> str:
+    """Expand ``{run_id}`` in a branch template to a git-safe unique token."""
+    text = template.strip()
+    if BRANCH_RUN_ID_PLACEHOLDER not in text:
+        return text
+    return text.replace(BRANCH_RUN_ID_PLACEHOLDER, _sanitize_run_id_for_branch(run_id))
+
+
+def _resolve_task_branch(task: DevLoopTask, run_id: str) -> tuple[DevLoopTask, str]:
+    template = task.branch.strip()
+    resolved = resolve_branch_name(template, run_id)
+    if resolved == template:
+        return task, template
+    return replace(task, branch=resolved), template
+
+
+def _current_git_branch(
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+) -> str:
+    proc = _run_git(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    if proc.returncode != 0:
+        return ""
+    return (proc.stdout or "").strip()
+
+
+def _remote_branch_exists_lsremote(
+    branch: str,
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+) -> bool:
+    proc = _run_git(
+        ["git", "ls-remote", "--heads", "origin", branch],
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
+    if proc.returncode != 0:
+        return False
+    return bool((proc.stdout or "").strip())
+
+
+def _sanitize_git_detail(detail: str, *, limit: int = 200) -> str:
+    text = detail.strip()
+    for pat in (
+        r"(?i)(api[_-]?key|token|secret|credential|password)\s*[=:]\s*\S+",
+        r"(?i)Bearer\s+\S+",
+    ):
+        text = re.sub(pat, "[redacted]", text)
+    return text[:limit]
+
+
+def _build_prepare_preflight(
+    task: DevLoopTask,
+    *,
+    run_id: str,
+    branch_template: str,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    base_branch: str = "main",
+) -> dict[str, Any]:
+    branch = task.branch.strip()
+    return {
+        "run_id": run_id,
+        "branch_template": branch_template,
+        "intended_branch": branch,
+        "current_branch": _current_git_branch(repo_root=repo_root, subprocess_run=subprocess_run),
+        "base_branch": base_branch,
+        "remote_branch_exists": _remote_branch_exists_lsremote(
+            branch, repo_root=repo_root, subprocess_run=subprocess_run
+        ),
+        "commits_ahead_of_main": _commits_ahead_of_main(
+            branch, repo_root=repo_root, subprocess_run=subprocess_run, base=base_branch
+        ),
+    }
+
+
+def _format_preparation_detail(preflight: dict[str, Any], extra: str = "") -> str:
+    payload = dict(preflight)
+    if extra:
+        payload["detail"] = _sanitize_git_detail(extra)
+    return json.dumps(payload, ensure_ascii=False)
+
+
 def _run_git(
     argv: list[str],
     *,
@@ -284,20 +382,41 @@ def _prepare_smoke_task(
     task: DevLoopTask,
     *,
     run_id: str,
+    branch_template: str,
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
     execute: bool,
-) -> tuple[bool, str, str]:
+) -> tuple[bool, str, str, dict[str, Any]]:
     change_file = _task_change_file(task)
+    preflight = _build_prepare_preflight(
+        task,
+        run_id=run_id,
+        branch_template=branch_template,
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
     if not task.prepare_for_pr:
-        return True, "skipped", "prepare_for_pr not requested"
+        return True, "skipped", "prepare_for_pr not requested", preflight
     if not change_file:
-        return False, "preflight: prepare_for_pr requires smoke_file", ""
+        return False, "preflight: prepare_for_pr requires smoke_file", "", preflight
     branch = task.branch.strip()
     commit_msg = task.commit_message.strip() or f"R7.0-Ops-E4 smoke update ({run_id})"
-    plan = f"prepare branch={branch} file={change_file} commit={commit_msg}"
+    plan = _format_preparation_detail(
+        preflight,
+        extra=f"prepare branch={branch} file={change_file} commit={commit_msg}",
+    )
     if not execute:
-        return True, "planned", plan
+        return True, "planned", plan, preflight
+    if preflight.get("remote_branch_exists"):
+        return (
+            False,
+            "remote_branch_exists",
+            _format_preparation_detail(
+                preflight,
+                extra=f"origin branch already exists: {branch}",
+            ),
+            preflight,
+        )
     target = repo_root / change_file
     target.parent.mkdir(parents=True, exist_ok=True)
     marker = f"\n- dev-loop smoke marker: {run_id} ({_utc_now_iso()})\n"
@@ -308,32 +427,52 @@ def _prepare_smoke_task(
         target.write_text(f"# Dev-loop PR create smoke\n{marker}", encoding="utf-8")
     checkout = _run_git(["git", "checkout", "-B", branch], repo_root=repo_root, subprocess_run=subprocess_run)
     if checkout.returncode != 0:
-        return False, "prepare_failed", "git checkout failed"
+        return False, "prepare_failed", _format_preparation_detail(preflight, extra="git checkout failed"), preflight
+    preflight = _build_prepare_preflight(
+        task,
+        run_id=run_id,
+        branch_template=branch_template,
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
     add_proc = _run_git(["git", "add", change_file], repo_root=repo_root, subprocess_run=subprocess_run)
     if add_proc.returncode != 0:
-        return False, "prepare_failed", "git add failed"
+        return False, "prepare_failed", _format_preparation_detail(preflight, extra="git add failed"), preflight
     commit_proc = _run_git(
         ["git", "commit", "-m", commit_msg],
         repo_root=repo_root,
         subprocess_run=subprocess_run,
     )
     if commit_proc.returncode != 0:
-        detail = (commit_proc.stderr or commit_proc.stdout or "git commit failed").strip()[:200]
+        detail = (commit_proc.stderr or commit_proc.stdout or "git commit failed").strip()
         if "nothing to commit" in detail.lower():
-            return False, "no_diff_to_commit", detail
-        return False, "prepare_failed", detail
+            return False, "no_diff_to_commit", _format_preparation_detail(preflight, extra=detail), preflight
+        return False, "prepare_failed", _format_preparation_detail(preflight, extra=detail), preflight
     push_proc = _run_git(
         ["git", "push", "-u", "origin", branch],
         repo_root=repo_root,
         subprocess_run=subprocess_run,
     )
     if push_proc.returncode != 0:
-        detail = (push_proc.stderr or push_proc.stdout or "git push failed").strip()[:200]
-        return False, "prepare_failed", detail
+        raw = (push_proc.stderr or push_proc.stdout or "git push failed").strip()
+        detail = _sanitize_git_detail(raw)
+        low = raw.lower()
+        if "non-fast-forward" in low or "[rejected]" in low or "failed to push" in low:
+            status = "push_rejected_non_ff"
+        else:
+            status = "prepare_failed"
+        return False, status, _format_preparation_detail(preflight, extra=detail), preflight
+    preflight = _build_prepare_preflight(
+        task,
+        run_id=run_id,
+        branch_template=branch_template,
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+    )
     ready_reason = _check_pr_ready_preflight(task, repo_root=repo_root, subprocess_run=subprocess_run)
     if ready_reason:
-        return False, ready_reason, "post-prepare preflight failed"
-    return True, "prepared", plan
+        return False, ready_reason, _format_preparation_detail(preflight, extra="post-prepare preflight failed"), preflight
+    return True, "prepared", plan, preflight
 
 
 def _git_status_paths(
@@ -528,7 +667,8 @@ def run_dev_loop(
 
     pr_runner = pr_loop_runner or run_pr_loop
     try:
-        for task in tasks:
+        for raw_task in tasks:
+            task, branch_template = _resolve_task_branch(raw_task, run_id)
             if result.tasks_executed >= effective_max_tasks:
                 result.status = "stopped"
                 result.stop_reason = f"max_tasks reached: {effective_max_tasks}"
@@ -543,9 +683,10 @@ def run_dev_loop(
                 break
 
             if not execute_dev_loop:
-                prep_ok, prep_status, prep_detail = _prepare_smoke_task(
+                prep_ok, prep_status, prep_detail, prep_preflight = _prepare_smoke_task(
                     task,
                     run_id=run_id,
+                    branch_template=branch_template,
                     repo_root=root,
                     subprocess_run=subprocess_run,
                     execute=False,
@@ -558,13 +699,15 @@ def run_dev_loop(
                         stop_reason="dry_run",
                         preparation_status=prep_status,
                         preparation_detail=prep_detail,
+                        preparation_preflight=prep_preflight,
                     )
                 )
                 continue
 
-            prep_ok, prep_status, prep_detail = _prepare_smoke_task(
+            prep_ok, prep_status, prep_detail, prep_preflight = _prepare_smoke_task(
                 task,
                 run_id=run_id,
+                branch_template=branch_template,
                 repo_root=root,
                 subprocess_run=subprocess_run,
                 execute=True,
@@ -578,6 +721,7 @@ def run_dev_loop(
                         stop_reason=prep_status,
                         preparation_status=prep_status,
                         preparation_detail=prep_detail,
+                        preparation_preflight=prep_preflight,
                     )
                 )
                 result.status = "stopped"
@@ -635,6 +779,7 @@ def run_dev_loop(
                             stop_reason=ready_reason,
                             preparation_status=prep_status,
                             preparation_detail=prep_detail,
+                            preparation_preflight=prep_preflight,
                         )
                     )
                     result.status = "stopped"
@@ -664,6 +809,7 @@ def run_dev_loop(
                 stop_reason=loop_res.stop_reason,
                 preparation_status=prep_status,
                 preparation_detail=prep_detail,
+                preparation_preflight=prep_preflight,
                 pr_url=loop_res.pr_url,
                 ci_wait_status=loop_res.ci_wait_status,
                 ci_wait_poll_count=loop_res.ci_wait_poll_count,

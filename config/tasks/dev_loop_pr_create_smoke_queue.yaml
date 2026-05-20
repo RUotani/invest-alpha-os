@@ -2,8 +2,8 @@ version: ops_dev_queue.v1
 description: Dev-loop PR-create smoke queue (single docs-only task).
 tasks:
   - task_id: dev_loop_pr_create_smoke
-    pr_title: "R7.0-Ops-E4: dev-loop PR create smoke"
-    branch: "work/r7-0-ops-e4-dev-loop-pr-create-smoke"
+    pr_title: "R7.0-Ops-E5: dev-loop PR create smoke"
+    branch: "work/dev-loop-smoke/{run_id}"
     scope: "docs-only dev-loop PR create smoke"
     risk_level: "low"
     pytest_cmd: "git diff --check"

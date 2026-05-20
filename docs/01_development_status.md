@@ -1073,9 +1073,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-E4 — dev-loop PR create smoke（進行中 · prepare + push + PR）
+## R7.0-Ops-E4 — dev-loop PR create smoke（完了 · `main` 反映済 `6cbdb9c`）
 
 **内容**: `config/tasks/dev_loop_pr_create_smoke_queue.yaml` を追加。`prepare_for_pr` で docs-only marker を commit/push し、origin 上の差分を確認してから PR 作成 gate 付き smoke を実行。evidence は try/finally で常時書き込み。詳細 **[docs/109](./109_r7_0_ops_e4_dev_loop_pr_create_smoke.md)**。
+
+---
+
+## R7.0-Ops-E5 — unique smoke branch（進行中 · `{run_id}` template）
+
+**内容**: smoke queue の branch を `work/dev-loop-smoke/{run_id}` に変更。push 前 `ls-remote`、non-fast-forward は controlled stop、`preparation_preflight` を evidence に記録。詳細 **[docs/110](./110_r7_0_ops_e5_unique_smoke_branch.md)**。
 
 ---
 

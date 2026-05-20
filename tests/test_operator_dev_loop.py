@@ -7,7 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from invis_alpha_os.operator.dev_loop import default_pr_create_smoke_queue_path, run_dev_loop
+from invis_alpha_os.operator.dev_loop import (
+    default_pr_create_smoke_queue_path,
+    resolve_branch_name,
+    run_dev_loop,
+)
 from invis_alpha_os.operator.pr_loop import PrLoopResult
 
 
@@ -38,8 +42,12 @@ def _git_clean(cmd, **kwargs):  # type: ignore[no-untyped-def]
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
     if cmd[:3] == ["git", "rev-parse", "--verify"]:
         return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+    if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+        return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
     if cmd[:3] == ["git", "rev-list", "--count"]:
         return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
+    if cmd[:3] == ["git", "ls-remote", "--heads"]:
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
     return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
 
@@ -753,6 +761,8 @@ tasks:
     )
 
     def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "ls-remote", "--heads"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:3] == ["git", "checkout", "-B"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:2] == ["git", "add"]:
@@ -765,6 +775,8 @@ tasks:
             if "origin/" in " ".join(cmd):
                 return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
             return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
         if cmd[:3] == ["git", "rev-list", "--count"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
@@ -806,8 +818,12 @@ tasks:
 """,
     )
     def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "ls-remote", "--heads"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:3] == ["git", "rev-parse", "--verify"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="abc", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
         if cmd[:3] == ["git", "rev-list", "--count"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="1\n", stderr="")
         if cmd[:3] == ["git", "checkout", "-B"]:
@@ -870,3 +886,132 @@ def test_evidence_written_when_execute_gate_blocked(tmp_path: Path, monkeypatch)
     out_dir = Path(result.evidence_path).parent
     assert (out_dir / "evidence_summary.json").is_file()
     assert (out_dir / "dev_loop_result.json").is_file()
+
+
+def test_resolve_branch_name_template() -> None:
+    assert resolve_branch_name("work/dev-loop-smoke/{run_id}", "20260520T101501Z") == (
+        "work/dev-loop-smoke/20260520t101501z"
+    )
+    assert resolve_branch_name("work/fixed", "20260520T101501Z") == "work/fixed"
+
+
+def test_smoke_queue_uses_branch_template(tmp_path: Path) -> None:
+    text = default_pr_create_smoke_queue_path().read_text(encoding="utf-8")
+    assert "{run_id}" in text
+    assert "work/dev-loop-smoke/{run_id}" in text
+
+
+def test_smoke_dry_run_expands_unique_branch(tmp_path: Path) -> None:
+    queue = tmp_path / "smoke.yaml"
+    queue.write_text(
+        (default_pr_create_smoke_queue_path()).read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    result = run_dev_loop(
+        task_queue_path=queue,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+    )
+    preflight = result.task_results[0].preparation_preflight
+    assert "{run_id}" not in preflight.get("intended_branch", "")
+    assert preflight.get("branch_template", "").endswith("{run_id}")
+    assert "work/dev-loop-smoke/" in preflight.get("intended_branch", "")
+
+
+def test_remote_branch_exists_stops_before_push(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: smoke
+    pr_title: "Smoke"
+    branch: "work/smoke-fixed"
+    pytest_cmd: "git diff --check"
+    smoke_file: "docs/smoke.md"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+""",
+    )
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "ls-remote", "--heads"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="deadbeef\trefs/heads/work/smoke-fixed\n", stderr="")
+        if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        repo_root=repo,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert "remote_branch_exists" in result.stop_reason
+    assert result.task_results[0].preparation_preflight.get("remote_branch_exists") is True
+    assert Path(result.evidence_path).is_file()
+
+
+def test_push_non_fast_forward_controlled_stop(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: smoke
+    pr_title: "Smoke"
+    branch: "work/smoke-{run_id}"
+    pytest_cmd: "git diff --check"
+    smoke_file: "docs/smoke.md"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+""",
+    )
+
+    def route(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "ls-remote", "--heads"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:3] == ["git", "checkout", "-B"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "add"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "commit"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        if cmd[:2] == ["git", "push"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                1,
+                stdout="",
+                stderr="! [rejected] non-fast-forward\n",
+            )
+        if cmd[:3] == ["git", "rev-parse", "--abbrev-ref"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="main\n", stderr="")
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        repo_root=repo,
+        outputs_root=tmp_path,
+        subprocess_run=route,
+        stop_on_dirty_tree=False,
+    )
+    assert result.status == "stopped"
+    assert "push_rejected_non_ff" in result.stop_reason
+    payload = Path(result.evidence_path).read_text(encoding="utf-8")
+    assert "push_rejected_non_ff" in payload
+    assert "non-fast-forward" not in payload or "[rejected]" in payload
