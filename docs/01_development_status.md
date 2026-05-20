@@ -893,7 +893,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 **CI**: GitHub Actions **`test`** — pass（PR #11 · main post-merge）。
 **境界**: **R6.16-D population 記録とは別物**。**daily / signals default 接続なし** · **ingest plan CLI / R6.17 は別承認**。
 
-**次候補**: **R6.16-F** agent workflow 標準化 · **R6.17** daily 接続判断（**別承認**）。
+**次候補**: **R6.17** daily 接続判断（**別承認**）。
+
+---
+
+## R6.16-F — Agent workflow standardization（ブランチのみ · docs/templates）
+
+**ブランチ**: **`work/r6-16-f-agent-workflow-standardization`**
+**内容**: **最小人間貼り付け・最大自走**運用のテンプレート（**`.agent/*`** · **`CLAUDE.md`**）。Cursor / Codex / Claude の役割分担 · リスク別手順 · 単一 Markdown 最終報告。詳細 **[docs/64_r6_16_f_agent_workflow_standardization.md](./64_r6_16_f_agent_workflow_standardization.md)**。
+**境界**: **R6.17 前の運用基盤**。**daily / signals default 変更なし** · **live HTTP / cache write 実装なし** · **workflow / Makefile / pyproject 変更なし**。
 
 ---
 
