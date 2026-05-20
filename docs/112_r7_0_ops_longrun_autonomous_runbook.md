@@ -75,3 +75,4 @@ runner は次のいずれかまで進む（早停のみ）:
 - merge は人間判断
 
 (dev-loop が実行時に marker 行を各 companion doc に追記)
+- dev-loop smoke marker: 20260520T112034Z (2026-05-20T11:20:35Z)
