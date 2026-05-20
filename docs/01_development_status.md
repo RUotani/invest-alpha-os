@@ -983,6 +983,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## R7.0-B2 — JP universe/cache expansion（進行中 · Core50 + coverage audit）
+
+**内容**: `config/jp_universe_core50.yaml`（50 銘柄）· display names 拡張 · cache カバレッジ **9/50** · ingest は **R7.0-B3** へ。詳細 **[docs/85](./85_r7_0_b2_jp_universe_cache_expansion.md)**。
+
+---
+
 ## R7.0-B1 — JP discovery scanner evaluation（完了 · docs-only · 評価記録）
 
 **内容**: post-merge `discover-jp` 評価 · cache 11 銘柄 · **次推奨 R7.0-B2**（universe/cache 拡張）。詳細 **[docs/84](./84_r7_0_b1_jp_discovery_scanner_evaluation.md)**。
