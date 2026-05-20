@@ -1043,9 +1043,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-D3 — PR loop CI wait policy（進行中 · `--wait-ci`）
+## R7.0-Ops-D3 — PR loop CI wait policy（完了 · `main` 反映済 `5155a77`）
 
 **内容**: `operator-runner pr-loop --wait-ci` で `gh run list` を read-only ポーリング。`--ci-timeout-seconds` / `--ci-poll-seconds` で待機制御。`--check-ci` と併用可。auto-merge 禁止。詳細 **[docs/103](./103_r7_0_ops_d3_ci_wait_policy.md)**。
+
+---
+
+## R7.0-Ops-E — overnight autonomous development runner（進行中 · `--execute-dev-loop`）
+
+**内容**: `operator-runner dev-loop` を追加。task queue を読み、default dry-run で計画のみ。`--execute-dev-loop` は `CONFIRM_OPERATOR_DEV_LOOP=YES` が必要。`--max-runtime-minutes` / `--max-tasks` / `--max-prs` / `--stop-on-failure` / `--stop-on-dirty-tree` と `--wait-ci` を提供。auto-merge 禁止。詳細 **[docs/104](./104_r7_0_ops_e_overnight_autonomous_runner.md)**。
 
 ---
 

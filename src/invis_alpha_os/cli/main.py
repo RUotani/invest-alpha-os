@@ -119,6 +119,7 @@ from invis_alpha_os.signals.momentum import (
     momentum_row_public_dict,
     synthetic_bars_for_code,
 )
+from invis_alpha_os.operator.dev_loop import default_task_queue_path, run_dev_loop
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.operator.pr_loop import run_pr_loop
 from invis_alpha_os.utils.date_utils import today_jst_iso
@@ -748,6 +749,65 @@ def operator_runner_pr_loop(
         )
     if result.stop_reason:
         typer.echo(f"operator-runner pr-loop: stop_reason={result.stop_reason}", err=True)
+        raise typer.Exit(1)
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("dev-loop")
+def operator_runner_dev_loop(
+    task_queue: str = typer.Option(
+        str(default_task_queue_path()),
+        "--task-queue",
+        help="Task queue YAML path.",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--execute-dev-loop",
+        help="Dry-run plans queue only; execute-dev-loop runs queued tasks.",
+    ),
+    create_pr: bool = typer.Option(
+        False,
+        "--create-pr",
+        help="Create PRs in task runs (requires CONFIRM_GITHUB_PR_CREATE=YES).",
+    ),
+    max_runtime_minutes: int = typer.Option(180, "--max-runtime-minutes"),
+    max_tasks: int = typer.Option(3, "--max-tasks"),
+    max_prs: int = typer.Option(2, "--max-prs"),
+    stop_on_failure: bool = typer.Option(True, "--stop-on-failure/--continue-on-failure"),
+    stop_on_dirty_tree: bool = typer.Option(True, "--stop-on-dirty-tree/--allow-dirty-tree"),
+    wait_ci: bool = typer.Option(False, "--wait-ci"),
+    ci_timeout_seconds: int = typer.Option(600, "--ci-timeout-seconds"),
+    ci_poll_seconds: int = typer.Option(30, "--ci-poll-seconds"),
+) -> None:
+    """Overnight autonomous development queue runner (dry-run default; no auto-merge)."""
+
+    queue_path = Path(task_queue)
+    if not queue_path.is_file():
+        typer.echo(f"operator-runner dev-loop: task queue not found: {queue_path}", err=True)
+        raise typer.Exit(2)
+    if create_pr and dry_run:
+        typer.echo("operator-runner dev-loop: --create-pr requires --execute-dev-loop", err=True)
+        raise typer.Exit(2)
+    result = run_dev_loop(
+        task_queue_path=queue_path,
+        execute_dev_loop=not dry_run,
+        create_pr=create_pr,
+        wait_ci=wait_ci,
+        ci_timeout_seconds=ci_timeout_seconds,
+        ci_poll_seconds=ci_poll_seconds,
+        max_runtime_minutes=max_runtime_minutes,
+        max_tasks=max_tasks,
+        max_prs=max_prs,
+        stop_on_failure=stop_on_failure,
+        stop_on_dirty_tree=stop_on_dirty_tree,
+    )
+    typer.echo(
+        f"operator-runner dev-loop: status={result.status} mode={result.mode} "
+        f"tasks={result.tasks_executed}/{result.tasks_seen} prs={result.prs_created}"
+    )
+    typer.echo(f"operator-runner dev-loop: evidence={result.evidence_path}")
+    if result.stop_reason:
+        typer.echo(f"operator-runner dev-loop: stop_reason={result.stop_reason}", err=True)
         raise typer.Exit(1)
     raise typer.Exit(0)
 
