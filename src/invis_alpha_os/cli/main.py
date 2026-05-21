@@ -833,6 +833,16 @@ def operator_runner_dev_loop(
         "--failure-summary",
         help="Print recorded task failure summary at end of run.",
     ),
+    max_same_failure_category: Optional[int] = typer.Option(
+        None,
+        "--max-same-failure-category",
+        help="Stop when the same failure category is recorded this many times.",
+    ),
+    skip_existing_task_artifacts: bool = typer.Option(
+        False,
+        "--skip-existing-task-artifacts",
+        help="Skip tasks when branch/PR artifacts already exist (read-only gh/git checks).",
+    ),
 ) -> None:
     """Overnight autonomous development queue runner (dry-run default; no auto-merge)."""
 
@@ -871,6 +881,8 @@ def operator_runner_dev_loop(
             max_task_failures=max_task_failures,
             critical_task_failure_policy=critical_task_failure_policy,
             failure_summary=failure_summary,
+            max_same_failure_category=max_same_failure_category,
+            skip_existing_task_artifacts=skip_existing_task_artifacts,
         )
     except ValueError as e:
         typer.echo(f"operator-runner dev-loop: {e}", err=True)

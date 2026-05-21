@@ -1123,9 +1123,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **内容**: PATH に `.venv/bin`、開始前 pytest/gh/queue 検証、`PREFLIGHT FAILED` / `FAILED` / `SUCCEEDED` banners、log/evidence/tail。詳細 **[docs/119](./119_r7_0_ops_i2_productive_8h_failfast_preflight.md)**。PR **#92**。
 
-## R7.0-Ops-I3 — productive failure policy（進行中）
+## R7.0-Ops-I3 — productive failure policy（完了）
 
-**内容**: `--continue-on-task-failure` / `--max-task-failures 3`、evidence `failed_tasks`、critical/safety 即停止、productive script 更新。詳細 **[docs/120](./120_r7_0_ops_i3_productive_failure_policy.md)**。
+**内容**: `--continue-on-task-failure` / `--max-task-failures 3`、evidence `failed_tasks`、critical/safety 即停止。詳細 **[docs/120](./120_r7_0_ops_i3_productive_failure_policy.md)**。PR **#97**。
+
+## R7.0-Ops-I4 — failure budget + resume/skip（進行中）
+
+**内容**: max failures **8**、same-category guard **4**、`--skip-existing-task-artifacts`、gh 502/504 read-only 耐性。詳細 **[docs/121](./121_r7_0_ops_i4_failure_budget_resume_skip.md)**。
 
 ---
 
