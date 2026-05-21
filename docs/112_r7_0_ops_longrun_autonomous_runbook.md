@@ -90,7 +90,11 @@ cap 到達後も `min_runtime` まで heartbeat: **[docs/113](./113_r7_0_ops_f_n
 
 ## 10. Ops-I productive 8h
 
-実開発向け 15 task キュー: **`scripts/run_productive_true_longrun_8h.sh`**。詳細 **[docs/118](./118_ops_i_productive_8h_queue.md)**。
+実開発向け 16 task キュー: **`scripts/run_productive_true_longrun_8h.sh`**。詳細 **[docs/118](./118_ops_i_productive_8h_queue.md)**。
+
+## 11. Ops-I2 fail-fast preflight
+
+8h 開始前に pytest / gh / queue / gates を検証。失敗時は log + evidence + tail を表示。詳細 **[docs/119](./119_r7_0_ops_i2_productive_8h_failfast_preflight.md)**。
 
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
