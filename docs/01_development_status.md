@@ -1103,9 +1103,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-G2 — recovered true long-run profile（進行中 · #71 置換）
+## R7.0-Ops-G2 — recovered true long-run profile（完了 · `main` 反映済 #72）
 
-**内容**: #70 merge 後に #71 conflict のため G 層を再適用。`true_longrun_3h` profile + `scripts/run_true_longrun_3h.sh`。詳細 **[docs/114](./114_r7_0_ops_g2_recovered_true_longrun_profile.md)**。
+**内容**: `true_longrun_3h` profile + `scripts/run_true_longrun_3h.sh`。詳細 **[docs/114](./114_r7_0_ops_g2_recovered_true_longrun_profile.md)**。
+
+---
+
+## R7.0-Ops-H — true_longrun_8h + visible heartbeat（進行中）
+
+**内容**: `true_longrun_8h`（min 480m / max 510m）、`scripts/run_true_longrun_8h.sh`、dev-loop terminal heartbeat。`true_longrun_6h` は 8h に使わない。詳細 **[docs/117](./117_r7_0_ops_h_true_longrun_8h_heartbeat.md)**。
 
 ---
 
