@@ -1,0 +1,12 @@
+version: productive_superseded.v1
+description: >
+  Task IDs superseded after I3/I4/I5; skipped in productive 8h when resume/skip is enabled.
+superseded_tasks:
+  - task_id: ops_i_min_max_runtime_tests
+    reason: covered_by_i3_i4_i5_marker_on_py_file_broke_pytest
+  - task_id: ops_i_profile_runtime_warning
+    reason: pytest_k_profile_runtime_matched_zero_tests_exit_5
+  - task_id: ops_i_true_longrun_profile_validation
+    reason: self_referential_ops_i_cluster_superseded_by_i5_replacements
+  - task_id: ops_i_heartbeat_coverage
+    reason: self_referential_ops_i_cluster_superseded_by_i5_replacements

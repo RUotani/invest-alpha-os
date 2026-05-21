@@ -104,6 +104,10 @@ cap 到達後も `min_runtime` まで heartbeat: **[docs/113](./113_r7_0_ops_f_n
 
 失敗上限 8、同一カテゴリ上限 4、既存 PR/branch skip。詳細 **[docs/121](./121_r7_0_ops_i4_failure_budget_resume_skip.md)**。
 
+## 14. Ops-I5 repair productive queue failures
+
+I4 後の pytest 4 連続失敗を queue 修復・superseded・診断強化。詳細 **[docs/122](./122_r7_0_ops_i5_repair_productive_queue_failures.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)

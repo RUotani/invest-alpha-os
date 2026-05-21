@@ -158,6 +158,36 @@ def default_productive_8h_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_8h.yaml"
 
 
+def default_productive_superseded_tasks_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "productive_8h_superseded_tasks.yaml"
+
+
+def _load_superseded_tasks(path: Path | None = None) -> dict[str, str]:
+    p = path or default_productive_superseded_tasks_path()
+    if not p.is_file():
+        return {}
+    raw = load_yaml(p)
+    rows = raw.get("superseded_tasks") if isinstance(raw, dict) else None
+    if not isinstance(rows, list):
+        return {}
+    out: dict[str, str] = {}
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        task_id = str(item.get("task_id") or "").strip()
+        reason = str(item.get("reason") or "superseded").strip()
+        if task_id:
+            out[task_id] = reason
+    return out
+
+
+def _smoke_marker_line(change_file: str, run_id: str) -> str:
+    stamp = _utc_now_iso()
+    if change_file.endswith(".py"):
+        return f"\n# dev-loop smoke marker: {run_id} ({stamp})\n"
+    return f"\n- dev-loop smoke marker: {run_id} ({stamp})\n"
+
+
 def default_profile_path() -> Path:
     return ROOT_DIR / "config" / "operator_dev_loop_profiles.yaml"
 
@@ -537,7 +567,7 @@ def _prepare_smoke_task(
         )
     target = repo_root / change_file
     target.parent.mkdir(parents=True, exist_ok=True)
-    marker = f"\n- dev-loop smoke marker: {run_id} ({_utc_now_iso()})\n"
+    marker = _smoke_marker_line(change_file, run_id)
     if target.is_file():
         existing = target.read_text(encoding="utf-8")
         target.write_text(existing.rstrip() + marker, encoding="utf-8")
@@ -894,6 +924,15 @@ def _record_task_skip(
     )
 
 
+def _pytest_failure_diagnostics(task: DevLoopTask, loop_res: Any) -> dict[str, Any]:
+    return {
+        "pytest_cmd": getattr(loop_res, "pytest_cmd", ""),
+        "pytest_exit_code": getattr(loop_res, "pytest_exit_code", None),
+        "change_file": _task_change_file(task),
+        "output_tail": getattr(loop_res, "pytest_output_tail", ""),
+    }
+
+
 def _failed_task_record(
     task: DevLoopTask,
     *,
@@ -901,8 +940,9 @@ def _failed_task_record(
     stop_reason: str,
     evidence_path: str = "",
     log_path: str = "",
+    pytest_diagnostics: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    record: dict[str, Any] = {
         "task_id": task.task_id,
         "title": task.pr_title,
         "reason": reason,
@@ -911,6 +951,9 @@ def _failed_task_record(
         "evidence_path": evidence_path,
         "log_path": log_path,
     }
+    if pytest_diagnostics:
+        record["pytest_diagnostics"] = pytest_diagnostics
+    return record
 
 
 def _handle_recoverable_task_failure(
@@ -926,9 +969,20 @@ def _handle_recoverable_task_failure(
     failure_category_counts: dict[str, int],
     max_same_failure_category: int | None = None,
     evidence_path: str = "",
+    pytest_diagnostics: dict[str, Any] | None = None,
 ) -> bool:
     """Return True to continue the queue; False if the caller should break."""
     stop_reason = f"task_failed: {task.task_id} ({raw_reason})"
+    if pytest_diagnostics and pytest_diagnostics.get("pytest_exit_code") is not None:
+        print(
+            "productive-longrun pytest failed: "
+            f"task_id={task.task_id} exit={pytest_diagnostics.get('pytest_exit_code')} "
+            f"cmd={pytest_diagnostics.get('pytest_cmd', '')}",
+            flush=True,
+        )
+        tail = str(pytest_diagnostics.get("output_tail") or "").strip()
+        if tail:
+            print(f"productive-longrun pytest tail: {tail}", flush=True)
     is_critical = task_is_critical(task)
     if is_critical:
         if critical_task_failure_policy == "record":
@@ -955,6 +1009,7 @@ def _handle_recoverable_task_failure(
             reason=category,
             stop_reason=stop_reason,
             evidence_path=evidence_path,
+            pytest_diagnostics=pytest_diagnostics,
         )
     )
     failure_category_counts[category] = failure_category_counts.get(category, 0) + 1
@@ -1288,6 +1343,13 @@ def run_dev_loop(
     result.failure_policy["failure_category_counts"] = failure_category_counts
     gh_pr_index: list[dict[str, Any]] = []
     gh_read_warnings: list[str] = []
+    productive_queue = "productive" in task_queue_path.name or task_queue_path.name.endswith(
+        "_productive_8h.yaml"
+    )
+    superseded_tasks_map: dict[str, str] = {}
+    if skip_existing_task_artifacts or productive_queue:
+        superseded_tasks_map = _load_superseded_tasks()
+    result.resume_policy["superseded_task_ids"] = sorted(superseded_tasks_map.keys())
     if execute_dev_loop and skip_existing_task_artifacts:
         gh_pr_index, gh_read_warnings = _load_github_pr_index(
             repo_root=root,
@@ -1402,6 +1464,16 @@ def run_dev_loop(
             pr_created_task_ids = {
                 tr.task_id for tr in result.task_results if tr.pr_url
             }
+            if task.task_id in superseded_tasks_map:
+                _record_task_skip(
+                    result,
+                    task=task,
+                    reason="superseded_task",
+                    detail=superseded_tasks_map[task.task_id],
+                    skipped_tasks=skipped_tasks,
+                )
+                continue
+
             if skip_existing_task_artifacts:
                 skip_hit = _evaluate_task_skip(
                     task,
@@ -1568,6 +1640,11 @@ def run_dev_loop(
                     reason_code = "pr_create_failed"
                 else:
                     reason_code = "task_failed"
+                pytest_diag = (
+                    _pytest_failure_diagnostics(task, loop_res)
+                    if reason_code == "pytest_failed"
+                    else None
+                )
                 if not _handle_recoverable_task_failure(
                     result,
                     task=task,
@@ -1580,6 +1657,7 @@ def run_dev_loop(
                     failure_category_counts=failure_category_counts,
                     max_same_failure_category=max_same_failure_category,
                     evidence_path=loop_res.evidence_path,
+                    pytest_diagnostics=pytest_diag,
                 ):
                     break
                 continue

@@ -73,73 +73,73 @@ tasks:
       - ".github/workflows/"
       - "Makefile"
       - "pyproject.toml"
-  - task_id: ops_i_min_max_runtime_tests
-    pr_title: "R7.0-Ops-I: min vs max runtime precedence tests"
+  - task_id: ops_i5_morning_review_runbook
+    pr_title: "R7.0-Ops-I5: morning review runbook clarity"
     branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
-    scope: "tests for min_runtime vs max_runtime profile precedence"
+    scope: "morning review command and operator checklist docs read-only"
     risk_level: "low"
-    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k runtime"
-    change_file: "tests/test_operator_dev_loop.py"
-    commit_message: "R7.0-Ops-I: runtime precedence tests marker"
-    prepare_for_pr: true
-    allowed_paths:
-      - "tests/"
-      - "docs/"
-    forbidden_paths:
-      - ".github/workflows/"
-      - "Makefile"
-      - "pyproject.toml"
-  - task_id: ops_i_profile_runtime_warning
-    pr_title: "R7.0-Ops-I: profile runtime warning preflight"
-    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
-    scope: "preflight warning when profile max_runtime < min_runtime"
-    risk_level: "low"
-    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k profile_runtime"
-    change_file: "docs/118_ops_i_profile_runtime_warning.md"
-    commit_message: "R7.0-Ops-I: profile runtime warning marker"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/122_ops_i5_morning_review_runbook.md"
+    commit_message: "R7.0-Ops-I5: morning review runbook marker"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
-      - "src/invis_alpha_os/operator/"
-      - "tests/"
     forbidden_paths:
+      - "src/"
       - ".github/workflows/"
       - "Makefile"
       - "pyproject.toml"
-  - task_id: ops_i_true_longrun_profile_validation
-    pr_title: "R7.0-Ops-I: true_longrun profile validation"
+      - "outputs/"
+  - task_id: ops_i5_evidence_summary_cli_docs
+    pr_title: "R7.0-Ops-I5: evidence summary CLI docs"
     branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
-    scope: "validation helpers for true_longrun profiles"
+    scope: "evidence_summary.json fields and operator inspection docs"
     risk_level: "low"
-    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k true_longrun"
-    change_file: "docs/118_ops_i_true_longrun_validation.md"
-    commit_message: "R7.0-Ops-I: true_longrun validation marker"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k evidence"
+    change_file: "docs/122_ops_i5_evidence_summary_cli.md"
+    commit_message: "R7.0-Ops-I5: evidence summary CLI marker"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
       - "tests/"
-      - "config/"
     forbidden_paths:
       - ".github/workflows/"
       - "Makefile"
       - "pyproject.toml"
-  - task_id: ops_i_heartbeat_coverage
-    pr_title: "R7.0-Ops-I: visible heartbeat coverage"
+      - "outputs/"
+  - task_id: ops_i5_runbook_failure_budget_docs
+    pr_title: "R7.0-Ops-I5: runbook failure budget section"
     branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
-    scope: "terminal heartbeat output and evidence path coverage"
+    scope: "longrun runbook failure budget and skip policy clarity"
     risk_level: "low"
-    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k heartbeat"
-    change_file: "docs/118_ops_i_heartbeat_coverage.md"
-    commit_message: "R7.0-Ops-I: heartbeat coverage marker"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/122_ops_i5_runbook_failure_budget.md"
+    commit_message: "R7.0-Ops-I5: failure budget runbook marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+  - task_id: ops_i5_discovery_readonly_smoke_docs
+    pr_title: "R7.0-Ops-I5: discovery readonly smoke docs"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "discovery eval output smoke docs without live HTTP"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner.py -k discovery"
+    change_file: "docs/122_ops_i5_discovery_readonly_smoke.md"
+    commit_message: "R7.0-Ops-I5: discovery readonly smoke marker"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
       - "tests/"
-      - "src/invis_alpha_os/operator/"
     forbidden_paths:
       - ".github/workflows/"
       - "Makefile"
       - "pyproject.toml"
+      - "outputs/"
   - task_id: ops_i_discovery_output_alignment
     pr_title: "R7.0-Ops-I: discovery output alignment docs"
     branch: "work/dev-loop/autonomous/{task_id}/{run_id}"

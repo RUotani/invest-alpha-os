@@ -1127,9 +1127,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **内容**: `--continue-on-task-failure` / `--max-task-failures 3`、evidence `failed_tasks`、critical/safety 即停止。詳細 **[docs/120](./120_r7_0_ops_i3_productive_failure_policy.md)**。PR **#97**。
 
-## R7.0-Ops-I4 — failure budget + resume/skip（進行中）
+## R7.0-Ops-I4 — failure budget + resume/skip（完了）
 
-**内容**: max failures **8**、same-category guard **4**、`--skip-existing-task-artifacts`、gh 502/504 read-only 耐性。詳細 **[docs/121](./121_r7_0_ops_i4_failure_budget_resume_skip.md)**。
+**内容**: max failures **8**、same-category guard **4**、`--skip-existing-task-artifacts`、gh 502/504 read-only 耐性。詳細 **[docs/121](./121_r7_0_ops_i4_failure_budget_resume_skip.md)**。PR **#102**。
+
+## R7.0-Ops-I5 — repair productive queue failures（進行中）
+
+**内容**: 4 失敗 task の supersede + I5 置換タスク、`.py` 安全マーカー、pytest diagnostics。詳細 **[docs/122](./122_r7_0_ops_i5_repair_productive_queue_failures.md)**。
 
 ---
 
