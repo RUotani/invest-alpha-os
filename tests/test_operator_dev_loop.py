@@ -10,16 +10,20 @@ import pytest
 
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.operator.dev_loop import (
+    DevLoopProfile,
     _load_profile,
     _load_queue,
     _native_longrun_enabled,
     apply_profile_longrun_defaults,
     default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
+    default_productive_8h_task_queue_path,
     default_profile_path,
     default_task_queue_path,
     dev_loop_should_exit_nonzero,
     format_longrun_heartbeat_line,
+    format_productive_longrun_preflight_notice,
+    longrun_profile_runtime_warnings,
     resolve_branch_name,
     run_dev_loop,
 )
@@ -1467,3 +1471,97 @@ def test_visible_heartbeat_line_emitted_during_longrun(tmp_path: Path) -> None:
     )
     assert "state=" in hb
     assert "evidence=" in hb
+
+
+def test_productive_queue_has_at_least_twelve_tasks() -> None:
+    tasks = _load_queue(default_productive_8h_task_queue_path())
+    assert len(tasks) >= 12
+    assert all(t.prepare_for_pr for t in tasks)
+
+
+def test_productive_queue_avoids_forbidden_actions() -> None:
+    text = default_productive_8h_task_queue_path().read_text(encoding="utf-8").lower()
+    for forbidden in (
+        "cache write",
+        "gmail send",
+        "trading recommendation",
+        "target price",
+        "auto-merge",
+        "gh pr merge",
+        "confirm_gmail",
+    ):
+        assert forbidden not in text
+    assert "no live http" in text or "without live" in text
+
+
+def test_productive_preflight_notice_format() -> None:
+    tasks = _load_queue(default_productive_8h_task_queue_path())
+    line = format_productive_longrun_preflight_notice(
+        tasks,
+        max_tasks=100,
+        max_prs=10,
+        min_runtime_minutes=480,
+    )
+    assert "productive-longrun preflight:" in line
+    assert "tasks=16" in line
+    assert "may exhaust before min_runtime" in line
+
+
+def test_productive_script_includes_gates_and_queue() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert "autonomous_dev_queue_productive_8h.yaml" in text
+    assert "true_longrun_8h" in text
+    assert "CONFIRM_OPERATOR_DEV_LOOP" in text
+    assert "CONFIRM_GITHUB_PR_CREATE" in text
+    assert "--min-runtime-minutes 480" in text
+    assert "caffeinate" in text
+    assert "gh pr merge" not in text
+
+
+def test_longrun_profile_min_gt_max_warning() -> None:
+    bad = DevLoopProfile(
+        name="bad_test",
+        max_runtime_minutes=60,
+        max_tasks=1,
+        max_prs=1,
+        wait_ci=False,
+        ci_timeout_seconds=600,
+        ci_poll_seconds=30,
+        stop_on_failure=True,
+        stop_on_dirty_tree=True,
+        min_runtime_minutes=120,
+    )
+    warnings = longrun_profile_runtime_warnings(bad)
+    assert any("min_runtime_minutes" in item for item in warnings)
+
+
+def test_true_longrun_8h_profile_passes_validation() -> None:
+    profile = _load_profile("true_longrun_8h", profile_path=default_profile_path())
+    assert not longrun_profile_runtime_warnings(profile)
+    assert profile.min_runtime_minutes == 480
+    assert profile.max_runtime_minutes >= 480
+
+
+def test_productive_dry_run_emits_queue_preflight(capsys, tmp_path: Path) -> None:
+    run_dev_loop(
+        task_queue_path=default_productive_8h_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+    )
+    out = capsys.readouterr().out
+    assert "productive-longrun preflight:" in out
+
+
+def test_effective_min_runtime_exceeds_max_runtime_warning(capsys, tmp_path: Path) -> None:
+    run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        min_runtime_minutes=500,
+        max_runtime_minutes=10,
+    )
+    out = capsys.readouterr().out
+    assert "effective min_runtime_minutes" in out
+    assert "max_runtime_minutes" in out
