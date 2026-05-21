@@ -19,6 +19,7 @@ from invis_alpha_os.operator.dev_loop import (
     default_profile_path,
     default_task_queue_path,
     dev_loop_should_exit_nonzero,
+    format_longrun_heartbeat_line,
     resolve_branch_name,
     run_dev_loop,
 )
@@ -1398,3 +1399,71 @@ def test_profile_true_longrun_3h_heartbeats_until_min_runtime(tmp_path: Path) ->
     assert result.longrun_exit_success
     assert result.stop_reason == "min_runtime reached: 180"
     assert not dev_loop_should_exit_nonzero(result)
+
+
+def test_true_longrun_8h_profile_resolves_native_flags() -> None:
+    profile = _load_profile("true_longrun_8h", profile_path=default_profile_path())
+    assert profile.max_runtime_minutes >= 480
+    assert profile.min_runtime_minutes == 480
+    mr, ne, hb, cpr, ctk = apply_profile_longrun_defaults(
+        profile,
+        min_runtime_minutes=None,
+        no_early_success_exit=False,
+        heartbeat_interval_minutes=10,
+        continue_after_pr_limit=None,
+        continue_after_task_limit=None,
+    )
+    assert mr == 480
+    assert ne is True
+    assert hb == 10
+    assert cpr == "heartbeat"
+    assert profile.max_tasks == 100
+    assert profile.max_prs == 10
+
+
+def test_true_longrun_6h_max_runtime_unchanged() -> None:
+    profile = _load_profile("true_longrun_6h", profile_path=default_profile_path())
+    assert profile.max_runtime_minutes == 360
+    assert profile.min_runtime_minutes == 360
+
+
+def test_run_true_longrun_8h_script_includes_required_flags() -> None:
+    text = (ROOT_DIR / "scripts/run_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert "true_longrun_8h" in text
+    assert "caffeinate" in text
+    assert "--min-runtime-minutes 480" in text
+    assert "--max-tasks 100" in text
+    assert "--max-prs 10" in text
+    assert "CONFIRM_OPERATOR_DEV_LOOP" in text
+    assert "gh pr merge" not in text
+
+
+def test_visible_heartbeat_line_emitted_during_longrun(tmp_path: Path) -> None:
+    clock = _AdvancingClock()
+    lines: list[str] = []
+
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        min_runtime_minutes=2,
+        no_early_success_exit=True,
+        continue_after_task_limit="heartbeat",
+        heartbeat_interval_minutes=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+        heartbeat_emit_fn=lines.append,
+    )
+    assert result.longrun_exit_success
+    assert lines
+    assert any("true-longrun heartbeat:" in line for line in lines)
+    assert any("elapsed=" in line and "remaining=" in line for line in lines)
+    hb = format_longrun_heartbeat_line(
+        result,
+        start_mono=0.0,
+        min_runtime_minutes=2,
+        now_fn=lambda: 60.0,
+    )
+    assert "state=" in hb
+    assert "evidence=" in hb

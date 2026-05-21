@@ -684,6 +684,42 @@ def dev_loop_should_exit_nonzero(result: DevLoopResult) -> bool:
     return False
 
 
+def format_longrun_heartbeat_line(
+    result: DevLoopResult,
+    *,
+    start_mono: float,
+    min_runtime_minutes: int,
+    now_fn: Callable[[], float],
+) -> str:
+    elapsed = _elapsed_minutes_since(start_mono, now_fn)
+    remaining = max(0.0, float(min_runtime_minutes) - elapsed)
+    state = result.longrun_state or "heartbeat_waiting"
+    return (
+        f"true-longrun heartbeat: utc={_utc_now_iso()} elapsed={elapsed:.1f}m "
+        f"remaining={remaining:.1f}m min_runtime={min_runtime_minutes}m "
+        f"state={state} prs={result.prs_created} tasks={result.tasks_executed} "
+        f"evidence={result.evidence_path}"
+    )
+
+
+def emit_longrun_heartbeat(
+    result: DevLoopResult,
+    *,
+    start_mono: float,
+    min_runtime_minutes: int,
+    now_fn: Callable[[], float],
+    emit_fn: Callable[[str], None] | None = None,
+) -> None:
+    line = format_longrun_heartbeat_line(
+        result,
+        start_mono=start_mono,
+        min_runtime_minutes=min_runtime_minutes,
+        now_fn=now_fn,
+    )
+    writer = emit_fn or (lambda text: print(text, flush=True))
+    writer(line)
+
+
 def _run_longrun_post_phase(
     result: DevLoopResult,
     *,
@@ -697,6 +733,7 @@ def _run_longrun_post_phase(
     sleep_fn: Callable[[float], None],
     finalize_evidence: Callable[[], None],
     longrun_evidence: dict[str, Any],
+    heartbeat_emit_fn: Callable[[str], None] | None = None,
 ) -> None:
     deadline_mono = start_mono + float(max_runtime_minutes * 60)
     interval_secs = max(1.0, float(heartbeat_interval_minutes * 60))
@@ -727,14 +764,18 @@ def _run_longrun_post_phase(
         result.longrun_state = "heartbeat_waiting"
         longrun_evidence["longrun_state"] = "heartbeat_waiting"
         finalize_evidence()
+        emit_longrun_heartbeat(
+            result,
+            start_mono=start_mono,
+            min_runtime_minutes=min_runtime_minutes,
+            now_fn=now_fn,
+            emit_fn=heartbeat_emit_fn,
+        )
         remaining_min = float(min_runtime_minutes) - _elapsed_minutes_since(start_mono, now_fn)
         sleep_secs = min(interval_secs, max(0.0, remaining_min * 60.0))
         if sleep_secs <= 0:
             break
-        if longrun_evidence.get("continue_after_pr_limit") == "wait":
-            sleep_fn(sleep_secs)
-        else:
-            sleep_fn(sleep_secs)
+        sleep_fn(sleep_secs)
 
     result.status = "completed"
     result.stop_reason = f"min_runtime reached: {min_runtime_minutes}"
@@ -785,6 +826,7 @@ def run_dev_loop(
     heartbeat_interval_minutes: int = 10,
     continue_after_pr_limit: str | None = None,
     continue_after_task_limit: str | None = None,
+    heartbeat_emit_fn: Callable[[str], None] | None = None,
 ) -> DevLoopResult:
     root = repo_root or ROOT_DIR
     out_root = outputs_root or OUTPUTS_DIR
@@ -1075,6 +1117,7 @@ def run_dev_loop(
                 sleep_fn=sleeper,
                 finalize_evidence=_finalize_evidence,
                 longrun_evidence=longrun_evidence,
+                heartbeat_emit_fn=heartbeat_emit_fn,
             )
     finally:
         _finalize_evidence()
