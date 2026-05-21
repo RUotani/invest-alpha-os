@@ -53,6 +53,7 @@ class PrLoopResult:
     pr_create_exit_code: int | None = None
     pr_create_detail: str = ""
     stop_reason: str = ""
+    pytest_output_tail: str = ""
 
 
 def github_pr_create_gate() -> GateSpec:
@@ -127,12 +128,24 @@ def build_pr_body_draft(
     return body + "\n"
 
 
+def _sanitize_pytest_tail(text: str, *, limit: int = 400) -> str:
+    cleaned = text.strip()
+    if len(cleaned) > limit:
+        cleaned = cleaned[-limit:]
+    for pat in (
+        r"(?i)(api[_-]?key|token|secret|credential|password)\s*[=:]\s*\S+",
+        r"(?i)Bearer\s+\S+",
+    ):
+        cleaned = re.sub(pat, "[redacted]", cleaned)
+    return cleaned.replace("\n", " ")[:limit]
+
+
 def _run_pytest(
     cmd: str,
     *,
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
-) -> int:
+) -> tuple[int, str]:
     runner = subprocess_run or subprocess.run
     proc = runner(
         shlex.split(cmd),
@@ -143,7 +156,7 @@ def _run_pytest(
     )
     combined = (proc.stdout or "") + (proc.stderr or "")
     assert_no_forbidden_terms(combined[:5000])
-    return int(proc.returncode)
+    return int(proc.returncode), _sanitize_pytest_tail(combined)
 
 
 def _run_git_status(
@@ -480,7 +493,7 @@ def run_pr_loop(
     pytest_exit: int | None = None
     git_lines: list[str] = []
     if execute_checks:
-        pytest_exit = _run_pytest(pytest_cmd, repo_root=root, subprocess_run=subprocess_run)
+        pytest_exit, pytest_tail = _run_pytest(pytest_cmd, repo_root=root, subprocess_run=subprocess_run)
         if pytest_exit != 0:
             result = PrLoopResult(
                 run_id=run_id,
@@ -496,6 +509,7 @@ def run_pr_loop(
                 pr_body_draft_path=str(out_dir / "pr_body_draft.md"),
                 evidence_path=str(out_dir / "evidence_summary.json"),
                 stop_reason=f"pytest exit {pytest_exit}",
+                pytest_output_tail=pytest_tail,
             )
             _write_pr_loop_evidence(out_dir, result, task, gate)
             return result
@@ -643,6 +657,7 @@ def _write_pr_loop_evidence(
         "ci_wait_detail": result.ci_wait_detail,
         "ci_wait_poll_count": result.ci_wait_poll_count,
         "stop_reason": result.stop_reason,
+        "pytest_output_tail": result.pytest_output_tail,
         "forbidden_auto_merge": True,
     }
     (out_dir / "evidence_summary.json").write_text(

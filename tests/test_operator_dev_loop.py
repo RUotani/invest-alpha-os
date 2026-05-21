@@ -25,6 +25,8 @@ from invis_alpha_os.operator.dev_loop import (
     format_productive_longrun_preflight_notice,
     longrun_profile_runtime_warnings,
     resolve_branch_name,
+    _load_superseded_tasks,
+    _smoke_marker_line,
     normalize_failure_category,
     run_dev_loop,
     task_is_critical,
@@ -1910,6 +1912,106 @@ def test_gh_transient_readonly_records_warning_and_continues(tmp_path: Path, mon
     )
     assert result.status == "completed"
     assert any("gh" in w for w in result.resume_policy.get("gh_read_warnings", []))
+
+
+def test_smoke_marker_line_safe_for_python() -> None:
+    assert _smoke_marker_line("tests/foo.py", "run1").startswith("\n# dev-loop")
+    assert _smoke_marker_line("docs/x.md", "run1").startswith("\n- dev-loop")
+
+
+def test_superseded_task_skipped_in_productive_queue(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: ops_i_min_max_runtime_tests
+    pr_title: Old
+    branch: work/old
+    pytest_cmd: pytest -q
+""",
+    )
+    seen: list[str] = []
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs["branch"])
+        return PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_no_remote_branch,
+        pr_loop_runner=pr_runner,
+        skip_existing_task_artifacts=True,
+        gh_list_runner=lambda *a, **k: (0, "[]", "", []),
+    )
+    assert seen == []
+    assert result.skipped_tasks[0]["reason"] == "superseded_task"
+    assert len(result.failed_tasks) == 0
+
+
+def test_pytest_failure_diagnostics_recorded(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "T1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        return PrLoopResult(
+            run_id="r",
+            status="stopped",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=5,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="pytest exit 5",
+            pytest_output_tail="no tests ran in session",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=3,
+    )
+    diag = result.failed_tasks[0]["pytest_diagnostics"]
+    assert diag["pytest_exit_code"] == 5
+    assert diag["pytest_cmd"] == "pytest -q"
+    assert "no tests ran" in diag["output_tail"]
+
+
+def test_productive_queue_replaced_stale_self_referential_tasks() -> None:
+    text = default_productive_8h_task_queue_path().read_text(encoding="utf-8")
+    assert "ops_i_min_max_runtime_tests" not in text
+    assert "ops_i_profile_runtime_warning" not in text
+    assert "ops_i5_morning_review_runbook" in text
+    assert "ops_i5_evidence_summary_cli_docs" in text
+    superseded = _load_superseded_tasks()
+    assert "ops_i_min_max_runtime_tests" in superseded
 
 
 def test_productive_script_i4_failure_budget_resume_skip() -> None:
