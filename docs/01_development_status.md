@@ -1109,9 +1109,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-H — true_longrun_8h + visible heartbeat（進行中）
+## R7.0-Ops-H — true_longrun_8h + visible heartbeat（完了 · `main` 反映済）
 
-**内容**: `true_longrun_8h`（min 480m / max 510m）、`scripts/run_true_longrun_8h.sh`、dev-loop terminal heartbeat。`true_longrun_6h` は 8h に使わない。詳細 **[docs/117](./117_r7_0_ops_h_true_longrun_8h_heartbeat.md)**。
+**内容**: `true_longrun_8h`（min 480m / max 510m）、`scripts/run_true_longrun_8h.sh`、dev-loop terminal heartbeat。詳細 **[docs/117](./117_r7_0_ops_h_true_longrun_8h_heartbeat.md)**。
+
+---
+
+## R7.0-Ops-I — productive 8h task queue（進行中）
+
+**内容**: `autonomous_dev_queue_productive_8h.yaml`（16 tasks）、`run_productive_true_longrun_8h.sh`、queue sufficiency preflight。詳細 **[docs/118](./118_ops_i_productive_8h_queue.md)**。
 
 ---
 

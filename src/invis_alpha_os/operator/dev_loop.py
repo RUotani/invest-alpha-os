@@ -147,6 +147,10 @@ def default_longrun_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_longrun.yaml"
 
 
+def default_productive_8h_task_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_8h.yaml"
+
+
 def default_profile_path() -> Path:
     return ROOT_DIR / "config" / "operator_dev_loop_profiles.yaml"
 
@@ -220,6 +224,39 @@ def apply_profile_longrun_defaults(
         continue_after_task_limit if continue_after_task_limit is not None else profile.continue_after_task_limit
     )
     return mr, ne, hb, cpr, ctk
+
+
+def longrun_profile_runtime_warnings(profile: DevLoopProfile | None) -> list[str]:
+    if profile is None:
+        return []
+    warnings: list[str] = []
+    if profile.min_runtime_minutes is not None and profile.min_runtime_minutes > profile.max_runtime_minutes:
+        warnings.append(
+            f"profile {profile.name}: min_runtime_minutes ({profile.min_runtime_minutes}) "
+            f"> max_runtime_minutes ({profile.max_runtime_minutes})"
+        )
+    if profile.name.startswith("true_longrun_"):
+        if profile.min_runtime_minutes is None:
+            warnings.append(f"profile {profile.name}: missing min_runtime_minutes")
+        if not profile.no_early_success_exit:
+            warnings.append(f"profile {profile.name}: no_early_success_exit should be true")
+    return warnings
+
+
+def format_productive_longrun_preflight_notice(
+    tasks: list[DevLoopTask],
+    *,
+    max_tasks: int,
+    max_prs: int,
+    min_runtime_minutes: int | None,
+) -> str:
+    preparable = sum(1 for t in tasks if t.prepare_for_pr)
+    min_token = f"{min_runtime_minutes}m" if min_runtime_minutes else "0m"
+    return (
+        f"productive-longrun preflight: tasks={len(tasks)} preparable={preparable} "
+        f"max_tasks={max_tasks} max_prs={max_prs} min_runtime={min_token} "
+        f"note=queue may exhaust before min_runtime; runner will heartbeat after exhaustion"
+    )
 
 
 def _load_queue(path: Path) -> list[DevLoopTask]:
@@ -835,6 +872,7 @@ def run_dev_loop(
     out_dir.mkdir(parents=True, exist_ok=True)
     tasks = _load_queue(task_queue_path)
     profile = _load_profile(profile_name, profile_path=profile_path) if profile_name else None
+    queue_preflight_notice = ""
     effective_max_runtime = max_runtime_minutes if max_runtime_minutes is not None else (
         profile.max_runtime_minutes if profile else 180
     )
@@ -872,6 +910,23 @@ def run_dev_loop(
         min_runtime_minutes=min_runtime_minutes,
         no_early_success_exit=no_early_success_exit,
     )
+    if "productive" in task_queue_path.name or task_queue_path.name.endswith("_productive_8h.yaml"):
+        queue_preflight_notice = format_productive_longrun_preflight_notice(
+            tasks,
+            max_tasks=effective_max_tasks,
+            max_prs=effective_max_prs,
+            min_runtime_minutes=min_runtime_minutes,
+        )
+        print(queue_preflight_notice, flush=True)
+    for warning in longrun_profile_runtime_warnings(profile):
+        print(f"dev-loop warning: {warning}", flush=True)
+    effective_runtime_warnings: list[str] = []
+    if min_runtime_minutes is not None and min_runtime_minutes > effective_max_runtime:
+        effective_runtime_warnings.append(
+            f"effective min_runtime_minutes ({min_runtime_minutes}) "
+            f"> max_runtime_minutes ({effective_max_runtime})"
+        )
+        print(f"dev-loop warning: {effective_runtime_warnings[-1]}", flush=True)
     cap_reached_tasks = False
     cap_reached_prs = False
     longrun_evidence: dict[str, Any] = {
@@ -898,6 +953,9 @@ def run_dev_loop(
         tasks_seen=len(tasks),
     )
     evidence_limits = {
+        "queue_preflight_notice": queue_preflight_notice,
+        "profile_runtime_warnings": longrun_profile_runtime_warnings(profile),
+        "effective_runtime_warnings": effective_runtime_warnings,
         "max_runtime_minutes": effective_max_runtime,
         "max_tasks": effective_max_tasks,
         "max_prs": effective_max_prs,
