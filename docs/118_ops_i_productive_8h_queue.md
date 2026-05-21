@@ -48,3 +48,4 @@ productive-longrun preflight: tasks=15 preparable=15 max_tasks=100 max_prs=10 mi
 - `stop_reason=min_runtime reached: 480`（queue 枯渇後は heartbeat 継続）
 
 (dev-loop marker 追記用スタブ)
+- dev-loop smoke marker: 20260521T133654Z (2026-05-21T13:36:55Z)
