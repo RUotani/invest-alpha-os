@@ -50,3 +50,4 @@ productive-longrun preflight: tasks=15 preparable=15 max_tasks=100 max_prs=10 mi
 (dev-loop marker 追記用スタブ)
 - dev-loop smoke marker: 20260521T133654Z (2026-05-21T13:36:55Z)
 - dev-loop smoke marker: 20260521T140219Z (2026-05-21T14:02:20Z)
+- dev-loop smoke marker: 20260521T223933Z (2026-05-21T22:40:49Z)
