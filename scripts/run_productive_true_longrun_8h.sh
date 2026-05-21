@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R7.0-Ops-I2: productive 8h guarded long-run with fail-fast preflight (no auto-merge).
+# R7.0-Ops-I3: productive 8h guarded long-run (fail-fast preflight + failure policy; no auto-merge).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -88,7 +88,9 @@ DEV_LOOP_CMD=(
   --heartbeat-interval-minutes 10
   --continue-after-pr-limit heartbeat
   --continue-after-task-limit heartbeat
-  --stop-on-failure
+  --continue-on-task-failure
+  --max-task-failures 3
+  --failure-summary
   --stop-on-dirty-tree
 )
 
@@ -109,8 +111,13 @@ if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
 fi
 
 if [[ "${dev_loop_rc}" -ne 0 ]]; then
+  if [[ "${stop_reason}" == max_task_failures* ]]; then
+    fail_banner="PRODUCTIVE-LONGRUN-8H FAILED: ${stop_reason}"
+  else
+    fail_banner="PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=${dev_loop_rc}"
+  fi
   {
-    echo "PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=${dev_loop_rc}"
+    echo "${fail_banner}"
     echo "log: ${LOG_FILE}"
     if [[ -n "${latest_evidence}" ]]; then
       echo "evidence: ${latest_evidence}"
@@ -123,14 +130,26 @@ if [[ "${dev_loop_rc}" -ne 0 ]]; then
   exit "${dev_loop_rc}"
 fi
 
+failed_count=0
+if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
+  failed_count="$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('failed_tasks') or []))" "${latest_evidence}" 2>/dev/null || echo 0)"
+fi
+if [[ "${failed_count}" -gt 0 ]]; then
+  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED_WITH_RECORDED_FAILURES: failed_tasks=${failed_count}"
+else
+  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED"
+fi
 {
-  echo "PRODUCTIVE-LONGRUN-8H SUCCEEDED"
+  echo "${banner}"
   echo "log: ${LOG_FILE}"
   if [[ -n "${latest_evidence}" ]]; then
     echo "evidence: ${latest_evidence}"
   fi
   if [[ -n "${stop_reason}" ]]; then
     echo "stop_reason: ${stop_reason}"
+  fi
+  if [[ "${failed_count}" -gt 0 ]]; then
+    echo "next action: review failure-summary and failed_tasks in evidence after run"
   fi
   echo "note: heartbeat_waiting is normal before min_runtime; success target is min_runtime reached: 480"
 } | tee -a "${LOG_FILE}"

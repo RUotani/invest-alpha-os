@@ -813,6 +813,26 @@ def operator_runner_dev_loop(
         "--continue-after-task-limit",
         help="wait|heartbeat|next-cycle|stop when max tasks reached (default: stop).",
     ),
+    continue_on_task_failure: bool = typer.Option(
+        False,
+        "--continue-on-task-failure",
+        help="Record noncritical task failures and continue (requires --max-task-failures).",
+    ),
+    max_task_failures: Optional[int] = typer.Option(
+        None,
+        "--max-task-failures",
+        help="Stop after this many recorded noncritical task failures (default 3 with --continue-on-task-failure).",
+    ),
+    critical_task_failure_policy: str = typer.Option(
+        "stop",
+        "--critical-task-failure-policy",
+        help="stop|record for critical/safety-class task failures (default: stop immediately).",
+    ),
+    failure_summary: bool = typer.Option(
+        False,
+        "--failure-summary",
+        help="Print recorded task failure summary at end of run.",
+    ),
 ) -> None:
     """Overnight autonomous development queue runner (dry-run default; no auto-merge)."""
 
@@ -847,6 +867,10 @@ def operator_runner_dev_loop(
             heartbeat_interval_minutes=heartbeat_interval_minutes,
             continue_after_pr_limit=continue_after_pr_limit,
             continue_after_task_limit=continue_after_task_limit,
+            continue_on_task_failure=continue_on_task_failure,
+            max_task_failures=max_task_failures,
+            critical_task_failure_policy=critical_task_failure_policy,
+            failure_summary=failure_summary,
         )
     except ValueError as e:
         typer.echo(f"operator-runner dev-loop: {e}", err=True)

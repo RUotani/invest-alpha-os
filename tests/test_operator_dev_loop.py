@@ -26,6 +26,7 @@ from invis_alpha_os.operator.dev_loop import (
     longrun_profile_runtime_warnings,
     resolve_branch_name,
     run_dev_loop,
+    task_is_critical,
 )
 from invis_alpha_os.operator.pr_loop import PrLoopResult
 
@@ -47,6 +48,7 @@ def _queue_file(tmp_path: Path, tasks: list[dict[str, str]]) -> Path:
 
 
 def _queue_file_raw(tmp_path: Path, body: str) -> Path:
+    tmp_path.mkdir(parents=True, exist_ok=True)
     path = tmp_path / "queue.yaml"
     path.write_text(body, encoding="utf-8")
     return path
@@ -1530,6 +1532,205 @@ def test_productive_script_i2_failfast_preflight() -> None:
     assert "evidence_summary.json" in text or "latest_evidence" in text
     assert "operator_dev_loop_profiles.yaml" in text
     assert "gh --version" in text
+
+
+def test_task_is_critical_from_risk_level(tmp_path: Path) -> None:
+    low = _load_queue(
+        _queue_file_raw(
+            tmp_path / "low",
+            "version: ops_dev_queue.v1\ntasks:\n  - task_id: t\n    pr_title: T\n    branch: b\n    pytest_cmd: pytest\n    risk_level: low\n",
+        )
+    )[0]
+    high = _load_queue(
+        _queue_file_raw(
+            tmp_path / "high",
+            "version: ops_dev_queue.v1\ntasks:\n  - task_id: t\n    pr_title: T\n    branch: b\n    pytest_cmd: pytest\n    risk_level: critical\n",
+        )
+    )[0]
+    assert not task_is_critical(low)
+    assert task_is_critical(high)
+
+
+def test_continue_on_task_failure_records_and_continues(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "Task 2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+        ],
+    )
+    seen: list[str] = []
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs["branch"])
+        status = "stopped" if kwargs["branch"] == "work/t1" else "completed"
+        return PrLoopResult(
+            run_id="r",
+            status=status,
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=1 if status == "stopped" else 0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path=str(tmp_path / "e1.json"),
+            stop_reason="pytest exit 1" if status == "stopped" else "",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=3,
+    )
+    assert seen == ["work/t1", "work/t2"]
+    assert result.status == "completed_with_failures"
+    assert len(result.failed_tasks) == 1
+    assert result.failed_tasks[0]["task_id"] == "t1"
+    assert not dev_loop_should_exit_nonzero(result)
+    evidence = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert evidence["failure_policy"]["continue_on_task_failure"] is True
+    assert len(evidence["failed_tasks"]) == 1
+
+
+def test_max_task_failures_stops_queue(tmp_path: Path, monkeypatch, capsys) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "T1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "T2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+            {"task_id": "t3", "pr_title": "T3", "branch": "work/t3", "pytest_cmd": "pytest -q"},
+            {"task_id": "t4", "pr_title": "T4", "branch": "work/t4", "pytest_cmd": "pytest -q"},
+        ],
+    )
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        return PrLoopResult(
+            run_id="r",
+            status="stopped",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=1,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="pytest exit 1",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=3,
+    )
+    assert result.tasks_executed == 3
+    assert "max_task_failures reached: 3" in result.stop_reason
+    assert dev_loop_should_exit_nonzero(result)
+    assert "max_task_failures reached: 3" in capsys.readouterr().out
+
+
+def test_critical_task_failure_stops_with_continue_flag(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: critical_t
+    pr_title: Critical
+    branch: work/critical
+    pytest_cmd: pytest -q
+    risk_level: critical
+  - task_id: t2
+    pr_title: T2
+    branch: work/t2
+    pytest_cmd: pytest -q
+""",
+    )
+    seen: list[str] = []
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs["branch"])
+        return PrLoopResult(
+            run_id="r",
+            status="stopped",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=1,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="pytest exit 1",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=3,
+    )
+    assert seen == ["work/critical"]
+    assert "task_failed: critical_t" in result.stop_reason
+
+
+def test_safety_failure_stops_with_continue_flag(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"},
+            {"task_id": "t2", "pr_title": "Task 2", "branch": "work/t2", "pytest_cmd": "pytest -q"},
+        ],
+    )
+
+    def dirty_outputs(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(cmd, 0, "?? outputs/foo.txt\n", "")
+        return _git_clean(cmd, **kwargs)
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=dirty_outputs,
+        continue_on_task_failure=True,
+        max_task_failures=3,
+    )
+    assert result.safety_validator_status == "failed"
+    assert result.tasks_executed == 0
+    assert "outputs/" in result.stop_reason
+
+
+def test_productive_script_i3_failure_policy() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert "--continue-on-task-failure" in text
+    assert "--max-task-failures 3" in text
+    assert "--failure-summary" in text
+    assert "SUCCEEDED_WITH_RECORDED_FAILURES" in text
+    assert "--stop-on-failure" not in text
+    assert "autonomous_dev_queue_productive_8h.yaml" in text
+    assert "true_longrun_8h" in text
 
 
 def test_longrun_profile_min_gt_max_warning() -> None:

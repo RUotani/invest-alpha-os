@@ -96,6 +96,10 @@ cap 到達後も `min_runtime` まで heartbeat: **[docs/113](./113_r7_0_ops_f_n
 
 8h 開始前に pytest / gh / queue / gates を検証。失敗時は log + evidence + tail を表示。詳細 **[docs/119](./119_r7_0_ops_i2_productive_8h_failfast_preflight.md)**。
 
+## 12. Ops-I3 productive failure policy
+
+非critical task 失敗は記録して継続（上限 3）。critical/safety は即停止。詳細 **[docs/120](./120_r7_0_ops_i3_productive_failure_policy.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)
