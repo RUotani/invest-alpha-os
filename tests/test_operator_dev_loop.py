@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 from pathlib import Path
@@ -18,6 +19,7 @@ from invis_alpha_os.operator.dev_loop import (
     default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
     default_productive_8h_task_queue_path,
+    default_productive_12h_task_queue_path,
     default_profile_path,
     default_task_queue_path,
     dev_loop_should_exit_nonzero,
@@ -1526,9 +1528,11 @@ def test_productive_script_includes_gates_and_queue() -> None:
 def test_productive_script_i2_failfast_preflight() -> None:
     text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
     assert 'export PATH="${REPO_ROOT}/.venv/bin:${PATH}"' in text
-    assert "PRODUCTIVE-LONGRUN-8H PREFLIGHT FAILED" in text
-    assert "PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=" in text
-    assert "PRODUCTIVE-LONGRUN-8H SUCCEEDED" in text
+    assert "PREFLIGHT FAILED" in text
+    assert 'PRODUCTIVE_LABEL="PRODUCTIVE-LONGRUN-8H"' in text
+    assert "FAILED: dev_loop_rc=" in text
+    assert "SUCCEEDED" in text
+    assert "INTERRUPTED_AFTER_PRODUCTIVE_CAP" in text
     assert ".venv/bin/pytest" in text
     assert "python -m pytest" in text
     assert "tail -n 80" in text
@@ -2025,6 +2029,102 @@ def test_productive_script_i4_failure_budget_resume_skip() -> None:
     assert "--stop-on-failure" not in text
     assert "autonomous_dev_queue_productive_8h.yaml" in text
     assert "true_longrun_8h" in text
+
+
+def _productive_classify_module():
+    path = ROOT_DIR / "scripts" / "productive_longrun_classify.py"
+    spec = importlib.util.spec_from_file_location("productive_longrun_classify", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_true_longrun_12h_profile_passes_validation() -> None:
+    profile = _load_profile("true_longrun_12h", profile_path=default_profile_path())
+    assert not longrun_profile_runtime_warnings(profile)
+    assert profile.min_runtime_minutes == 720
+    assert profile.max_runtime_minutes >= 720
+    assert profile.max_prs == 25
+    assert profile.max_tasks == 40
+
+
+def test_productive_12h_queue_size_and_excludes_superseded() -> None:
+    tasks = _load_queue(default_productive_12h_task_queue_path())
+    assert 28 <= len(tasks) <= 32
+    ids = {t.task_id for t in tasks}
+    for stale in (
+        "ops_i_min_max_runtime_tests",
+        "ops_i_profile_runtime_warning",
+        "ops_i_true_longrun_profile_validation",
+        "ops_i_heartbeat_coverage",
+    ):
+        assert stale not in ids
+
+
+def test_productive_12h_script_flags() -> None:
+    path = ROOT_DIR / "scripts" / "run_productive_true_longrun_12h.sh"
+    assert path.is_file()
+    assert oct(path.stat().st_mode)[-3:] in {"755", "775", "777"}
+    text = path.read_text(encoding="utf-8")
+    assert "autonomous_dev_queue_productive_12h.yaml" in text
+    assert "true_longrun_12h" in text
+    assert "MIN_RUNTIME_MINUTES=720" in text
+    assert '--min-runtime-minutes "${MIN_RUNTIME_MINUTES}"' in text
+    assert 'MAX_PRS=25' in text
+    assert '--max-prs "${MAX_PRS}"' in text
+    assert "--max-tasks 40" in text
+    assert "--continue-on-task-failure" in text
+    assert "--skip-existing-task-artifacts" in text
+    assert "productive_true_longrun_12h" in text
+    assert "INTERRUPTED_AFTER_PRODUCTIVE_CAP" in text
+    assert "operator-runner dev-loop" in text
+
+
+def test_productive_interruption_classification_rc130(tmp_path: Path) -> None:
+    mod = _productive_classify_module()
+    evidence = tmp_path / "evidence_summary.json"
+    evidence.write_text(
+        json.dumps(
+            {
+                "prs_created": 10,
+                "longrun": {
+                    "longrun_state": "heartbeat_waiting",
+                    "elapsed_minutes": 455.0,
+                    "cap_reached": {"tasks": False, "prs": True},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    label = mod.classify_productive_interruption(
+        evidence,
+        dev_loop_rc=130,
+        min_runtime_minutes=480,
+        max_prs=10,
+    )
+    assert label == "interrupted_after_productive_cap"
+
+
+def test_productive_interruption_not_classified_on_preflight_failure(tmp_path: Path) -> None:
+    mod = _productive_classify_module()
+    evidence = tmp_path / "evidence_summary.json"
+    evidence.write_text("{}", encoding="utf-8")
+    assert (
+        mod.classify_productive_interruption(
+            evidence,
+            dev_loop_rc=1,
+            min_runtime_minutes=720,
+            max_prs=25,
+        )
+        == ""
+    )
+
+
+def test_productive_8h_script_includes_interrupted_banner() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert "INTERRUPTED_AFTER_PRODUCTIVE_CAP" in text
+    assert "productive_longrun_classify.py" in text
 
 
 def test_longrun_profile_min_gt_max_warning() -> None:

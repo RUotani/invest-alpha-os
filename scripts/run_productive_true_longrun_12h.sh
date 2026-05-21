@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R7.0-Ops-I4: productive 8h guarded long-run (preflight + failure budget + resume/skip; no auto-merge).
+# R7.0-Ops-I6: productive 12h workday guarded long-run (no auto-merge).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,11 +9,11 @@ export PATH="${REPO_ROOT}/.venv/bin:${PATH}"
 PYTHON="${PYTHON:-${REPO_ROOT}/.venv/bin/python}"
 export PYTHON
 
-PRODUCTIVE_QUEUE="config/tasks/autonomous_dev_queue_productive_8h.yaml"
+PRODUCTIVE_QUEUE="config/tasks/autonomous_dev_queue_productive_12h.yaml"
 PROFILE_FILE="config/operator_dev_loop_profiles.yaml"
-PRODUCTIVE_LABEL="PRODUCTIVE-LONGRUN-8H"
-MIN_RUNTIME_MINUTES=480
-MAX_PRS=10
+PRODUCTIVE_LABEL="PRODUCTIVE-LONGRUN-12H"
+MIN_RUNTIME_MINUTES=720
+MAX_PRS=25
 
 preflight_fail() {
   echo "${PRODUCTIVE_LABEL} PREFLIGHT FAILED: $1" >&2
@@ -37,7 +37,11 @@ if [[ "${CONFIRM_GITHUB_PR_CREATE:-}" != "YES" ]]; then
 fi
 
 if [[ -n "$(git status --short)" ]]; then
-  preflight_fail "working tree is dirty" "commit, stash, or discard changes before starting 8h run"
+  preflight_fail "working tree is dirty" "commit, stash, or discard changes before starting 12h run"
+fi
+
+if pgrep -f "operator-runner dev-loop" >/dev/null 2>&1; then
+  preflight_fail "another operator-runner dev-loop process is running" "stop the other run before starting 12h productive longrun"
 fi
 
 if [[ ! -x "${REPO_ROOT}/.venv/bin/python" ]]; then
@@ -54,7 +58,7 @@ elif ! "${REPO_ROOT}/.venv/bin/python" -m pytest --version >/dev/null 2>&1; then
 fi
 
 if [[ ! -f "${REPO_ROOT}/${PRODUCTIVE_QUEUE}" ]]; then
-  preflight_fail "task queue not found: ${PRODUCTIVE_QUEUE}" "merge Ops-I queue or fix path"
+  preflight_fail "task queue not found: ${PRODUCTIVE_QUEUE}" "merge Ops-I6 queue or fix path"
 fi
 
 if [[ ! -f "${REPO_ROOT}/${PROFILE_FILE}" ]]; then
@@ -70,23 +74,23 @@ if ! gh --version >/dev/null 2>&1; then
 fi
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-LOG_DIR="${REPO_ROOT}/outputs/operator/productive_true_longrun_8h/${RUN_ID}"
+LOG_DIR="${REPO_ROOT}/outputs/operator/productive_true_longrun_12h/${RUN_ID}"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/run.log"
 
-echo "=== productive-longrun-8h start (${RUN_ID}) ===" | tee "${LOG_FILE}"
-echo "preflight: gates ok, pytest ok, queue=${PRODUCTIVE_QUEUE}, profile=true_longrun_8h" | tee -a "${LOG_FILE}"
+echo "=== productive-longrun-12h start (${RUN_ID}) ===" | tee "${LOG_FILE}"
+echo "preflight: gates ok, pytest ok, queue=${PRODUCTIVE_QUEUE}, profile=true_longrun_12h max_prs=${MAX_PRS} max_tasks=40" | tee -a "${LOG_FILE}"
 
 DEV_LOOP_CMD=(
   "${PYTHON}" -m invis_alpha_os.cli.main operator-runner dev-loop
   --task-queue "${PRODUCTIVE_QUEUE}"
-  --profile true_longrun_8h
+  --profile true_longrun_12h
   --execute-dev-loop
   --create-pr
   --wait-ci
-  --max-tasks 100
-  --max-prs 10
-  --min-runtime-minutes 480
+  --max-tasks 40
+  --max-prs "${MAX_PRS}"
+  --min-runtime-minutes "${MIN_RUNTIME_MINUTES}"
   --no-early-success-exit
   --heartbeat-interval-minutes 10
   --continue-after-pr-limit heartbeat
@@ -103,7 +107,7 @@ set +e
 if command -v caffeinate >/dev/null 2>&1; then
   caffeinate -dimsu "${DEV_LOOP_CMD[@]}" 2>&1 | tee -a "${LOG_FILE}"
 else
-  echo "productive-longrun-8h: WARN: caffeinate not found; continuing without sleep guard" | tee -a "${LOG_FILE}"
+  echo "productive-longrun-12h: WARN: caffeinate not found; continuing without sleep guard" | tee -a "${LOG_FILE}"
   "${DEV_LOOP_CMD[@]}" 2>&1 | tee -a "${LOG_FILE}"
 fi
 dev_loop_rc=${PIPESTATUS[0]}
@@ -135,14 +139,14 @@ if [[ "${dev_loop_rc}" -ne 0 ]]; then
     if [[ -n "${latest_evidence}" ]]; then
       echo "evidence: ${latest_evidence}"
     fi
-    echo "--- last 80 lines of run.log ---"
-    tail -n 80 "${LOG_FILE}" 2>/dev/null || true
     if [[ "${classify_outcome}" == "interrupted_after_productive_cap" ]]; then
       echo "note: productive caps reached; heartbeat near min_runtime; review prs_created and merge useful PRs"
     fi
-    echo "next action: inspect log and evidence; fix pytest/path/gates; do not assume 8h success"
+    echo "--- last 80 lines of run.log ---"
+    tail -n 80 "${LOG_FILE}" 2>/dev/null || true
+    echo "next action: inspect log and evidence; merge green PRs; sync main before rerun"
   } | tee -a "${LOG_FILE}" >&2
-  notify_optional "productive-longrun-8h" "FAILED rc=${dev_loop_rc}"
+  notify_optional "productive-longrun-12h" "${fail_banner}"
   exit "${dev_loop_rc}"
 fi
 
@@ -152,9 +156,9 @@ if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
   read -r failed_count skipped_count <<< "$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('failed_tasks') or []), len(d.get('skipped_tasks') or []))" "${latest_evidence}" 2>/dev/null || echo '0 0')"
 fi
 if [[ "${failed_count}" -gt 0 || "${skipped_count}" -gt 0 ]]; then
-  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED_WITH_RECORDED_FAILURES: failed_tasks=${failed_count} skipped_tasks=${skipped_count}"
+  banner="${PRODUCTIVE_LABEL} SUCCEEDED_WITH_RECORDED_FAILURES: failed_tasks=${failed_count} skipped_tasks=${skipped_count}"
 else
-  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED"
+  banner="${PRODUCTIVE_LABEL} SUCCEEDED"
 fi
 {
   echo "${banner}"
@@ -168,14 +172,15 @@ fi
   if [[ "${failed_count}" -gt 0 ]]; then
     echo "next action: review failure-summary and failed_tasks in evidence after run"
   fi
-  echo "note: heartbeat_waiting is normal before min_runtime; success target is min_runtime reached: 480"
+  echo "note: heartbeat_waiting after cap exhaustion is normal; success target is min_runtime reached: ${MIN_RUNTIME_MINUTES}"
+  echo "utilization: review tasks_executed and prs_created in evidence (not heartbeat duration alone)"
 } | tee -a "${LOG_FILE}"
 
 git status --short 2>&1 | tee -a "${LOG_FILE}" || true
 if command -v gh >/dev/null 2>&1; then
   echo "--- open PRs ---" | tee -a "${LOG_FILE}"
-  gh pr list --state open --limit 10 2>&1 | tee -a "${LOG_FILE}" || true
+  gh pr list --state open --limit 25 2>&1 | tee -a "${LOG_FILE}" || true
 fi
 
-notify_optional "productive-longrun-8h" "SUCCEEDED ${stop_reason:-completed}"
+notify_optional "productive-longrun-12h" "SUCCEEDED ${stop_reason:-completed}"
 exit 0
