@@ -158,6 +158,10 @@ def default_productive_8h_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_8h.yaml"
 
 
+def default_productive_12h_task_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h.yaml"
+
+
 def default_productive_superseded_tasks_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "productive_8h_superseded_tasks.yaml"
 
@@ -1283,7 +1287,9 @@ def run_dev_loop(
         min_runtime_minutes=min_runtime_minutes,
         no_early_success_exit=no_early_success_exit,
     )
-    if "productive" in task_queue_path.name or task_queue_path.name.endswith("_productive_8h.yaml"):
+    if "productive" in task_queue_path.name or task_queue_path.name.endswith(
+        ("_productive_8h.yaml", "_productive_12h.yaml")
+    ):
         queue_preflight_notice = format_productive_longrun_preflight_notice(
             tasks,
             max_tasks=effective_max_tasks,
@@ -1344,7 +1350,7 @@ def run_dev_loop(
     gh_pr_index: list[dict[str, Any]] = []
     gh_read_warnings: list[str] = []
     productive_queue = "productive" in task_queue_path.name or task_queue_path.name.endswith(
-        "_productive_8h.yaml"
+        ("_productive_8h.yaml", "_productive_12h.yaml")
     )
     superseded_tasks_map: dict[str, str] = {}
     if skip_existing_task_artifacts or productive_queue:

@@ -69,3 +69,17 @@ profiles:
     heartbeat_interval_minutes: 10
     continue_after_pr_limit: heartbeat
     continue_after_task_limit: heartbeat
+  true_longrun_12h:
+    max_runtime_minutes: 750
+    max_tasks: 40
+    max_prs: 25
+    wait_ci: true
+    ci_timeout_seconds: 5400
+    ci_poll_seconds: 60
+    stop_on_failure: true
+    stop_on_dirty_tree: true
+    min_runtime_minutes: 720
+    no_early_success_exit: true
+    heartbeat_interval_minutes: 10
+    continue_after_pr_limit: heartbeat
+    continue_after_task_limit: heartbeat

@@ -1131,9 +1131,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **内容**: max failures **8**、same-category guard **4**、`--skip-existing-task-artifacts`、gh 502/504 read-only 耐性。詳細 **[docs/121](./121_r7_0_ops_i4_failure_budget_resume_skip.md)**。PR **#102**。
 
-## R7.0-Ops-I5 — repair productive queue failures（進行中）
+## R7.0-Ops-I5 — repair productive queue failures（完了）
 
-**内容**: 4 失敗 task の supersede + I5 置換タスク、`.py` 安全マーカー、pytest diagnostics。詳細 **[docs/122](./122_r7_0_ops_i5_repair_productive_queue_failures.md)**。
+**内容**: 4 失敗 task の supersede + I5 置換タスク、`.py` 安全マーカー、pytest diagnostics。詳細 **[docs/122](./122_r7_0_ops_i5_repair_productive_queue_failures.md)**。PR **#103**。
+
+## R7.0-Ops-I6 — productive 12h workday profile（進行中）
+
+**内容**: `true_longrun_12h`、32 task queue、`run_productive_true_longrun_12h.sh`、max_prs 25、`INTERRUPTED_AFTER_PRODUCTIVE_CAP` 分類。詳細 **[docs/123](./123_r7_0_ops_i6_productive_12h_workday_profile.md)**。
 
 ---
 
