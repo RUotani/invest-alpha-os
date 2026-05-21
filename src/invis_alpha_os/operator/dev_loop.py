@@ -109,7 +109,9 @@ class DevLoopResult:
     longrun_state: str = ""
     longrun_exit_success: bool = False
     failed_tasks: list[dict[str, Any]] = field(default_factory=list)
+    skipped_tasks: list[dict[str, Any]] = field(default_factory=list)
     failure_policy: dict[str, Any] = field(default_factory=dict)
+    resume_policy: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -717,6 +719,181 @@ def task_is_critical(task: DevLoopTask) -> bool:
     return level in {"high", "critical"}
 
 
+FAILURE_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "pytest_failed",
+        "prepare_failed",
+        "pr_create_failed",
+        "ci_failed",
+        "unknown_task_failure",
+    }
+)
+
+
+def normalize_failure_category(reason_code: str, *, raw_reason: str = "") -> str:
+    if reason_code in {"prep_failed", "prepare_failed"}:
+        return "prepare_failed"
+    if reason_code in {"pr_preflight_failed", "pr_create_failed"}:
+        return "pr_create_failed"
+    if reason_code == "pytest_failed":
+        return "pytest_failed"
+    if reason_code == "ci_failed" or "ci" in raw_reason.lower():
+        return "ci_failed"
+    return "unknown_task_failure"
+
+
+def _gh_output_transient(text: str) -> bool:
+    probe = text.lower()
+    return "502" in probe or "504" in probe or "bad gateway" in probe or "gateway timeout" in probe
+
+
+def _run_gh_readonly(
+    argv: list[str],
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
+) -> tuple[int, str, str, list[str]]:
+    warnings: list[str] = []
+    runner = subprocess_run or subprocess.run
+    sleeper = sleep_fn or time.sleep
+    for attempt in range(2):
+        proc = runner(
+            argv,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        combined = f"{proc.stdout or ''}{proc.stderr or ''}"
+        if proc.returncode == 0:
+            return proc.returncode, proc.stdout or "", proc.stderr or "", warnings
+        if _gh_output_transient(combined) and attempt == 0:
+            warnings.append(f"gh transient error retry: {' '.join(argv)}")
+            sleeper(1.0)
+            continue
+        return proc.returncode, proc.stdout or "", proc.stderr or "", warnings
+    return 1, "", "", warnings
+
+
+def _load_github_pr_index(
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
+    gh_list_runner: Callable[..., tuple[int, str, str, list[str]]] | None = None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    argv = [
+        "gh",
+        "pr",
+        "list",
+        "--state",
+        "all",
+        "--limit",
+        "50",
+        "--json",
+        "headRefName,title,state,url",
+    ]
+    runner = gh_list_runner or _run_gh_readonly
+    code, stdout, stderr, warnings = runner(
+        argv,
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+        sleep_fn=sleep_fn,
+    )
+    if code != 0:
+        detail = _sanitize_git_detail((stderr or stdout).strip() or f"exit {code}")
+        warnings.append(f"gh pr list unavailable: {detail}")
+        return [], warnings
+    try:
+        rows = json.loads(stdout or "[]")
+    except json.JSONDecodeError:
+        warnings.append("gh pr list returned invalid json")
+        return [], warnings
+    if not isinstance(rows, list):
+        warnings.append("gh pr list unexpected payload")
+        return [], warnings
+    index: list[dict[str, Any]] = []
+    for row in rows:
+        if isinstance(row, dict):
+            index.append(row)
+    return index, warnings
+
+
+def _pr_title_matches_task(task: DevLoopTask, title: str) -> bool:
+    return task.pr_title.strip().lower() == title.strip().lower()
+
+
+def _branch_matches_task_marker(task: DevLoopTask, branch: str) -> bool:
+    marker = _sanitize_branch_token(task.task_id)
+    normalized = branch.strip().lower()
+    return marker in normalized and "dev-loop" in normalized
+
+
+def _evaluate_task_skip(
+    task: DevLoopTask,
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    gh_pr_index: list[dict[str, Any]],
+    gh_warnings: list[str],
+    completed_task_ids: set[str],
+    skipped_task_ids: set[str],
+    pr_created_task_ids: set[str],
+) -> tuple[str, str] | None:
+    if task.task_id in completed_task_ids or task.task_id in skipped_task_ids:
+        return "already_processed", f"task_id={task.task_id} in current run"
+    if task.task_id in pr_created_task_ids:
+        return "already_processed", f"task_id={task.task_id} already has PR in run"
+
+    branch = task.branch.strip()
+    if branch:
+        if _branch_on_origin(branch, repo_root=repo_root, subprocess_run=subprocess_run):
+            return "existing_remote_branch", f"origin/{branch} exists"
+        if _remote_branch_exists_lsremote(branch, repo_root=repo_root, subprocess_run=subprocess_run):
+            return "existing_remote_branch", f"remote head exists for {branch}"
+
+    if gh_pr_index:
+        for row in gh_pr_index:
+            head = str(row.get("headRefName") or "").strip()
+            title = str(row.get("title") or "").strip()
+            state = str(row.get("state") or "").strip().upper()
+            if branch and head == branch:
+                if state == "OPEN":
+                    return "existing_pr", f"open PR for branch {branch}"
+                return "existing_pr", f"PR state={state} for branch {branch}"
+            if _pr_title_matches_task(task, title):
+                return "existing_pr", f"PR title match state={state}"
+            if branch and head and _branch_matches_task_marker(task, head):
+                return "existing_pr", f"task branch marker match head={head}"
+    elif gh_warnings:
+        return None
+    return None
+
+
+def _record_task_skip(
+    result: DevLoopResult,
+    *,
+    task: DevLoopTask,
+    reason: str,
+    detail: str,
+    skipped_tasks: list[dict[str, Any]],
+) -> None:
+    skipped_tasks.append({"task_id": task.task_id, "reason": reason, "detail": detail})
+    result.task_results.append(
+        DevLoopTaskResult(
+            task_id=task.task_id,
+            status="skipped",
+            stop_reason=reason,
+            preparation_detail=detail,
+        )
+    )
+    print(
+        f"productive-longrun task skipped: task_id={task.task_id} reason={reason}",
+        flush=True,
+    )
+
+
 def _failed_task_record(
     task: DevLoopTask,
     *,
@@ -746,6 +923,8 @@ def _handle_recoverable_task_failure(
     continue_on_task_failure: bool,
     max_task_failures: int | None,
     critical_task_failure_policy: str,
+    failure_category_counts: dict[str, int],
+    max_same_failure_category: int | None = None,
     evidence_path: str = "",
 ) -> bool:
     """Return True to continue the queue; False if the caller should break."""
@@ -769,20 +948,32 @@ def _handle_recoverable_task_failure(
         result.stop_reason = stop_reason
         return False
 
+    category = normalize_failure_category(reason_code, raw_reason=raw_reason)
     failed_tasks.append(
         _failed_task_record(
             task,
-            reason=reason_code,
+            reason=category,
             stop_reason=stop_reason,
             evidence_path=evidence_path,
         )
     )
+    failure_category_counts[category] = failure_category_counts.get(category, 0) + 1
     max_f = max_task_failures if max_task_failures is not None else 3
     print(
         f"productive-longrun task failed: task_id={task.task_id} critical=false "
         f"failed={len(failed_tasks)}/{max_f} action=continue",
         flush=True,
     )
+    print(
+        f"productive-longrun failure budget: failed={len(failed_tasks)}/{max_f}",
+        flush=True,
+    )
+    if max_same_failure_category and failure_category_counts[category] >= max_same_failure_category:
+        count = failure_category_counts[category]
+        result.status = "stopped"
+        result.stop_reason = f"max_same_failure_category reached: {category}={count}"
+        print(f"PRODUCTIVE-LONGRUN-8H FAILED: {result.stop_reason}", flush=True)
+        return False
     if len(failed_tasks) >= max_f:
         result.status = "stopped"
         result.stop_reason = f"max_task_failures reached: {max_f}"
@@ -816,6 +1007,8 @@ def _is_real_failure_stop(result: DevLoopResult) -> bool:
         return False
     if reason.startswith("max_task_failures reached:"):
         return True
+    if reason.startswith("max_same_failure_category reached:"):
+        return True
     return result.status == "stopped"
 
 
@@ -826,6 +1019,8 @@ def dev_loop_should_exit_nonzero(result: DevLoopResult) -> bool:
     if result.status == "completed_with_failures":
         return False
     if result.stop_reason.strip().startswith("max_task_failures reached:"):
+        return True
+    if result.stop_reason.strip().startswith("max_same_failure_category reached:"):
         return True
     if result.status == "blocked":
         return True
@@ -981,6 +1176,9 @@ def run_dev_loop(
     max_task_failures: int | None = None,
     critical_task_failure_policy: str = "stop",
     failure_summary: bool = False,
+    max_same_failure_category: int | None = None,
+    skip_existing_task_artifacts: bool = False,
+    gh_list_runner: Callable[..., tuple[int, str, str, list[str]]] | None = None,
 ) -> DevLoopResult:
     root = repo_root or ROOT_DIR
     out_root = outputs_root or OUTPUTS_DIR
@@ -1079,6 +1277,25 @@ def run_dev_loop(
         "critical_failure_policy": effective_critical_policy,
     }
     failed_tasks: list[dict[str, Any]] = []
+    skipped_tasks: list[dict[str, Any]] = []
+    failure_category_counts: dict[str, int] = {}
+    result.resume_policy = {
+        "skip_existing_task_artifacts": skip_existing_task_artifacts,
+        "skipped_task_count": 0,
+        "gh_read_warnings": [],
+    }
+    result.failure_policy["max_same_failure_category"] = max_same_failure_category
+    result.failure_policy["failure_category_counts"] = failure_category_counts
+    gh_pr_index: list[dict[str, Any]] = []
+    gh_read_warnings: list[str] = []
+    if execute_dev_loop and skip_existing_task_artifacts:
+        gh_pr_index, gh_read_warnings = _load_github_pr_index(
+            repo_root=root,
+            subprocess_run=subprocess_run,
+            sleep_fn=sleeper,
+            gh_list_runner=gh_list_runner,
+        )
+        result.resume_policy["gh_read_warnings"] = list(gh_read_warnings)
     evidence_limits = {
         "queue_preflight_notice": queue_preflight_notice,
         "profile_runtime_warnings": longrun_profile_runtime_warnings(profile),
@@ -1110,7 +1327,10 @@ def run_dev_loop(
         if not result.ended_at:
             result.ended_at = _utc_now_iso()
         result.failed_tasks = list(failed_tasks)
+        result.skipped_tasks = list(skipped_tasks)
         result.failure_policy["failed_task_count"] = len(failed_tasks)
+        result.failure_policy["failure_category_counts"] = dict(failure_category_counts)
+        result.resume_policy["skipped_task_count"] = len(skipped_tasks)
         _write_dev_loop_evidence(
             out_dir,
             result,
@@ -1120,6 +1340,8 @@ def run_dev_loop(
             longrun_meta=longrun_evidence if (native_longrun or min_runtime_minutes) else None,
             failure_policy=result.failure_policy,
             failed_tasks=failed_tasks,
+            skipped_tasks=skipped_tasks,
+            resume_policy=result.resume_policy,
         )
 
     if execute_dev_loop and not gate_ok:
@@ -1173,6 +1395,35 @@ def run_dev_loop(
                 )
                 continue
 
+            completed_task_ids = {
+                tr.task_id for tr in result.task_results if tr.status == "completed"
+            }
+            skipped_task_ids = {item["task_id"] for item in skipped_tasks}
+            pr_created_task_ids = {
+                tr.task_id for tr in result.task_results if tr.pr_url
+            }
+            if skip_existing_task_artifacts:
+                skip_hit = _evaluate_task_skip(
+                    task,
+                    repo_root=root,
+                    subprocess_run=subprocess_run,
+                    gh_pr_index=gh_pr_index,
+                    gh_warnings=gh_read_warnings,
+                    completed_task_ids=completed_task_ids,
+                    skipped_task_ids=skipped_task_ids,
+                    pr_created_task_ids=pr_created_task_ids,
+                )
+                if skip_hit:
+                    reason, detail = skip_hit
+                    _record_task_skip(
+                        result,
+                        task=task,
+                        reason=reason,
+                        detail=detail,
+                        skipped_tasks=skipped_tasks,
+                    )
+                    continue
+
             prep_ok, prep_status, prep_detail, prep_preflight = _prepare_smoke_task(
                 task,
                 run_id=run_id,
@@ -1202,6 +1453,8 @@ def run_dev_loop(
                     continue_on_task_failure=continue_on_task_failure,
                     max_task_failures=max_task_failures,
                     critical_task_failure_policy=effective_critical_policy,
+                    failure_category_counts=failure_category_counts,
+                    max_same_failure_category=max_same_failure_category,
                 ):
                     break
                 continue
@@ -1269,6 +1522,8 @@ def run_dev_loop(
                         continue_on_task_failure=continue_on_task_failure,
                         max_task_failures=max_task_failures,
                         critical_task_failure_policy=effective_critical_policy,
+                        failure_category_counts=failure_category_counts,
+                        max_same_failure_category=max_same_failure_category,
                     ):
                         break
                     continue
@@ -1304,11 +1559,15 @@ def run_dev_loop(
             )
             result.task_results.append(task_rec)
             if loop_res.status in {"stopped", "blocked"}:
-                reason_code = (
-                    "pytest_failed"
-                    if "pytest" in (loop_res.stop_reason or "").lower()
-                    else "task_failed"
-                )
+                stop_probe = (loop_res.stop_reason or "").lower()
+                if loop_res.ci_wait_status and loop_res.ci_wait_status not in {"success", None}:
+                    reason_code = "ci_failed"
+                elif "pytest" in stop_probe:
+                    reason_code = "pytest_failed"
+                elif "pr create" in stop_probe or "pr_create" in stop_probe:
+                    reason_code = "pr_create_failed"
+                else:
+                    reason_code = "task_failed"
                 if not _handle_recoverable_task_failure(
                     result,
                     task=task,
@@ -1318,6 +1577,8 @@ def run_dev_loop(
                     continue_on_task_failure=continue_on_task_failure,
                     max_task_failures=max_task_failures,
                     critical_task_failure_policy=effective_critical_policy,
+                    failure_category_counts=failure_category_counts,
+                    max_same_failure_category=max_same_failure_category,
                     evidence_path=loop_res.evidence_path,
                 ):
                     break
@@ -1360,6 +1621,8 @@ def _write_dev_loop_evidence(
     longrun_meta: dict[str, Any] | None = None,
     failure_policy: dict[str, Any] | None = None,
     failed_tasks: list[dict[str, Any]] | None = None,
+    skipped_tasks: list[dict[str, Any]] | None = None,
+    resume_policy: dict[str, Any] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "run_id": result.run_id,
@@ -1392,6 +1655,10 @@ def _write_dev_loop_evidence(
         payload["failure_policy"] = failure_policy
     if failed_tasks is not None:
         payload["failed_tasks"] = failed_tasks
+    if skipped_tasks is not None:
+        payload["skipped_tasks"] = skipped_tasks
+    if resume_policy:
+        payload["resume_policy"] = resume_policy
     (out_dir / "evidence_summary.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R7.0-Ops-I3: productive 8h guarded long-run (fail-fast preflight + failure policy; no auto-merge).
+# R7.0-Ops-I4: productive 8h guarded long-run (preflight + failure budget + resume/skip; no auto-merge).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -89,7 +89,9 @@ DEV_LOOP_CMD=(
   --continue-after-pr-limit heartbeat
   --continue-after-task-limit heartbeat
   --continue-on-task-failure
-  --max-task-failures 3
+  --max-task-failures 8
+  --max-same-failure-category 4
+  --skip-existing-task-artifacts
   --failure-summary
   --stop-on-dirty-tree
 )
@@ -111,7 +113,7 @@ if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
 fi
 
 if [[ "${dev_loop_rc}" -ne 0 ]]; then
-  if [[ "${stop_reason}" == max_task_failures* ]]; then
+  if [[ "${stop_reason}" == max_task_failures* || "${stop_reason}" == max_same_failure_category* ]]; then
     fail_banner="PRODUCTIVE-LONGRUN-8H FAILED: ${stop_reason}"
   else
     fail_banner="PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=${dev_loop_rc}"
@@ -131,11 +133,12 @@ if [[ "${dev_loop_rc}" -ne 0 ]]; then
 fi
 
 failed_count=0
+skipped_count=0
 if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
-  failed_count="$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('failed_tasks') or []))" "${latest_evidence}" 2>/dev/null || echo 0)"
+  read -r failed_count skipped_count <<< "$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('failed_tasks') or []), len(d.get('skipped_tasks') or []))" "${latest_evidence}" 2>/dev/null || echo '0 0')"
 fi
-if [[ "${failed_count}" -gt 0 ]]; then
-  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED_WITH_RECORDED_FAILURES: failed_tasks=${failed_count}"
+if [[ "${failed_count}" -gt 0 || "${skipped_count}" -gt 0 ]]; then
+  banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED_WITH_RECORDED_FAILURES: failed_tasks=${failed_count} skipped_tasks=${skipped_count}"
 else
   banner="PRODUCTIVE-LONGRUN-8H SUCCEEDED"
 fi

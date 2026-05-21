@@ -25,6 +25,7 @@ from invis_alpha_os.operator.dev_loop import (
     format_productive_longrun_preflight_notice,
     longrun_profile_runtime_warnings,
     resolve_branch_name,
+    normalize_failure_category,
     run_dev_loop,
     task_is_critical,
 )
@@ -1722,10 +1723,201 @@ def test_safety_failure_stops_with_continue_flag(tmp_path: Path, monkeypatch) ->
     assert "outputs/" in result.stop_reason
 
 
-def test_productive_script_i3_failure_policy() -> None:
+def test_normalize_failure_category_mapping() -> None:
+    assert normalize_failure_category("prep_failed") == "prepare_failed"
+    assert normalize_failure_category("pytest_failed") == "pytest_failed"
+    assert normalize_failure_category("task_failed", raw_reason="ci_wait_status=timeout") == "ci_failed"
+
+
+def test_max_task_failures_budget_eight(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    tasks = [
+        {
+            "task_id": f"t{i}",
+            "pr_title": f"T{i}",
+            "branch": f"work/t{i}",
+            "pytest_cmd": "pytest -q",
+        }
+        for i in range(1, 10)
+    ]
+    queue = _queue_file(tmp_path, tasks)
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        return PrLoopResult(
+            run_id="r",
+            status="stopped",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=1,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="pytest exit 1",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=8,
+        max_tasks=100,
+    )
+    assert result.tasks_executed == 8
+    assert "max_task_failures reached: 8" in result.stop_reason
+    assert len(result.failed_tasks) == 8
+
+
+def test_max_same_failure_category_stops(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [
+            {"task_id": f"t{i}", "pr_title": f"T{i}", "branch": f"work/t{i}", "pytest_cmd": "pytest -q"}
+            for i in range(1, 6)
+        ],
+    )
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        return PrLoopResult(
+            run_id="r",
+            status="stopped",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=1,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+            stop_reason="pytest exit 1",
+        )
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=pr_runner,
+        continue_on_task_failure=True,
+        max_task_failures=8,
+        max_same_failure_category=4,
+        max_tasks=100,
+    )
+    assert result.tasks_executed == 4
+    assert "max_same_failure_category reached: pytest_failed=4" in result.stop_reason
+
+
+def _git_no_remote_branch(cmd, **kwargs):  # type: ignore[no-untyped-def]
+    if cmd[:3] == ["git", "status", "--short"]:
+        return _git_clean(cmd, **kwargs)
+    if cmd[:2] == ["git", "rev-parse"] and any(
+        token.startswith("refs/remotes/origin/") for token in cmd
+    ):
+        return subprocess.CompletedProcess(cmd, 1, "", "")
+    if cmd[:2] == ["git", "ls-remote"]:
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+    return _git_clean(cmd, **kwargs)
+
+
+def test_skip_existing_open_pr_not_counted_as_failure(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+    seen: list[str] = []
+
+    def pr_runner(**kwargs):  # type: ignore[no-untyped-def]
+        seen.append(kwargs["branch"])
+        return PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="draft_only",
+            branch=kwargs["branch"],
+            pr_title=kwargs["pr_title"],
+            pytest_cmd=kwargs["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+        )
+
+    def gh_list_runner(argv, **kwargs):  # type: ignore[no-untyped-def]
+        payload = json.dumps(
+            [{"headRefName": "work/t1", "title": "Task 1", "state": "OPEN", "url": "https://x/1"}]
+        )
+        return 0, payload, "", []
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_no_remote_branch,
+        pr_loop_runner=pr_runner,
+        skip_existing_task_artifacts=True,
+        gh_list_runner=gh_list_runner,
+    )
+    assert seen == []
+    assert len(result.skipped_tasks) == 1
+    assert result.skipped_tasks[0]["reason"] == "existing_pr"
+    assert len(result.failed_tasks) == 0
+    evidence = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert evidence["resume_policy"]["skip_existing_task_artifacts"] is True
+
+
+def test_gh_transient_readonly_records_warning_and_continues(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    queue = _queue_file(
+        tmp_path,
+        [{"task_id": "t1", "pr_title": "Task 1", "branch": "work/t1", "pytest_cmd": "pytest -q"}],
+    )
+
+    def gh_list_runner(argv, **kwargs):  # type: ignore[no-untyped-def]
+        return 1, "", "502 Bad Gateway", []
+
+    result = run_dev_loop(
+        task_queue_path=queue,
+        execute_dev_loop=True,
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        pr_loop_runner=lambda **k: PrLoopResult(
+            run_id="r",
+            status="completed",
+            pr_create_mode="draft_only",
+            branch=k["branch"],
+            pr_title=k["pr_title"],
+            pytest_cmd=k["pytest_cmd"],
+            pytest_exit_code=0,
+            git_status_lines=[],
+            runner_status=None,
+            runner_run_dir=None,
+            pr_body_draft_path="x.md",
+            evidence_path="e.json",
+        ),
+        skip_existing_task_artifacts=True,
+        gh_list_runner=gh_list_runner,
+    )
+    assert result.status == "completed"
+    assert any("gh" in w for w in result.resume_policy.get("gh_read_warnings", []))
+
+
+def test_productive_script_i4_failure_budget_resume_skip() -> None:
     text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
     assert "--continue-on-task-failure" in text
-    assert "--max-task-failures 3" in text
+    assert "--max-task-failures 8" in text
+    assert "--max-same-failure-category 4" in text
+    assert "--skip-existing-task-artifacts" in text
     assert "--failure-summary" in text
     assert "SUCCEEDED_WITH_RECORDED_FAILURES" in text
     assert "--stop-on-failure" not in text
