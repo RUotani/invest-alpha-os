@@ -1,39 +1,82 @@
 #!/usr/bin/env bash
-# R7.0-Ops-I: productive 8h guarded long-run (large task queue, no auto-merge).
+# R7.0-Ops-I2: productive 8h guarded long-run with fail-fast preflight (no auto-merge).
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "${ROOT}"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "${REPO_ROOT}"
 
-PYTHON="${PYTHON:-.venv/bin/python}"
+export PATH="${REPO_ROOT}/.venv/bin:${PATH}"
+PYTHON="${PYTHON:-${REPO_ROOT}/.venv/bin/python}"
 export PYTHON
 
-die() {
-  echo "productive-longrun-8h: ERROR: $*" >&2
+PRODUCTIVE_QUEUE="config/tasks/autonomous_dev_queue_productive_8h.yaml"
+PROFILE_FILE="config/operator_dev_loop_profiles.yaml"
+
+preflight_fail() {
+  echo "PRODUCTIVE-LONGRUN-8H PREFLIGHT FAILED: $1" >&2
+  echo "next action: $2" >&2
   exit 1
 }
 
+notify_optional() {
+  local title="$1"
+  local message="$2"
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e "display notification \"${message}\" with title \"${title}\"" >/dev/null 2>&1 || true
+  fi
+}
+
 if [[ "${CONFIRM_OPERATOR_DEV_LOOP:-}" != "YES" ]]; then
-  die "CONFIRM_OPERATOR_DEV_LOOP=YES is required"
+  preflight_fail "CONFIRM_OPERATOR_DEV_LOOP=YES is not set" "export CONFIRM_OPERATOR_DEV_LOOP=YES"
 fi
 if [[ "${CONFIRM_GITHUB_PR_CREATE:-}" != "YES" ]]; then
-  die "CONFIRM_GITHUB_PR_CREATE=YES is required"
+  preflight_fail "CONFIRM_GITHUB_PR_CREATE=YES is not set" "export CONFIRM_GITHUB_PR_CREATE=YES"
 fi
 
 if [[ -n "$(git status --short)" ]]; then
-  die "dirty working tree; resolve or stash before long-run"
+  preflight_fail "working tree is dirty" "commit, stash, or discard changes before starting 8h run"
+fi
+
+if [[ ! -x "${REPO_ROOT}/.venv/bin/python" ]]; then
+  preflight_fail ".venv/bin/python missing or not executable" "create venv and install project dependencies"
+fi
+
+if [[ -x "${REPO_ROOT}/.venv/bin/pytest" ]]; then
+  if ! "${REPO_ROOT}/.venv/bin/pytest" --version >/dev/null 2>&1; then
+    preflight_fail "pytest not runnable via .venv/bin/pytest" "reinstall pytest in .venv: pip install pytest"
+  fi
+elif ! "${REPO_ROOT}/.venv/bin/python" -m pytest --version >/dev/null 2>&1; then
+  preflight_fail "pytest not available (.venv/bin/pytest and python -m pytest)" \
+    "ensure PATH includes .venv/bin; run: .venv/bin/python -m pytest --version"
+fi
+
+if [[ ! -f "${REPO_ROOT}/${PRODUCTIVE_QUEUE}" ]]; then
+  preflight_fail "task queue not found: ${PRODUCTIVE_QUEUE}" "merge Ops-I queue or fix path"
+fi
+
+if [[ ! -f "${REPO_ROOT}/${PROFILE_FILE}" ]]; then
+  preflight_fail "profile file not found: ${PROFILE_FILE}" "ensure config/operator_dev_loop_profiles.yaml exists"
+fi
+
+if ! command -v gh >/dev/null 2>&1; then
+  preflight_fail "gh CLI not found" "install GitHub CLI and authenticate: gh auth login"
+fi
+
+if ! gh --version >/dev/null 2>&1; then
+  preflight_fail "gh --version failed" "fix GitHub CLI installation or auth"
 fi
 
 RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)"
-LOG_DIR="${ROOT}/outputs/operator/productive_true_longrun_8h/${RUN_ID}"
+LOG_DIR="${REPO_ROOT}/outputs/operator/productive_true_longrun_8h/${RUN_ID}"
 mkdir -p "${LOG_DIR}"
 LOG_FILE="${LOG_DIR}/run.log"
 
 echo "=== productive-longrun-8h start (${RUN_ID}) ===" | tee "${LOG_FILE}"
+echo "preflight: gates ok, pytest ok, queue=${PRODUCTIVE_QUEUE}, profile=true_longrun_8h" | tee -a "${LOG_FILE}"
 
 DEV_LOOP_CMD=(
   "${PYTHON}" -m invis_alpha_os.cli.main operator-runner dev-loop
-  --task-queue config/tasks/autonomous_dev_queue_productive_8h.yaml
+  --task-queue "${PRODUCTIVE_QUEUE}"
   --profile true_longrun_8h
   --execute-dev-loop
   --create-pr
@@ -59,14 +102,44 @@ fi
 dev_loop_rc=${PIPESTATUS[0]}
 set -e
 
-echo "=== productive-longrun-8h end (dev_loop_rc=${dev_loop_rc}) log=${LOG_FILE} ===" | tee -a "${LOG_FILE}"
-git status --short 2>&1 | tee -a "${LOG_FILE}" || true
-if command -v gh >/dev/null 2>&1; then
-  gh pr list --state open --limit 10 2>&1 | tee -a "${LOG_FILE}" || true
-fi
-latest_evidence="$(ls -td "${ROOT}"/outputs/operator/dev_loop/*/evidence_summary.json 2>/dev/null | head -1 || true)"
-if [[ -n "${latest_evidence}" ]]; then
-  echo "productive-longrun-8h: latest evidence=${latest_evidence}" | tee -a "${LOG_FILE}"
+latest_evidence="$(ls -td "${REPO_ROOT}"/outputs/operator/dev_loop/*/evidence_summary.json 2>/dev/null | head -1 || true)"
+stop_reason=""
+if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
+  stop_reason="$("${PYTHON}" -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('stop_reason',''))" "${latest_evidence}" 2>/dev/null || true)"
 fi
 
-exit "${dev_loop_rc}"
+if [[ "${dev_loop_rc}" -ne 0 ]]; then
+  {
+    echo "PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=${dev_loop_rc}"
+    echo "log: ${LOG_FILE}"
+    if [[ -n "${latest_evidence}" ]]; then
+      echo "evidence: ${latest_evidence}"
+    fi
+    echo "--- last 80 lines of run.log ---"
+    tail -n 80 "${LOG_FILE}" 2>/dev/null || true
+    echo "next action: inspect log and evidence; fix pytest/path/gates; do not assume 8h success"
+  } | tee -a "${LOG_FILE}" >&2
+  notify_optional "productive-longrun-8h" "FAILED rc=${dev_loop_rc}"
+  exit "${dev_loop_rc}"
+fi
+
+{
+  echo "PRODUCTIVE-LONGRUN-8H SUCCEEDED"
+  echo "log: ${LOG_FILE}"
+  if [[ -n "${latest_evidence}" ]]; then
+    echo "evidence: ${latest_evidence}"
+  fi
+  if [[ -n "${stop_reason}" ]]; then
+    echo "stop_reason: ${stop_reason}"
+  fi
+  echo "note: heartbeat_waiting is normal before min_runtime; success target is min_runtime reached: 480"
+} | tee -a "${LOG_FILE}"
+
+git status --short 2>&1 | tee -a "${LOG_FILE}" || true
+if command -v gh >/dev/null 2>&1; then
+  echo "--- open PRs ---" | tee -a "${LOG_FILE}"
+  gh pr list --state open --limit 10 2>&1 | tee -a "${LOG_FILE}" || true
+fi
+
+notify_optional "productive-longrun-8h" "SUCCEEDED ${stop_reason:-completed}"
+exit 0

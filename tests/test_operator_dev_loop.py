@@ -1518,6 +1518,20 @@ def test_productive_script_includes_gates_and_queue() -> None:
     assert "gh pr merge" not in text
 
 
+def test_productive_script_i2_failfast_preflight() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert 'export PATH="${REPO_ROOT}/.venv/bin:${PATH}"' in text
+    assert "PRODUCTIVE-LONGRUN-8H PREFLIGHT FAILED" in text
+    assert "PRODUCTIVE-LONGRUN-8H FAILED: dev_loop_rc=" in text
+    assert "PRODUCTIVE-LONGRUN-8H SUCCEEDED" in text
+    assert ".venv/bin/pytest" in text
+    assert "python -m pytest" in text
+    assert "tail -n 80" in text
+    assert "evidence_summary.json" in text or "latest_evidence" in text
+    assert "operator_dev_loop_profiles.yaml" in text
+    assert "gh --version" in text
+
+
 def test_longrun_profile_min_gt_max_warning() -> None:
     bad = DevLoopProfile(
         name="bad_test",
