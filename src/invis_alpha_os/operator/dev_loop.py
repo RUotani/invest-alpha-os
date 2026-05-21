@@ -14,6 +14,8 @@ from typing import Any, Callable, Literal
 
 ContinueAfterLimit = Literal["wait", "heartbeat", "next-cycle", "stop"]
 CONTINUE_AFTER_LIMITS: frozenset[str] = frozenset({"wait", "heartbeat", "next-cycle", "stop"})
+CriticalFailurePolicy = Literal["stop", "record"]
+CRITICAL_FAILURE_POLICIES: frozenset[str] = frozenset({"stop", "record"})
 
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
@@ -62,6 +64,7 @@ class DevLoopTask:
     expected_files: tuple[str, ...] = ()
     stop_conditions: tuple[str, ...] = ()
     risk_level: str = "low"
+    critical: bool | None = None
     smoke_file: str = ""
     change_file: str = ""
     commit_message: str = ""
@@ -105,6 +108,8 @@ class DevLoopResult:
     task_results: list[DevLoopTaskResult] = field(default_factory=list)
     longrun_state: str = ""
     longrun_exit_success: bool = False
+    failed_tasks: list[dict[str, Any]] = field(default_factory=list)
+    failure_policy: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -274,6 +279,8 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
         pytest_cmd = str(item.get("pytest_cmd") or "").strip()
         if not task_id or not pr_title or not branch or not pytest_cmd:
             raise ValueError("task_id, pr_title, branch, pytest_cmd are required")
+        critical_raw = item.get("critical")
+        critical = bool(critical_raw) if critical_raw is not None else None
         tasks.append(
             DevLoopTask(
                 task_id=task_id,
@@ -289,6 +296,7 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
                 expected_files=tuple(str(x) for x in (item.get("expected_files") or [])),
                 stop_conditions=tuple(str(x) for x in (item.get("stop_conditions") or [])),
                 risk_level=str(item.get("risk_level") or item.get("risk") or "low").strip() or "low",
+                critical=critical,
                 smoke_file=str(item.get("smoke_file") or item.get("change_file") or "").strip(),
                 change_file=str(item.get("change_file") or item.get("smoke_file") or "").strip(),
                 commit_message=str(item.get("commit_message") or "").strip(),
@@ -695,6 +703,105 @@ def _should_continue_after_cap(*, native_longrun: bool, continue_mode: str) -> b
     return native_longrun and continue_mode != "stop"
 
 
+def _normalize_critical_failure_policy(value: str | None) -> str:
+    token = (value or "stop").strip().lower()
+    if token not in CRITICAL_FAILURE_POLICIES:
+        raise ValueError(f"critical task failure policy must be one of {sorted(CRITICAL_FAILURE_POLICIES)}")
+    return token
+
+
+def task_is_critical(task: DevLoopTask) -> bool:
+    if task.critical is not None:
+        return task.critical
+    level = (task.risk_level or task.risk or "low").strip().lower()
+    return level in {"high", "critical"}
+
+
+def _failed_task_record(
+    task: DevLoopTask,
+    *,
+    reason: str,
+    stop_reason: str,
+    evidence_path: str = "",
+    log_path: str = "",
+) -> dict[str, Any]:
+    return {
+        "task_id": task.task_id,
+        "title": task.pr_title,
+        "reason": reason,
+        "stop_reason": stop_reason,
+        "critical": task_is_critical(task),
+        "evidence_path": evidence_path,
+        "log_path": log_path,
+    }
+
+
+def _handle_recoverable_task_failure(
+    result: DevLoopResult,
+    *,
+    task: DevLoopTask,
+    raw_reason: str,
+    reason_code: str,
+    failed_tasks: list[dict[str, Any]],
+    continue_on_task_failure: bool,
+    max_task_failures: int | None,
+    critical_task_failure_policy: str,
+    evidence_path: str = "",
+) -> bool:
+    """Return True to continue the queue; False if the caller should break."""
+    stop_reason = f"task_failed: {task.task_id} ({raw_reason})"
+    is_critical = task_is_critical(task)
+    if is_critical:
+        if critical_task_failure_policy == "record":
+            failed_tasks.append(
+                _failed_task_record(
+                    task,
+                    reason=reason_code,
+                    stop_reason=stop_reason,
+                    evidence_path=evidence_path,
+                )
+            )
+        result.status = "stopped"
+        result.stop_reason = stop_reason
+        return False
+    if not continue_on_task_failure:
+        result.status = "stopped"
+        result.stop_reason = stop_reason
+        return False
+
+    failed_tasks.append(
+        _failed_task_record(
+            task,
+            reason=reason_code,
+            stop_reason=stop_reason,
+            evidence_path=evidence_path,
+        )
+    )
+    max_f = max_task_failures if max_task_failures is not None else 3
+    print(
+        f"productive-longrun task failed: task_id={task.task_id} critical=false "
+        f"failed={len(failed_tasks)}/{max_f} action=continue",
+        flush=True,
+    )
+    if len(failed_tasks) >= max_f:
+        result.status = "stopped"
+        result.stop_reason = f"max_task_failures reached: {max_f}"
+        print(f"PRODUCTIVE-LONGRUN-8H FAILED: max_task_failures reached: {max_f}", flush=True)
+        return False
+    return True
+
+
+def format_failure_summary(failed_tasks: list[dict[str, Any]]) -> str:
+    if not failed_tasks:
+        return "failure-summary: no recorded task failures"
+    lines = ["failure-summary: recorded task failures:"]
+    for item in failed_tasks:
+        lines.append(
+            f"- {item.get('task_id')}: {item.get('reason')} ({item.get('stop_reason')})"
+        )
+    return "\n".join(lines)
+
+
 def _is_real_failure_stop(result: DevLoopResult) -> bool:
     if result.status == "blocked":
         return True
@@ -707,6 +814,8 @@ def _is_real_failure_stop(result: DevLoopResult) -> bool:
         return False
     if reason.startswith("max_tasks reached:") or reason.startswith("max_prs reached:"):
         return False
+    if reason.startswith("max_task_failures reached:"):
+        return True
     return result.status == "stopped"
 
 
@@ -714,6 +823,10 @@ def dev_loop_should_exit_nonzero(result: DevLoopResult) -> bool:
     """CLI exit code: zero on successful min-runtime long-run; non-zero on real failure."""
     if result.longrun_exit_success:
         return False
+    if result.status == "completed_with_failures":
+        return False
+    if result.stop_reason.strip().startswith("max_task_failures reached:"):
+        return True
     if result.status == "blocked":
         return True
     if result.status == "stopped" and result.stop_reason:
@@ -864,6 +977,10 @@ def run_dev_loop(
     continue_after_pr_limit: str | None = None,
     continue_after_task_limit: str | None = None,
     heartbeat_emit_fn: Callable[[str], None] | None = None,
+    continue_on_task_failure: bool = False,
+    max_task_failures: int | None = None,
+    critical_task_failure_policy: str = "stop",
+    failure_summary: bool = False,
 ) -> DevLoopResult:
     root = repo_root or ROOT_DIR
     out_root = outputs_root or OUTPUTS_DIR
@@ -889,6 +1006,9 @@ def run_dev_loop(
     effective_stop_on_dirty_tree = (
         stop_on_dirty_tree if stop_on_dirty_tree is not None else (profile.stop_on_dirty_tree if profile else True)
     )
+    effective_critical_policy = _normalize_critical_failure_policy(critical_task_failure_policy)
+    if continue_on_task_failure and max_task_failures is None:
+        max_task_failures = 3
     min_runtime_minutes, no_early_success_exit, heartbeat_interval_minutes, continue_after_pr_limit, continue_after_task_limit = (
         apply_profile_longrun_defaults(
             profile,
@@ -952,6 +1072,13 @@ def run_dev_loop(
         started_at=started_at,
         tasks_seen=len(tasks),
     )
+    result.failure_policy = {
+        "continue_on_task_failure": continue_on_task_failure,
+        "max_task_failures": max_task_failures,
+        "failed_task_count": 0,
+        "critical_failure_policy": effective_critical_policy,
+    }
+    failed_tasks: list[dict[str, Any]] = []
     evidence_limits = {
         "queue_preflight_notice": queue_preflight_notice,
         "profile_runtime_warnings": longrun_profile_runtime_warnings(profile),
@@ -982,6 +1109,8 @@ def run_dev_loop(
             }
         if not result.ended_at:
             result.ended_at = _utc_now_iso()
+        result.failed_tasks = list(failed_tasks)
+        result.failure_policy["failed_task_count"] = len(failed_tasks)
         _write_dev_loop_evidence(
             out_dir,
             result,
@@ -989,6 +1118,8 @@ def run_dev_loop(
             effective_limits=evidence_limits,
             pr_create_gate_status=evidence_pr_gate,
             longrun_meta=longrun_evidence if (native_longrun or min_runtime_minutes) else None,
+            failure_policy=result.failure_policy,
+            failed_tasks=failed_tasks,
         )
 
     if execute_dev_loop and not gate_ok:
@@ -1062,9 +1193,18 @@ def run_dev_loop(
                         preparation_preflight=prep_preflight,
                     )
                 )
-                result.status = "stopped"
-                result.stop_reason = f"task_failed: {task.task_id} ({prep_status})"
-                break
+                if not _handle_recoverable_task_failure(
+                    result,
+                    task=task,
+                    raw_reason=prep_status,
+                    reason_code="prep_failed",
+                    failed_tasks=failed_tasks,
+                    continue_on_task_failure=continue_on_task_failure,
+                    max_task_failures=max_task_failures,
+                    critical_task_failure_policy=effective_critical_policy,
+                ):
+                    break
+                continue
 
             dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
             result.checked_paths.extend(dirty_paths)
@@ -1120,9 +1260,18 @@ def run_dev_loop(
                             preparation_preflight=prep_preflight,
                         )
                     )
-                    result.status = "stopped"
-                    result.stop_reason = ready_reason
-                    break
+                    if not _handle_recoverable_task_failure(
+                        result,
+                        task=task,
+                        raw_reason=ready_reason,
+                        reason_code="pr_preflight_failed",
+                        failed_tasks=failed_tasks,
+                        continue_on_task_failure=continue_on_task_failure,
+                        max_task_failures=max_task_failures,
+                        critical_task_failure_policy=effective_critical_policy,
+                    ):
+                        break
+                    continue
 
             loop_res = pr_runner(
                 branch=task.branch,
@@ -1154,10 +1303,29 @@ def run_dev_loop(
                 pr_loop_evidence_path=loop_res.evidence_path,
             )
             result.task_results.append(task_rec)
-            if effective_stop_on_failure and loop_res.status in {"stopped", "blocked"}:
-                result.status = "stopped"
-                result.stop_reason = f"task_failed: {task.task_id} ({loop_res.status})"
-                break
+            if loop_res.status in {"stopped", "blocked"}:
+                reason_code = (
+                    "pytest_failed"
+                    if "pytest" in (loop_res.stop_reason or "").lower()
+                    else "task_failed"
+                )
+                if not _handle_recoverable_task_failure(
+                    result,
+                    task=task,
+                    raw_reason=loop_res.status,
+                    reason_code=reason_code,
+                    failed_tasks=failed_tasks,
+                    continue_on_task_failure=continue_on_task_failure,
+                    max_task_failures=max_task_failures,
+                    critical_task_failure_policy=effective_critical_policy,
+                    evidence_path=loop_res.evidence_path,
+                ):
+                    break
+                continue
+        if result.status == "completed" and failed_tasks:
+            result.status = "completed_with_failures"
+        if failure_summary and failed_tasks:
+            print(format_failure_summary(failed_tasks), flush=True)
         if (
             native_longrun
             and not _is_real_failure_stop(result)
@@ -1190,6 +1358,8 @@ def _write_dev_loop_evidence(
     effective_limits: dict[str, Any],
     pr_create_gate_status: dict[str, Any],
     longrun_meta: dict[str, Any] | None = None,
+    failure_policy: dict[str, Any] | None = None,
+    failed_tasks: list[dict[str, Any]] | None = None,
 ) -> None:
     payload: dict[str, Any] = {
         "run_id": result.run_id,
@@ -1218,6 +1388,10 @@ def _write_dev_loop_evidence(
     }
     if longrun_meta:
         payload["longrun"] = longrun_meta
+    if failure_policy:
+        payload["failure_policy"] = failure_policy
+    if failed_tasks is not None:
+        payload["failed_tasks"] = failed_tasks
     (out_dir / "evidence_summary.json").write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

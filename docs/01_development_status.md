@@ -1119,9 +1119,13 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **内容**: `autonomous_dev_queue_productive_8h.yaml`（16 tasks）、`run_productive_true_longrun_8h.sh`、queue sufficiency preflight。詳細 **[docs/118](./118_ops_i_productive_8h_queue.md)**。PR **#91**。
 
-## R7.0-Ops-I2 — productive 8h fail-fast preflight（進行中）
+## R7.0-Ops-I2 — productive 8h fail-fast preflight（完了）
 
-**内容**: PATH に `.venv/bin`、開始前 pytest/gh/queue 検証、`PREFLIGHT FAILED` / `FAILED` / `SUCCEEDED` banners、log/evidence/tail。詳細 **[docs/119](./119_r7_0_ops_i2_productive_8h_failfast_preflight.md)**。
+**内容**: PATH に `.venv/bin`、開始前 pytest/gh/queue 検証、`PREFLIGHT FAILED` / `FAILED` / `SUCCEEDED` banners、log/evidence/tail。詳細 **[docs/119](./119_r7_0_ops_i2_productive_8h_failfast_preflight.md)**。PR **#92**。
+
+## R7.0-Ops-I3 — productive failure policy（進行中）
+
+**内容**: `--continue-on-task-failure` / `--max-task-failures 3`、evidence `failed_tasks`、critical/safety 即停止、productive script 更新。詳細 **[docs/120](./120_r7_0_ops_i3_productive_failure_policy.md)**。
 
 ---
 
