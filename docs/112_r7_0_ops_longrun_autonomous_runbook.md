@@ -120,6 +120,10 @@ I4 後の pytest 4 連続失敗を queue 修復・superseded・診断強化。�
 
 v2 先頭 task は `docs/125_ops_i7_v2_post_run_review_tests.md`（`docs/smoke.md` 禁止）。quarantine dirty 拒否。詳細 **[docs/125](./125_r7_0_ops_i7b_v2_queue_scope_fix.md)**。
 
+## 18. Ops-I7C remove smoke fallback
+
+productive は明示 `change_file` 必須。`docs/smoke.md` は実行前 quarantine 拒否。詳細 **[docs/126](./126_r7_0_ops_i7c_remove_smoke_fallback.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)

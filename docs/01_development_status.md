@@ -1145,9 +1145,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I7B — v2 queue scope fix（進行中）
+## R7.0-Ops-I7B — v2 queue scope fix（完了）
 
 **内容**: v2 先頭 task を専用 `docs/125_*` marker に変更、`productive_queue_scratch_violations`、quarantine `docs/smoke.md` dirty 拒否。詳細 **[docs/125](./125_r7_0_ops_i7b_v2_queue_scope_fix.md)**。
+
+---
+
+## R7.0-Ops-I7C — remove smoke fallback（進行中）
+
+**内容**: productive 実行前 quarantine 検査、`prepare_for_pr` の明示 `change_file` 必須、`docs/smoke.md` ランタイムフォールバック禁止。詳細 **[docs/126](./126_r7_0_ops_i7c_remove_smoke_fallback.md)**。
 
 ---
 
