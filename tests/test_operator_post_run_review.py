@@ -213,3 +213,4 @@ def test_productive_scripts_not_using_v2_queue_by_default() -> None:
     assert "productive_12h_v2" not in s8
     assert "productive_12h_v2" not in s12
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:39:11Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:40:20Z)
