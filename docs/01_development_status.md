@@ -1157,9 +1157,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I7D — v2 fixture scope fix（進行中）
+## R7.0-Ops-I7D — v2 fixture scope fix（完了）
 
 **内容**: `docs/dev_loop_marker_fixture.md` quarantine、productive `docs/*fixture*.md` change_file 拒否。詳細 **[docs/127](./127_r7_0_ops_i7d_fix_v2_fixture_scope.md)**。
+
+---
+
+## R7.0-Ops-I7E — eliminate runtime fixture marker（進行中）
+
+**内容**: `docs/ops_dev_loop_test_marker.md` quarantine、テストを tmp repo に隔離、productive allowed_paths 外 dirty 拒否。詳細 **[docs/128](./128_r7_0_ops_i7e_eliminate_runtime_fixture_marker.md)**。
 
 ---
 

@@ -43,6 +43,33 @@ from invis_alpha_os.operator.dev_loop import (
 )
 from invis_alpha_os.operator.pr_loop import PrLoopResult
 
+_REPO_QUARANTINE_MARKERS = (
+    "docs/smoke.md",
+    "docs/dev_loop_marker_fixture.md",
+    "docs/ops_dev_loop_test_marker.md",
+)
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_repo_quarantine_markers() -> None:
+    """Remove accidental repo-root marker files left by legacy tests."""
+    yield
+    for rel in _REPO_QUARANTINE_MARKERS:
+        path = ROOT_DIR / rel
+        if path.is_file():
+            path.unlink()
+
+
+def _isolated_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir(parents=True, exist_ok=True)
+    return repo
+
+
+def _isolated_docs_marker_rel(repo: Path, *, name: str = "marker.md") -> str:
+    (repo / "docs").mkdir(parents=True, exist_ok=True)
+    return f"docs/{name}"
+
 
 def _queue_file(tmp_path: Path, tasks: list[dict[str, str]]) -> Path:
     lines = ["version: ops_dev_queue.v1", "tasks:"]
@@ -775,15 +802,17 @@ def test_smoke_queue_dry_run_planned(tmp_path: Path) -> None:
 
 def test_no_commits_ahead_stops_with_evidence(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    repo = _isolated_repo(tmp_path)
+    marker = _isolated_docs_marker_rel(repo)
     queue = _queue_file_raw(
         tmp_path,
-        """version: ops_dev_queue.v1
+        f"""version: ops_dev_queue.v1
 tasks:
   - task_id: smoke
     pr_title: "Smoke"
     branch: "work/smoke"
     pytest_cmd: "git diff --check"
-    change_file: "docs/ops_dev_loop_test_marker.md"
+    change_file: "{marker}"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -810,19 +839,21 @@ tasks:
         if cmd[:3] == ["git", "rev-list", "--count"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/ops_dev_loop_test_marker.md", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout=f" M {marker}", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     result = run_dev_loop(
         task_queue_path=queue,
         execute_dev_loop=True,
         create_pr=True,
+        repo_root=repo,
         outputs_root=tmp_path,
         subprocess_run=route,
         stop_on_dirty_tree=False,
     )
     assert result.status == "stopped"
     assert "no commits ahead" in result.stop_reason
+    assert not (ROOT_DIR / "docs/ops_dev_loop_test_marker.md").exists()
     assert Path(result.evidence_path).is_file()
     assert (Path(result.evidence_path).parent / "dev_loop_result.json").is_file()
 
@@ -830,9 +861,8 @@ tasks:
 def test_mock_prepare_and_pr_create_success(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
     monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    marker = "docs/ops_dev_loop_test_marker.md"
+    repo = _isolated_repo(tmp_path)
+    marker = _isolated_docs_marker_rel(repo)
     queue = _queue_file_raw(
         tmp_path,
         f"""version: ops_dev_queue.v1
@@ -957,17 +987,17 @@ def test_smoke_dry_run_expands_unique_branch(tmp_path: Path) -> None:
 
 def test_remote_branch_exists_stops_before_push(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
-    repo = tmp_path / "repo"
-    repo.mkdir()
+    repo = _isolated_repo(tmp_path)
+    marker = _isolated_docs_marker_rel(repo)
     queue = _queue_file_raw(
         tmp_path,
-        """version: ops_dev_queue.v1
+        f"""version: ops_dev_queue.v1
 tasks:
   - task_id: smoke
     pr_title: "Smoke"
     branch: "work/smoke-fixed"
     pytest_cmd: "git diff --check"
-    change_file: "docs/ops_dev_loop_test_marker.md"
+    change_file: "{marker}"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -999,17 +1029,17 @@ tasks:
 
 def test_push_non_fast_forward_controlled_stop(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
-    repo = tmp_path / "repo"
-    repo.mkdir()
+    repo = _isolated_repo(tmp_path)
+    marker = _isolated_docs_marker_rel(repo)
     queue = _queue_file_raw(
         tmp_path,
-        """version: ops_dev_queue.v1
+        f"""version: ops_dev_queue.v1
 tasks:
   - task_id: smoke
     pr_title: "Smoke"
-    branch: "work/smoke-{run_id}"
+    branch: "work/smoke-{{run_id}}"
     pytest_cmd: "git diff --check"
-    change_file: "docs/ops_dev_loop_test_marker.md"
+    change_file: "{marker}"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -2113,6 +2143,49 @@ def test_v2_second_task_passes_scope_for_tests_change_file() -> None:
     dirty = [second.change_file]
     assert _check_scope(second, dirty) == []
     assert _check_scope(second, dirty + ["docs/dev_loop_marker_fixture.md"]) != []
+    assert _has_forbidden_dirty_paths(["docs/ops_dev_loop_test_marker.md"]) != []
+
+
+def test_productive_queue_rejects_ops_test_marker_change_file() -> None:
+    from invis_alpha_os.operator.dev_loop import DevLoopTask
+
+    violations = productive_queue_scratch_violations(
+        [
+            DevLoopTask(
+                task_id="bad_marker",
+                pr_title="Bad",
+                branch="work/bad",
+                pytest_cmd="pytest -q",
+                change_file="docs/ops_dev_loop_test_marker.md",
+            )
+        ]
+    )
+    assert any("forbidden fixture path" in item for item in violations)
+
+
+def test_productive_unallowed_dirty_outside_allowed_paths() -> None:
+    from invis_alpha_os.operator.dev_loop import DevLoopTask, _productive_unallowed_dirty_paths
+
+    task = DevLoopTask(
+        task_id="ops_i7_v2_classify_interruption_tests",
+        pr_title="T",
+        branch="work/t",
+        pytest_cmd="pytest -q",
+        change_file="tests/test_operator_dev_loop.py",
+        prepare_for_pr=True,
+        allowed_paths=("tests/",),
+    )
+    violations = _productive_unallowed_dirty_paths(
+        task,
+        ["tests/test_operator_dev_loop.py", "docs/ops_dev_loop_test_marker.md"],
+    )
+    assert violations == []
+    assert _has_forbidden_dirty_paths(["docs/ops_dev_loop_test_marker.md"]) != []
+    violations_extra = _productive_unallowed_dirty_paths(
+        task,
+        ["tests/test_operator_dev_loop.py", "docs/extra_unexpected.md"],
+    )
+    assert any("unexpected dirty path" in v and "extra_unexpected" in v for v in violations_extra)
 
 
 def test_v2_first_two_tasks_prepare_without_fixture_scope_violation(tmp_path: Path) -> None:
@@ -2131,6 +2204,7 @@ def test_v2_first_two_tasks_prepare_without_fixture_scope_violation(tmp_path: Pa
         )
         assert ok, (task.task_id, status)
         assert not (repo / "docs/dev_loop_marker_fixture.md").exists()
+        assert not (repo / "docs/ops_dev_loop_test_marker.md").exists()
         dirty = [task.change_file]
         assert _check_scope(task, dirty) == []
 
