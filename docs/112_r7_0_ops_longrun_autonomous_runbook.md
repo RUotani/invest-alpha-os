@@ -112,6 +112,10 @@ I4 後の pytest 4 連続失敗を queue 修復・superseded・診断強化。�
 
 12h 本命 runner: **`scripts/run_productive_true_longrun_12h.sh`** + `true_longrun_12h` + 32 task queue。詳細 **[docs/123](./123_r7_0_ops_i6_productive_12h_workday_profile.md)**。
 
+## 16. Ops-I7 post-run review pipeline
+
+`operator-runner post-run-review` / `merge_productive_prs_after_review.sh`（gate 必須）。v2 queue 草案。詳細 **[docs/124](./124_r7_0_ops_i7_post_run_review_pipeline.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)
