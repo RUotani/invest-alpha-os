@@ -481,3 +481,4 @@ def test_wait_for_ci_runs_unit() -> None:
     assert status == "timeout"
     assert polls >= 2
     assert "timeout=20s" in detail
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:28:04Z)
