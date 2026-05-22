@@ -17,6 +17,10 @@ from invis_alpha_os.operator.dev_loop import (
     _load_profile,
     _load_queue,
     default_productive_12h_v2_task_queue_path,
+    _prepare_smoke_task,
+    _resolve_prepare_change_file,
+    productive_queue_prepare_violations,
+    productive_quarantine_repo_violations,
     productive_queue_scratch_violations,
     _native_longrun_enabled,
     apply_profile_longrun_defaults,
@@ -779,7 +783,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke"
     pytest_cmd: "git diff --check"
-    smoke_file: "docs/smoke.md"
+    change_file: "docs/dev_loop_marker_fixture.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -806,7 +810,7 @@ tasks:
         if cmd[:3] == ["git", "rev-list", "--count"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/smoke.md", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/dev_loop_marker_fixture.md", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     result = run_dev_loop(
@@ -963,7 +967,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke-fixed"
     pytest_cmd: "git diff --check"
-    smoke_file: "docs/smoke.md"
+    change_file: "docs/dev_loop_marker_fixture.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -1005,7 +1009,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke-{run_id}"
     pytest_cmd: "git diff --check"
-    smoke_file: "docs/smoke.md"
+    change_file: "docs/dev_loop_marker_fixture.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -2011,6 +2015,84 @@ def test_pytest_failure_diagnostics_recorded(tmp_path: Path, monkeypatch) -> Non
     assert diag["pytest_exit_code"] == 5
     assert diag["pytest_cmd"] == "pytest -q"
     assert "no tests ran" in diag["output_tail"]
+
+
+def test_productive_prepare_violations_missing_change_file(tmp_path: Path) -> None:
+    queue = _queue_file_raw(
+        tmp_path,
+        """version: ops_dev_queue.v1
+tasks:
+  - task_id: bad_prep
+    pr_title: "Bad"
+    branch: "work/bad"
+    pytest_cmd: "pytest -q"
+    prepare_for_pr: true
+""",
+    )
+    tasks = _load_queue(queue)
+    violations = productive_queue_prepare_violations(queue, tasks)
+    assert any("missing change_file" in v and "bad_prep" in v for v in violations)
+
+
+def test_prepare_productive_refuses_missing_change_file(tmp_path: Path) -> None:
+    from invis_alpha_os.operator.dev_loop import DevLoopTask
+
+    task = DevLoopTask(
+        task_id="no_cf",
+        pr_title="No CF",
+        branch="work/no-cf",
+        pytest_cmd="pytest -q",
+        prepare_for_pr=True,
+    )
+    path, err = _resolve_prepare_change_file(task, productive=True)
+    assert path == ""
+    assert err and "refusing docs/smoke.md fallback" in err
+    ok, status, _, _ = _prepare_smoke_task(
+        task,
+        run_id="run1",
+        branch_template="work/no-cf",
+        repo_root=tmp_path,
+        subprocess_run=_git_clean,
+        execute=False,
+        productive=True,
+    )
+    assert not ok
+    assert "refusing docs/smoke.md fallback" in status
+
+
+def test_v2_first_task_prepare_does_not_create_smoke_md(tmp_path: Path) -> None:
+    tasks = _load_queue(default_productive_12h_v2_task_queue_path())
+    first = tasks[0]
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ok, status, _, _ = _prepare_smoke_task(
+        first,
+        run_id="20260522T000000Z",
+        branch_template=first.branch,
+        repo_root=repo,
+        subprocess_run=_git_clean,
+        execute=True,
+        productive=True,
+    )
+    assert ok, status
+    assert not (repo / "docs/smoke.md").exists()
+    assert (repo / first.change_file).is_file()
+
+
+def test_productive_run_blocks_quarantine_smoke_file(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs/smoke.md").write_text("quarantine scratch\n", encoding="utf-8")
+    violations = productive_quarantine_repo_violations(repo_root=tmp_path, subprocess_run=_git_clean)
+    assert any("docs/smoke.md" in v for v in violations)
+    with pytest.raises(ValueError, match="productive queue validation failed"):
+        run_dev_loop(
+            task_queue_path=default_productive_12h_v2_task_queue_path(),
+            repo_root=tmp_path,
+            outputs_root=tmp_path / "out",
+            subprocess_run=_git_clean,
+            max_tasks=1,
+        )
 
 
 def test_v2_first_task_passes_scope_for_dedicated_change_file() -> None:

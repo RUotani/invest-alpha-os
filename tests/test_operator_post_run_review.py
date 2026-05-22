@@ -13,6 +13,7 @@ from invis_alpha_os.operator.dev_loop import (
     _load_queue,
     default_productive_12h_v2_task_queue_path,
     default_productive_8h_task_queue_path,
+    productive_queue_prepare_violations,
     productive_queue_scratch_violations,
 )
 from invis_alpha_os.operator.post_run_review import (
@@ -141,6 +142,10 @@ def test_v2_queue_exists_and_task_count() -> None:
         assert forbidden not in text
     assert "docs/smoke.md" not in text
     assert productive_queue_scratch_violations(tasks) == []
+    assert productive_queue_prepare_violations(path, tasks) == []
+    for task in tasks:
+        if task.prepare_for_pr:
+            assert task.change_file.strip()
     first = tasks[0]
     assert first.task_id == "ops_i7_v2_post_run_review_tests"
     assert first.change_file == "docs/125_ops_i7_v2_post_run_review_tests.md"

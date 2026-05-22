@@ -69,6 +69,7 @@ class DevLoopTask:
     change_file: str = ""
     commit_message: str = ""
     prepare_for_pr: bool = False
+    allow_smoke_file: bool = False
 
 
 @dataclass
@@ -172,6 +173,14 @@ PRODUCTIVE_FORBIDDEN_CHANGE_FILES: frozenset[str] = frozenset(
     }
 )
 
+FORBIDDEN_PREPARE_CHANGE_FILES: frozenset[str] = frozenset(
+    {
+        "docs/smoke.md",
+    }
+)
+
+PRODUCTIVE_QUARANTINE_PATH = "docs/smoke.md"
+
 PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES: tuple[str, ...] = (
     "tmp/",
     "outputs/",
@@ -179,11 +188,48 @@ PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES: tuple[str, ...] = (
 )
 
 
+def is_productive_task_queue_path(path: Path) -> bool:
+    name = path.name
+    return "productive" in name or name.endswith(("_productive_8h.yaml", "_productive_12h.yaml"))
+
+
+def productive_queue_prepare_violations(queue_path: Path, tasks: list[DevLoopTask]) -> list[str]:
+    """Require explicit YAML change_file for every productive prepare_for_pr task."""
+    raw = load_yaml(queue_path)
+    rows = raw.get("tasks") if isinstance(raw, dict) else None
+    if not isinstance(rows, list):
+        return ["productive queue validation failed: tasks list missing"]
+    by_id = {t.task_id: t for t in tasks}
+    violations: list[str] = []
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        task_id = str(item.get("task_id") or "").strip()
+        if not bool(item.get("prepare_for_pr", False)):
+            continue
+        change_file = str(item.get("change_file") or "").strip()
+        if not change_file:
+            violations.append(
+                f"productive queue validation failed: task_id={task_id} missing change_file"
+            )
+            continue
+        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES:
+            violations.append(
+                f"productive queue validation failed: task_id={task_id} forbidden change_file {change_file}"
+            )
+        task = by_id.get(task_id)
+        if task and not task.change_file.strip():
+            violations.append(
+                f"productive queue validation failed: task_id={task_id} missing loaded change_file"
+            )
+    return violations
+
+
 def productive_queue_scratch_violations(tasks: list[DevLoopTask]) -> list[str]:
     """Flag scratch or quarantine paths used as productive task change_file."""
     violations: list[str] = []
     for task in tasks:
-        change_file = _task_change_file(task)
+        change_file = _productive_task_change_file(task)
         if not change_file:
             continue
         if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES:
@@ -198,6 +244,26 @@ def productive_queue_scratch_violations(tasks: list[DevLoopTask]) -> list[str]:
                 break
         if low.endswith(".json") and "cache" in low:
             violations.append(f"task {task.task_id}: forbidden cache-like change_file {change_file}")
+    return violations
+
+
+def productive_quarantine_repo_violations(
+    *,
+    repo_root: Path,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> list[str]:
+    """Detect quarantine scratch path before productive dev-loop executes tasks."""
+    violations: list[str] = []
+    smoke_path = repo_root / PRODUCTIVE_QUARANTINE_PATH
+    if smoke_path.is_file():
+        violations.append(
+            f"productive dev-loop blocked: quarantine path {PRODUCTIVE_QUARANTINE_PATH} exists on disk"
+        )
+    status_paths = _git_status_paths(repo_root=repo_root, subprocess_run=subprocess_run)
+    if PRODUCTIVE_QUARANTINE_PATH in status_paths:
+        violations.append(
+            f"productive dev-loop blocked: quarantine path {PRODUCTIVE_QUARANTINE_PATH} is dirty"
+        )
     return violations
 
 
@@ -376,6 +442,7 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
                 change_file=str(item.get("change_file") or item.get("smoke_file") or "").strip(),
                 commit_message=str(item.get("commit_message") or "").strip(),
                 prepare_for_pr=bool(item.get("prepare_for_pr", False)),
+                allow_smoke_file=bool(item.get("allow_smoke_file", False)),
             )
         )
     return tasks
@@ -383,6 +450,38 @@ def _load_queue(path: Path) -> list[DevLoopTask]:
 
 def _task_change_file(task: DevLoopTask) -> str:
     return (task.change_file or task.smoke_file).strip()
+
+
+def _productive_task_change_file(task: DevLoopTask) -> str:
+    return task.change_file.strip()
+
+
+def _resolve_prepare_change_file(
+    task: DevLoopTask,
+    *,
+    productive: bool,
+) -> tuple[str, str | None]:
+    if productive:
+        path = _productive_task_change_file(task)
+    elif task.change_file.strip():
+        path = task.change_file.strip()
+    elif task.allow_smoke_file and task.smoke_file.strip():
+        path = task.smoke_file.strip()
+    else:
+        path = task.smoke_file.strip()
+    if not path:
+        return (
+            "",
+            f"missing change_file for prepare_for_pr task {task.task_id}; "
+            "refusing docs/smoke.md fallback",
+        )
+    if path in FORBIDDEN_PREPARE_CHANGE_FILES and not task.allow_smoke_file:
+        return (
+            "",
+            f"forbidden prepare change_file {path} for task {task.task_id}; "
+            "refusing docs/smoke.md fallback",
+        )
+    return path, None
 
 
 def _sanitize_branch_token(value: str) -> str:
@@ -546,6 +645,7 @@ def _check_pr_ready_preflight(
     *,
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    productive: bool = False,
 ) -> str | None:
     branch = task.branch.strip()
     if not branch:
@@ -557,9 +657,17 @@ def _check_pr_ready_preflight(
     ahead = _commits_ahead_of_main(branch, repo_root=repo_root, subprocess_run=subprocess_run)
     if ahead <= 0:
         return "preflight: no commits ahead of origin/main"
-    change_file = _task_change_file(task)
-    if task.prepare_for_pr and not change_file:
-        return "preflight: prepare_for_pr requires smoke_file or change_file"
+    if task.prepare_for_pr:
+        change_file, resolve_err = _resolve_prepare_change_file(task, productive=productive)
+        if resolve_err:
+            return resolve_err
+        if not change_file:
+            return (
+                f"missing change_file for prepare_for_pr task {task.task_id}; "
+                "refusing docs/smoke.md fallback"
+            )
+    else:
+        change_file = _task_change_file(task)
     if change_file and task.allowed_paths:
         if not any(_path_matches_rule(change_file, allow) for allow in task.allowed_paths):
             return f"preflight: change file outside allowed_paths: {change_file}"
@@ -574,8 +682,9 @@ def _prepare_smoke_task(
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
     execute: bool,
+    productive: bool = False,
 ) -> tuple[bool, str, str, dict[str, Any]]:
-    change_file = _task_change_file(task)
+    change_file, resolve_err = _resolve_prepare_change_file(task, productive=productive)
     preflight = _build_prepare_preflight(
         task,
         run_id=run_id,
@@ -585,8 +694,14 @@ def _prepare_smoke_task(
     )
     if not task.prepare_for_pr:
         return True, "skipped", "prepare_for_pr not requested", preflight
+    if resolve_err:
+        return False, resolve_err, resolve_err, preflight
     if not change_file:
-        return False, "preflight: prepare_for_pr requires smoke_file", "", preflight
+        msg = (
+            f"missing change_file for prepare_for_pr task {task.task_id}; "
+            "refusing docs/smoke.md fallback"
+        )
+        return False, msg, msg, preflight
     branch = task.branch.strip()
     commit_msg = (
         task.commit_message.strip()
@@ -615,7 +730,12 @@ def _prepare_smoke_task(
         existing = target.read_text(encoding="utf-8")
         target.write_text(existing.rstrip() + marker, encoding="utf-8")
     else:
-        target.write_text(f"# Dev-loop PR create smoke\n{marker}", encoding="utf-8")
+        header = (
+            f"# Dev-loop marker: {task.task_id}\n"
+            if productive
+            else "# Dev-loop PR create smoke\n"
+        )
+        target.write_text(header + marker, encoding="utf-8")
     checkout = _run_git(["git", "checkout", "-B", branch], repo_root=repo_root, subprocess_run=subprocess_run)
     if checkout.returncode != 0:
         return False, "prepare_failed", _format_preparation_detail(preflight, extra="git checkout failed"), preflight
@@ -660,7 +780,12 @@ def _prepare_smoke_task(
         repo_root=repo_root,
         subprocess_run=subprocess_run,
     )
-    ready_reason = _check_pr_ready_preflight(task, repo_root=repo_root, subprocess_run=subprocess_run)
+    ready_reason = _check_pr_ready_preflight(
+        task,
+        repo_root=repo_root,
+        subprocess_run=subprocess_run,
+        productive=productive,
+    )
     if ready_reason:
         return False, ready_reason, _format_preparation_detail(preflight, extra="post-prepare preflight failed"), preflight
     return True, "prepared", plan, preflight
@@ -1287,13 +1412,17 @@ def run_dev_loop(
     out_dir = out_root / DEV_LOOP_REL_ROOT / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     tasks = _load_queue(task_queue_path)
-    productive_queue = "productive" in task_queue_path.name or task_queue_path.name.endswith(
-        ("_productive_8h.yaml", "_productive_12h.yaml")
-    )
+    productive_queue = is_productive_task_queue_path(task_queue_path)
     if productive_queue:
+        prepare_violations = productive_queue_prepare_violations(task_queue_path, tasks)
         scratch_violations = productive_queue_scratch_violations(tasks)
-        if scratch_violations:
-            raise ValueError("productive queue definition invalid: " + "; ".join(scratch_violations))
+        quarantine_violations = productive_quarantine_repo_violations(
+            repo_root=root,
+            subprocess_run=subprocess_run,
+        )
+        all_violations = prepare_violations + scratch_violations + quarantine_violations
+        if all_violations:
+            raise ValueError("productive queue validation failed: " + "; ".join(all_violations))
     profile = _load_profile(profile_name, profile_path=profile_path) if profile_name else None
     queue_preflight_notice = ""
     effective_max_runtime = max_runtime_minutes if max_runtime_minutes is not None else (
@@ -1336,9 +1465,7 @@ def run_dev_loop(
         min_runtime_minutes=min_runtime_minutes,
         no_early_success_exit=no_early_success_exit,
     )
-    if "productive" in task_queue_path.name or task_queue_path.name.endswith(
-        ("_productive_8h.yaml", "_productive_12h.yaml")
-    ):
+    if productive_queue:
         queue_preflight_notice = format_productive_longrun_preflight_notice(
             tasks,
             max_tasks=effective_max_tasks,
@@ -1495,6 +1622,7 @@ def run_dev_loop(
                     repo_root=root,
                     subprocess_run=subprocess_run,
                     execute=False,
+                    productive=productive_queue,
                 )
                 result.tasks_executed += 1
                 result.task_results.append(
@@ -1555,6 +1683,7 @@ def run_dev_loop(
                 repo_root=root,
                 subprocess_run=subprocess_run,
                 execute=True,
+                productive=productive_queue,
             )
             if not prep_ok:
                 result.tasks_executed += 1
@@ -1624,6 +1753,7 @@ def run_dev_loop(
                     task,
                     repo_root=root,
                     subprocess_run=subprocess_run,
+                    productive=productive_queue,
                 )
                 if ready_reason:
                     result.tasks_executed += 1
