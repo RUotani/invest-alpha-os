@@ -12,8 +12,12 @@ import pytest
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.operator.dev_loop import (
     DevLoopProfile,
+    _check_scope,
+    _has_forbidden_dirty_paths,
     _load_profile,
     _load_queue,
+    default_productive_12h_v2_task_queue_path,
+    productive_queue_scratch_violations,
     _native_longrun_enabled,
     apply_profile_longrun_defaults,
     default_longrun_task_queue_path,
@@ -824,15 +828,16 @@ def test_mock_prepare_and_pr_create_success(tmp_path: Path, monkeypatch) -> None
     monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
     repo = tmp_path / "repo"
     repo.mkdir()
+    marker = "docs/dev_loop_marker_fixture.md"
     queue = _queue_file_raw(
         tmp_path,
-        """version: ops_dev_queue.v1
+        f"""version: ops_dev_queue.v1
 tasks:
   - task_id: smoke
     pr_title: "Smoke PR"
     branch: "work/smoke"
     pytest_cmd: "git diff --check"
-    smoke_file: "docs/smoke.md"
+    smoke_file: "{marker}"
     commit_message: "smoke commit"
     prepare_for_pr: true
     allowed_paths:
@@ -859,7 +864,7 @@ tasks:
         if cmd[:2] == ["git", "diff", "--check"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/smoke.md", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout=f" M {marker}", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     result = run_dev_loop(
@@ -889,7 +894,7 @@ tasks:
     assert result.status == "completed"
     assert result.prs_created == 1
     assert result.task_results[0].preparation_status == "prepared"
-    assert (repo / "docs/smoke.md").is_file()
+    assert (repo / marker).is_file()
 
 
 def test_evidence_written_when_execute_gate_blocked(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -2006,6 +2011,19 @@ def test_pytest_failure_diagnostics_recorded(tmp_path: Path, monkeypatch) -> Non
     assert diag["pytest_exit_code"] == 5
     assert diag["pytest_cmd"] == "pytest -q"
     assert "no tests ran" in diag["output_tail"]
+
+
+def test_v2_first_task_passes_scope_for_dedicated_change_file() -> None:
+    tasks = _load_queue(default_productive_12h_v2_task_queue_path())
+    first = tasks[0]
+    assert first.task_id == "ops_i7_v2_post_run_review_tests"
+    dirty = [first.change_file]
+    assert _check_scope(first, dirty) == []
+    assert _has_forbidden_dirty_paths(["docs/smoke.md"]) != []
+
+
+def test_forbidden_dirty_docs_smoke_quarantine() -> None:
+    assert any("docs/smoke.md" in v for v in _has_forbidden_dirty_paths(["docs/smoke.md"]))
 
 
 def test_productive_queue_replaced_stale_self_referential_tasks() -> None:

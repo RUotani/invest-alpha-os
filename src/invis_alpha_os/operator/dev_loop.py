@@ -162,6 +162,45 @@ def default_productive_12h_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h.yaml"
 
 
+def default_productive_12h_v2_task_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h_v2.yaml"
+
+
+PRODUCTIVE_FORBIDDEN_CHANGE_FILES: frozenset[str] = frozenset(
+    {
+        "docs/smoke.md",
+    }
+)
+
+PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES: tuple[str, ...] = (
+    "tmp/",
+    "outputs/",
+    ".env",
+)
+
+
+def productive_queue_scratch_violations(tasks: list[DevLoopTask]) -> list[str]:
+    """Flag scratch or quarantine paths used as productive task change_file."""
+    violations: list[str] = []
+    for task in tasks:
+        change_file = _task_change_file(task)
+        if not change_file:
+            continue
+        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES:
+            violations.append(f"task {task.task_id}: forbidden change_file {change_file}")
+            continue
+        low = change_file.lower()
+        for prefix in PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES:
+            if low.startswith(prefix) or low == prefix.rstrip("/"):
+                violations.append(
+                    f"task {task.task_id}: forbidden change_file prefix {prefix} ({change_file})"
+                )
+                break
+        if low.endswith(".json") and "cache" in low:
+            violations.append(f"task {task.task_id}: forbidden cache-like change_file {change_file}")
+    return violations
+
+
 def default_productive_superseded_tasks_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "productive_8h_superseded_tasks.yaml"
 
@@ -668,6 +707,9 @@ def _has_forbidden_dirty_paths(paths: list[str]) -> list[str]:
             continue
         if "cache" in low and low.endswith(".json"):
             violations.append(f"forbidden dirty path: {norm}")
+            continue
+        if norm == "docs/smoke.md":
+            violations.append(f"forbidden quarantine dirty path: {norm}")
     return violations
 
 
@@ -1245,6 +1287,13 @@ def run_dev_loop(
     out_dir = out_root / DEV_LOOP_REL_ROOT / run_id
     out_dir.mkdir(parents=True, exist_ok=True)
     tasks = _load_queue(task_queue_path)
+    productive_queue = "productive" in task_queue_path.name or task_queue_path.name.endswith(
+        ("_productive_8h.yaml", "_productive_12h.yaml")
+    )
+    if productive_queue:
+        scratch_violations = productive_queue_scratch_violations(tasks)
+        if scratch_violations:
+            raise ValueError("productive queue definition invalid: " + "; ".join(scratch_violations))
     profile = _load_profile(profile_name, profile_path=profile_path) if profile_name else None
     queue_preflight_notice = ""
     effective_max_runtime = max_runtime_minutes if max_runtime_minutes is not None else (
@@ -1349,9 +1398,6 @@ def run_dev_loop(
     result.failure_policy["failure_category_counts"] = failure_category_counts
     gh_pr_index: list[dict[str, Any]] = []
     gh_read_warnings: list[str] = []
-    productive_queue = "productive" in task_queue_path.name or task_queue_path.name.endswith(
-        ("_productive_8h.yaml", "_productive_12h.yaml")
-    )
     superseded_tasks_map: dict[str, str] = {}
     if skip_existing_task_artifacts or productive_queue:
         superseded_tasks_map = _load_superseded_tasks()

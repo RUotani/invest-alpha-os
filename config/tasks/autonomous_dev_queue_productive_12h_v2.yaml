@@ -6,13 +6,14 @@ tasks:
   - task_id: ops_i7_v2_post_run_review_tests
     pr_title: "R7.0-Ops-I7-v2: post-run review summary tests"
     branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
-    scope: "post-run review summary tests"
+    scope: "post-run review summary tests and dedicated docs marker"
     risk_level: "low"
     pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
-    change_file: "tests/test_operator_post_run_review.py"
-    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_post_run_review_tests marker"
+    change_file: "docs/125_ops_i7_v2_post_run_review_tests.md"
+    commit_message: "R7.0-Ops-I7-v2: post-run review tests marker"
     prepare_for_pr: true
     allowed_paths:
+      - "docs/"
       - "tests/"
       - "src/invis_alpha_os/operator/"
     forbidden_paths:
