@@ -1,0 +1,591 @@
+version: ops_dev_queue.v1
+description: >
+  Productive 12h v2 DRAFT queue (32 tasks). Higher-value mix: tests/impl/docs.
+  NOT enabled by default scripts. Read-only and gated boundaries only.
+tasks:
+  - task_id: ops_i7_v2_post_run_review_tests
+    pr_title: "R7.0-Ops-I7-v2: post-run review summary tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "post-run review summary tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "tests/test_operator_post_run_review.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_post_run_review_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "src/invis_alpha_os/operator/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_classify_interruption_tests
+    pr_title: "R7.0-Ops-I7-v2: productive interruption classify tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "productive interruption classify tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k interruption"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_classify_interruption_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_queue_validation_tests
+    pr_title: "R7.0-Ops-I7-v2: productive queue validation tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "productive queue validation tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_queue_validation_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "config/tasks/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_pr_loop_status_tests
+    pr_title: "R7.0-Ops-I7-v2: PR loop evidence status tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "PR loop evidence status tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_pr_loop.py"
+    change_file: "tests/test_operator_pr_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_pr_loop_status_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_failure_policy_tests
+    pr_title: "R7.0-Ops-I7-v2: failure policy and diagnostics tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "failure policy and diagnostics tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k failure"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_failure_policy_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_discovery_smoke_tests
+    pr_title: "R7.0-Ops-I7-v2: discovery read-only smoke tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "discovery read-only smoke tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner.py -k discovery"
+    change_file: "tests/test_operator_runner.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_discovery_smoke_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_runner_gated_tests
+    pr_title: "R7.0-Ops-I7-v2: operator runner gated dry-run tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "operator runner gated dry-run tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner_gated.py"
+    change_file: "tests/test_operator_runner_gated.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_runner_gated_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_dev_loop_longrun_tests
+    pr_title: "R7.0-Ops-I7-v2: dev-loop longrun profile tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "dev-loop longrun profile tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k longrun"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_dev_loop_longrun_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_evidence_keys_tests
+    pr_title: "R7.0-Ops-I7-v2: evidence summary key stability tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "evidence summary key stability tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k evidence"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_evidence_keys_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_superseded_skip_tests
+    pr_title: "R7.0-Ops-I7-v2: superseded task skip tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "superseded task skip tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k superseded"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_superseded_skip_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "config/tasks/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_merge_helper_script_tests
+    pr_title: "R7.0-Ops-I7-v2: merge helper script gate tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "merge helper script gate tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py -k merge"
+    change_file: "tests/test_operator_post_run_review.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_merge_helper_script_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "scripts/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_review_script_tests
+    pr_title: "R7.0-Ops-I7-v2: review script wrapper tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "review script wrapper tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py -k review_script"
+    change_file: "tests/test_operator_post_run_review.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_review_script_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "scripts/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_cli_help_tests
+    pr_title: "R7.0-Ops-I7-v2: operator-runner CLI help smoke"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "operator-runner CLI help smoke"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner.py"
+    change_file: "tests/test_operator_runner.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_cli_help_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "src/invis_alpha_os/cli/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_daily_report_dryrun_tests
+    pr_title: "R7.0-Ops-I7-v2: daily report dry-run rendering tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "daily report dry-run rendering tests"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner_gated.py -k daily"
+    change_file: "tests/test_operator_runner_gated.py"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_daily_report_dryrun_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_post_run_review_impl_doc
+    pr_title: "R7.0-Ops-I7-v2: post-run review operator module docstring clarity"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "post-run review operator module docstring clarity"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/124_ops_i7_v2_post_run_review_impl.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_post_run_review_impl_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "src/invis_alpha_os/operator/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_evidence_parser_helper
+    pr_title: "R7.0-Ops-I7-v2: evidence parser helper notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "evidence parser helper notes"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/124_ops_i7_v2_evidence_parser.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_evidence_parser_helper marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_pr_url_collector_doc
+    pr_title: "R7.0-Ops-I7-v2: PR URL collector behavior doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "PR URL collector behavior doc"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/124_ops_i7_v2_pr_url_collector.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_pr_url_collector_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "src/invis_alpha_os/operator/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_failure_diag_enrichment
+    pr_title: "R7.0-Ops-I7-v2: failure diagnostics enrichment doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "failure diagnostics enrichment doc"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k failure"
+    change_file: "docs/124_ops_i7_v2_failure_diag.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_failure_diag_enrichment marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_queue_loader_validation
+    pr_title: "R7.0-Ops-I7-v2: queue loader validation notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "queue loader validation notes"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive"
+    change_file: "docs/124_ops_i7_v2_queue_loader.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_queue_loader_validation marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "config/tasks/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_cli_post_run_review_wire
+    pr_title: "R7.0-Ops-I7-v2: CLI post-run-review wiring notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "CLI post-run-review wiring notes"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/124_ops_i7_v2_cli_wire.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_cli_post_run_review_wire marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "src/invis_alpha_os/cli/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_artifact_path_helper
+    pr_title: "R7.0-Ops-I7-v2: local artifact path helper doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "local artifact path helper doc"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_artifact_paths.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_artifact_path_helper marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "scripts/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_runner_status_parse
+    pr_title: "R7.0-Ops-I7-v2: runner status parsing helper doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "runner status parsing helper doc"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner.py"
+    change_file: "docs/124_ops_i7_v2_runner_status.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_runner_status_parse marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_discovery_summary_helper
+    pr_title: "R7.0-Ops-I7-v2: discovery summary helper doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "discovery summary helper doc"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner.py -k discovery"
+    change_file: "docs/124_ops_i7_v2_discovery_summary.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_discovery_summary_helper marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_gmail_dryrun_helper
+    pr_title: "R7.0-Ops-I7-v2: Gmail dry-run helper doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "Gmail dry-run helper doc"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_runner_gated.py"
+    change_file: "docs/124_ops_i7_v2_gmail_dryrun.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_gmail_dryrun_helper marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "docs/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_morning_review_flow
+    pr_title: "R7.0-Ops-I7-v2: morning review flow runbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "morning review flow runbook"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_morning_review.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_morning_review_flow marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_merge_workflow_doc
+    pr_title: "R7.0-Ops-I7-v2: gated merge workflow documentation"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "gated merge workflow documentation"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_merge_workflow.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_merge_workflow_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "scripts/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_v2_queue_meta
+    pr_title: "R7.0-Ops-I7-v2: productive 12h v2 queue meta documentation"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "productive 12h v2 queue meta documentation"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_queue_meta.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_v2_queue_meta marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "config/tasks/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_utilization_metrics
+    pr_title: "R7.0-Ops-I7-v2: productive utilization metrics guide"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "productive utilization metrics guide"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive"
+    change_file: "docs/124_ops_i7_v2_utilization.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_utilization_metrics marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_interruption_playbook
+    pr_title: "R7.0-Ops-I7-v2: interruption outcome playbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "interruption outcome playbook"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_interruption.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_interruption_playbook marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_ci_review_checklist
+    pr_title: "R7.0-Ops-I7-v2: CI review checklist for open PRs"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "CI review checklist for open PRs"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_ci_checklist.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_ci_review_checklist marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_main_sync_procedure
+    pr_title: "R7.0-Ops-I7-v2: main sync procedure after productive merge"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "main sync procedure after productive merge"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_main_sync.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_main_sync_procedure marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i7_v2_next_run_preparation
+    pr_title: "R7.0-Ops-I7-v2: next productive run preparation checklist"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "next productive run preparation checklist"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/124_ops_i7_v2_next_run.md"
+    commit_message: "R7.0-Ops-I7-v2: ops_i7_v2_next_run_preparation marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+

@@ -125,6 +125,7 @@ from invis_alpha_os.operator.dev_loop import (
     dev_loop_should_exit_nonzero,
     run_dev_loop,
 )
+from invis_alpha_os.operator.post_run_review import build_post_run_review_markdown
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.operator.pr_loop import run_pr_loop
 from invis_alpha_os.utils.date_utils import today_jst_iso
@@ -896,6 +897,33 @@ def operator_runner_dev_loop(
         typer.echo(f"operator-runner dev-loop: stop_reason={result.stop_reason}", err=True)
     if dev_loop_should_exit_nonzero(result):
         raise typer.Exit(1)
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("post-run-review")
+def operator_runner_post_run_review(
+    run_id: Optional[str] = typer.Option(
+        None,
+        "--run-id",
+        help="Dev-loop run id (default: latest evidence_summary.json).",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Output format (markdown only).",
+    ),
+) -> None:
+    """Read-only summary of a completed productive longrun (evidence + optional run.log)."""
+
+    if fmt.strip().lower() != "markdown":
+        typer.echo("operator-runner post-run-review: only --format markdown is supported", err=True)
+        raise typer.Exit(2)
+    try:
+        text = build_post_run_review_markdown(run_id)
+    except ValueError as e:
+        typer.echo(f"operator-runner post-run-review: {e}", err=True)
+        raise typer.Exit(2) from e
+    typer.echo(text)
     raise typer.Exit(0)
 
 
