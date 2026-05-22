@@ -128,6 +128,10 @@ productive は明示 `change_file` 必須。`docs/smoke.md` は実行前 quarant
 
 `docs/dev_loop_marker_fixture.md` と productive `docs/*fixture*.md` change_file を拒否。詳細 **[docs/127](./127_r7_0_ops_i7d_fix_v2_fixture_scope.md)**。
 
+## 20. Ops-I7E runtime fixture marker
+
+`docs/ops_dev_loop_test_marker.md` quarantine。テスト marker は tmp repo のみ。詳細 **[docs/128](./128_r7_0_ops_i7e_eliminate_runtime_fixture_marker.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)

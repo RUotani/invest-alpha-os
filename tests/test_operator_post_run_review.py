@@ -142,6 +142,7 @@ def test_v2_queue_exists_and_task_count() -> None:
         assert forbidden not in text
     assert "docs/smoke.md" not in text
     assert "docs/dev_loop_marker_fixture.md" not in text
+    assert "docs/ops_dev_loop_test_marker.md" not in text
     assert productive_queue_scratch_violations(tasks) == []
     assert productive_queue_prepare_violations(path, tasks) == []
     for task in tasks:

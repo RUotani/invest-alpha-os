@@ -171,6 +171,7 @@ PRODUCTIVE_QUARANTINE_PATHS: frozenset[str] = frozenset(
     {
         "docs/smoke.md",
         "docs/dev_loop_marker_fixture.md",
+        "docs/ops_dev_loop_test_marker.md",
     }
 )
 
@@ -185,7 +186,34 @@ def _is_productive_fixture_change_file(change_file: str) -> bool:
     if norm in PRODUCTIVE_QUARANTINE_PATHS:
         return True
     low = norm.lower()
-    return low.startswith("docs/") and low.endswith(".md") and "fixture" in low
+    if not (low.startswith("docs/") and low.endswith(".md")):
+        return False
+    return "fixture" in low or "test_marker" in low
+
+
+def _is_productive_scratch_dirty_path(path: str) -> bool:
+    norm = path.strip().lstrip("./")
+    if norm in PRODUCTIVE_QUARANTINE_PATHS:
+        return True
+    return _is_productive_fixture_change_file(norm)
+
+
+def _productive_unallowed_dirty_paths(task: DevLoopTask, dirty_paths: list[str]) -> list[str]:
+    """Flag dirty paths outside task allowed_paths (productive runtime guard)."""
+    change_file = _productive_task_change_file(task)
+    violations: list[str] = []
+    for path in dirty_paths:
+        norm = path.strip()
+        if _is_productive_scratch_dirty_path(norm):
+            continue
+        if norm == change_file:
+            continue
+        if task.allowed_paths and any(_path_matches_rule(norm, allow) for allow in task.allowed_paths):
+            continue
+        violations.append(
+            f"unexpected dirty path outside allowed_paths for task {task.task_id}: {norm}"
+        )
+    return violations
 
 PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES: tuple[str, ...] = (
     "tmp/",
@@ -848,10 +876,7 @@ def _has_forbidden_dirty_paths(paths: list[str]) -> list[str]:
         if "cache" in low and low.endswith(".json"):
             violations.append(f"forbidden dirty path: {norm}")
             continue
-        if norm in PRODUCTIVE_QUARANTINE_PATHS:
-            violations.append(f"forbidden quarantine dirty path: {norm}")
-            continue
-        if _is_productive_fixture_change_file(norm):
+        if _is_productive_scratch_dirty_path(norm):
             violations.append(f"forbidden quarantine dirty path: {norm}")
     return violations
 
@@ -1733,6 +1758,8 @@ def run_dev_loop(
             dirty_paths = _git_status_paths(repo_root=root, subprocess_run=subprocess_run)
             result.checked_paths.extend(dirty_paths)
             dirty_violations = _has_forbidden_dirty_paths(dirty_paths)
+            if productive_queue:
+                dirty_violations.extend(_productive_unallowed_dirty_paths(task, dirty_paths))
             if dirty_violations:
                 result.dirty_tree_violations.extend(dirty_violations)
                 result.status = "stopped"
