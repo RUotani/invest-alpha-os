@@ -141,6 +141,7 @@ def test_v2_queue_exists_and_task_count() -> None:
     ):
         assert forbidden not in text
     assert "docs/smoke.md" not in text
+    assert "docs/dev_loop_marker_fixture.md" not in text
     assert productive_queue_scratch_violations(tasks) == []
     assert productive_queue_prepare_violations(path, tasks) == []
     for task in tasks:
@@ -186,6 +187,23 @@ def test_productive_queue_rejects_docs_smoke_change_file() -> None:
         ]
     )
     assert any("docs/smoke.md" in item for item in violations)
+
+
+def test_productive_queue_rejects_fixture_marker_change_file() -> None:
+    from invis_alpha_os.operator.dev_loop import DevLoopTask
+
+    violations = productive_queue_scratch_violations(
+        [
+            DevLoopTask(
+                task_id="bad_fixture",
+                pr_title="Bad",
+                branch="work/bad",
+                pytest_cmd="pytest -q",
+                change_file="docs/dev_loop_marker_fixture.md",
+            )
+        ]
+    )
+    assert any("forbidden fixture path" in item for item in violations)
 
 
 def test_productive_scripts_not_using_v2_queue_by_default() -> None:

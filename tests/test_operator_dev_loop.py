@@ -783,7 +783,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke"
     pytest_cmd: "git diff --check"
-    change_file: "docs/dev_loop_marker_fixture.md"
+    change_file: "docs/ops_dev_loop_test_marker.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -810,7 +810,7 @@ tasks:
         if cmd[:3] == ["git", "rev-list", "--count"]:
             return subprocess.CompletedProcess(cmd, 0, stdout="0\n", stderr="")
         if cmd[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/dev_loop_marker_fixture.md", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, stdout=" M docs/ops_dev_loop_test_marker.md", stderr="")
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
     result = run_dev_loop(
@@ -832,7 +832,7 @@ def test_mock_prepare_and_pr_create_success(tmp_path: Path, monkeypatch) -> None
     monkeypatch.setenv("CONFIRM_GITHUB_PR_CREATE", "YES")
     repo = tmp_path / "repo"
     repo.mkdir()
-    marker = "docs/dev_loop_marker_fixture.md"
+    marker = "docs/ops_dev_loop_test_marker.md"
     queue = _queue_file_raw(
         tmp_path,
         f"""version: ops_dev_queue.v1
@@ -967,7 +967,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke-fixed"
     pytest_cmd: "git diff --check"
-    change_file: "docs/dev_loop_marker_fixture.md"
+    change_file: "docs/ops_dev_loop_test_marker.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -1009,7 +1009,7 @@ tasks:
     pr_title: "Smoke"
     branch: "work/smoke-{run_id}"
     pytest_cmd: "git diff --check"
-    change_file: "docs/dev_loop_marker_fixture.md"
+    change_file: "docs/ops_dev_loop_test_marker.md"
     prepare_for_pr: true
     allowed_paths:
       - "docs/"
@@ -2104,8 +2104,58 @@ def test_v2_first_task_passes_scope_for_dedicated_change_file() -> None:
     assert _has_forbidden_dirty_paths(["docs/smoke.md"]) != []
 
 
+def test_v2_second_task_passes_scope_for_tests_change_file() -> None:
+    tasks = _load_queue(default_productive_12h_v2_task_queue_path())
+    second = tasks[1]
+    assert second.task_id == "ops_i7_v2_classify_interruption_tests"
+    assert second.change_file == "tests/test_operator_dev_loop.py"
+    assert "dev_loop_marker_fixture" not in second.change_file
+    dirty = [second.change_file]
+    assert _check_scope(second, dirty) == []
+    assert _check_scope(second, dirty + ["docs/dev_loop_marker_fixture.md"]) != []
+
+
+def test_v2_first_two_tasks_prepare_without_fixture_scope_violation(tmp_path: Path) -> None:
+    tasks = _load_queue(default_productive_12h_v2_task_queue_path())
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for task in tasks[:2]:
+        ok, status, _, _ = _prepare_smoke_task(
+            task,
+            run_id="20260522T140000Z",
+            branch_template=task.branch,
+            repo_root=repo,
+            subprocess_run=_git_clean,
+            execute=True,
+            productive=True,
+        )
+        assert ok, (task.task_id, status)
+        assert not (repo / "docs/dev_loop_marker_fixture.md").exists()
+        dirty = [task.change_file]
+        assert _check_scope(task, dirty) == []
+
+
 def test_forbidden_dirty_docs_smoke_quarantine() -> None:
     assert any("docs/smoke.md" in v for v in _has_forbidden_dirty_paths(["docs/smoke.md"]))
+
+
+def test_forbidden_dirty_docs_fixture_quarantine() -> None:
+    violations = _has_forbidden_dirty_paths(["docs/dev_loop_marker_fixture.md"])
+    assert any("docs/dev_loop_marker_fixture.md" in v for v in violations)
+
+
+def test_productive_run_blocks_quarantine_fixture_file(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setenv("CONFIRM_OPERATOR_DEV_LOOP", "YES")
+    (tmp_path / "docs").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "docs/dev_loop_marker_fixture.md").write_text("fixture scratch\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="productive queue validation failed"):
+        run_dev_loop(
+            task_queue_path=default_productive_12h_v2_task_queue_path(),
+            repo_root=tmp_path,
+            outputs_root=tmp_path / "out",
+            subprocess_run=_git_clean,
+            max_tasks=1,
+        )
 
 
 def test_productive_queue_replaced_stale_self_referential_tasks() -> None:
@@ -2254,6 +2304,7 @@ def test_true_longrun_8h_profile_passes_validation() -> None:
 def test_productive_dry_run_emits_queue_preflight(capsys, tmp_path: Path) -> None:
     run_dev_loop(
         task_queue_path=default_productive_8h_task_queue_path(),
+        repo_root=tmp_path,
         outputs_root=tmp_path,
         subprocess_run=_git_clean,
         max_tasks=1,

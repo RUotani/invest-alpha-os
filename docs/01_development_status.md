@@ -1151,9 +1151,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I7C — remove smoke fallback（進行中）
+## R7.0-Ops-I7C — remove smoke fallback（完了）
 
 **内容**: productive 実行前 quarantine 検査、`prepare_for_pr` の明示 `change_file` 必須、`docs/smoke.md` ランタイムフォールバック禁止。詳細 **[docs/126](./126_r7_0_ops_i7c_remove_smoke_fallback.md)**。
+
+---
+
+## R7.0-Ops-I7D — v2 fixture scope fix（進行中）
+
+**内容**: `docs/dev_loop_marker_fixture.md` quarantine、productive `docs/*fixture*.md` change_file 拒否。詳細 **[docs/127](./127_r7_0_ops_i7d_fix_v2_fixture_scope.md)**。
 
 ---
 
