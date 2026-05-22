@@ -167,19 +167,25 @@ def default_productive_12h_v2_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h_v2.yaml"
 
 
-PRODUCTIVE_FORBIDDEN_CHANGE_FILES: frozenset[str] = frozenset(
+PRODUCTIVE_QUARANTINE_PATHS: frozenset[str] = frozenset(
     {
         "docs/smoke.md",
+        "docs/dev_loop_marker_fixture.md",
     }
 )
 
-FORBIDDEN_PREPARE_CHANGE_FILES: frozenset[str] = frozenset(
-    {
-        "docs/smoke.md",
-    }
-)
+PRODUCTIVE_FORBIDDEN_CHANGE_FILES: frozenset[str] = PRODUCTIVE_QUARANTINE_PATHS
 
-PRODUCTIVE_QUARANTINE_PATH = "docs/smoke.md"
+FORBIDDEN_PREPARE_CHANGE_FILES: frozenset[str] = PRODUCTIVE_QUARANTINE_PATHS
+
+
+def _is_productive_fixture_change_file(change_file: str) -> bool:
+    """Block scratch/quarantine docs used as productive task change_file targets."""
+    norm = change_file.strip().lstrip("./")
+    if norm in PRODUCTIVE_QUARANTINE_PATHS:
+        return True
+    low = norm.lower()
+    return low.startswith("docs/") and low.endswith(".md") and "fixture" in low
 
 PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES: tuple[str, ...] = (
     "tmp/",
@@ -213,9 +219,11 @@ def productive_queue_prepare_violations(queue_path: Path, tasks: list[DevLoopTas
                 f"productive queue validation failed: task_id={task_id} missing change_file"
             )
             continue
-        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES:
+        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES or _is_productive_fixture_change_file(
+            change_file
+        ):
             violations.append(
-                f"productive queue validation failed: task_id={task_id} forbidden change_file {change_file}"
+                f"productive queue validation failed: forbidden fixture path {change_file}"
             )
         task = by_id.get(task_id)
         if task and not task.change_file.strip():
@@ -232,8 +240,12 @@ def productive_queue_scratch_violations(tasks: list[DevLoopTask]) -> list[str]:
         change_file = _productive_task_change_file(task)
         if not change_file:
             continue
-        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES:
-            violations.append(f"task {task.task_id}: forbidden change_file {change_file}")
+        if change_file in PRODUCTIVE_FORBIDDEN_CHANGE_FILES or _is_productive_fixture_change_file(
+            change_file
+        ):
+            violations.append(
+                f"task {task.task_id}: forbidden fixture path {change_file}"
+            )
             continue
         low = change_file.lower()
         for prefix in PRODUCTIVE_FORBIDDEN_CHANGE_PREFIXES:
@@ -252,18 +264,19 @@ def productive_quarantine_repo_violations(
     repo_root: Path,
     subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
 ) -> list[str]:
-    """Detect quarantine scratch path before productive dev-loop executes tasks."""
+    """Detect quarantine scratch paths before productive dev-loop executes tasks."""
     violations: list[str] = []
-    smoke_path = repo_root / PRODUCTIVE_QUARANTINE_PATH
-    if smoke_path.is_file():
-        violations.append(
-            f"productive dev-loop blocked: quarantine path {PRODUCTIVE_QUARANTINE_PATH} exists on disk"
-        )
-    status_paths = _git_status_paths(repo_root=repo_root, subprocess_run=subprocess_run)
-    if PRODUCTIVE_QUARANTINE_PATH in status_paths:
-        violations.append(
-            f"productive dev-loop blocked: quarantine path {PRODUCTIVE_QUARANTINE_PATH} is dirty"
-        )
+    status_paths = set(_git_status_paths(repo_root=repo_root, subprocess_run=subprocess_run))
+    for quarantine_path in sorted(PRODUCTIVE_QUARANTINE_PATHS):
+        path = repo_root / quarantine_path
+        if path.is_file():
+            violations.append(
+                f"productive dev-loop blocked: quarantine path {quarantine_path} exists on disk"
+            )
+        if quarantine_path in status_paths:
+            violations.append(
+                f"productive dev-loop blocked: quarantine path {quarantine_path} is dirty"
+            )
     return violations
 
 
@@ -475,11 +488,13 @@ def _resolve_prepare_change_file(
             f"missing change_file for prepare_for_pr task {task.task_id}; "
             "refusing docs/smoke.md fallback",
         )
-    if path in FORBIDDEN_PREPARE_CHANGE_FILES and not task.allow_smoke_file:
+    if (
+        path in FORBIDDEN_PREPARE_CHANGE_FILES or _is_productive_fixture_change_file(path)
+    ) and not task.allow_smoke_file:
         return (
             "",
             f"forbidden prepare change_file {path} for task {task.task_id}; "
-            "refusing docs/smoke.md fallback",
+            "refusing scratch fixture fallback",
         )
     return path, None
 
@@ -833,7 +848,10 @@ def _has_forbidden_dirty_paths(paths: list[str]) -> list[str]:
         if "cache" in low and low.endswith(".json"):
             violations.append(f"forbidden dirty path: {norm}")
             continue
-        if norm == "docs/smoke.md":
+        if norm in PRODUCTIVE_QUARANTINE_PATHS:
+            violations.append(f"forbidden quarantine dirty path: {norm}")
+            continue
+        if _is_productive_fixture_change_file(norm):
             violations.append(f"forbidden quarantine dirty path: {norm}")
     return violations
 
