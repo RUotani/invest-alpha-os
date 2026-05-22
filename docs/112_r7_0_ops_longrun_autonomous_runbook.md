@@ -116,6 +116,10 @@ I4 後の pytest 4 連続失敗を queue 修復・superseded・診断強化。�
 
 `operator-runner post-run-review` / `merge_productive_prs_after_review.sh`（gate 必須）。v2 queue 草案。詳細 **[docs/124](./124_r7_0_ops_i7_post_run_review_pipeline.md)**。
 
+## 17. Ops-I7B v2 queue scope
+
+v2 先頭 task は `docs/125_ops_i7_v2_post_run_review_tests.md`（`docs/smoke.md` 禁止）。quarantine dirty 拒否。詳細 **[docs/125](./125_r7_0_ops_i7b_v2_queue_scope_fix.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)

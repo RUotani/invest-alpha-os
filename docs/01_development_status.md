@@ -1139,9 +1139,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 **内容**: `true_longrun_12h`、32 task queue、`run_productive_true_longrun_12h.sh`、max_prs 25。詳細 **[docs/123](./123_r7_0_ops_i6_productive_12h_workday_profile.md)**。PR **#114**。
 
-## R7.0-Ops-I7 — post-run review pipeline（進行中）
+## R7.0-Ops-I7 — post-run review pipeline（完了）
 
 **内容**: `post-run-review` CLI、review/merge scripts、v2 queue 草案（未デフォルト）。詳細 **[docs/124](./124_r7_0_ops_i7_post_run_review_pipeline.md)**。
+
+---
+
+## R7.0-Ops-I7B — v2 queue scope fix（進行中）
+
+**内容**: v2 先頭 task を専用 `docs/125_*` marker に変更、`productive_queue_scratch_violations`、quarantine `docs/smoke.md` dirty 拒否。詳細 **[docs/125](./125_r7_0_ops_i7b_v2_queue_scope_fix.md)**。
 
 ---
 

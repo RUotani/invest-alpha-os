@@ -9,7 +9,12 @@ from pathlib import Path
 import pytest
 
 from invis_alpha_os.config.paths import ROOT_DIR
-from invis_alpha_os.operator.dev_loop import _load_queue
+from invis_alpha_os.operator.dev_loop import (
+    _load_queue,
+    default_productive_12h_v2_task_queue_path,
+    default_productive_8h_task_queue_path,
+    productive_queue_scratch_violations,
+)
 from invis_alpha_os.operator.post_run_review import (
     build_post_run_review_markdown,
     find_latest_run_id,
@@ -120,7 +125,7 @@ def test_review_script_wrapper() -> None:
 
 
 def test_v2_queue_exists_and_task_count() -> None:
-    path = ROOT_DIR / "config/tasks/autonomous_dev_queue_productive_12h_v2.yaml"
+    path = default_productive_12h_v2_task_queue_path()
     assert path.is_file()
     tasks = _load_queue(path)
     assert 28 <= len(tasks) <= 36
@@ -134,6 +139,11 @@ def test_v2_queue_exists_and_task_count() -> None:
         "live http",
     ):
         assert forbidden not in text
+    assert "docs/smoke.md" not in text
+    assert productive_queue_scratch_violations(tasks) == []
+    first = tasks[0]
+    assert first.task_id == "ops_i7_v2_post_run_review_tests"
+    assert first.change_file == "docs/125_ops_i7_v2_post_run_review_tests.md"
     ids = {t.task_id for t in tasks}
     for stale in (
         "ops_i_min_max_runtime_tests",
@@ -142,6 +152,35 @@ def test_v2_queue_exists_and_task_count() -> None:
         "ops_i_heartbeat_coverage",
     ):
         assert stale not in ids
+
+
+def test_all_productive_queues_avoid_docs_smoke_change_file() -> None:
+    for path in (default_productive_8h_task_queue_path(), default_productive_12h_v2_task_queue_path()):
+        tasks = _load_queue(path)
+        assert productive_queue_scratch_violations(tasks) == []
+        for task in tasks:
+            assert _task_change_file_safe(task) != "docs/smoke.md"
+
+
+def _task_change_file_safe(task) -> str:
+    return (task.change_file or task.smoke_file).strip()
+
+
+def test_productive_queue_rejects_docs_smoke_change_file() -> None:
+    from invis_alpha_os.operator.dev_loop import DevLoopTask
+
+    violations = productive_queue_scratch_violations(
+        [
+            DevLoopTask(
+                task_id="bad",
+                pr_title="Bad",
+                branch="work/bad",
+                pytest_cmd="pytest -q",
+                change_file="docs/smoke.md",
+            )
+        ]
+    )
+    assert any("docs/smoke.md" in item for item in violations)
 
 
 def test_productive_scripts_not_using_v2_queue_by_default() -> None:
