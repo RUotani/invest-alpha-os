@@ -2518,7 +2518,8 @@ def test_productive_12h_v2_queue_exists() -> None:
     assert 28 <= len(tasks) <= 34
 
 
-def test_completion_notification_on_blocked_gate(tmp_path: Path) -> None:
+def test_completion_notification_on_blocked_gate(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("CONFIRM_OPERATOR_DEV_LOOP", raising=False)
     notify_cmds: list[list[str]] = []
 
     def subprocess_with_notify(cmd, **kwargs):  # type: ignore[no-untyped-def]

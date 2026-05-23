@@ -1429,6 +1429,10 @@ def _maybe_emit_completion_notification(
 ) -> None:
     if not completion_notify_enabled or notification_state.get("sent"):
         return
+    preserved_status = result.status
+    preserved_stop_reason = result.stop_reason
+    preserved_longrun_state = result.longrun_state
+    preserved_longrun_exit_success = result.longrun_exit_success
     event = completion_event_from_result(
         status=result.status,
         stop_reason=result.stop_reason,
@@ -1451,6 +1455,10 @@ def _maybe_emit_completion_notification(
     notification_state["sent"] = True
     notification_state["status"] = status
     longrun_evidence["completion_notification"] = status
+    result.status = preserved_status
+    result.stop_reason = preserved_stop_reason
+    result.longrun_state = preserved_longrun_state
+    result.longrun_exit_success = preserved_longrun_exit_success
 
 
 def _run_longrun_post_phase(
