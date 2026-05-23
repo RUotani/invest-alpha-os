@@ -46,6 +46,7 @@ def mini_us_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(paths, "OUTPUTS_DIR", outputs_dir)
     monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs_dir)
     monkeypatch.setattr(weekly, "ROOT_DIR", tmp_path)
+    monkeypatch.setattr(cli_main, "ROOT_DIR", tmp_path)
 
     def _one_symbol_watchlist() -> list[str]:
         return ["MSFT"]
