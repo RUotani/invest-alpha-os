@@ -83,3 +83,37 @@ def test_cli_us_watchlist_preview_runs() -> None:
     lines = result.stdout.strip().splitlines()
     assert lines[0] == "US watchlist symbols:"
     assert "MSFT" in lines
+
+
+def test_daily_us_momentum_section_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.cli.main as cli_main
+
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(md, "load_us_watchlist_tickers", lambda: ["MSFT"])
+
+    bars: list[dict] = []
+    start = date(2023, 1, 3)
+    price = 100.0
+    for i in range(140):
+        d = (start + timedelta(days=i)).isoformat()
+        o, h, l, c = price, price * 1.01, price * 0.99, price * 1.002
+        vol = 2_500_000.0 + float(i % 101) * 10_000.0
+        bars.append({"date": d, "open": o, "high": h, "low": l, "close": c, "volume": vol})
+        price = c
+
+    usc.save_us_daily_bars_cache(
+        "MSFT",
+        bars,
+        asset_class="us_equity",
+        fetched_at="2026-05-09T12:00:00+00:00",
+        generated_at="2026-05-09T12:00:05+00:00",
+    )
+
+    result = CliRunner().invoke(app, ["daily", "--us-momentum-section"])
+    assert result.exit_code == 0, result.stdout + result.stderr
+    report = (tmp_path / "reports" / "daily").glob("*.md")
+    body = next(report).read_text(encoding="utf-8")
+    assert "## Momentum Signals — US Cache Only" in body
+    assert "| MSFT |" in body

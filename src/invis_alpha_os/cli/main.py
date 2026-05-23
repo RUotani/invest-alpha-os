@@ -257,6 +257,11 @@ def daily(
         "--us-cache-preview",
         help="Append US cache-only preview table (read-only; default off).",
     ),
+    us_momentum_section: bool = typer.Option(
+        False,
+        "--us-momentum-section",
+        help="Append US momentum cache-only table with veto column (read-only; default off).",
+    ),
 ) -> None:
     today = today_jst_iso()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
@@ -275,6 +280,8 @@ def daily(
         jq_watchlist_section = "\n\n" + render_jquants_watchlist_bars_check_section(rep_cfg)
 
     inc_cache, inc_mixed, inc_us = _daily_report_momentum_sections_flags()
+    if us_momentum_section:
+        inc_us = True
     momentum_sections: list[str] = []
     if inc_cache:
         momentum_sections.append(render_momentum_signals_cache_only_section())
