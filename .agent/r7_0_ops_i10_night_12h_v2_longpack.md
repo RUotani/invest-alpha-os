@@ -37,3 +37,4 @@ Same as `.agent/development_automation_contract.md` — no auto-merge, no live H
 ## Final report
 
 Single Markdown code block per `.agent/report_template.md`.
+- dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:59:56Z)
