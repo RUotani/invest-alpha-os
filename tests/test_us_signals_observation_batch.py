@@ -10,7 +10,11 @@ from typer.testing import CliRunner
 
 from invis_alpha_os.cli.main import app
 from invis_alpha_os.observation.service import ObservationService
-from invis_alpha_os.observation.us_signals_batch import log_us_signals_batch_observations
+from invis_alpha_os.observation.us_signals_batch import (
+    _observation_note_for_preview,
+    log_us_signals_batch_observations,
+    observation_batch_failed,
+)
 
 REPO = Path(__file__).resolve().parents[1]
 FIX_MANIFEST = REPO / "tests" / "fixtures" / "us_equities" / "us_cache_signals_batch_minimal.json"
@@ -59,3 +63,58 @@ def test_cli_log_us_signals_batch(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert result.exit_code == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
     assert payload["logged"] == 2
+
+
+def test_invalid_manifest_returns_failed_result(tmp_path: Path) -> None:
+    svc = ObservationService(
+        observation_path=tmp_path / "obs.jsonl",
+        outcome_path=tmp_path / "out.jsonl",
+    )
+    result = log_us_signals_batch_observations(
+        Path("/no/such/manifest.json"), path_base=REPO, service=svc
+    )
+    assert result["manifest_status"] == "invalid"
+    assert result["logged"] == 0
+    assert observation_batch_failed(result)
+
+
+def test_cli_invalid_manifest_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.cli.main as cli_main
+
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", tmp_path)
+    monkeypatch.setattr(
+        cli_main,
+        "_obs_service",
+        lambda: ObservationService(
+            observation_path=tmp_path / "obs.jsonl",
+            outcome_path=tmp_path / "out.jsonl",
+        ),
+    )
+    result = CliRunner().invoke(
+        app, ["log", "us-signals-batch", "--manifest", "/no/manifest.json"]
+    )
+    assert result.exit_code == 2
+
+
+def test_observation_note_for_parse_failed_preview() -> None:
+    note = _observation_note_for_preview(
+        {
+            "symbol": "AAPL",
+            "status": "invalid",
+            "reason": "parse_failed",
+        }
+    )
+    assert "AAPL" not in note
+    assert "parse_failed" in note
+    assert "not buy/sell advice" in note
+    lowered = note.lower()
+    for forbidden in ("recommend", "allocation", "portfolio"):
+        assert forbidden not in lowered
+
+
+def test_daily_write_observation_log_requires_manifest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.cli.main as cli_main
+
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", tmp_path)
+    result = CliRunner().invoke(app, ["daily", "--write-observation-log"])
+    assert result.exit_code == 2

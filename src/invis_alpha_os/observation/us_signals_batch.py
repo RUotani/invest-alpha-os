@@ -33,6 +33,18 @@ def log_us_signals_batch_observations(
     """Append one observation_log row per manifest entry (read-only signal preview)."""
 
     result = build_us_cache_signals_previews_from_batch_manifest(manifest_path, path_base=path_base)
+    manifest_status = str(result.get("status") or "unknown")
+    if manifest_status != "ok":
+        return {
+            "manifest_status": manifest_status,
+            "manifest_reason": result.get("reason"),
+            "entry_count": result.get("entry_count", 0),
+            "logged": 0,
+            "skipped": 0,
+            "observation_only": True,
+            "live_http": False,
+        }
+
     previews = list(result.get("previews") or [])
     logged = 0
     skipped = 0
@@ -44,10 +56,20 @@ def log_us_signals_batch_observations(
         service.log_observation(str(sym).strip().upper(), _observation_note_for_preview(preview))
         logged += 1
     return {
-        "manifest_status": result.get("status"),
+        "manifest_status": manifest_status,
         "entry_count": result.get("entry_count", 0),
         "logged": logged,
         "skipped": skipped,
         "observation_only": True,
         "live_http": False,
     }
+
+
+def observation_batch_failed(result: dict[str, Any]) -> bool:
+    """True when manifest invalid or zero rows logged despite entries."""
+
+    if result.get("manifest_status") != "ok":
+        return True
+    entry_count = int(result.get("entry_count") or 0)
+    logged = int(result.get("logged") or 0)
+    return entry_count > 0 and logged == 0

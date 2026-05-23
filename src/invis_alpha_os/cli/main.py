@@ -69,7 +69,10 @@ from invis_alpha_os.data.adapters import (
     YFinanceFallbackAdapter,
 )
 from invis_alpha_os.observation.service import ObservationService
-from invis_alpha_os.observation.us_signals_batch import log_us_signals_batch_observations
+from invis_alpha_os.observation.us_signals_batch import (
+    log_us_signals_batch_observations,
+    observation_batch_failed,
+)
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.reporting.jquants_smoke_summary import (
     build_watchlist_filename_date_slug,
@@ -331,6 +334,9 @@ def daily(
                 path_base=ROOT_DIR,
                 service=_obs_service(),
             )
+            if observation_batch_failed(obs_result):
+                typer.echo(json.dumps(obs_result, ensure_ascii=False, indent=2), err=True)
+                raise typer.Exit(2)
             typer.echo(
                 "observation_log: "
                 f"logged={obs_result.get('logged')} "
@@ -1128,6 +1134,9 @@ def log_us_signals_batch(
         path_base=ROOT_DIR,
         service=_obs_service(),
     )
+    if observation_batch_failed(result):
+        typer.echo(json.dumps(result, ensure_ascii=False, indent=2), err=True)
+        raise typer.Exit(2)
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
 
 
