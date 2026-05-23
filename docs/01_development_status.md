@@ -1187,9 +1187,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-J — post-run integrator（進行中）
+## R7.0-Ops-J — post-run integrator（完了）
 
-**内容**: `operator-runner post-run-integrate`、guarded merge audit。I12 実効12h設計 **[docs/134](./134_r7_0_ops_i12_effective_12h_design.md)**。詳細 **[docs/133](./133_r7_0_ops_j_post_run_integrator_plan.md)**。
+**内容**: `operator-runner post-run-integrate`、guarded merge audit。詳細 **[docs/133](./133_r7_0_ops_j_post_run_integrator_plan.md)**。
+
+---
+
+## R7.0-Ops-I12-A — operator autopilot status（進行中）
+
+**内容**: `operator-runner autopilot-status` — read-only main/CI/open PR/longrun snapshot for agents。詳細 **[docs/135](./135_r7_0_ops_i12_a_autopilot_status.md)**。
 
 ---
 
