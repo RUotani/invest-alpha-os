@@ -1,0 +1,83 @@
+---
+description: invest-alpha-os main rules for Cursor AUTO / Composer 2
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+# Cursor 用ルール(invest-alpha-os)
+
+版: v0.1 / 最終更新: 2026-05-23
+
+## 3行サマリー
+- 作業開始時に `RULES.md`、`STATE.md`、`AGENTS.md` を読む。
+- 投資ロジックをOps基盤より優先し、`operator/` 増築は原則停止する。
+- 長文レポートやテスト結果はMDファイル化し、チャットUIを重くしない。
+
+## 必読ファイル
+
+作業開始時に以下を読む。
+
+- `@RULES.md` — ハード制約
+- `@STATE.md` — 現状
+- `@AGENTS.md` — 汎用エージェント指示
+- `@docs/decisions/README.md` — decision log運用
+
+## 優先順位
+
+1. ユーザー直接指示
+2. `RULES.md`
+3. 最新の `docs/decisions/YYYY-MM-DD_*.md`
+4. `STATE.md`
+5. `AGENTS.md` / `CLAUDE.md` / `.cursor/rules/main.mdc`
+
+コード作業の優先順位:
+
+1. `signals/`
+2. `risk/`
+3. `portfolio/`
+4. `data/`
+5. `reports/`
+6. `operator/`
+
+## Cursor 固有ルール
+
+- 多ファイル編集前に `git status --short` を確認する。
+- 未コミット変更がある場合は、作業開始前にユーザーへ報告する。
+- Composer 2 使用時は Settings → Billing で spend limit を事前確認する。
+- AUTO mode中も `RULES.md` §1 の禁止事項を厳守する。
+- PR作成後に早期終了しない。Primary未達ならPRを作らず、途中報告MDを作成して停止する。
+
+## 出力形式
+
+- 冒頭に `[TERMINAL ACTION REQUIRED]` または `[AGENT-ONLY]` を明記する。
+- 結論を先に、根拠と確度(%)を後に書く。
+- 反証セクションを含める。
+- 長文は `reports/YYYY-MM-DD/` 配下のMDファイルに出す。
+- テストレポートはコピペ可能な形にする。
+- 進捗はドメイン別%で表示し、単一総合%は禁止する。
+
+## 触らない
+
+明示承認なしに以下を変更しない。
+
+- `pyproject.toml`
+- `Makefile`
+- `.github/workflows/*`
+- `.env`
+- secrets / credentials関連
+- cache JSON
+- `outputs/**`
+- `operator/` の新規機能
+- daily / signals default behavior
+
+## 禁止語・禁止挙動
+
+- buy / sell / order / trading recommendation の推奨表現
+- main直push
+- force push
+- branch/worktree削除
+- live HTTP
+- cache write
+- Gmail送信
+- auto-merge
