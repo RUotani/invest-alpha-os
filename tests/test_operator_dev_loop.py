@@ -2582,3 +2582,4 @@ def test_completion_notification_on_blocked_gate(tmp_path: Path, monkeypatch) ->
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:36:53Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:38:02Z)
 # dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:31:12Z)
+# dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:32:21Z)
