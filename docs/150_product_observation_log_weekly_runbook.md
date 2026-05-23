@@ -42,6 +42,14 @@
 .venv/bin/python -m invis_alpha_os.cli.main snapshot portfolio-observation-summary --format markdown
 ```
 
+### peer_sync 行の optional append（明示 opt-in · outputs 書込）
+
+```bash
+.venv/bin/python -m invis_alpha_os.cli.main log peer-sync-snapshot
+```
+
+`--write-observation-log` とは別コマンド。必要時のみ実行。
+
 ### sample_quality の見方
 
 | status | 意味 | 次アクション |
