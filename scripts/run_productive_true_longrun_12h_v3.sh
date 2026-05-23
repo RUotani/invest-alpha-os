@@ -125,3 +125,4 @@ fi
 } | tee -a "${LOG_FILE}"
 
 exit 0
+- dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:35:48Z)
