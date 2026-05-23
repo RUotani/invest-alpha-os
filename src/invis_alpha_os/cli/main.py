@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -73,6 +74,21 @@ from invis_alpha_os.observation.us_signals_batch import (
     log_us_signals_batch_observations,
     observation_batch_failed,
 )
+from invis_alpha_os.product.us_forward_return_validation import (
+    compute_us_forward_returns,
+    format_us_forward_return_markdown,
+)
+from invis_alpha_os.product.us_universe_expansion import (
+    build_us_universe_expansion_report,
+    format_us_universe_expansion_markdown,
+)
+from invis_alpha_os.product.weekly_us_observation import (
+    format_weekly_us_observation_markdown,
+    run_weekly_us_observation_cycle,
+    summarize_us_observation_log,
+    us_cache_expansion_report,
+    us_signal_quality_snapshot,
+)
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.reporting.jquants_smoke_summary import (
     build_watchlist_filename_date_slug,
@@ -143,11 +159,13 @@ from invis_alpha_os.utils.date_utils import today_jst_iso
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
 snapshot_app = typer.Typer(help="Snapshot commands")
 log_app = typer.Typer(help="Log commands")
+validate_app = typer.Typer(help="Cache-only validation (observation only)")
 debug_app = typer.Typer(help="Debug commands")
 operator_runner_app = typer.Typer(help="Policy-gated local operator runner (dry-run default)")
 
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(log_app, name="log")
+app.add_typer(validate_app, name="validate")
 app.add_typer(debug_app, name="debug")
 app.add_typer(operator_runner_app, name="operator-runner")
 
@@ -353,6 +371,213 @@ def daily(
         report_body = append_us_cache_preview_section(report_body)
     out.write_text(report_body, encoding="utf-8")
     typer.echo(f"daily report created: {out}")
+
+
+@app.command("weekly-us-observation")
+def weekly_us_observation_command(
+    manifest_out: Optional[str] = typer.Option(
+        None,
+        "--manifest-out",
+        help="Write batch manifest JSON (default: outputs/signals/weekly_us_manifest.json).",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Quality + batch preview only; do not write manifest under outputs/.",
+    ),
+    write_observation_log: bool = typer.Option(
+        False,
+        "--write-observation-log",
+        help="Append observation_log rows (requires --manifest-out).",
+    ),
+    with_daily_report: bool = typer.Option(
+        False,
+        "--with-daily-report",
+        help="Also run daily with US opt-in sections (requires --manifest-out).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P4: US cache-only weekly cycle — manifest, quality, optional observation_log + daily."""
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in {"markdown", "json"}:
+        typer.echo("weekly-us-observation: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    if write_observation_log and dry_run:
+        typer.echo("weekly-us-observation: --write-observation-log conflicts with --dry-run", err=True)
+        raise typer.Exit(2)
+    if with_daily_report and dry_run:
+        typer.echo("weekly-us-observation: --with-daily-report conflicts with --dry-run", err=True)
+        raise typer.Exit(2)
+    out_path: Path | None = None
+    if not dry_run:
+        out_path = Path(manifest_out) if manifest_out else OUTPUTS_DIR / "signals" / "weekly_us_manifest.json"
+    try:
+        result = run_weekly_us_observation_cycle(
+            path_base=ROOT_DIR,
+            manifest_out=out_path,
+            write_observation_log=write_observation_log,
+            observation_service=_obs_service() if write_observation_log else None,
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+
+    if with_daily_report:
+        if not manifest_out and not out_path.is_file():
+            typer.echo("weekly-us-observation: --with-daily-report needs writable manifest", err=True)
+            raise typer.Exit(2)
+        from typer.testing import CliRunner
+
+        runner = CliRunner()
+        daily_result = runner.invoke(
+            app,
+            [
+                "daily",
+                "--us-signals-dry-run-manifest",
+                str(out_path),
+                "--us-cache-preview",
+                "--us-momentum-section",
+                *(["--write-observation-log"] if write_observation_log else []),
+            ],
+        )
+        if daily_result.exit_code != 0:
+            typer.echo(daily_result.stdout + daily_result.stderr, err=True)
+            raise typer.Exit(daily_result.exit_code)
+
+    payload = {
+        "manifest_path": result.manifest_path_written,
+        "manifest": result.manifest,
+        "batch_previews": result.batch_previews,
+        "quality": result.quality,
+        "observation_log": result.observation_log,
+        "observation_only": True,
+        "live_http": False,
+    }
+    if fmt_norm == "json":
+        typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_weekly_us_observation_markdown(result))
+
+
+@validate_app.command("us-forward-returns")
+def validate_us_forward_returns_command(
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Path to observation_log.jsonl (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    cache_dir: Optional[str] = typer.Option(
+        None,
+        "--cache-dir",
+        help="US daily bars cache directory (default: outputs/market_data/us_daily_bars).",
+    ),
+    horizons: Optional[str] = typer.Option(
+        "5,20,60",
+        "--horizons",
+        help="Comma-separated session horizons (default: 5,20,60).",
+    ),
+    reference_date: Optional[str] = typer.Option(
+        None,
+        "--reference-date",
+        help="Optional ISO date; skip observations after this date.",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P5: cache-only forward returns from US observation_log rows (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    obs_path = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    cache_path = (
+        Path(cache_dir) if cache_dir else OUTPUTS_DIR / "market_data" / "us_daily_bars"
+    )
+    try:
+        hz = tuple(int(x.strip()) for x in horizons.split(",") if x.strip())
+    except ValueError as exc:
+        typer.echo("validate us-forward-returns: invalid --horizons", err=True)
+        raise typer.Exit(2) from exc
+    if not hz:
+        typer.echo("validate us-forward-returns: --horizons must not be empty", err=True)
+        raise typer.Exit(2)
+    ref: date | None = None
+    if reference_date:
+        try:
+            ref = date.fromisoformat(reference_date.strip()[:10])
+        except ValueError as exc:
+            typer.echo("validate us-forward-returns: invalid --reference-date", err=True)
+            raise typer.Exit(2) from exc
+    try:
+        report = compute_us_forward_returns(
+            observation_path=obs_path,
+            cache_dir=cache_path,
+            horizons=hz,
+            reference_date=ref,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_us_forward_return_markdown(report))
+
+
+@app.command("us-universe-expansion-plan")
+def us_universe_expansion_plan_command(
+    config: Optional[str] = typer.Option(
+        None,
+        "--config",
+        help="Expansion YAML (default: config/us_universe_expansion_30.yaml).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P6: read-only US 30+ expansion plan vs on-disk cache (no HTTP)."""
+
+    fmt_norm = fmt.strip().lower()
+    try:
+        report = build_us_universe_expansion_report(
+            path_base=ROOT_DIR,
+            config_path=Path(config) if config else None,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_us_universe_expansion_markdown(report))
+
+
+@app.command("us-cache-expansion-report")
+def us_cache_expansion_report_command(
+    limit: int = typer.Option(25, "--limit", min=1, help="Max discovery candidates to list."),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P3/US: read-only watchlist vs cache gaps + discovery symbols without cache files."""
+
+    fmt_norm = fmt.strip().lower()
+    report = us_cache_expansion_report(path_base=ROOT_DIR, discover_limit=limit)
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+        return
+    lines = [
+        "# US cache expansion report (read-only)",
+        "",
+        f"- watchlist: {report['watchlist_count']}",
+        f"- cache files: {report['cache_file_count']}",
+        f"- missing on watchlist: {', '.join(report['missing_cache_on_watchlist']) or '(none)'}",
+        f"- discovery candidates: {report['discovery_candidates']}",
+        "",
+        "## Discovery symbols without cache file",
+    ]
+    for sym in report.get("discovery_without_cache_file") or []:
+        lines.append(f"- {sym}")
+    lines.append("")
+    typer.echo("\n".join(lines))
 
 
 @app.command("signals")
@@ -1117,6 +1342,16 @@ def log_outcome(
 ) -> None:
     row = _obs_service().log_outcome(symbol=symbol, result=result, note=note)
     typer.echo(f"outcome logged: {row.id}")
+
+
+@log_app.command("us-signals-summary")
+def log_us_signals_summary() -> None:
+    """Summarize US cache signal rows in observation_log.jsonl (read-only)."""
+
+    summary = summarize_us_observation_log(
+        OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 @log_app.command("us-signals-batch")
