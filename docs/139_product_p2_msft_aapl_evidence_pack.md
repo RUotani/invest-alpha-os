@@ -98,7 +98,7 @@ Report path (local): `outputs/reports/daily/<today_jst>.md` — includes US Sign
 
 | Item | Track |
 |------|--------|
-| `observation_log` batch CLI | PR **#207** (`log us-signals-batch`, `daily --write-observation-log`) |
+| `observation_log` batch CLI | PR **#207** — see [docs/140](./140_product_p2b_observation_log.md) |
 | P3 JP Core50 cache | [docs/136](./136_r7_0_product_pivot_signals_pack.md) |
 | P4 weekly observation cycle | docs/136 P4 |
 | Ops wave runner / prepare-next | **frozen** |

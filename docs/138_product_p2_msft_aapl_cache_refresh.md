@@ -59,7 +59,18 @@ CONFIRM_US_LIVE_HTTP=YES CONFIRM_US_CACHE_WRITE=YES .venv/bin/python -m invis_al
   --path outputs/market_data/us_daily_bars/AAPL.json --symbol AAPL
 ```
 
-**Alternative (no HTTP)**: add `tests/fixtures/us_daily_bars/AAPL.json` (valid ascending array) in a follow-up PR, then use Path A import.
+**Path A2 — AAPL (no HTTP, fixture in repo)**:
+
+```bash
+.venv/bin/python -m invis_alpha_os.cli.main debug us-daily-bars-cache-import \
+  --symbol AAPL \
+  --bars-file tests/fixtures/us_daily_bars/AAPL.json \
+  --asset-class us_equity \
+  --source local_fixture \
+  --write-cache
+```
+
+(Path B Stooq live remains available when fixture is insufficient.)
 
 ## Post-refresh smoke (read-only)
 
@@ -67,10 +78,18 @@ CONFIRM_US_LIVE_HTTP=YES CONFIRM_US_CACHE_WRITE=YES .venv/bin/python -m invis_al
 .venv/bin/python -m invis_alpha_os.cli.main daily \
   --us-signals-dry-run-manifest outputs/signals/p1_us_16_cache_manifest.json \
   --us-cache-preview \
-  --us-momentum-section
+  --us-momentum-section \
+  --write-observation-log
 ```
 
-Expect: US signals dry-run **16/16 ok**, momentum ranked **16**, MSFT/AAPL rows in tables.
+Or observation only:
+
+```bash
+.venv/bin/python -m invis_alpha_os.cli.main log us-signals-batch \
+  --manifest outputs/signals/p1_us_16_cache_manifest.json
+```
+
+Expect: US signals dry-run **16/16 ok**, momentum ranked **16**, MSFT/AAPL rows in tables; `outputs/observation_log/observation_log.jsonl` gains one row per manifest entry.
 
 ## PR boundary
 

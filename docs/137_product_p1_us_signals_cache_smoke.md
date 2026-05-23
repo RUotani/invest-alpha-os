@@ -89,5 +89,5 @@ pytest -q tests   # full suite before PR
 ## Next implementation (P1 follow-up)
 
 1. **Refresh MSFT/AAPL cache** — see **[docs/138](./138_product_p2_msft_aapl_cache_refresh.md)** (P2; gated ingest, separate PR).
-2. **observation_log** append for US signals batch (today: report-only).
+2. **observation_log** — [docs/140](./140_product_p2b_observation_log.md) (`log us-signals-batch` / `daily --write-observation-log`; opt-in).
 3. Optional: `include_us_momentum_cache_only_section` in `market_data.yaml` after 16/16 parse green (config opt-in; default stays off).
