@@ -69,6 +69,7 @@ from invis_alpha_os.data.adapters import (
     YFinanceFallbackAdapter,
 )
 from invis_alpha_os.observation.service import ObservationService
+from invis_alpha_os.observation.us_signals_batch import log_us_signals_batch_observations
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.reporting.jquants_smoke_summary import (
     build_watchlist_filename_date_slug,
@@ -262,6 +263,11 @@ def daily(
         "--us-momentum-section",
         help="Append US momentum cache-only table with veto column (read-only; default off).",
     ),
+    write_observation_log: bool = typer.Option(
+        False,
+        "--write-observation-log",
+        help="Append US signals batch rows to observation_log.jsonl (requires --us-signals-dry-run-manifest).",
+    ),
 ) -> None:
     today = today_jst_iso()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
@@ -319,6 +325,24 @@ def daily(
             us_signals_dry_run_manifest,
             path_base=ROOT_DIR,
         )
+        if write_observation_log:
+            obs_result = log_us_signals_batch_observations(
+                Path(us_signals_dry_run_manifest),
+                path_base=ROOT_DIR,
+                service=_obs_service(),
+            )
+            typer.echo(
+                "observation_log: "
+                f"logged={obs_result.get('logged')} "
+                f"skipped={obs_result.get('skipped')} "
+                f"manifest_status={obs_result.get('manifest_status')}"
+            )
+    elif write_observation_log:
+        typer.echo(
+            "daily: --write-observation-log requires --us-signals-dry-run-manifest",
+            err=True,
+        )
+        raise typer.Exit(2)
     if us_cache_preview:
         report_body = append_us_cache_preview_section(report_body)
     out.write_text(report_body, encoding="utf-8")
@@ -1087,6 +1111,24 @@ def log_outcome(
 ) -> None:
     row = _obs_service().log_outcome(symbol=symbol, result=result, note=note)
     typer.echo(f"outcome logged: {row.id}")
+
+
+@log_app.command("us-signals-batch")
+def log_us_signals_batch(
+    manifest: str = typer.Option(
+        ...,
+        "--manifest",
+        help="US cache signals batch manifest JSON (schema_version 1).",
+    ),
+) -> None:
+    """Append observation_log rows from cache-only US signal previews (no HTTP)."""
+
+    result = log_us_signals_batch_observations(
+        Path(manifest),
+        path_base=ROOT_DIR,
+        service=_obs_service(),
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
 
 
 @debug_app.command("adapters")

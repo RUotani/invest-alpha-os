@@ -76,8 +76,9 @@ Ops基盤をさらに拡張しても、この問題は解決しない。
 | PR | 内容 | リスク |
 |---|---|---|
 | #204（現在open） | autopilot-status hotfix | Low |
-| #205 | Signals end-to-end smoke + observation_log write | Low–Medium |
-| #206 | US cache 拡張（stooq cache-only batch） | Low |
+| #205 | Signals end-to-end smoke + daily `--us-momentum-section` | **merged** `6185b95` |
+| #206 | MSFT/AAPL cache refresh runbook | **merged** `deb1599` |
+| #207+ | observation_log batch + AAPL fixture + cache refresh execution | Low–Medium |
 | #207 | JP Core50 cache 補完 batch 2 | Medium（J-Quants gated） |
 | #208 | weekly observation CLI コマンド整備 | Low |
 
