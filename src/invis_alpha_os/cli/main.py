@@ -74,6 +74,11 @@ from invis_alpha_os.observation.us_signals_batch import (
     log_us_signals_batch_observations,
     observation_batch_failed,
 )
+from invis_alpha_os.product.peer_sync_cache_only import (
+    build_peer_sync_cache_only_report,
+    format_peer_sync_cache_only_json,
+    format_peer_sync_cache_only_markdown,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -530,6 +535,44 @@ def validate_us_forward_returns_command(
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         typer.echo(format_us_forward_return_markdown(report))
+
+
+@validate_app.command("peer-sync")
+def validate_peer_sync_command(
+    peer_map: Optional[str] = typer.Option(
+        None,
+        "--peer-map",
+        help="Path to peer_map.yaml (default: config/peer_map.yaml).",
+    ),
+    window_days: int = typer.Option(
+        20,
+        "--window-days",
+        help="Trailing sessions for spread/correlation (default: 20).",
+    ),
+    divergence_threshold: float = typer.Option(
+        0.05,
+        "--divergence-threshold",
+        help="Absolute return spread threshold for divergence (default: 0.05).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Cache-only peer sync check from config/peer_map.yaml (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    pmap = Path(peer_map) if peer_map else CONFIG_DIR / "peer_map.yaml"
+    report = build_peer_sync_cache_only_report(
+        path_base=ROOT_DIR,
+        peer_map_path=pmap,
+        window_days=window_days,
+        divergence_threshold=divergence_threshold,
+    )
+    if fmt_norm == "json":
+        typer.echo(format_peer_sync_cache_only_json(report))
+    elif fmt_norm == "markdown":
+        typer.echo(format_peer_sync_cache_only_markdown(report))
+    else:
+        typer.echo("validate peer-sync: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
 
 
 @app.command("us-universe-expansion-plan")
