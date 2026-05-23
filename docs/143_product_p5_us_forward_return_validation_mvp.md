@@ -1,6 +1,6 @@
 # Product P5 — US forward-return validation MVP
 
-**Status**: implemented · **cache-only** · observation only
+**Status**: superseded by v2 · see **[docs/145](./145_product_p7_forward_validation_v2.md)** · **cache-only** · observation only
 
 ---
 

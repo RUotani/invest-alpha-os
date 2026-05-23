@@ -22,7 +22,7 @@ def test_expansion_config_loads() -> None:
     cfg = load_us_universe_expansion_config()
     assert cfg["schema_version"] == 1
     symbols = [t["symbol"] for t in cfg["targets"]]
-    assert len(symbols) >= 30
+    assert len(symbols) == 36
     assert len(symbols) == len(set(symbols))
 
 
@@ -42,6 +42,37 @@ def test_duplicate_symbol_fail_closed(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="duplicate"):
         load_us_universe_expansion_config(p)
+
+
+def test_symbol_count_matches_yaml() -> None:
+    cfg = load_us_universe_expansion_config()
+    assert len(cfg["targets"]) == 36
+
+
+def test_tier_filter_missing_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.product.us_universe_expansion as exp
+
+    mini_cfg = tmp_path / "mini.yaml"
+    mini_cfg.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": 1,
+                "targets": [
+                    {"symbol": "MSFT", "tier": "1", "theme": "ai", "reason": "t"},
+                    {"symbol": "AMD", "tier": "1", "theme": "ai", "reason": "m"},
+                    {"symbol": "ZZZZ", "tier": "2", "theme": "ai", "reason": "m2"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(exp, "ROOT_DIR", tmp_path)
+    report = build_us_universe_expansion_report(
+        path_base=tmp_path, config_path=mini_cfg, tier="1", missing_only=True
+    )
+    assert report["filter_tier"] == "1"
+    assert report["filtered_refresh_order"] == ["AMD", "MSFT"]
+    assert report["tier_1_missing_refresh_order"] == ["AMD", "MSFT"]
 
 
 def test_gap_report_detects_missing_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

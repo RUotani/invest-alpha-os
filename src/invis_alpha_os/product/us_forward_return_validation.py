@@ -1,8 +1,9 @@
-"""Cache-only forward-return validation from observation_log (P5 MVP; observation only)."""
+"""Cache-only forward-return validation from observation_log (P5/P7; observation only)."""
 
 from __future__ import annotations
 
 import json
+import statistics
 from collections import defaultdict
 from datetime import date, datetime
 from pathlib import Path
@@ -15,8 +16,29 @@ from invis_alpha_os.data.us_daily_bars_cache import (
 from invis_alpha_os.product.weekly_us_observation import US_SIGNAL_NOTE_PREFIX, _parse_observation_note
 from invis_alpha_os.signals.momentum import DailyBar
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_HORIZONS: tuple[int, ...] = (5, 20, 60)
+THIN_SAMPLE_THRESHOLD = 10
+
+
+def parse_positive_horizons(raw: str) -> tuple[int, ...]:
+    """Parse comma-separated positive integer session horizons (fail-closed)."""
+
+    text = (raw or "").strip()
+    if not text:
+        raise ValueError("horizons must not be empty")
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if not parts:
+        raise ValueError("horizons must not be empty")
+    out: list[int] = []
+    for part in parts:
+        if not part.isdigit():
+            raise ValueError(f"horizon must be a positive integer: {part!r}")
+        value = int(part)
+        if value <= 0:
+            raise ValueError(f"horizon must be positive: {value}")
+        out.append(value)
+    return tuple(out)
 
 
 def _parse_event_date(created_at: object) -> date | None:
@@ -50,8 +72,6 @@ def _bar_dates(bars: list[DailyBar]) -> list[date]:
 
 
 def _event_bar_index(bars: list[DailyBar], event: date) -> int | None:
-    """Last bar index with bar date <= event (fail if no bar on/before event)."""
-
     dates = _bar_dates(bars)
     if len(dates) != len(bars):
         return None
@@ -73,6 +93,81 @@ def _forward_return(bars: list[DailyBar], start_idx: int, horizon: int) -> float
     if old == 0:
         return None
     return (new / old) - 1.0
+
+
+def _horizon_bucket_stats(values: list[float], *, thin_sample: bool) -> dict[str, Any]:
+    n = len(values)
+    if n == 0:
+        return {
+            "count": 0,
+            "avg_forward": None,
+            "median_forward": None,
+            "hit_rate_positive": None,
+            "hit_rate_gt_2pct": None,
+            "hit_rate_lt_minus_2pct": None,
+            "best": None,
+            "worst": None,
+            "thin_sample": thin_sample,
+        }
+    return {
+        "count": n,
+        "avg_forward": sum(values) / n,
+        "median_forward": statistics.median(values),
+        "hit_rate_positive": sum(1 for v in values if v > 0) / n,
+        "hit_rate_gt_2pct": sum(1 for v in values if v > 0.02) / n,
+        "hit_rate_lt_minus_2pct": sum(1 for v in values if v < -0.02) / n,
+        "best": max(values),
+        "worst": min(values),
+        "thin_sample": thin_sample,
+    }
+
+
+def _build_quality_buckets(
+    matched: list[dict[str, Any]],
+    horizons: tuple[int, ...],
+    *,
+    thin_sample: bool,
+) -> dict[str, Any]:
+    by_label: dict[str, dict[str, dict[str, Any]]] = {}
+    global_buckets: dict[str, dict[str, Any]] = {}
+
+    for h in horizons:
+        key = str(h)
+        all_vals: list[float] = []
+        label_vals: dict[str, list[float]] = defaultdict(list)
+        for row in matched:
+            val = row.get("horizons", {}).get(key)
+            if val is None:
+                continue
+            fv = float(val)
+            all_vals.append(fv)
+            label = str(row.get("momentum_label") or "unknown")
+            label_vals[label].append(fv)
+        global_buckets[key] = _horizon_bucket_stats(all_vals, thin_sample=thin_sample)
+        for lbl, vals in sorted(label_vals.items()):
+            by_label.setdefault(lbl, {})[key] = _horizon_bucket_stats(vals, thin_sample=thin_sample)
+
+    return {"global": global_buckets, "by_signal_label": by_label}
+
+
+def _sample_quality(matched_count: int) -> dict[str, Any]:
+    if matched_count == 0:
+        return {
+            "status": "empty",
+            "reason": "no observation rows matched to cache forward windows",
+            "matched_rows": 0,
+        }
+    if matched_count < THIN_SAMPLE_THRESHOLD:
+        return {
+            "status": "thin",
+            "reason": f"matched rows below minimum threshold ({THIN_SAMPLE_THRESHOLD})",
+            "matched_rows": matched_count,
+        }
+    return {
+        "status": "usable",
+        "reason": "matched rows sufficient for exploratory bucket review",
+        "matched_rows": matched_count,
+    }
 
 
 def _iter_us_signal_rows(observation_path: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -136,13 +231,12 @@ def compute_us_forward_returns(
 ) -> dict[str, Any]:
     """Join observation_log US rows to cached bars; compute session-forward returns."""
 
-    from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
+    from invis_alpha_os.config.paths import ROOT_DIR
 
     root = path_base or ROOT_DIR
     obs_rows, pre_skipped = _iter_us_signal_rows(observation_path)
     matched: list[dict[str, Any]] = []
-    skipped = dict(pre_skipped)
-    skipped_reasons: dict[str, int] = defaultdict(int, skipped)
+    skipped_reasons: dict[str, int] = defaultdict(int, pre_skipped)
 
     for row in obs_rows:
         sym = row["symbol"]
@@ -179,33 +273,21 @@ def compute_us_forward_returns(
             }
         )
 
+    thin = len(matched) < THIN_SAMPLE_THRESHOLD
+    quality_buckets = _build_quality_buckets(matched, horizons, thin_sample=thin)
+    sample_quality = _sample_quality(len(matched))
+
     by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for m in matched:
         by_symbol[m["symbol"]].append(m)
-        label = str(m.get("momentum_label") or "unknown")
-        by_label[label].append(m)
+        by_label[str(m.get("momentum_label") or "unknown")].append(m)
 
     def _avg_horizon(items: list[dict[str, Any]], h: int) -> float | None:
         vals = [x["horizons"].get(str(h)) for x in items if x["horizons"].get(str(h)) is not None]
         if not vals:
             return None
         return sum(float(v) for v in vals) / len(vals)
-
-    by_symbol_summary = {
-        sym: {
-            "count": len(items),
-            "avg_forward": {str(h): _avg_horizon(items, h) for h in horizons},
-        }
-        for sym, items in sorted(by_symbol.items())
-    }
-    by_label_summary = {
-        lbl: {
-            "count": len(items),
-            "avg_forward": {str(h): _avg_horizon(items, h) for h in horizons},
-        }
-        for lbl, items in sorted(by_label.items())
-    }
 
     return {
         "schema_version": SCHEMA_VERSION,
@@ -218,9 +300,21 @@ def compute_us_forward_returns(
         "rows_matched": len(matched),
         "rows_skipped": sum(skipped_reasons.values()),
         "skipped_reasons": dict(sorted(skipped_reasons.items())),
-        "by_symbol": by_symbol_summary,
-        "by_signal_label": by_label_summary,
+        "sample_quality": sample_quality,
+        "quality_buckets": quality_buckets,
+        "by_symbol": {
+            sym: {"count": len(items), "avg_forward": {str(h): _avg_horizon(items, h) for h in horizons}}
+            for sym, items in sorted(by_symbol.items())
+        },
+        "by_signal_label": {
+            lbl: {"count": len(items), "avg_forward": {str(h): _avg_horizon(items, h) for h in horizons}}
+            for lbl, items in sorted(by_label.items())
+        },
         "examples": matched[:5],
+        "veto_at_t": {
+            "status": "not_in_observation_log",
+            "reason": "veto-at-t not stored in observation_log notes; use weekly quality snapshot (P5 v3)",
+        },
         "observation_only": True,
         "not_investment_advice": True,
         "live_http": False,
@@ -228,10 +322,14 @@ def compute_us_forward_returns(
 
 
 def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
+    sq = report.get("sample_quality") or {}
     lines = [
         "# US Forward Return Validation — Cache Only",
         "",
         "Observation only — not buy/sell advice.",
+        "",
+        f"**Sample quality**: {sq.get('status')} — {sq.get('reason')}",
+        f"- matched rows: {sq.get('matched_rows', report.get('rows_matched'))}",
         "",
         f"- observation rows considered: {report.get('rows_considered')}",
         f"- matched rows: {report.get('rows_matched')}",
@@ -246,10 +344,24 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
             lines.append(f"- {k}: {v}")
     else:
         lines.append("- (none)")
-    lines.extend(["", "## By signal label (avg forward return)"])
-    for lbl, block in (report.get("by_signal_label") or {}).items():
-        avgs = block.get("avg_forward") or {}
-        parts = [f"{h}d={avgs.get(str(h))}" for h in report.get("horizons") or []]
-        lines.append(f"- {lbl} (n={block.get('count')}): {', '.join(parts)}")
+
+    lines.extend(["", "## Quality buckets (global)"])
+    global_buckets = (report.get("quality_buckets") or {}).get("global") or {}
+    for h in report.get("horizons") or []:
+        b = global_buckets.get(str(h)) or {}
+        lines.append(
+            f"- {h}d: n={b.get('count')} avg={b.get('avg_forward')} "
+            f"hit+={b.get('hit_rate_positive')} hit>2%={b.get('hit_rate_gt_2pct')} "
+            f"hit<-2%={b.get('hit_rate_lt_minus_2pct')}"
+        )
+
+    lines.extend(["", "## By signal label"])
+    label_buckets = (report.get("quality_buckets") or {}).get("by_signal_label") or {}
+    for lbl, per_h in sorted(label_buckets.items()):
+        parts: list[str] = []
+        for h in report.get("horizons") or []:
+            b = per_h.get(str(h)) or {}
+            parts.append(f"{h}d n={b.get('count')} hit+={b.get('hit_rate_positive')}")
+        lines.append(f"- {lbl}: {', '.join(parts)}")
     lines.append("")
     return "\n".join(lines)

@@ -9,9 +9,13 @@ from pathlib import Path
 import pytest
 
 from invis_alpha_os.observation.service import ObservationService
+from typer.testing import CliRunner
+
+from invis_alpha_os.cli.main import app
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
+    parse_positive_horizons,
 )
 from invis_alpha_os.signals.momentum import load_bars_json_file
 
@@ -141,3 +145,54 @@ def test_markdown_contains_caution(obs_and_cache: tuple[Path, Path]) -> None:
     md = format_us_forward_return_markdown(report)
     assert "not buy/sell advice" in md.lower() or "not buy/sell" in md.lower()
     assert "observation only" in md.lower()
+    assert "sample quality" in md.lower()
+
+
+def test_parse_horizons_positive_only() -> None:
+    assert parse_positive_horizons("5,20") == (5, 20)
+    with pytest.raises(ValueError, match="positive"):
+        parse_positive_horizons("0,5")
+    with pytest.raises(ValueError, match="positive"):
+        parse_positive_horizons("-5")
+    with pytest.raises(ValueError, match="empty"):
+        parse_positive_horizons("")
+    with pytest.raises(ValueError, match="integer"):
+        parse_positive_horizons("5,abc")
+
+
+def test_sample_quality_empty(tmp_path: Path) -> None:
+    obs = tmp_path / "obs.jsonl"
+    obs.write_text(
+        '{"id":"1","created_at":"2026-01-01T00:00:00+00:00","symbol":"MSFT",'
+        '"note":"other row","evidence_ids":[],"tags":[]}\n',
+        encoding="utf-8",
+    )
+    report = compute_us_forward_returns(observation_path=obs, cache_dir=tmp_path)
+    assert report["sample_quality"]["status"] == "empty"
+
+
+def test_sample_quality_thin(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    assert report["sample_quality"]["status"] == "thin"
+    assert report["rows_matched"] == 1
+
+
+def test_hit_rate_buckets(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5,)
+    )
+    bucket = report["quality_buckets"]["global"]["5"]
+    assert bucket["count"] == 1
+    assert bucket["hit_rate_positive"] in (0.0, 1.0)
+    assert bucket["best"] is not None
+
+
+def test_cli_invalid_horizons_exit_2() -> None:
+    result = CliRunner().invoke(
+        app,
+        ["validate", "us-forward-returns", "--horizons", "0", "--format", "json"],
+    )
+    assert result.exit_code == 2
+    assert "positive" in (result.stderr or result.stdout).lower()

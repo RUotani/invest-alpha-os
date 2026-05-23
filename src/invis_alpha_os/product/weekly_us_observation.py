@@ -66,16 +66,34 @@ def _parse_observation_note(note: str) -> dict[str, str]:
     return out
 
 
-def summarize_us_observation_log(observation_path: Path) -> dict[str, Any]:
+def summarize_us_observation_log(
+    observation_path: Path,
+    *,
+    missing_cache_symbols: list[str] | None = None,
+    quality_snapshot: dict[str, Any] | None = None,
+    forward_sample_quality: dict[str, Any] | None = None,
+    aged_signal_days: int = 7,
+) -> dict[str, Any]:
     """Summarize US cache signal rows already in observation_log.jsonl."""
 
     if not observation_path.is_file():
+        checklist = _build_research_checklist(
+            [],
+            {},
+            [],
+            signal_aging_days_max=None,
+            missing_cache_symbols=missing_cache_symbols or [],
+            forward_sample_quality=forward_sample_quality,
+            quality_snapshot=quality_snapshot,
+            aged_signal_days=aged_signal_days,
+        )
         return {
             "status": "missing",
             "path": str(observation_path),
             "us_signal_rows": 0,
             "by_status": {},
             "symbols": [],
+            "research_checklist": checklist,
             "observation_only": True,
         }
     rows: list[dict[str, Any]] = []
@@ -124,6 +142,17 @@ def summarize_us_observation_log(observation_path: Path) -> dict[str, Any]:
             if d0 is not None:
                 aging_days.append(max(0, (today - d0).days))
     repeat_symbols = sorted([s for s, n in sym_counts.items() if n > 1])
+    aging_max = max(aging_days) if aging_days else None
+    checklist = _build_research_checklist(
+        rows,
+        by_status,
+        repeat_symbols,
+        signal_aging_days_max=aging_max,
+        missing_cache_symbols=missing_cache_symbols or [],
+        forward_sample_quality=forward_sample_quality,
+        quality_snapshot=quality_snapshot,
+        aged_signal_days=aged_signal_days,
+    )
     return {
         "status": "ok",
         "path": str(observation_path),
@@ -132,11 +161,26 @@ def summarize_us_observation_log(observation_path: Path) -> dict[str, Any]:
         "symbols": sorted({str(r["symbol"]) for r in rows if r.get("symbol")}),
         "repeat_signal_symbols": repeat_symbols,
         "repeat_signal_count": sum(n - 1 for n in sym_counts.values() if n > 1),
-        "signal_aging_days_max": max(aging_days) if aging_days else None,
+        "signal_aging_days_max": aging_max,
         "signal_aging_days_avg": (sum(aging_days) / len(aging_days)) if aging_days else None,
         "rows": rows,
         "observation_only": True,
-        "research_checklist": _build_research_checklist(rows, by_status, repeat_symbols),
+        "research_checklist": checklist,
+    }
+
+
+def _checklist_item(
+    *,
+    category: str,
+    symbol: str | None,
+    reason: str,
+    next_action: str,
+) -> dict[str, str]:
+    return {
+        "category": category,
+        "symbol": symbol or "",
+        "reason": reason,
+        "next_action": next_action,
     }
 
 
@@ -144,24 +188,104 @@ def _build_research_checklist(
     rows: list[dict[str, Any]],
     by_status: dict[str, int],
     repeat_symbols: list[str],
-) -> list[str]:
-    """Observation-only next-research items (no buy/sell wording)."""
+    *,
+    signal_aging_days_max: int | None,
+    missing_cache_symbols: list[str],
+    forward_sample_quality: dict[str, Any] | None,
+    quality_snapshot: dict[str, Any] | None,
+    aged_signal_days: int,
+) -> list[dict[str, str]]:
+    """Structured observation-only research items (no buy/sell wording)."""
 
-    items: list[str] = []
-    stale = int(by_status.get("stale", 0) or 0)
-    insufficient = int(by_status.get("insufficient", 0) or 0)
-    if stale:
-        items.append(f"review {stale} symbol(s) with stale cache signal status")
-    if insufficient:
-        items.append(f"review {insufficient} symbol(s) with insufficient bars for signals")
-    if repeat_symbols:
+    items: list[dict[str, str]] = []
+    for sym in repeat_symbols[:8]:
         items.append(
-            "review repeat US signal observations: " + ", ".join(repeat_symbols[:8])
+            _checklist_item(
+                category="repeat_signal",
+                symbol=sym,
+                reason="multiple US signal observations logged for symbol",
+                next_action="review note history and momentum label changes",
+            )
         )
-    if not rows:
-        items.append("append US signals via weekly-us-observation --write-observation-log")
+    if signal_aging_days_max is not None and signal_aging_days_max >= aged_signal_days:
+        items.append(
+            _checklist_item(
+                category="aged_signal",
+                symbol=None,
+                reason=f"oldest US signal observation is {signal_aging_days_max} days old",
+                next_action="re-run weekly-us-observation and compare to current cache",
+            )
+        )
+    for sym in sorted(missing_cache_symbols)[:8]:
+        items.append(
+            _checklist_item(
+                category="missing_cache",
+                symbol=sym,
+                reason="watchlist symbol has no US daily bars cache file",
+                next_action="schedule gated cache refresh when approved",
+            )
+        )
+    stale = int(by_status.get("stale", 0) or 0)
+    if stale:
+        items.append(
+            _checklist_item(
+                category="aged_signal",
+                symbol=None,
+                reason=f"{stale} observation row(s) marked stale in log",
+                next_action="inspect cache freshness and re-log after refresh",
+            )
+        )
+    insufficient = int(by_status.get("insufficient", 0) or 0)
+    if insufficient:
+        items.append(
+            _checklist_item(
+                category="missing_cache",
+                symbol=None,
+                reason=f"{insufficient} observation row(s) with insufficient bars",
+                next_action="verify bar count in cache JSON before next observation",
+            )
+        )
+    fq = forward_sample_quality or {}
+    if fq.get("status") in {"thin", "empty"}:
+        items.append(
+            _checklist_item(
+                category="thin_forward_validation",
+                symbol=None,
+                reason=str(fq.get("reason") or "forward-return sample too small"),
+                next_action="accumulate more observation_log rows before quality conclusions",
+            )
+        )
+    if quality_snapshot:
+        for row in quality_snapshot.get("rows") or []:
+            if row.get("veto_triggered"):
+                sym = str(row.get("symbol") or "")
+                rules = row.get("veto_rules") or []
+                items.append(
+                    _checklist_item(
+                        category="veto_review",
+                        symbol=sym,
+                        reason=f"veto triggered ({', '.join(str(r) for r in rules[:3])})",
+                        next_action="review momentum context; observation only",
+                    )
+                )
+    if not rows and not items:
+        items.append(
+            _checklist_item(
+                category="missing_cache",
+                symbol=None,
+                reason="no US signal rows in observation_log",
+                next_action="run weekly-us-observation --write-observation-log when ready",
+            )
+        )
     if not items:
-        items.append("no urgent cache gaps in observation_log summary")
+        items.append(
+            _checklist_item(
+                category="repeat_signal",
+                symbol=None,
+                reason="no urgent checklist items from current observation_log",
+                next_action="continue weekly cache-only monitoring",
+            )
+        )
     return items
 
 
@@ -273,7 +397,23 @@ def run_weekly_us_observation_cycle(
         )
         if observation_batch_failed(obs_result):
             raise ValueError(f"observation batch failed: {obs_result}")
-        obs_summary = summarize_us_observation_log(observation_service.observation_path)
+        forward_sq: dict[str, Any] | None = None
+        try:
+            from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
+
+            fwd = compute_us_forward_returns(
+                observation_path=observation_service.observation_path,
+                path_base=root,
+            )
+            forward_sq = fwd.get("sample_quality")
+        except (FileNotFoundError, ValueError):
+            forward_sq = None
+        obs_summary = summarize_us_observation_log(
+            observation_service.observation_path,
+            missing_cache_symbols=list(manifest.get("missing_cache_symbols") or []),
+            quality_snapshot=quality,
+            forward_sample_quality=forward_sq,
+        )
 
     return WeeklyUsObservationResult(
         manifest=manifest,
@@ -322,7 +462,11 @@ def us_cache_expansion_report(
     }
 
 
-def format_weekly_us_observation_markdown(result: WeeklyUsObservationResult) -> str:
+def format_weekly_us_observation_markdown(
+    result: WeeklyUsObservationResult,
+    *,
+    path_base: Path | None = None,
+) -> str:
     m = result.manifest
     b = result.batch_previews
     q = result.quality
@@ -351,7 +495,7 @@ def format_weekly_us_observation_markdown(result: WeeklyUsObservationResult) -> 
                 "## Observation log",
                 f"- us_signal_rows: {o.get('us_signal_rows')}",
                 f"- by_status: {o.get('by_status')}",
-                f"- signal aging (days, avg): {o.get('signal_aging_days_avg')}",
+                f"- signal aging (days, avg/max): {o.get('signal_aging_days_avg')} / {o.get('signal_aging_days_max')}",
                 f"- repeat signal symbols: {', '.join(o.get('repeat_signal_symbols') or []) or '(none)'}",
             ]
         )
@@ -359,6 +503,54 @@ def format_weekly_us_observation_markdown(result: WeeklyUsObservationResult) -> 
         if checklist:
             lines.extend(["", "## Next research checklist (observe only)"])
             for item in checklist:
-                lines.append(f"- {item}")
+                if isinstance(item, dict):
+                    sym = item.get("symbol") or "—"
+                    lines.append(
+                        f"- [{item.get('category')}] {sym}: {item.get('reason')} → {item.get('next_action')}"
+                    )
+                else:
+                    lines.append(f"- {item}")
+
+    root = path_base or ROOT_DIR
+    obs_path = root / "outputs" / "observation_log" / "observation_log.jsonl"
+    if obs_path.is_file() and (result.observation_log or {}).get("us_signal_rows", 0) > 0:
+        try:
+            from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
+
+            fwd = compute_us_forward_returns(observation_path=obs_path, path_base=root)
+            sq = fwd.get("sample_quality") or {}
+            lines.extend(
+                [
+                    "",
+                    "## Forward validation summary",
+                    f"- sample quality: {sq.get('status')} — {sq.get('reason')}",
+                    f"- matched rows: {fwd.get('rows_matched')}",
+                ]
+            )
+            gb = (fwd.get("quality_buckets") or {}).get("global") or {}
+            for h in fwd.get("horizons") or []:
+                bucket = gb.get(str(h)) or {}
+                if bucket.get("count"):
+                    lines.append(
+                        f"- {h}d: hit_rate_positive={bucket.get('hit_rate_positive')} "
+                        f"(n={bucket.get('count')})"
+                    )
+        except (FileNotFoundError, ValueError):
+            pass
+
+    try:
+        from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
+
+        exp = build_us_universe_expansion_report(path_base=root, tier="1", missing_only=True)
+        tier1 = exp.get("tier_1_missing_refresh_order") or []
+        if tier1:
+            lines.extend(["", "## US tier-1 cache gaps (gated refresh order)"])
+            for sym in tier1[:10]:
+                lines.append(f"- {sym}")
+            if len(tier1) > 10:
+                lines.append(f"- … +{len(tier1) - 10} more")
+    except (FileNotFoundError, ValueError):
+        pass
+
     lines.append("")
     return "\n".join(lines)
