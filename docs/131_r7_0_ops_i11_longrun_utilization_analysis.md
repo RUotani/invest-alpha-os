@@ -44,3 +44,4 @@
 - Runner: `scripts/run_productive_true_longrun_12h_v3.sh`
 - Profile: `true_longrun_12h_productive_v3`
 - I10 early completion: `docs/130_r7_0_ops_i10_early_completion_notification.md`
+- dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:27:48Z)
