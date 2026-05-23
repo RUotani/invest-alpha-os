@@ -74,6 +74,16 @@ from invis_alpha_os.observation.us_signals_batch import (
     log_us_signals_batch_observations,
     observation_batch_failed,
 )
+from invis_alpha_os.product.peer_sync_cache_only import (
+    build_peer_sync_cache_only_report,
+    format_peer_sync_cache_only_json,
+    format_peer_sync_cache_only_markdown,
+)
+from invis_alpha_os.product.portfolio_observation_summary import (
+    build_portfolio_observation_summary,
+    format_portfolio_observation_summary_json,
+    format_portfolio_observation_summary_markdown,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -530,6 +540,44 @@ def validate_us_forward_returns_command(
         typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
     else:
         typer.echo(format_us_forward_return_markdown(report))
+
+
+@validate_app.command("peer-sync")
+def validate_peer_sync_command(
+    peer_map: Optional[str] = typer.Option(
+        None,
+        "--peer-map",
+        help="Path to peer_map.yaml (default: config/peer_map.yaml).",
+    ),
+    window_days: int = typer.Option(
+        20,
+        "--window-days",
+        help="Trailing sessions for spread/correlation (default: 20).",
+    ),
+    divergence_threshold: float = typer.Option(
+        0.05,
+        "--divergence-threshold",
+        help="Absolute return spread threshold for divergence (default: 0.05).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Cache-only peer sync check from config/peer_map.yaml (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    pmap = Path(peer_map) if peer_map else CONFIG_DIR / "peer_map.yaml"
+    report = build_peer_sync_cache_only_report(
+        path_base=ROOT_DIR,
+        peer_map_path=pmap,
+        window_days=window_days,
+        divergence_threshold=divergence_threshold,
+    )
+    if fmt_norm == "json":
+        typer.echo(format_peer_sync_cache_only_json(report))
+    elif fmt_norm == "markdown":
+        typer.echo(format_peer_sync_cache_only_markdown(report))
+    else:
+        typer.echo("validate peer-sync: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
 
 
 @app.command("us-universe-expansion-plan")
@@ -1350,6 +1398,50 @@ def snapshot_shadow_portfolio() -> None:
     service = ShadowPortfolioService(OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl")
     positions = service.list_positions()
     typer.echo(f"shadow positions: {len(positions)}")
+
+
+@snapshot_app.command("portfolio-observation-summary")
+def snapshot_portfolio_observation_summary(
+    shadow_path: Optional[str] = typer.Option(
+        None,
+        "--shadow-path",
+        help="Shadow portfolio JSONL (default: outputs/shadow_portfolio/positions.jsonl).",
+    ),
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Observation log JSONL (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only linkage between shadow positions and observation_log (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    shadow = (
+        Path(shadow_path)
+        if shadow_path
+        else OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl"
+    )
+    obs = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    summary = build_portfolio_observation_summary(
+        path_base=ROOT_DIR,
+        shadow_path=shadow,
+        observation_path=obs,
+    )
+    if fmt_norm == "json":
+        typer.echo(format_portfolio_observation_summary_json(summary))
+    elif fmt_norm == "markdown":
+        typer.echo(format_portfolio_observation_summary_markdown(summary))
+    else:
+        typer.echo(
+            "snapshot portfolio-observation-summary: --format must be markdown or json",
+            err=True,
+        )
+        raise typer.Exit(2)
 
 
 @log_app.command("outcome")
