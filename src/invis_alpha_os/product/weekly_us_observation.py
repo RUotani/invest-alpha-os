@@ -338,6 +338,7 @@ class WeeklyUsObservationResult:
     quality: dict[str, Any]
     observation_log: dict[str, Any] | None
     manifest_path_written: str | None
+    peer_sync: dict[str, Any] | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -346,6 +347,7 @@ def run_weekly_us_observation_cycle(
     manifest_out: Path | None = None,
     write_observation_log: bool = False,
     observation_service: ObservationService | None = None,
+    include_peer_sync: bool = False,
 ) -> WeeklyUsObservationResult:
     """Run cache-only US signal batch + optional observation_log append."""
 
@@ -415,12 +417,19 @@ def run_weekly_us_observation_cycle(
             forward_sample_quality=forward_sq,
         )
 
+    peer_sync_payload: dict[str, Any] | None = None
+    if include_peer_sync:
+        from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
+
+        peer_sync_payload = build_peer_sync_cache_only_report(path_base=root).to_dict()
+
     return WeeklyUsObservationResult(
         manifest=manifest,
         batch_previews=batch,
         quality=quality,
         observation_log=obs_summary,
         manifest_path_written=written,
+        peer_sync=peer_sync_payload,
     )
 
 
@@ -563,6 +572,36 @@ def format_weekly_us_observation_markdown(
                 lines.append(f"- … +{len(tier1) - 10} more")
     except (FileNotFoundError, ValueError):
         pass
+
+    if result.peer_sync:
+        ps = result.peer_sync
+        summary = ps.get("summary") or {}
+        lines.extend(
+            [
+                "",
+                "## Peer sync (cache-only)",
+                f"- pairs evaluated: {len(ps.get('pairs') or [])}",
+            ]
+        )
+        if summary:
+            for status, count in sorted(summary.items()):
+                lines.append(f"- `{status}`: {count}")
+        diverged = [
+            p
+            for p in (ps.get("pairs") or [])
+            if isinstance(p, dict)
+            and str(p.get("status", "")).startswith("diverged")
+        ]
+        if diverged:
+            lines.append("")
+            lines.append("### Diverged pairs (observe only)")
+            for row in diverged[:5]:
+                spread = row.get("return_spread")
+                spread_s = f"{spread:.2%}" if isinstance(spread, (int, float)) else "—"
+                lines.append(
+                    f"- {row.get('anchor_symbol')} vs {row.get('peer_symbol')}: "
+                    f"{row.get('status')} (spread {spread_s})"
+                )
 
     lines.append("")
     return "\n".join(lines)
