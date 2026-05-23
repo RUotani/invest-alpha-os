@@ -78,6 +78,7 @@ from invis_alpha_os.observation.us_peer_sync_batch import (
     log_peer_sync_snapshot_observations,
     peer_sync_log_failed,
 )
+from invis_alpha_os.observation.us_peer_sync_summary import summarize_peer_sync_observation_log
 from invis_alpha_os.product.peer_sync_cache_only import (
     build_peer_sync_cache_only_report,
     format_peer_sync_cache_only_json,
@@ -1505,6 +1506,16 @@ def log_peer_sync_snapshot(
     typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
     if peer_sync_log_failed(result):
         raise typer.Exit(2)
+
+
+@log_app.command("peer-sync-summary")
+def log_peer_sync_summary() -> None:
+    """Summarize peer_sync rows in observation_log.jsonl (read-only)."""
+
+    summary = summarize_peer_sync_observation_log(
+        OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
 @log_app.command("us-signals-batch")

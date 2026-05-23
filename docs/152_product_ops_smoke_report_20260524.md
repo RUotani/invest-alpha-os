@@ -74,6 +74,18 @@
 
 ---
 
+### 4. log peer-sync-summary（read-only）
+
+```bash
+.venv/bin/python -m invis_alpha_os.cli.main log peer-sync-summary
+```
+
+**Exit code**: 0 · `peer_sync_rows: 0`（observation_log 未使用時）
+
+**判定**: ✅ read-only 集計 CLI 動作確認。
+
+---
+
 ## 明示的に未実行（方針通り）
 
 | コマンド | 理由 |

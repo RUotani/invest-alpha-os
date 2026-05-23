@@ -95,3 +95,34 @@ def test_cli_log_peer_sync_snapshot_dry_path(tmp_path: Path, monkeypatch: pytest
     result = runner.invoke(cli_main.app, ["log", "peer-sync-snapshot"])
     assert result.exit_code == 0, result.stdout + result.stderr
     assert "logged" in result.stdout
+
+
+def test_summarize_peer_sync_observation_log(tmp_path: Path) -> None:
+    from invis_alpha_os.observation.us_peer_sync_summary import summarize_peer_sync_observation_log
+    from invis_alpha_os.observation.service import ObservationService
+    from invis_alpha_os.observation.us_peer_sync_note import build_us_peer_sync_observation_note
+
+    obs_path = tmp_path / "observation_log.jsonl"
+    svc = ObservationService(observation_path=obs_path, outcome_path=tmp_path / "outcome.jsonl")
+    note = build_us_peer_sync_observation_note(
+        {"anchor_symbol": "AAPL", "peer_symbol": "MSFT", "status": "in_sync"}
+    )
+    svc.log_observation("AAPL", note)
+    summary = summarize_peer_sync_observation_log(obs_path)
+    assert summary["peer_sync_rows"] == 1
+    assert summary["by_status"].get("in_sync") == 1
+
+
+def test_cli_log_peer_sync_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from typer.testing import CliRunner
+
+    import invis_alpha_os.cli.main as cli_main
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    (outputs / "observation_log" / "observation_log.jsonl").write_text("", encoding="utf-8")
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", outputs)
+    runner = CliRunner()
+    result = runner.invoke(cli_main.app, ["log", "peer-sync-summary"])
+    assert result.exit_code == 0
+    assert "peer_sync_rows" in result.stdout

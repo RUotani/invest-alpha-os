@@ -38,6 +38,7 @@
 
 ```bash
 .venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary
+.venv/bin/python -m invis_alpha_os.cli.main log peer-sync-summary
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main snapshot portfolio-observation-summary --format markdown
 ```
