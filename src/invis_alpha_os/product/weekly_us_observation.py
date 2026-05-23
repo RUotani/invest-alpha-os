@@ -29,7 +29,13 @@ from invis_alpha_os.observation.us_signals_batch import (
 from invis_alpha_os.risk.veto_rules import VetoEngine, build_momentum_veto_result
 from invis_alpha_os.signals.momentum import analyze_bars_for_code
 
-US_SIGNAL_NOTE_PREFIX = "us_cache_signal observation_only"
+from invis_alpha_os.observation.us_signal_note import (
+    US_SIGNAL_NOTE_PREFIX,
+    parse_us_signal_observation_note,
+)
+
+# Backward-compatible alias for tests/imports
+_parse_observation_note = parse_us_signal_observation_note
 _MANIFEST_REL_CACHE = "outputs/market_data/us_daily_bars/{symbol}.json"
 
 
@@ -55,15 +61,6 @@ def build_us_watchlist_signals_manifest(
         "entries": entries,
         "missing_cache_symbols": missing_cache,
     }
-
-
-def _parse_observation_note(note: str) -> dict[str, str]:
-    out: dict[str, str] = {}
-    for key in ("status", "momentum_label", "reason"):
-        m = re.search(rf"{key}=([^\s]+)", note)
-        if m:
-            out[key] = m.group(1)
-    return out
 
 
 def summarize_us_observation_log(
@@ -107,7 +104,7 @@ def summarize_us_observation_log(
         note = str(row.get("note") or "")
         if US_SIGNAL_NOTE_PREFIX not in note:
             continue
-        parsed = _parse_observation_note(note)
+        parsed = parse_us_signal_observation_note(note)
         rows.append(
             {
                 "symbol": row.get("symbol"),
@@ -393,7 +390,10 @@ def run_weekly_us_observation_cycle(
         if written is None:
             raise ValueError("manifest_out path required when write_observation_log=True")
         obs_result = log_us_signals_batch_observations(
-            Path(written), path_base=root, service=observation_service
+            Path(written),
+            path_base=root,
+            service=observation_service,
+            quality_snapshot=quality,
         )
         if observation_batch_failed(obs_result):
             raise ValueError(f"observation batch failed: {obs_result}")
@@ -519,14 +519,26 @@ def format_weekly_us_observation_markdown(
 
             fwd = compute_us_forward_returns(observation_path=obs_path, path_base=root)
             sq = fwd.get("sample_quality") or {}
+            from invis_alpha_os.product.us_forward_return_validation import (
+                forward_validation_next_commands,
+            )
+
             lines.extend(
                 [
                     "",
                     "## Forward validation summary",
                     f"- sample quality: {sq.get('status')} — {sq.get('reason')}",
                     f"- matched rows: {fwd.get('rows_matched')}",
+                    f"- interpretation: {sq.get('interpretation', '')}",
                 ]
             )
+            if sq.get("status") in {"empty", "thin"}:
+                lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+            lines.extend(["", "### Suggested next commands"])
+            for cmd in forward_validation_next_commands():
+                lines.append(f"- `{cmd}`")
+            veto = fwd.get("veto_at_t") or {}
+            lines.append(f"- veto-at-t status: {veto.get('status')}")
             gb = (fwd.get("quality_buckets") or {}).get("global") or {}
             for h in fwd.get("horizons") or []:
                 bucket = gb.get(str(h)) or {}

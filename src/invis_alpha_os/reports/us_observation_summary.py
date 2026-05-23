@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.paths import ROOT_DIR
-from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
+from invis_alpha_os.product.us_forward_return_validation import (
+    compute_us_forward_returns,
+    forward_validation_next_commands,
+)
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 from invis_alpha_os.product.weekly_us_observation import (
     build_us_watchlist_signals_manifest,
@@ -61,6 +64,9 @@ def render_us_observation_summary_markdown(*, path_base: Path | None = None) -> 
     obs = payload.get("observation_summary") or {}
     if obs.get("status") == "missing":
         lines.append("- observation_log: missing")
+        lines.append("- next: run weekly-us-observation with --write-observation-log when ready")
+        for cmd in forward_validation_next_commands():
+            lines.append(f"- `{cmd}`")
     else:
         lines.append(f"- us_signal_rows: {obs.get('us_signal_rows')}")
         lines.append(f"- signal aging avg/max (days): {obs.get('signal_aging_days_avg')} / {obs.get('signal_aging_days_max')}")
@@ -88,8 +94,13 @@ def render_us_observation_summary_markdown(*, path_base: Path | None = None) -> 
                 "### Forward validation summary",
                 f"- sample quality: {sq.get('status')} ({sq.get('reason')})",
                 f"- matched rows: {fwd.get('rows_matched')}",
+                f"- interpretation: {sq.get('interpretation', '')}",
             ]
         )
+        if sq.get("status") in {"empty", "thin"}:
+            lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+        veto = fwd.get("veto_at_t") or {}
+        lines.append(f"- veto-at-t: {veto.get('status')}")
         gb = (fwd.get("quality_buckets") or {}).get("global") or {}
         for h in fwd.get("horizons") or []:
             b = gb.get(str(h)) or {}

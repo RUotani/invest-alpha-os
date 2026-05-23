@@ -13,7 +13,10 @@ from invis_alpha_os.data.us_daily_bars_cache import (
     load_us_daily_bars_json_file,
     try_load_cached_us_daily_bars,
 )
-from invis_alpha_os.product.weekly_us_observation import US_SIGNAL_NOTE_PREFIX, _parse_observation_note
+from invis_alpha_os.observation.us_signal_note import (
+    US_SIGNAL_NOTE_PREFIX,
+    parse_us_signal_observation_note,
+)
 from invis_alpha_os.signals.momentum import DailyBar
 
 SCHEMA_VERSION = 2
@@ -150,24 +153,92 @@ def _build_quality_buckets(
     return {"global": global_buckets, "by_signal_label": by_label}
 
 
+def forward_validation_next_commands() -> list[str]:
+    """Read-only CLI hints after observation_log append (no defaults changed)."""
+
+    return [
+        ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
+        ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",
+    ]
+
+
 def _sample_quality(matched_count: int) -> dict[str, Any]:
+    hints = forward_validation_next_commands()
     if matched_count == 0:
         return {
             "status": "empty",
             "reason": "no observation rows matched to cache forward windows",
             "matched_rows": 0,
+            "interpretation": "Do not draw signal-quality conclusions from forward returns yet.",
+            "needed_more_samples": THIN_SAMPLE_THRESHOLD,
+            "next_commands": hints,
         }
     if matched_count < THIN_SAMPLE_THRESHOLD:
         return {
             "status": "thin",
             "reason": f"matched rows below minimum threshold ({THIN_SAMPLE_THRESHOLD})",
             "matched_rows": matched_count,
+            "interpretation": "Buckets are exploratory only; accumulate more US signal rows.",
+            "needed_more_samples": THIN_SAMPLE_THRESHOLD - matched_count,
+            "next_commands": hints,
         }
     return {
         "status": "usable",
         "reason": "matched rows sufficient for exploratory bucket review",
         "matched_rows": matched_count,
+        "interpretation": "Review hit-rate buckets as observation-only diagnostics.",
+        "needed_more_samples": 0,
+        "next_commands": hints,
     }
+
+
+def _veto_at_t_report(obs_rows: list[dict[str, Any]], matched: list[dict[str, Any]]) -> dict[str, Any]:
+    with_field = [r for r in obs_rows if r.get("veto_triggered") is not None]
+    if not with_field:
+        return {
+            "status": "not_in_observation_log",
+            "reason": "veto-at-t not stored in observation_log notes (legacy rows OK)",
+        }
+    triggered = sum(1 for r in with_field if r.get("veto_triggered") is True)
+    not_triggered = sum(1 for r in with_field if r.get("veto_triggered") is False)
+    return {
+        "status": "joined",
+        "rows_with_veto_field": len(with_field),
+        "triggered_at_log": triggered,
+        "not_triggered_at_log": not_triggered,
+        "matched_with_veto_field": sum(1 for r in matched if r.get("veto_triggered") is not None),
+    }
+
+
+def _build_by_veto_status(
+    matched: list[dict[str, Any]],
+    horizons: tuple[int, ...],
+    *,
+    thin_sample: bool,
+) -> dict[str, Any]:
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in matched:
+        vt = row.get("veto_triggered")
+        if vt is True:
+            key = "triggered"
+        elif vt is False:
+            key = "not_triggered"
+        else:
+            key = "unknown"
+        groups[key].append(row)
+    out: dict[str, Any] = {}
+    for key, items in sorted(groups.items()):
+        per_h: dict[str, dict[str, Any]] = {}
+        for h in horizons:
+            vals = [
+                x["horizons"].get(str(h))
+                for x in items
+                if x.get("horizons", {}).get(str(h)) is not None
+            ]
+            per_h[str(h)] = _horizon_bucket_stats([float(v) for v in vals], thin_sample=thin_sample)
+        out[key] = {"count": len(items), "horizons": per_h}
+    return out
 
 
 def _iter_us_signal_rows(observation_path: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
@@ -199,13 +270,15 @@ def _iter_us_signal_rows(observation_path: Path) -> tuple[list[dict[str, Any]], 
         if event is None:
             skipped["missing_event_date"] += 1
             continue
-        parsed = _parse_observation_note(note)
+        parsed = parse_us_signal_observation_note(note)
         rows.append(
             {
                 "symbol": str(sym).strip().upper(),
                 "event_date": event,
                 "momentum_label": parsed.get("momentum_label"),
-                "status": parsed.get("status", "unknown"),
+                "status": str(parsed.get("status") or "unknown"),
+                "veto_triggered": parsed.get("veto_triggered"),
+                "veto_rules": parsed.get("veto_rules"),
                 "created_at": row.get("created_at"),
             }
         )
@@ -269,6 +342,8 @@ def compute_us_forward_returns(
                 "event_date": event.isoformat(),
                 "momentum_label": row.get("momentum_label"),
                 "status": row.get("status"),
+                "veto_triggered": row.get("veto_triggered"),
+                "veto_rules": row.get("veto_rules"),
                 "horizons": horizon_returns,
             }
         )
@@ -311,10 +386,8 @@ def compute_us_forward_returns(
             for lbl, items in sorted(by_label.items())
         },
         "examples": matched[:5],
-        "veto_at_t": {
-            "status": "not_in_observation_log",
-            "reason": "veto-at-t not stored in observation_log notes; use weekly quality snapshot (P5 v3)",
-        },
+        "veto_at_t": _veto_at_t_report(obs_rows, matched),
+        "by_veto_status": _build_by_veto_status(matched, horizons, thin_sample=thin),
         "observation_only": True,
         "not_investment_advice": True,
         "live_http": False,
@@ -330,6 +403,20 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         "",
         f"**Sample quality**: {sq.get('status')} — {sq.get('reason')}",
         f"- matched rows: {sq.get('matched_rows', report.get('rows_matched'))}",
+        f"- interpretation: {sq.get('interpretation', '')}",
+    ]
+    if sq.get("status") in {"empty", "thin"}:
+        lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+    lines.extend(
+        [
+        "",
+        "### Suggested next commands (read-only)",
+        ]
+    )
+    for cmd in sq.get("next_commands") or []:
+        lines.append(f"- `{cmd}`")
+    lines.extend(
+        [
         "",
         f"- observation rows considered: {report.get('rows_considered')}",
         f"- matched rows: {report.get('rows_matched')}",
@@ -337,7 +424,8 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         f"- horizons (sessions): {', '.join(str(h) for h in report.get('horizons') or [])}",
         "",
         "## Skipped reasons",
-    ]
+        ]
+    )
     reasons = report.get("skipped_reasons") or {}
     if reasons:
         for k, v in sorted(reasons.items()):
@@ -363,5 +451,15 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
             b = per_h.get(str(h)) or {}
             parts.append(f"{h}d n={b.get('count')} hit+={b.get('hit_rate_positive')}")
         lines.append(f"- {lbl}: {', '.join(parts)}")
+    veto_at_t = report.get("veto_at_t") or {}
+    lines.extend(["", "## Veto-at-t"])
+    lines.append(f"- status: {veto_at_t.get('status')}")
+    lines.append(f"- detail: {veto_at_t.get('reason', veto_at_t)}")
+    by_veto = report.get("by_veto_status") or {}
+    if by_veto:
+        lines.append("")
+        lines.append("### By veto status (matched rows)")
+        for key, block in sorted(by_veto.items()):
+            lines.append(f"- {key}: count={block.get('count')}")
     lines.append("")
     return "\n".join(lines)

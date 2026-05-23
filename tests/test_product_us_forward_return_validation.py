@@ -189,6 +189,102 @@ def test_hit_rate_buckets(obs_and_cache: tuple[Path, Path]) -> None:
     assert bucket["best"] is not None
 
 
+def test_sample_quality_thin_includes_needed_more(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    sq = report["sample_quality"]
+    assert sq["status"] == "thin"
+    assert sq["needed_more_samples"] == 9
+    assert sq["next_commands"]
+
+
+def test_veto_joined_when_note_has_veto(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    cache_dir = tmp_path / "us_daily_bars"
+    cache_dir.mkdir(parents=True)
+    outputs = tmp_path / "outputs"
+    obs_path = outputs / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    bars = load_bars_json_file(FIX_MSFT)
+    event_date = bars[-21]["date"][:10]
+    usc.save_us_daily_bars_cache(
+        "MSFT",
+        [dict(b) for b in bars],
+        source="local_fixture",
+        fetched_at="2026-05-23T12:00:00+00:00",
+    )
+    (cache_dir / "MSFT.json").write_text(
+        usc.us_daily_bars_cache_path("MSFT").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    note = (
+        "us_cache_signal observation_only status=ok momentum_label=uptrend "
+        "veto_triggered=true veto_rules=rapid_mover not buy/sell advice"
+    )
+    obs_path.write_text(
+        json.dumps(
+            {
+                "id": "v1",
+                "created_at": f"{event_date}T09:00:00+00:00",
+                "symbol": "MSFT",
+                "note": note,
+                "evidence_ids": [],
+                "tags": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    assert report["veto_at_t"]["status"] == "joined"
+    assert report["by_veto_status"].get("triggered", {}).get("count") == 1
+
+
+def test_veto_legacy_rows_not_in_log(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    assert report["veto_at_t"]["status"] == "not_in_observation_log"
+
+
+def test_markdown_includes_veto_section(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    cache_dir = tmp_path / "us_daily_bars"
+    outputs = tmp_path / "outputs"
+    obs_path = outputs / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    bars = load_bars_json_file(FIX_MSFT)
+    event_date = bars[-21]["date"][:10]
+    usc.save_us_daily_bars_cache("MSFT", [dict(b) for b in bars], source="local_fixture")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "MSFT.json").write_text(
+        usc.us_daily_bars_cache_path("MSFT").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    obs_path.write_text(
+        json.dumps(
+            {
+                "id": "v1",
+                "created_at": f"{event_date}T09:00:00+00:00",
+                "symbol": "MSFT",
+                "note": (
+                    "us_cache_signal observation_only status=ok "
+                    "veto_triggered=false not buy/sell advice"
+                ),
+                "evidence_ids": [],
+                "tags": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    md = format_us_forward_return_markdown(report)
+    assert "## Veto-at-t" in md
+    assert "joined" in md
+
+
 def test_cli_invalid_horizons_exit_2() -> None:
     result = CliRunner().invoke(
         app,
