@@ -1181,9 +1181,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I11 — utilization-based 12h v3 queue（進行中）
+## R7.0-Ops-I11 — utilization-based 12h v3 queue（完了）
 
-**内容**: 履歴分析 doc、84 task v3 queue（primary/reserve/stretch）、`true_longrun_12h_productive_v3`、`run_productive_true_longrun_12h_v3.sh`。詳細 **[docs/131](./131_r7_0_ops_i11_longrun_utilization_analysis.md)**。
+**内容**: 履歴分析 doc、84 task v3 queue、`run_productive_true_longrun_12h_v3.sh`、post-run #200 consolidation。詳細 **[docs/131](./131_r7_0_ops_i11_longrun_utilization_analysis.md)**。
+
+---
+
+## R7.0-Ops-J — post-run integrator（進行中）
+
+**内容**: `operator-runner post-run-integrate`、guarded merge audit。I12 実効12h設計 **[docs/134](./134_r7_0_ops_i12_effective_12h_design.md)**。詳細 **[docs/133](./133_r7_0_ops_j_post_run_integrator_plan.md)**。
 
 ---
 
