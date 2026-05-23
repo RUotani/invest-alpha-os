@@ -212,3 +212,5 @@ def test_productive_scripts_not_using_v2_queue_by_default() -> None:
     s12 = (ROOT_DIR / "scripts/run_productive_true_longrun_12h.sh").read_text(encoding="utf-8")
     assert "productive_12h_v2" not in s8
     assert "productive_12h_v2" not in s12
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:39:11Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:40:20Z)

@@ -2400,3 +2400,8 @@ def test_effective_min_runtime_exceeds_max_runtime_warning(capsys, tmp_path: Pat
     assert "effective min_runtime_minutes" in out
     assert "max_runtime_minutes" in out
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:24:45Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:25:54Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:30:16Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:34:43Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:36:53Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:38:02Z)
