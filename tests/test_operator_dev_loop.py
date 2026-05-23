@@ -2399,3 +2399,4 @@ def test_effective_min_runtime_exceeds_max_runtime_warning(capsys, tmp_path: Pat
     out = capsys.readouterr().out
     assert "effective min_runtime_minutes" in out
     assert "max_runtime_minutes" in out
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:24:45Z)
