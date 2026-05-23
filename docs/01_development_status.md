@@ -1193,9 +1193,31 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I12-A — operator autopilot status（進行中）
+## R7.0-Ops-I12-A — operator autopilot status（完了 · PR #204 · hotfix pending merge）
 
-**内容**: `operator-runner autopilot-status` — read-only main/CI/open PR/longrun snapshot for agents。詳細 **[docs/135](./135_r7_0_ops_i12_a_autopilot_status.md)**。
+**内容**: `operator-runner autopilot-status` — read-only main/CI/open PR/longrun snapshot for agents。dirty判定はraw lines、表示のみredact。詳細 **[docs/135](./135_r7_0_ops_i12_a_autopilot_status.md)**。
+
+---
+
+## Ops Freeze / Product-Focus Pivot（2026-05-23 設定）
+
+**方針**: R7.0-Ops-I12-A merge後、Ops自律開発基盤の**新規拡張を凍結**し、投資シグナル本体へ移行する。
+
+**凍結対象**（次PRでは実装しない）:
+- I12-B/C wave runner
+- prepare-next / new_chat_handoff
+- safety-classify implementation
+- automation_surface_audit
+- CLI submodule split
+
+**凍結解除条件**: 以下の投資プロダクト目標のうち1つ以上を達成した後に再評価する。
+1. `momentum.py` シグナルの観測モード（live or cache-only）での週次運用確立
+2. US/JP discovery → signals → veto → daily report の end-to-end パイプライン動作確認
+3. peer_sync または cross-market correlation の実装
+
+**背景**: 12h runが18分で終了したのはwave設計の問題ではなく、**投資プロダクトのキューに高価値タスクが不足**しているため。Ops基盤を先に拡張しても解決しない。
+
+**次のステップ**: `docs/136_r7_0_product_pivot_signals_pack.md` 参照。
 
 ---
 
