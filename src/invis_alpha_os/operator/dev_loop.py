@@ -20,6 +20,12 @@ CRITICAL_FAILURE_POLICIES: frozenset[str] = frozenset({"stop", "record"})
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.operator.policy import GateSpec
+from invis_alpha_os.operator.longrun_completion import (
+    build_early_completion_meta,
+    completion_event_from_result,
+    detect_early_completion,
+    emit_completion_notification,
+)
 from invis_alpha_os.operator.pr_loop import PrLoopResult, check_github_pr_create_gate, run_pr_loop
 
 DEV_LOOP_REL_ROOT = Path("operator/dev_loop")
@@ -128,6 +134,8 @@ class DevLoopProfile:
     stop_on_dirty_tree: bool
     min_runtime_minutes: int | None = None
     no_early_success_exit: bool = False
+    allow_early_completion: bool = False
+    completion_notify_enabled: bool = False
     heartbeat_interval_minutes: int | None = None
     continue_after_pr_limit: str | None = None
     continue_after_task_limit: str | None = None
@@ -375,6 +383,8 @@ def _load_profile(name: str, *, profile_path: Path | None = None) -> DevLoopProf
         stop_on_dirty_tree=bool(block.get("stop_on_dirty_tree", True)),
         min_runtime_minutes=int(min_runtime_raw) if min_runtime_raw is not None else None,
         no_early_success_exit=bool(block.get("no_early_success_exit", False)),
+        allow_early_completion=bool(block.get("allow_early_completion", False)),
+        completion_notify_enabled=bool(block.get("completion_notify_enabled", False)),
         heartbeat_interval_minutes=int(heartbeat_raw) if heartbeat_raw is not None else None,
         continue_after_pr_limit=str(continue_pr_raw).strip() if continue_pr_raw else None,
         continue_after_task_limit=str(continue_task_raw).strip() if continue_task_raw else None,
@@ -413,6 +423,19 @@ def apply_profile_longrun_defaults(
     return mr, ne, hb, cpr, ctk
 
 
+def apply_profile_completion_settings(
+    profile: DevLoopProfile | None,
+    *,
+    allow_early_completion: bool,
+    completion_notify_enabled: bool,
+) -> tuple[bool, bool]:
+    if profile is None:
+        return allow_early_completion, completion_notify_enabled
+    ae = allow_early_completion or profile.allow_early_completion
+    cn = completion_notify_enabled or profile.completion_notify_enabled
+    return ae, cn
+
+
 def longrun_profile_runtime_warnings(profile: DevLoopProfile | None) -> list[str]:
     if profile is None:
         return []
@@ -422,11 +445,13 @@ def longrun_profile_runtime_warnings(profile: DevLoopProfile | None) -> list[str
             f"profile {profile.name}: min_runtime_minutes ({profile.min_runtime_minutes}) "
             f"> max_runtime_minutes ({profile.max_runtime_minutes})"
         )
-    if profile.name.startswith("true_longrun_"):
+    if profile.name.startswith("true_longrun_") and not profile.allow_early_completion:
         if profile.min_runtime_minutes is None:
             warnings.append(f"profile {profile.name}: missing min_runtime_minutes")
         if not profile.no_early_success_exit:
             warnings.append(f"profile {profile.name}: no_early_success_exit should be true")
+    if profile.allow_early_completion and profile.min_runtime_minutes is None:
+        warnings.append(f"profile {profile.name}: allow_early_completion requires min_runtime_minutes")
     return warnings
 
 
@@ -1339,6 +1364,82 @@ def emit_longrun_heartbeat(
     writer(line)
 
 
+def _apply_longrun_early_completion(
+    result: DevLoopResult,
+    *,
+    reason: str,
+    start_mono: float,
+    min_runtime_minutes: int,
+    now_fn: Callable[[], float],
+    longrun_evidence: dict[str, Any],
+    finalize_evidence: Callable[[], None],
+    notification_state: dict[str, Any],
+    completion_notify_enabled: bool,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+) -> None:
+    remaining = max(
+        0.0,
+        float(min_runtime_minutes) - _elapsed_minutes_since(start_mono, now_fn),
+    )
+    longrun_evidence.update(
+        build_early_completion_meta(
+            reason=reason,
+            tasks_executed=result.tasks_executed,
+            prs_created=result.prs_created,
+            remaining_runtime_minutes=remaining,
+        )
+    )
+    result.status = "completed"
+    result.stop_reason = f"early_completion: {reason}"
+    result.longrun_state = "early_completion"
+    result.longrun_exit_success = True
+    longrun_evidence["longrun_state"] = "early_completion"
+    longrun_evidence["elapsed_minutes"] = round(_elapsed_minutes_since(start_mono, now_fn), 2)
+    finalize_evidence()
+    _maybe_emit_completion_notification(
+        result,
+        notification_state=notification_state,
+        completion_notify_enabled=completion_notify_enabled,
+        longrun_evidence=longrun_evidence,
+        subprocess_run=subprocess_run,
+    )
+
+
+def _maybe_emit_completion_notification(
+    result: DevLoopResult,
+    *,
+    notification_state: dict[str, Any],
+    completion_notify_enabled: bool,
+    longrun_evidence: dict[str, Any],
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None,
+    dev_loop_rc: int = 0,
+) -> None:
+    if not completion_notify_enabled or notification_state.get("sent"):
+        return
+    event = completion_event_from_result(
+        status=result.status,
+        stop_reason=result.stop_reason,
+        longrun_state=result.longrun_state,
+        longrun_exit_success=result.longrun_exit_success,
+        is_real_failure=_is_real_failure_stop(result),
+        dev_loop_rc=dev_loop_rc,
+    )
+    title = f"dev-loop {event}"
+    message = (
+        f"{result.run_id} {result.stop_reason or result.status} "
+        f"tasks={result.tasks_executed} prs={result.prs_created}"
+    )
+    status = emit_completion_notification(
+        event=event,
+        title=title,
+        message=message,
+        subprocess_run=subprocess_run,
+    )
+    notification_state["sent"] = True
+    notification_state["status"] = status
+    longrun_evidence["completion_notification"] = status
+
+
 def _run_longrun_post_phase(
     result: DevLoopResult,
     *,
@@ -1348,18 +1449,61 @@ def _run_longrun_post_phase(
     max_runtime_minutes: int,
     cap_reached_tasks: bool,
     cap_reached_prs: bool,
+    tasks_seen: int,
+    skipped_task_count: int,
+    failed_task_count: int,
+    max_task_failures: int | None,
+    continue_on_task_failure: bool,
+    allow_early_completion: bool,
     now_fn: Callable[[], float],
     sleep_fn: Callable[[float], None],
     finalize_evidence: Callable[[], None],
     longrun_evidence: dict[str, Any],
     heartbeat_emit_fn: Callable[[str], None] | None = None,
+    notification_state: dict[str, Any] | None = None,
+    completion_notify_enabled: bool = False,
+    subprocess_run: Callable[..., subprocess.CompletedProcess[str]] | None = None,
 ) -> None:
     deadline_mono = start_mono + float(max_runtime_minutes * 60)
     interval_secs = max(1.0, float(heartbeat_interval_minutes * 60))
+    notify_state = notification_state if notification_state is not None else {}
     longrun_evidence["min_runtime_minutes"] = min_runtime_minutes
     longrun_evidence["no_early_success_exit"] = True
+    longrun_evidence["allow_early_completion"] = allow_early_completion
     longrun_evidence["heartbeat_interval_minutes"] = heartbeat_interval_minutes
     longrun_evidence["cap_reached"] = {"tasks": cap_reached_tasks, "prs": cap_reached_prs}
+
+    if allow_early_completion:
+        early, reason = detect_early_completion(
+            status=result.status,
+            stop_reason=result.stop_reason,
+            safety_validator_status=result.safety_validator_status,
+            tasks_seen=tasks_seen,
+            tasks_executed=result.tasks_executed,
+            prs_created=result.prs_created,
+            task_results_count=len(result.task_results),
+            skipped_task_count=skipped_task_count,
+            cap_reached_tasks=cap_reached_tasks,
+            cap_reached_prs=cap_reached_prs,
+            failed_task_count=failed_task_count,
+            max_task_failures=max_task_failures,
+            continue_on_task_failure=continue_on_task_failure,
+            is_real_failure=_is_real_failure_stop(result),
+        )
+        if early:
+            _apply_longrun_early_completion(
+                result,
+                reason=reason,
+                start_mono=start_mono,
+                min_runtime_minutes=min_runtime_minutes,
+                now_fn=now_fn,
+                longrun_evidence=longrun_evidence,
+                finalize_evidence=finalize_evidence,
+                notification_state=notify_state,
+                completion_notify_enabled=completion_notify_enabled,
+                subprocess_run=subprocess_run,
+            )
+            return
 
     if cap_reached_tasks or cap_reached_prs:
         result.longrun_state = "cap_reached_waiting"
@@ -1403,6 +1547,13 @@ def _run_longrun_post_phase(
     longrun_evidence["longrun_state"] = "min_runtime_reached"
     longrun_evidence["elapsed_minutes"] = round(_elapsed_minutes_since(start_mono, now_fn), 2)
     finalize_evidence()
+    _maybe_emit_completion_notification(
+        result,
+        notification_state=notify_state,
+        completion_notify_enabled=completion_notify_enabled,
+        longrun_evidence=longrun_evidence,
+        subprocess_run=subprocess_run,
+    )
 
 
 def _check_forbidden_text(task: DevLoopTask) -> list[str]:
@@ -1442,6 +1593,8 @@ def run_dev_loop(
     sleep_fn: Callable[[float], None] | None = None,
     min_runtime_minutes: int | None = None,
     no_early_success_exit: bool = False,
+    allow_early_completion: bool = False,
+    completion_notify_enabled: bool = False,
     heartbeat_interval_minutes: int = 10,
     continue_after_pr_limit: str | None = None,
     continue_after_task_limit: str | None = None,
@@ -1502,6 +1655,11 @@ def run_dev_loop(
             continue_after_task_limit=continue_after_task_limit,
         )
     )
+    allow_early_completion, completion_notify_enabled = apply_profile_completion_settings(
+        profile,
+        allow_early_completion=allow_early_completion,
+        completion_notify_enabled=completion_notify_enabled,
+    )
     now = monotonic_fn or time.monotonic
     sleeper = sleep_fn or time.sleep
     started_at = _utc_now_iso()
@@ -1532,9 +1690,12 @@ def run_dev_loop(
         print(f"dev-loop warning: {effective_runtime_warnings[-1]}", flush=True)
     cap_reached_tasks = False
     cap_reached_prs = False
+    notification_state: dict[str, Any] = {"sent": False}
     longrun_evidence: dict[str, Any] = {
         "min_runtime_minutes": min_runtime_minutes,
         "no_early_success_exit": no_early_success_exit,
+        "allow_early_completion": allow_early_completion,
+        "completion_notify_enabled": completion_notify_enabled,
         "heartbeat_interval_minutes": heartbeat_interval_minutes,
         "continue_after_pr_limit": continue_pr,
         "continue_after_task_limit": continue_task,
@@ -1910,13 +2071,29 @@ def run_dev_loop(
                 max_runtime_minutes=effective_max_runtime,
                 cap_reached_tasks=cap_reached_tasks,
                 cap_reached_prs=cap_reached_prs,
+                tasks_seen=result.tasks_seen,
+                skipped_task_count=len(skipped_tasks),
+                failed_task_count=len(failed_tasks),
+                max_task_failures=max_task_failures,
+                continue_on_task_failure=continue_on_task_failure,
+                allow_early_completion=allow_early_completion,
                 now_fn=now,
                 sleep_fn=sleeper,
                 finalize_evidence=_finalize_evidence,
                 longrun_evidence=longrun_evidence,
                 heartbeat_emit_fn=heartbeat_emit_fn,
+                notification_state=notification_state,
+                completion_notify_enabled=completion_notify_enabled,
+                subprocess_run=subprocess_run,
             )
     finally:
+        _maybe_emit_completion_notification(
+            result,
+            notification_state=notification_state,
+            completion_notify_enabled=completion_notify_enabled,
+            longrun_evidence=longrun_evidence,
+            subprocess_run=subprocess_run,
+        )
         _finalize_evidence()
     return result
 
@@ -1977,4 +2154,4 @@ def _write_dev_loop_evidence(
         json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-# dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:54:17Z)
+
