@@ -2516,6 +2516,28 @@ def test_productive_12h_v2_script_flags() -> None:
 def test_productive_12h_v2_queue_exists() -> None:
     tasks = _load_queue(default_productive_12h_v2_task_queue_path())
     assert 28 <= len(tasks) <= 34
+
+
+def test_completion_notification_on_blocked_gate(tmp_path: Path) -> None:
+    notify_cmds: list[list[str]] = []
+
+    def subprocess_with_notify(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd and cmd[0] in {"afplay", "osascript"}:
+            notify_cmds.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return _git_clean(cmd, **kwargs)
+
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        execute_dev_loop=True,
+        subprocess_run=subprocess_with_notify,
+        completion_notify_enabled=True,
+    )
+    assert result.status == "blocked"
+    assert notify_cmds
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"]["completion_notification"]["event"] == "failure"
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:24:45Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:25:54Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:30:16Z)

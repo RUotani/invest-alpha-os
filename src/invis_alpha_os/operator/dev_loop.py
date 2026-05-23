@@ -1405,6 +1405,19 @@ def _apply_longrun_early_completion(
     )
 
 
+def _longrun_evidence_for_payload(
+    longrun_evidence: dict[str, Any],
+    *,
+    native_longrun: bool,
+    min_runtime_minutes: int | None,
+) -> dict[str, Any] | None:
+    if native_longrun or min_runtime_minutes:
+        return longrun_evidence
+    if longrun_evidence.get("completion_notification"):
+        return {"completion_notification": longrun_evidence["completion_notification"]}
+    return None
+
+
 def _maybe_emit_completion_notification(
     result: DevLoopResult,
     *,
@@ -1787,7 +1800,11 @@ def run_dev_loop(
             gate_missing=gate_missing if execute_dev_loop else [],
             effective_limits=evidence_limits,
             pr_create_gate_status=evidence_pr_gate,
-            longrun_meta=longrun_evidence if (native_longrun or min_runtime_minutes) else None,
+            longrun_meta=_longrun_evidence_for_payload(
+                longrun_evidence,
+                native_longrun=native_longrun,
+                min_runtime_minutes=min_runtime_minutes,
+            ),
             failure_policy=result.failure_policy,
             failed_tasks=failed_tasks,
             skipped_tasks=skipped_tasks,
@@ -1797,6 +1814,13 @@ def run_dev_loop(
     if execute_dev_loop and not gate_ok:
         result.status = "blocked"
         result.stop_reason = f"missing gate {DEV_LOOP_EXEC_ENV}=YES"
+        _maybe_emit_completion_notification(
+            result,
+            notification_state=notification_state,
+            completion_notify_enabled=completion_notify_enabled,
+            longrun_evidence=longrun_evidence,
+            subprocess_run=subprocess_run,
+        )
         _finalize_evidence()
         return result
 

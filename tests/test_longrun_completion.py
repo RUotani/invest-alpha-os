@@ -69,6 +69,30 @@ def test_build_early_completion_meta_fields() -> None:
     assert "operator_action_required" in meta
 
 
+def test_completion_event_from_result_failure_and_interrupted() -> None:
+    assert (
+        completion_event_from_result(
+            status="blocked",
+            stop_reason="missing gate",
+            longrun_state="",
+            longrun_exit_success=False,
+            is_real_failure=True,
+        )
+        == "failure"
+    )
+    assert (
+        completion_event_from_result(
+            status="stopped",
+            stop_reason="",
+            longrun_state="heartbeat_waiting",
+            longrun_exit_success=False,
+            is_real_failure=False,
+            dev_loop_rc=130,
+        )
+        == "interrupted"
+    )
+
+
 def test_completion_event_from_result_early() -> None:
     assert (
         completion_event_from_result(
