@@ -116,6 +116,46 @@ def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:
     assert payload["quality"]["signals_ok"] == 1
 
 
+def test_cli_weekly_with_peer_sync(mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.cli.main as cli_main
+
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "peer_map.yaml").write_text(
+        'peer_map:\n  MSFT:\n    - MSFT\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(cli_main, "CONFIG_DIR", cfg)
+    result = CliRunner().invoke(
+        app,
+        ["weekly-us-observation", "--dry-run", "--with-peer-sync", "--format", "json"],
+    )
+    assert result.exit_code == 0, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload.get("peer_sync") is not None
+    assert "pairs" in payload["peer_sync"]
+
+
+def test_weekly_cycle_include_peer_sync(
+    mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.config.paths as config_paths
+
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "peer_map.yaml").write_text(
+        'peer_map:\n  MSFT:\n    - MSFT\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_paths, "CONFIG_DIR", cfg)
+    result = run_weekly_us_observation_cycle(
+        path_base=mini_us_cache,
+        include_peer_sync=True,
+    )
+    assert result.peer_sync is not None
+    assert isinstance(result.peer_sync.get("pairs"), list)
+
+
 def test_us_cache_expansion_report_smoke(mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "invis_alpha_os.product.weekly_us_observation.load_us_watchlist_tickers",

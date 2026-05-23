@@ -45,5 +45,5 @@
 ## 次のアクション
 
 - [x] cache-only MVP + tests
-- [ ] weekly cycle opt-in section（別 PR）
+- [ ] weekly-us-observation auto-section（follow-up PR）
 - [ ] observation_log peer_sync note 形式（別 PR）

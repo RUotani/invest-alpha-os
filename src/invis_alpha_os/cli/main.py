@@ -414,6 +414,11 @@ def weekly_us_observation_command(
         "--with-daily-report",
         help="Also run daily with US opt-in sections (requires --manifest-out).",
     ),
+    with_peer_sync: bool = typer.Option(
+        False,
+        "--with-peer-sync",
+        help="Include cache-only peer_sync section from config/peer_map.yaml.",
+    ),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
     """P4: US cache-only weekly cycle — manifest, quality, optional observation_log + daily."""
@@ -437,6 +442,7 @@ def weekly_us_observation_command(
             manifest_out=out_path,
             write_observation_log=write_observation_log,
             observation_service=_obs_service() if write_observation_log else None,
+            include_peer_sync=with_peer_sync,
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
@@ -470,6 +476,7 @@ def weekly_us_observation_command(
         "batch_previews": result.batch_previews,
         "quality": result.quality,
         "observation_log": result.observation_log,
+        "peer_sync": result.peer_sync,
         "observation_only": True,
         "live_http": False,
     }

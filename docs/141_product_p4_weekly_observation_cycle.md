@@ -10,6 +10,7 @@
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation \
   --manifest-out outputs/signals/weekly_us_manifest.json \
   --write-observation-log \
+  --with-peer-sync \
   --with-daily-report \
   --format markdown
 ```
@@ -21,6 +22,7 @@ Steps performed:
 3. Signal quality snapshot (metrics + momentum + veto)
 4. Optional `observation_log` append
 5. Optional `daily` with US opt-in sections
+6. Optional `--with-peer-sync` peer divergence section (cache-only)
 
 Dry-run (no manifest file under `outputs/`):
 
