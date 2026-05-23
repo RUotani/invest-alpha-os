@@ -1,0 +1,157 @@
+version: ops_dev_queue.v1
+description: >
+  R7.0-Ops-I9 daytime 8h queue — G1 consolidation, G2 pytest exit 5, G3 terminal-safe scripts.
+  Use with PRODUCTIVE_QUEUE=.../autonomous_dev_queue_productive_8h_i9.yaml and true_longrun_8h.
+tasks:
+  - task_id: ops_i9_pytest_exit5_classification
+    pr_title: "R7.0-Ops-I9: pytest exit 5 failure category"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "classify pytest exit 5 as pytest_no_tests_collected"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k pytest_no_tests_collected"
+    change_file: "src/invis_alpha_os/operator/dev_loop.py"
+    commit_message: "R7.0-Ops-I9: pytest exit 5 failure category"
+    prepare_for_pr: true
+    allowed_paths:
+      - "src/invis_alpha_os/operator/"
+      - "tests/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_stacked_pr_list_helper
+    pr_title: "R7.0-Ops-I9: stacked PR list helper"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "read-only stacked PR listing for consolidation"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k stacked_pr_list"
+    change_file: "scripts/list_productive_stacked_prs.sh"
+    commit_message: "R7.0-Ops-I9: stacked PR list helper"
+    prepare_for_pr: true
+    allowed_paths:
+      - "scripts/"
+      - "tests/"
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_terminal_safe_8h_runner
+    pr_title: "R7.0-Ops-I9: terminal-safe productive 8h runner"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "STOP/final-summary pattern in 8h runner script"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k terminal_safe_8h"
+    change_file: "scripts/run_productive_true_longrun_8h.sh"
+    commit_message: "R7.0-Ops-I9: terminal-safe 8h runner"
+    prepare_for_pr: true
+    allowed_paths:
+      - "scripts/"
+      - "tests/"
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_consolidation_runbook
+    pr_title: "R7.0-Ops-I9: consolidation runbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "when to consolidate vs merge stacked PRs"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/129_r7_0_ops_i9_daytime_8h_prep.md"
+    commit_message: "R7.0-Ops-I9: consolidation runbook"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - "scripts/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_post_run_review_tests
+    pr_title: "R7.0-Ops-I9: post-run review pytest exit 5 row"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "post-run review shows pytest_no_tests_collected"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "tests/test_operator_post_run_review.py"
+    commit_message: "R7.0-Ops-I9: post-run review exit 5 row"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "src/invis_alpha_os/operator/"
+    forbidden_paths:
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_i10_night_pack_skeleton
+    pr_title: "R7.0-Ops-I9: I10 night 12h longpack skeleton"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "draft next night 12h v2 longpack skeleton"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: ".agent/r7_0_ops_i10_night_12h_v2_longpack.md"
+    commit_message: "R7.0-Ops-I9: I10 night longpack skeleton"
+    prepare_for_pr: true
+    allowed_paths:
+      - ".agent/"
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - "scripts/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_productive_8h_queue_env
+    pr_title: "R7.0-Ops-I9: productive 8h queue env override docs"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "document PRODUCTIVE_QUEUE env for I9 daytime run"
+    risk_level: "low"
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive_8h_queue_env"
+    change_file: "docs/118_ops_i_productive_8h_queue.md"
+    commit_message: "R7.0-Ops-I9: productive queue env override docs"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+      - "src/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"
+
+  - task_id: ops_i9_superseded_exit5_docs
+    pr_title: "R7.0-Ops-I9: superseded exit 5 task docs"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "document pytest -k zero-match supersede policy"
+    risk_level: "low"
+    pytest_cmd: "git diff --check"
+    change_file: "docs/122_r7_0_ops_i5_repair_productive_queue_failures.md"
+    commit_message: "R7.0-Ops-I9: superseded exit 5 docs"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+      - "src/"
+      - "scripts/"
+      - ".github/workflows/"
+      - "Makefile"
+      - "pyproject.toml"
+      - "outputs/"

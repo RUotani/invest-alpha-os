@@ -1163,9 +1163,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I7E — eliminate runtime fixture marker（進行中）
+## R7.0-Ops-I7E — eliminate runtime fixture marker（完了）
 
 **内容**: `docs/ops_dev_loop_test_marker.md` quarantine、テストを tmp repo に隔離、productive allowed_paths 外 dirty 拒否。詳細 **[docs/128](./128_r7_0_ops_i7e_eliminate_runtime_fixture_marker.md)**。
+
+---
+
+## R7.0-Ops-I9 — daytime 8h productive（進行中）
+
+**内容**: G1 stacked PR helper、G2 pytest exit 5 category、G3 terminal-safe 8h runner、I9 queue、I10 night skeleton。詳細 **[docs/129](./129_r7_0_ops_i9_daytime_8h_prep.md)**。
 
 ---
 

@@ -980,6 +980,11 @@ def normalize_failure_category(reason_code: str, *, raw_reason: str = "") -> str
     if reason_code in {"pr_preflight_failed", "pr_create_failed"}:
         return "pr_create_failed"
     if reason_code == "pytest_failed":
+        probe = f"{raw_reason} {reason_code}".lower()
+        if "pytest exit 5" in probe or (
+            "exit 5" in probe and "pytest" in probe
+        ):
+            return "pytest_no_tests_collected"
         return "pytest_failed"
     if reason_code == "ci_failed" or "ci" in raw_reason.lower():
         return "ci_failed"
@@ -1875,7 +1880,7 @@ def run_dev_loop(
                 if not _handle_recoverable_task_failure(
                     result,
                     task=task,
-                    raw_reason=loop_res.status,
+                    raw_reason=loop_res.stop_reason or loop_res.status,
                     reason_code=reason_code,
                     failed_tasks=failed_tasks,
                     continue_on_task_failure=continue_on_task_failure,
@@ -1972,3 +1977,4 @@ def _write_dev_loop_evidence(
         json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+# dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:54:17Z)

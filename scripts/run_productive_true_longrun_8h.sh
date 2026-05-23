@@ -9,7 +9,7 @@ export PATH="${REPO_ROOT}/.venv/bin:${PATH}"
 PYTHON="${PYTHON:-${REPO_ROOT}/.venv/bin/python}"
 export PYTHON
 
-PRODUCTIVE_QUEUE="config/tasks/autonomous_dev_queue_productive_8h.yaml"
+PRODUCTIVE_QUEUE="${PRODUCTIVE_QUEUE:-config/tasks/autonomous_dev_queue_productive_8h.yaml}"
 PROFILE_FILE="config/operator_dev_loop_profiles.yaml"
 PRODUCTIVE_LABEL="PRODUCTIVE-LONGRUN-8H"
 MIN_RUNTIME_MINUTES=480
@@ -18,7 +18,7 @@ MAX_PRS=10
 preflight_fail() {
   echo "${PRODUCTIVE_LABEL} PREFLIGHT FAILED: $1" >&2
   echo "next action: $2" >&2
-  exit 1
+  exit 2
 }
 
 notify_optional() {
@@ -99,6 +99,7 @@ DEV_LOOP_CMD=(
   --stop-on-dirty-tree
 )
 
+STOP=0
 set +e
 if command -v caffeinate >/dev/null 2>&1; then
   caffeinate -dimsu "${DEV_LOOP_CMD[@]}" 2>&1 | tee -a "${LOG_FILE}"
@@ -108,6 +109,9 @@ else
 fi
 dev_loop_rc=${PIPESTATUS[0]}
 set -e
+if [[ "${dev_loop_rc}" -ne 0 ]]; then
+  STOP=1
+fi
 
 latest_evidence="$(ls -td "${REPO_ROOT}"/outputs/operator/dev_loop/*/evidence_summary.json 2>/dev/null | head -1 || true)"
 stop_reason=""
@@ -121,7 +125,7 @@ if [[ -n "${latest_evidence}" && -f "${latest_evidence}" ]]; then
     "${latest_evidence}" "${dev_loop_rc}" "${MIN_RUNTIME_MINUTES}" "${MAX_PRS}" 2>/dev/null || true)"
 fi
 
-if [[ "${dev_loop_rc}" -ne 0 ]]; then
+if [[ "${STOP}" -ne 0 ]]; then
   if [[ "${classify_outcome}" == "interrupted_after_productive_cap" ]]; then
     fail_banner="${PRODUCTIVE_LABEL} INTERRUPTED_AFTER_PRODUCTIVE_CAP: dev_loop_rc=${dev_loop_rc}"
   elif [[ "${stop_reason}" == max_task_failures* || "${stop_reason}" == max_same_failure_category* ]]; then
@@ -143,7 +147,6 @@ if [[ "${dev_loop_rc}" -ne 0 ]]; then
     echo "next action: inspect log and evidence; fix pytest/path/gates; do not assume 8h success"
   } | tee -a "${LOG_FILE}" >&2
   notify_optional "productive-longrun-8h" "FAILED rc=${dev_loop_rc}"
-  exit "${dev_loop_rc}"
 fi
 
 failed_count=0
@@ -177,5 +180,7 @@ if command -v gh >/dev/null 2>&1; then
   gh pr list --state open --limit 10 2>&1 | tee -a "${LOG_FILE}" || true
 fi
 
-notify_optional "productive-longrun-8h" "SUCCEEDED ${stop_reason:-completed}"
-exit 0
+if [[ "${STOP}" -eq 0 ]]; then
+  notify_optional "productive-longrun-8h" "SUCCEEDED ${stop_reason:-completed}"
+fi
+exit "${dev_loop_rc}"
