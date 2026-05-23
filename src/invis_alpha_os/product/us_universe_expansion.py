@@ -166,6 +166,10 @@ def format_us_universe_expansion_markdown(report: dict[str, Any]) -> str:
         f"- parse ok: {len(report.get('parse_ok_symbols') or [])}",
         f"- tier-1 missing: {len(report.get('tier_1_missing_refresh_order') or [])}",
         "",
+        "## Tier-1 gated refresh readiness (read-only)",
+        "- Live HTTP and cache write require explicit operator approval.",
+        "- This report does not refresh cache files.",
+        "",
         "## Tier-1 missing (gated refresh dry-run order)",
     ]
     for sym in report.get("tier_1_missing_refresh_order") or []:

@@ -6,16 +6,16 @@
 週次で人間が更新するか、AIが更新案を作成し、ユーザー承認後にコミットする。
 
 ## 3行サマリー
-- `origin/main` は `9ea1f93`、open PR は 0、SSoT Phase 1 まで main 反映済み。
-- US cache-only signals、forward-return validation v2、weekly/daily observation summary は observation-only で稼働可能。
-- 次の優先課題は observation_log 蓄積、veto-at-t structured observation、US 30+ tier-1 gated refresh準備。
+- `origin/main` は `b86855e`（#214 RULES + SSoT）、open PR は 0。
+- US cache-only signals、forward validation v2、observation summary は稼働。P9/P11 で sample-quality 導線と veto-at-t note join を追加。
+- 次の優先課題は observation_log 実蓄積（usable化）、US 30+ tier-1 gated refresh（別承認）、peer_sync 棚卸し。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 65% | US cache-only signals と forward validation v2 は稼働。peer_sync / veto-at-t join は未完成。 |
-| risk/ | 45% | veto snapshot は週次qualityで扱えるが、observation_logへの構造化保存とvalidation joinは未完成。 |
+| signals/ | 68% | US cache-only + forward validation usability（sample_quality/next_commands）。peer_sync 未完成。 |
+| risk/ | 52% | veto-at-t を observation note に保存可能。forward validation `by_veto_status` join。 |
 | portfolio/ | [要確認]% | position sizing / allocation接続は未完成。現状はobservation-only。 |
 | data ingest | 60% | US16は稼働、US30+はconfig/readinessあり。tier-1 missing refreshは別承認。 |
 | reports/ui | 35% | weekly/daily report usefulnessは改善済み。dashboard/運用UIは未完成。 |
@@ -23,9 +23,9 @@
 
 ## §2. 投資ロジック稼働までの残作業
 
-- [ ] observation_logを週次運用で蓄積し、forward validationのsample_qualityをusableへ近づける。
-- [ ] veto-at-tをobservation_logに構造化保存し、forward validationとjoinできるようにする。
-- [ ] US 30+ tier-1 missing symbolsのgated refresh手順とevidenceを整える。
+- [ ] observation_logを週次運用で蓄積し、forward validationのsample_qualityをusableへ近づける（導線は整備済み）。
+- [x] veto-at-tをobservation_log noteに構造化保存し、forward validationとjoin（legacy行は not_in_observation_log）。
+- [ ] US 30+ tier-1 missing symbolsのgated refresh手順とevidenceを整える（read-only report 整備済み）。
 - [ ] peer_sync系シグナル検出の現状を確認し、未実装なら実装計画を作る。
 - [ ] portfolio / position sizing接続方針をobservation-only前提で設計する。
 
@@ -40,8 +40,8 @@
 
 ```text
 repo: RUotani/invest-alpha-os
-latest confirmed origin/main: 9ea1f93
-latest merged PR: #213 docs: add SSoT phase1 agent guidance files
+latest confirmed origin/main: b86855e
+latest merged PR: #214 docs: add RULES.md and refresh SSoT state
 open PRs: 0
 ```
 
@@ -58,15 +58,14 @@ open PRs: 0
 - Terminal-first supervised run用のrepo内実行パッケージを標準化する必要がある。
 - US 30+ tier-1 refreshはlive HTTP/cache writeを伴うため、明示承認なしに実行不可。
 - observation_logが薄い間は、forward validationの統計的有用性が限定的。
-- veto-at-tは現状structured observationとして未接続。
+- 旧 observation_log 行は veto フィールドなし（後方互換で join 不可）。
 
 ## §7. 次の推奨作業
 
-1. P9: observation_log実蓄積とforward validation usable化
-2. P10: tier-1 missing cache refresh readinessのread-only整備
-3. P11: veto-at-t structured observation設計/実装
-4. peer_sync現状棚卸し
-5. portfolio接続設計
+1. P9: observation_log実蓄積（weekly --write-observation-log 運用）
+2. P10: tier-1 gated cache refresh（明示承認後・operator）
+3. peer_sync現状棚卸し
+4. portfolio接続設計
 
 ## §8. このファイルへの追加履歴
 
