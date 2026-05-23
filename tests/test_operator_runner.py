@@ -128,3 +128,5 @@ def test_forbidden_output_in_stdout_stops(tmp_path: Path) -> None:
     policy = load_operator_runner_policy(CONFIG_DIR / "operator_runner_policy.yaml")
     with pytest.raises(RunnerStop, match="forbidden output term"):
         _check_stdout_policy("please buy now", policy, step_id="x")
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:31:25Z)
+# dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:41:28Z)
