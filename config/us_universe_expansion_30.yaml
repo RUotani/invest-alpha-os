@@ -1,0 +1,166 @@
+schema_version: 1
+universe_name: us_expansion_30
+description: >
+  Observation-only US universe expansion (30–40 symbols). Not investment advice.
+  Aligns with AI compute, hyperscaler, power/grid, cooling, cyber, and market baselines.
+
+targets:
+  # --- Current watchlist core (tier 1) ---
+  - symbol: MSFT
+    tier: "1"
+    theme: hyperscaler_ai
+    reason: core watchlist; AI platform observation
+  - symbol: NVDA
+    tier: "1"
+    theme: ai_compute
+    reason: core watchlist; AI compute leader
+  - symbol: AAPL
+    tier: "1"
+    theme: mega_cap_tech
+    reason: core watchlist; platform ecosystem
+  - symbol: AMZN
+    tier: "1"
+    theme: hyperscaler_ai
+    reason: core watchlist; cloud + AI capex
+  - symbol: GOOGL
+    tier: "1"
+    theme: hyperscaler_ai
+    reason: core watchlist; search + AI stack
+  - symbol: META
+    tier: "1"
+    theme: hyperscaler_ai
+    reason: core watchlist; AI infra spend
+  - symbol: TSLA
+    tier: "2"
+    theme: mega_cap_tech
+    reason: core watchlist; high-beta liquidity
+
+  # --- AI compute / semis ---
+  - symbol: AMD
+    tier: "1"
+    theme: ai_compute
+    reason: GPU/CPU competition vs NVDA
+  - symbol: AVGO
+    tier: "2"
+    theme: ai_compute
+    reason: custom silicon / networking exposure
+  - symbol: TSM
+    tier: "2"
+    theme: ai_compute
+    reason: foundry capacity bottleneck signal
+  - symbol: ASML
+    tier: "2"
+    theme: ai_compute
+    reason: lithography equipment constraint
+  - symbol: ARM
+    tier: "3"
+    theme: ai_compute
+    reason: mobile/edge AI IP observation
+
+  # --- Hyperscaler / enterprise software ---
+  - symbol: ORCL
+    tier: "2"
+    theme: hyperscaler_ai
+    reason: enterprise cloud + AI workload
+
+  # --- Power / grid / electrification ---
+  - symbol: ETN
+    tier: "2"
+    theme: power_grid
+    reason: electrical equipment / grid modernization
+  - symbol: GE
+    tier: "3"
+    theme: power_grid
+    reason: power generation / industrial rotation
+  - symbol: VRT
+    tier: "2"
+    theme: power_grid
+    reason: data-center power / thermal infrastructure
+  - symbol: PWR
+    tier: "3"
+    theme: power_grid
+    reason: utility infrastructure construction
+  - symbol: CEG
+    tier: "3"
+    theme: power_grid
+    reason: nuclear / baseload power supply theme
+  - symbol: NEE
+    tier: "3"
+    theme: power_grid
+    reason: regulated utility / renewables mix
+
+  # --- Cooling / industrial ---
+  - symbol: TT
+    tier: "3"
+    theme: cooling_industrial
+    reason: HVAC / climate systems for facilities
+  - symbol: CARR
+    tier: "3"
+    theme: cooling_industrial
+    reason: building climate / cooling products
+  - symbol: JCI
+    tier: "3"
+    theme: cooling_industrial
+    reason: building controls / efficiency
+  - symbol: HON
+    tier: "3"
+    theme: cooling_industrial
+    reason: industrial automation / controls
+
+  # --- Cyber / software quality ---
+  - symbol: CRWD
+    tier: "2"
+    theme: cyber_software
+    reason: endpoint security quality signal
+  - symbol: PANW
+    tier: "2"
+    theme: cyber_software
+    reason: network security platform
+  - symbol: NOW
+    tier: "3"
+    theme: cyber_software
+    reason: enterprise workflow platform
+  - symbol: PLTR
+    tier: "3"
+    theme: cyber_software
+    reason: AI/analytics platform liquidity
+
+  # --- Market baselines / ETFs (watchlist overlap) ---
+  - symbol: SPY
+    tier: "1"
+    theme: market_baseline
+    reason: US large-cap benchmark
+  - symbol: QQQ
+    tier: "1"
+    theme: market_baseline
+    reason: growth/tech benchmark
+  - symbol: GLDM
+    tier: "2"
+    theme: market_baseline
+    reason: gold proxy / macro hedge observation
+  - symbol: SLV
+    tier: "3"
+    theme: market_baseline
+    reason: silver / industrial metals proxy
+  - symbol: TLT
+    tier: "3"
+    theme: market_baseline
+    reason: duration / rates sensitivity
+  - symbol: TMF
+    tier: "3"
+    theme: market_baseline
+    reason: leveraged duration observation (volatile)
+
+  # --- Crypto proxy (watchlist) ---
+  - symbol: MSTR
+    tier: "3"
+    theme: crypto_proxy
+    reason: BTC proxy equity observation
+  - symbol: COIN
+    tier: "3"
+    theme: crypto_proxy
+    reason: crypto exchange liquidity
+  - symbol: MARA
+    tier: "3"
+    theme: crypto_proxy
+    reason: mining / high-beta crypto beta

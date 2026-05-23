@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -72,6 +73,14 @@ from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.observation.us_signals_batch import (
     log_us_signals_batch_observations,
     observation_batch_failed,
+)
+from invis_alpha_os.product.us_forward_return_validation import (
+    compute_us_forward_returns,
+    format_us_forward_return_markdown,
+)
+from invis_alpha_os.product.us_universe_expansion import (
+    build_us_universe_expansion_report,
+    format_us_universe_expansion_markdown,
 )
 from invis_alpha_os.product.weekly_us_observation import (
     format_weekly_us_observation_markdown,
@@ -150,11 +159,13 @@ from invis_alpha_os.utils.date_utils import today_jst_iso
 app = typer.Typer(help="Laputa Alpha OS CLI (Phase 0-v1.1)")
 snapshot_app = typer.Typer(help="Snapshot commands")
 log_app = typer.Typer(help="Log commands")
+validate_app = typer.Typer(help="Cache-only validation (observation only)")
 debug_app = typer.Typer(help="Debug commands")
 operator_runner_app = typer.Typer(help="Policy-gated local operator runner (dry-run default)")
 
 app.add_typer(snapshot_app, name="snapshot")
 app.add_typer(log_app, name="log")
+app.add_typer(validate_app, name="validate")
 app.add_typer(debug_app, name="debug")
 app.add_typer(operator_runner_app, name="operator-runner")
 
@@ -447,6 +458,98 @@ def weekly_us_observation_command(
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         typer.echo(format_weekly_us_observation_markdown(result))
+
+
+@validate_app.command("us-forward-returns")
+def validate_us_forward_returns_command(
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Path to observation_log.jsonl (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    cache_dir: Optional[str] = typer.Option(
+        None,
+        "--cache-dir",
+        help="US daily bars cache directory (default: outputs/market_data/us_daily_bars).",
+    ),
+    horizons: Optional[str] = typer.Option(
+        "5,20,60",
+        "--horizons",
+        help="Comma-separated session horizons (default: 5,20,60).",
+    ),
+    reference_date: Optional[str] = typer.Option(
+        None,
+        "--reference-date",
+        help="Optional ISO date; skip observations after this date.",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P5: cache-only forward returns from US observation_log rows (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    obs_path = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    cache_path = (
+        Path(cache_dir) if cache_dir else OUTPUTS_DIR / "market_data" / "us_daily_bars"
+    )
+    try:
+        hz = tuple(int(x.strip()) for x in horizons.split(",") if x.strip())
+    except ValueError as exc:
+        typer.echo("validate us-forward-returns: invalid --horizons", err=True)
+        raise typer.Exit(2) from exc
+    if not hz:
+        typer.echo("validate us-forward-returns: --horizons must not be empty", err=True)
+        raise typer.Exit(2)
+    ref: date | None = None
+    if reference_date:
+        try:
+            ref = date.fromisoformat(reference_date.strip()[:10])
+        except ValueError as exc:
+            typer.echo("validate us-forward-returns: invalid --reference-date", err=True)
+            raise typer.Exit(2) from exc
+    try:
+        report = compute_us_forward_returns(
+            observation_path=obs_path,
+            cache_dir=cache_path,
+            horizons=hz,
+            reference_date=ref,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_us_forward_return_markdown(report))
+
+
+@app.command("us-universe-expansion-plan")
+def us_universe_expansion_plan_command(
+    config: Optional[str] = typer.Option(
+        None,
+        "--config",
+        help="Expansion YAML (default: config/us_universe_expansion_30.yaml).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """P6: read-only US 30+ expansion plan vs on-disk cache (no HTTP)."""
+
+    fmt_norm = fmt.strip().lower()
+    try:
+        report = build_us_universe_expansion_report(
+            path_base=ROOT_DIR,
+            config_path=Path(config) if config else None,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_us_universe_expansion_markdown(report))
 
 
 @app.command("us-cache-expansion-report")

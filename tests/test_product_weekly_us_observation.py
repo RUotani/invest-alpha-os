@@ -103,6 +103,8 @@ def test_weekly_cycle_and_observation_log(mini_us_cache: Path) -> None:
     summary = summarize_us_observation_log(svc.observation_path)
     assert summary["us_signal_rows"] == 1
     assert summary["rows"][0]["symbol"] == "MSFT"
+    assert "research_checklist" in summary
+    assert isinstance(summary["research_checklist"], list)
     assert "not buy/sell advice" in svc.observation_path.read_text(encoding="utf-8")
 
 

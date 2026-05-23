@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -95,21 +97,72 @@ def summarize_us_observation_log(observation_path: Path) -> dict[str, Any]:
                 "status": parsed.get("status", "unknown"),
                 "momentum_label": parsed.get("momentum_label"),
                 "reason": parsed.get("reason"),
+                "note": note,
             }
         )
     by_status: dict[str, int] = {}
+    sym_counts: Counter[str] = Counter()
+    today = date.today()
+    aging_days: list[int] = []
     for r in rows:
         st = str(r.get("status") or "unknown")
         by_status[st] = by_status.get(st, 0) + 1
+        sym = r.get("symbol")
+        if sym:
+            sym_counts[str(sym)] += 1
+        created = r.get("created_at")
+        if created:
+            if isinstance(created, datetime):
+                d0 = created.date()
+            elif isinstance(created, date):
+                d0 = created
+            else:
+                try:
+                    d0 = date.fromisoformat(str(created)[:10])
+                except ValueError:
+                    d0 = None
+            if d0 is not None:
+                aging_days.append(max(0, (today - d0).days))
+    repeat_symbols = sorted([s for s, n in sym_counts.items() if n > 1])
     return {
         "status": "ok",
         "path": str(observation_path),
         "us_signal_rows": len(rows),
         "by_status": by_status,
         "symbols": sorted({str(r["symbol"]) for r in rows if r.get("symbol")}),
+        "repeat_signal_symbols": repeat_symbols,
+        "repeat_signal_count": sum(n - 1 for n in sym_counts.values() if n > 1),
+        "signal_aging_days_max": max(aging_days) if aging_days else None,
+        "signal_aging_days_avg": (sum(aging_days) / len(aging_days)) if aging_days else None,
         "rows": rows,
         "observation_only": True,
+        "research_checklist": _build_research_checklist(rows, by_status, repeat_symbols),
     }
+
+
+def _build_research_checklist(
+    rows: list[dict[str, Any]],
+    by_status: dict[str, int],
+    repeat_symbols: list[str],
+) -> list[str]:
+    """Observation-only next-research items (no buy/sell wording)."""
+
+    items: list[str] = []
+    stale = int(by_status.get("stale", 0) or 0)
+    insufficient = int(by_status.get("insufficient", 0) or 0)
+    if stale:
+        items.append(f"review {stale} symbol(s) with stale cache signal status")
+    if insufficient:
+        items.append(f"review {insufficient} symbol(s) with insufficient bars for signals")
+    if repeat_symbols:
+        items.append(
+            "review repeat US signal observations: " + ", ".join(repeat_symbols[:8])
+        )
+    if not rows:
+        items.append("append US signals via weekly-us-observation --write-observation-log")
+    if not items:
+        items.append("no urgent cache gaps in observation_log summary")
+    return items
 
 
 def us_signal_quality_snapshot(*, path_base: Path | None = None) -> dict[str, Any]:
@@ -298,7 +351,14 @@ def format_weekly_us_observation_markdown(result: WeeklyUsObservationResult) -> 
                 "## Observation log",
                 f"- us_signal_rows: {o.get('us_signal_rows')}",
                 f"- by_status: {o.get('by_status')}",
+                f"- signal aging (days, avg): {o.get('signal_aging_days_avg')}",
+                f"- repeat signal symbols: {', '.join(o.get('repeat_signal_symbols') or []) or '(none)'}",
             ]
         )
+        checklist = o.get("research_checklist") or []
+        if checklist:
+            lines.extend(["", "## Next research checklist (observe only)"])
+            for item in checklist:
+                lines.append(f"- {item}")
     lines.append("")
     return "\n".join(lines)
