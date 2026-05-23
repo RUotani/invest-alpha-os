@@ -1221,6 +1221,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## Product P2 — MSFT / AAPL cache refresh（完了 · operator · evidence docs）
+
+**結果**: MSFT（fixture import · no HTTP）/ AAPL（gated Stooq live write）refresh 後 **16/16** US cache-only signals + momentum parse。**証拠**: **[docs/139](./139_product_p2_msft_aapl_evidence_pack.md)** · runbook **[docs/138](./138_product_p2_msft_aapl_cache_refresh.md)**。cache JSON / operator logs は git 外（`outputs/`）。
+
+---
+
 ## R7.0-B3R — JP Core50 cache retry diagnostics（完了 · 部分 ingest 成功 · docs-only）
 
 **結果**: 日付範囲短縮 + バッチ≤3 で **10 銘柄** cache 追加 · Core50 **9→19/50**。詳細 **[docs/87](./87_r7_0_b3r_jp_core50_cache_retry_diagnostics.md)**。残り 31 銘柄は追加 B3R バッチ待ち。
