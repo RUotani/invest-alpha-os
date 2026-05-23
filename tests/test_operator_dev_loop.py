@@ -11,6 +11,7 @@ import pytest
 
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.operator.dev_loop import (
+    normalize_failure_category,
     DevLoopProfile,
     _check_scope,
     _has_forbidden_dirty_paths,
@@ -2045,6 +2046,43 @@ def test_pytest_failure_diagnostics_recorded(tmp_path: Path, monkeypatch) -> Non
     assert diag["pytest_exit_code"] == 5
     assert diag["pytest_cmd"] == "pytest -q"
     assert "no tests ran" in diag["output_tail"]
+
+
+def test_pytest_no_tests_collected_category() -> None:
+    assert (
+        normalize_failure_category("pytest_failed", raw_reason="pytest exit 5")
+        == "pytest_no_tests_collected"
+    )
+    assert (
+        normalize_failure_category("pytest_failed", raw_reason="task_failed: t1 (pytest exit 5)")
+        == "pytest_no_tests_collected"
+    )
+    assert normalize_failure_category("pytest_failed", raw_reason="pytest exit 1") == "pytest_failed"
+
+
+def test_stacked_pr_list_helper_script() -> None:
+    path = ROOT_DIR / "scripts/list_productive_stacked_prs.sh"
+    assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "gh pr list" in text
+    assert "consolidat" in text
+    assert "exit 2" in text
+    assert "STOP=0" in text or "STOP=" in text
+
+
+def test_terminal_safe_8h_runner_script() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert "preflight_fail" in text
+    assert "exit 2" in text
+    assert "STOP=0" in text
+    assert 'PRODUCTIVE_QUEUE="${PRODUCTIVE_QUEUE:-' in text
+    assert "exit 1" not in text.split("preflight_fail")[0]
+
+
+def test_productive_8h_queue_env_override_in_script() -> None:
+    text = (ROOT_DIR / "scripts/run_productive_true_longrun_8h.sh").read_text(encoding="utf-8")
+    assert 'PRODUCTIVE_QUEUE="${PRODUCTIVE_QUEUE:-' in text
+    assert "autonomous_dev_queue_productive_8h.yaml" in text
 
 
 def test_productive_prepare_violations_missing_change_file(tmp_path: Path) -> None:

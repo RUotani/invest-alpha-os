@@ -132,6 +132,10 @@ productive は明示 `change_file` 必須。`docs/smoke.md` は実行前 quarant
 
 `docs/ops_dev_loop_test_marker.md` quarantine。テスト marker は tmp repo のみ。詳細 **[docs/128](./128_r7_0_ops_i7e_eliminate_runtime_fixture_marker.md)**。
 
+## 21. Ops-I9 daytime 8h
+
+`PRODUCTIVE_QUEUE=config/tasks/autonomous_dev_queue_productive_8h_i9.yaml` · `bash scripts/run_productive_true_longrun_8h.sh` · 12h ではない。詳細 **[docs/129](./129_r7_0_ops_i9_daytime_8h_prep.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)
