@@ -125,6 +125,11 @@ from invis_alpha_os.operator.dev_loop import (
     dev_loop_should_exit_nonzero,
     run_dev_loop,
 )
+from invis_alpha_os.operator.operator_autopilot import (
+    collect_autopilot_status,
+    format_autopilot_status_json,
+    format_autopilot_status_markdown,
+)
 from invis_alpha_os.operator.post_run_integrate import format_integrate_markdown, run_post_run_integrate
 from invis_alpha_os.operator.post_run_review import build_post_run_review_markdown
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
@@ -984,6 +989,38 @@ def operator_runner_post_run_integrate(
     typer.echo(format_integrate_markdown(result))
     if result.errors:
         raise typer.Exit(1)
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("autopilot-status")
+def operator_runner_autopilot_status(
+    run_id: Optional[str] = typer.Option(
+        None,
+        "--run-id",
+        help="Latest productive dev-loop run id (default: newest evidence).",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Output format: markdown or json.",
+    ),
+    no_fetch: bool = typer.Option(
+        False,
+        "--no-fetch",
+        help="Skip git fetch origin main (offline / faster).",
+    ),
+) -> None:
+    """Read-only repo/CI/PR/longrun snapshot for Cursor Agent (no merge, no push)."""
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in {"markdown", "json"}:
+        typer.echo("operator-runner autopilot-status: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    result = collect_autopilot_status(run_id=run_id, fetch_main=not no_fetch)
+    if fmt_norm == "json":
+        typer.echo(format_autopilot_status_json(result))
+    else:
+        typer.echo(format_autopilot_status_markdown(result))
     raise typer.Exit(0)
 
 
