@@ -52,3 +52,4 @@ Evidence: `outputs/operator/productive_true_longrun_8h/<RUN_ID>/run.log`
 - Exit **5** = no tests collected → category **`pytest_no_tests_collected`**
 - Prefer file-level `pytest_cmd` or stable test names over brittle `-k` in productive queues
 - Superseded: `ops_i_profile_runtime_warning` (see `productive_8h_superseded_tasks.yaml`)
+- dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:57:41Z)

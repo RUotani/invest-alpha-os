@@ -39,3 +39,4 @@ if [[ "${STOP}" -ne 0 ]]; then
   exit 2
 fi
 exit 0
+- dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:55:24Z)

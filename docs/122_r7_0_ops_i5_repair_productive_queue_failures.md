@@ -35,3 +35,4 @@ Run `20260521T142301Z` は skip 成功後、同一カテゴリ `pytest_failed` �
 - 旧 4 task は queue から削除 + superseded で二重ガード
 - 同一 `pytest_failed` 連発は減る想定（診断行で原因特定が容易）
 - I4 の budget 8 / category 4 / skip は変更なし
+- dev-loop smoke marker: 20260523T035415Z (2026-05-23T04:02:12Z)
