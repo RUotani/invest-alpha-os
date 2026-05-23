@@ -6,7 +6,7 @@
 
 ## Config
 
-[`config/us_universe_expansion_30.yaml`](../config/us_universe_expansion_30.yaml) — ~38 observation targets with `tier`, `theme`, `reason`.
+[`config/us_universe_expansion_30.yaml`](../config/us_universe_expansion_30.yaml) — **36** observation targets with `tier`, `theme`, `reason`.
 
 ## CLI
 

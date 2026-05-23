@@ -77,7 +77,9 @@ from invis_alpha_os.observation.us_signals_batch import (
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
+    parse_positive_horizons,
 )
+from invis_alpha_os.reports.us_observation_summary import render_us_observation_summary_markdown
 from invis_alpha_os.product.us_universe_expansion import (
     build_us_universe_expansion_report,
     format_us_universe_expansion_markdown,
@@ -289,6 +291,11 @@ def daily(
         "--write-observation-log",
         help="Append US signals batch rows to observation_log.jsonl (requires --us-signals-dry-run-manifest).",
     ),
+    us_observation_summary: bool = typer.Option(
+        False,
+        "--us-observation-summary",
+        help="Append US observation usefulness summary (cache-only; default off).",
+    ),
 ) -> None:
     today = today_jst_iso()
     out = OUTPUTS_DIR / "reports" / "daily" / f"{today}.md"
@@ -369,6 +376,8 @@ def daily(
         raise typer.Exit(2)
     if us_cache_preview:
         report_body = append_us_cache_preview_section(report_body)
+    if us_observation_summary:
+        report_body = report_body.rstrip() + "\n\n" + render_us_observation_summary_markdown(path_base=ROOT_DIR)
     out.write_text(report_body, encoding="utf-8")
     typer.echo(f"daily report created: {out}")
 
@@ -457,7 +466,7 @@ def weekly_us_observation_command(
     if fmt_norm == "json":
         typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        typer.echo(format_weekly_us_observation_markdown(result))
+        typer.echo(format_weekly_us_observation_markdown(result, path_base=ROOT_DIR))
 
 
 @validate_app.command("us-forward-returns")
@@ -496,13 +505,10 @@ def validate_us_forward_returns_command(
         Path(cache_dir) if cache_dir else OUTPUTS_DIR / "market_data" / "us_daily_bars"
     )
     try:
-        hz = tuple(int(x.strip()) for x in horizons.split(",") if x.strip())
+        hz = parse_positive_horizons(horizons or "")
     except ValueError as exc:
-        typer.echo("validate us-forward-returns: invalid --horizons", err=True)
+        typer.echo(f"validate us-forward-returns: {exc}", err=True)
         raise typer.Exit(2) from exc
-    if not hz:
-        typer.echo("validate us-forward-returns: --horizons must not be empty", err=True)
-        raise typer.Exit(2)
     ref: date | None = None
     if reference_date:
         try:
@@ -533,6 +539,16 @@ def us_universe_expansion_plan_command(
         "--config",
         help="Expansion YAML (default: config/us_universe_expansion_30.yaml).",
     ),
+    tier: Optional[str] = typer.Option(
+        None,
+        "--tier",
+        help="Filter targets by tier (e.g. 1).",
+    ),
+    missing_only: bool = typer.Option(
+        False,
+        "--missing-only",
+        help="Only list targets without a cache file.",
+    ),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
     """P6: read-only US 30+ expansion plan vs on-disk cache (no HTTP)."""
@@ -542,6 +558,8 @@ def us_universe_expansion_plan_command(
         report = build_us_universe_expansion_report(
             path_base=ROOT_DIR,
             config_path=Path(config) if config else None,
+            tier=tier,
+            missing_only=missing_only,
         )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)

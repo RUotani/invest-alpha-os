@@ -73,6 +73,8 @@ def build_us_universe_expansion_report(
     *,
     path_base: Path | None = None,
     config_path: Path | None = None,
+    tier: str | None = None,
+    missing_only: bool = False,
 ) -> dict[str, Any]:
     """Compare expansion config to on-disk cache + parse_ok previews."""
 
@@ -115,26 +117,38 @@ def build_us_universe_expansion_report(
         )
 
     tier_order = {"1": 0, "2": 1, "3": 2}
-    refresh_order = [
-        r["symbol"]
-        for r in sorted(
-            [x for x in rows if not x["has_cache_file"]],
-            key=lambda x: (tier_order.get(str(x["tier"]), 9), x["symbol"]),
-        )
-    ]
+    missing_rows = [x for x in rows if not x["has_cache_file"]]
+
+    def _sort_key(row: dict[str, Any]) -> tuple[int, str]:
+        return (tier_order.get(str(row["tier"]), 9), str(row["symbol"]))
+
+    refresh_order = [r["symbol"] for r in sorted(missing_rows, key=_sort_key)]
+    tier_1_missing = [r["symbol"] for r in sorted(missing_rows, key=_sort_key) if str(r["tier"]) == "1"]
+
+    filtered_rows = rows
+    if missing_only:
+        filtered_rows = [r for r in rows if not r["has_cache_file"]]
+    if tier is not None:
+        filtered_rows = [r for r in filtered_rows if str(r["tier"]) == str(tier)]
+    filtered_refresh = [r["symbol"] for r in sorted(filtered_rows, key=_sort_key)]
 
     return {
         "schema_version": 1,
         "universe_name": cfg["universe_name"],
         "description": cfg.get("description"),
         "target_symbol_count": len(cfg["targets"]),
+        "filter_tier": tier,
+        "filter_missing_only": missing_only,
         "existing_cache_symbols": existing_cache,
         "configured_targets": [t["symbol"] for t in cfg["targets"]],
         "missing_symbols": sorted(missing),
         "parse_ok_symbols": sorted(parse_ok),
         "parse_fail_symbols": sorted(parse_fail),
         "rows": rows,
+        "filtered_rows": filtered_rows,
         "next_gated_refresh_order": refresh_order,
+        "tier_1_missing_refresh_order": tier_1_missing,
+        "filtered_refresh_order": filtered_refresh,
         "observation_only": True,
         "live_http": False,
     }
@@ -147,12 +161,16 @@ def format_us_universe_expansion_markdown(report: dict[str, Any]) -> str:
         "Observation universe — not buy/sell advice.",
         "",
         f"- universe: {report.get('universe_name')}",
-        f"- target symbols: {report.get('target_symbol_count')}",
+        f"- configured targets: {report.get('target_symbol_count')}",
         f"- missing cache: {len(report.get('missing_symbols') or [])}",
         f"- parse ok: {len(report.get('parse_ok_symbols') or [])}",
+        f"- tier-1 missing: {len(report.get('tier_1_missing_refresh_order') or [])}",
         "",
-        "## Next gated refresh order (missing cache, tier-sorted)",
+        "## Tier-1 missing (gated refresh dry-run order)",
     ]
+    for sym in report.get("tier_1_missing_refresh_order") or []:
+        lines.append(f"- {sym}")
+    lines.extend(["", "## Next gated refresh order (all missing, tier-sorted)"])
     for sym in report.get("next_gated_refresh_order") or []:
         lines.append(f"- {sym}")
     lines.extend(["", "## Targets"])

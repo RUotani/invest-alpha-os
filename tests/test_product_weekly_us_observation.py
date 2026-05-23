@@ -105,6 +105,7 @@ def test_weekly_cycle_and_observation_log(mini_us_cache: Path) -> None:
     assert summary["rows"][0]["symbol"] == "MSFT"
     assert "research_checklist" in summary
     assert isinstance(summary["research_checklist"], list)
+    assert all(isinstance(x, dict) and "category" in x for x in summary["research_checklist"])
     assert "not buy/sell advice" in svc.observation_path.read_text(encoding="utf-8")
 
 
