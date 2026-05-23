@@ -17,6 +17,7 @@ from invis_alpha_os.operator.post_run_review import (
 )
 
 SECRET_PATH_FRAGMENTS = (".env", "credentials", "secret", "token")
+AUTOPILOT_STATUS_SCHEMA_VERSION = "1"
 
 
 @dataclass
@@ -47,6 +48,9 @@ class AutopilotStatusResult:
     working_tree_clean: bool
     dirty_paths_count: int
     open_pr_count: int
+    redacted_dirty_paths_count: int = 0
+    dirty_paths_redacted: bool = False
+    safe_to_start_next_work: bool = False
     open_prs: list[OpenPrSummary] = field(default_factory=list)
     main_ci: MainCiSummary | None = None
     main_ci_ok: bool = False
@@ -63,6 +67,16 @@ class AutopilotStatusResult:
 def _redact_path(path: str) -> bool:
     low = path.lower()
     return any(frag in low for frag in SECRET_PATH_FRAGMENTS)
+
+
+def _sanitize_warning(msg: str) -> str:
+    if "evidence not found:" in msg:
+        return "evidence not found (path redacted)"
+    return msg
+
+
+def _escape_markdown_table_cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ").replace("\r", " ")
 
 
 def _run(
@@ -97,19 +111,22 @@ def collect_git_worktree(
     *,
     repo_root: Path | None = None,
     git_runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
-) -> tuple[str, bool, int, list[str]]:
+) -> tuple[str, bool, int, int, bool, list[str]]:
     root = repo_root or ROOT_DIR
     warnings: list[str] = []
     branch_proc = _run(["git", "branch", "--show-current"], cwd=root, runner=git_runner)
     branch = branch_proc.stdout.strip() if branch_proc.returncode == 0 else "unknown"
     status_proc = _run(["git", "status", "--porcelain"], cwd=root, runner=git_runner)
     if status_proc.returncode != 0:
-        return branch, False, 0, warnings + ["git status failed"]
+        return branch, False, 0, 0, False, warnings + ["git status failed"]
     lines = [ln for ln in status_proc.stdout.splitlines() if ln.strip()]
-    safe_lines = [ln for ln in lines if not _redact_path(ln)]
-    if len(safe_lines) < len(lines):
-        warnings.append("redacted paths matching secret fragments from status output")
-    return branch, len(safe_lines) == 0, len(safe_lines), warnings
+    dirty_count = len(lines)
+    redacted_count = sum(1 for ln in lines if _redact_path(ln))
+    dirty_redacted = redacted_count > 0
+    if dirty_redacted:
+        warnings.append("some dirty paths were redacted (secret-like path fragments)")
+    clean = dirty_count == 0
+    return branch, clean, dirty_count, redacted_count, dirty_redacted, warnings
 
 
 def collect_open_prs(
@@ -212,7 +229,7 @@ def _latest_longrun_snippet(
         paths = resolve_productive_run_paths(run_id, outputs_root=outputs_root)
         evidence = load_evidence_summary(paths.evidence_path)
     except ValueError as exc:
-        return run_id, "", 0, "", [str(exc)]
+        return run_id, "", 0, "", [_sanitize_warning(str(exc))]
     stop = str(evidence.get("stop_reason") or "")
     tasks_seen = int(evidence.get("tasks_seen") or 0)
     tasks_executed = int(evidence.get("tasks_executed") or 0)
@@ -244,10 +261,13 @@ def build_suggested_commands(result: AutopilotStatusResult) -> list[str]:
 def build_agent_next_actions(result: AutopilotStatusResult) -> list[str]:
     actions: list[str] = []
     if not result.working_tree_clean:
-        actions.append("Resolve dirty working tree before new branch or longrun.")
+        msg = "Resolve dirty working tree before new branch or longrun."
+        if result.dirty_paths_redacted:
+            msg += " (some paths redacted from output — do not assume clean)."
+        actions.append(msg)
     if result.open_pr_count > 0:
         actions.append("Review open PRs; use post-run-integrate dry-run before merge approval.")
-    elif result.main_ci_ok and result.working_tree_clean:
+    elif result.safe_to_start_next_work:
         actions.append("Main CI green and tree clean — safe to plan next branch from origin/main.")
     if not result.main_ci_ok:
         actions.append("Wait for or inspect main CI before starting new productive work.")
@@ -269,7 +289,9 @@ def collect_autopilot_status(
     root = repo_root or ROOT_DIR
     out_root = outputs_root
     main_sha, w = collect_origin_main_sha(repo_root=root, git_runner=git_runner, fetch=fetch_main)
-    branch, clean, dirty_count, w2 = collect_git_worktree(repo_root=root, git_runner=git_runner)
+    branch, clean, dirty_count, redacted_dirty, dirty_redacted, w2 = collect_git_worktree(
+        repo_root=root, git_runner=git_runner
+    )
     open_prs, w3 = collect_open_prs(gh_runner=gh_runner)
     main_ci, w4 = collect_main_ci(gh_runner=gh_runner)
     latest = run_id or find_latest_run_id(outputs_root=out_root)
@@ -286,21 +308,26 @@ def collect_autopilot_status(
         except ValueError:
             pass
 
+    main_ci_ok = bool(main_ci and main_ci.ok)
+    open_pr_count = len(open_prs)
     result = AutopilotStatusResult(
         origin_main_sha=main_sha,
         local_branch=branch,
         working_tree_clean=clean,
         dirty_paths_count=dirty_count,
-        open_pr_count=len(open_prs),
+        redacted_dirty_paths_count=redacted_dirty,
+        dirty_paths_redacted=dirty_redacted,
+        safe_to_start_next_work=clean and main_ci_ok and open_pr_count == 0,
+        open_pr_count=open_pr_count,
         open_prs=open_prs,
         main_ci=main_ci,
-        main_ci_ok=bool(main_ci and main_ci.ok),
+        main_ci_ok=main_ci_ok,
         latest_run_id=rid or None,
         latest_run_stop_reason=stop,
         latest_run_tasks=task_line,
         latest_run_prs=prs,
         latest_pr_range=pr_range,
-        warnings=[*w, *w2, *w3, *w4, *w5],
+        warnings=[*w, *w2, *w3, *w4, *[_sanitize_warning(x) for x in w5]],
     )
     result.suggested_commands = build_suggested_commands(result)
     result.agent_next_actions = build_agent_next_actions(result)
@@ -316,9 +343,19 @@ def format_autopilot_status_markdown(result: AutopilotStatusResult) -> str:
         f"- local branch: `{result.local_branch}`",
         f"- working tree clean: `{result.working_tree_clean}`"
         + (f" ({result.dirty_paths_count} dirty paths)" if result.dirty_paths_count else ""),
+        f"- safe_to_start_next_work: `{result.safe_to_start_next_work}`",
+    ]
+    if result.dirty_paths_redacted:
+        lines.append(
+            f"- dirty paths redacted: `{result.redacted_dirty_paths_count}` "
+            f"(secret-like fragments hidden from output)"
+        )
+    lines.extend(
+        [
         "",
         "## Main CI (latest on main)",
-    ]
+        ]
+    )
     if result.main_ci:
         ci = result.main_ci
         lines.extend(
@@ -344,7 +381,8 @@ def format_autopilot_status_markdown(result: AutopilotStatusResult) -> str:
         lines.append("|---:|---|:---:|---|")
         for pr in result.open_prs[:15]:
             lines.append(
-                f"| {pr.number} | {pr.merge_state_status} | {pr.is_draft} | {pr.title[:60]} |"
+                f"| {pr.number} | {pr.merge_state_status} | {pr.is_draft} | "
+                f"{_escape_markdown_table_cell(pr.title[:60])} |"
             )
     lines.extend(
         [
@@ -374,6 +412,7 @@ def format_autopilot_status_markdown(result: AutopilotStatusResult) -> str:
 
 def format_autopilot_status_json(result: AutopilotStatusResult) -> str:
     payload: dict[str, Any] = asdict(result)
+    payload["schema_version"] = AUTOPILOT_STATUS_SCHEMA_VERSION
     if result.main_ci:
         payload["main_ci"] = asdict(result.main_ci)
     payload["open_prs"] = [asdict(p) for p in result.open_prs]

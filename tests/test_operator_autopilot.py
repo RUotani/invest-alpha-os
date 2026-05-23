@@ -7,11 +7,14 @@ import subprocess
 from pathlib import Path
 
 from invis_alpha_os.operator.operator_autopilot import (
+    AUTOPILOT_STATUS_SCHEMA_VERSION,
+    build_agent_next_actions,
     collect_autopilot_status,
     collect_git_worktree,
     collect_main_ci,
     collect_open_prs,
     collect_origin_main_sha,
+    format_autopilot_status_json,
     format_autopilot_status_markdown,
 )
 
@@ -104,6 +107,7 @@ def test_autopilot_status_markdown_with_mocks(tmp_path: Path, monkeypatch) -> No
     assert "post-run-review" in text
     assert "post-run-integrate" in text
     assert result.main_ci_ok is True
+    assert result.safe_to_start_next_work is True
 
 
 def test_autopilot_does_not_invoke_merge_commands(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -158,13 +162,67 @@ def test_git_status_redacts_secret_like_paths(tmp_path: Path) -> None:
             return subprocess.CompletedProcess(cmd, 0, " M .env\n M README.md\n", "")
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
-    branch, clean, dirty_count, warnings = collect_git_worktree(
+    branch, clean, dirty_count, redacted_count, dirty_redacted, warnings = collect_git_worktree(
         repo_root=tmp_path, git_runner=fake_git
     )
     assert branch == "main"
     assert clean is False
-    assert dirty_count == 1
+    assert dirty_count == 2
+    assert redacted_count == 1
+    assert dirty_redacted is True
     assert any("redacted" in w for w in warnings)
+
+
+def test_secret_only_dirty_tree_not_safe_for_next_work(tmp_path: Path) -> None:
+    def fake_git(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if len(cmd) >= 2 and cmd[1] == "rev-parse":
+            return subprocess.CompletedProcess(cmd, 0, "abc123\n", "")
+        if len(cmd) >= 2 and cmd[1] == "branch":
+            return subprocess.CompletedProcess(cmd, 0, "main\n", "")
+        if len(cmd) >= 2 and cmd[1] == "status":
+            return subprocess.CompletedProcess(cmd, 0, " M .env\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    def fake_gh(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd[1:3] == ["pr", "list"]:
+            return subprocess.CompletedProcess(cmd, 0, "[]", "")
+        if cmd[1:3] == ["run", "list"]:
+            return subprocess.CompletedProcess(
+                cmd,
+                0,
+                json.dumps(
+                    [
+                        {
+                            "databaseId": "1",
+                            "workflowName": "tests",
+                            "status": "completed",
+                            "conclusion": "success",
+                            "headBranch": "main",
+                            "updatedAt": "2026-05-23T12:00:00Z",
+                        }
+                    ]
+                ),
+                "",
+            )
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    result = collect_autopilot_status(
+        repo_root=tmp_path,
+        outputs_root=tmp_path,
+        fetch_main=False,
+        git_runner=fake_git,
+        gh_runner=fake_gh,
+    )
+    text = format_autopilot_status_markdown(result)
+    assert ".env" not in text
+    assert result.working_tree_clean is False
+    assert result.dirty_paths_count == 1
+    assert result.dirty_paths_redacted is True
+    assert result.safe_to_start_next_work is False
+    assert any("redacted" in w for w in result.warnings)
+    actions = build_agent_next_actions(result)
+    assert any("Resolve dirty working tree" in a for a in actions)
+    assert not any("safe to plan next branch" in a for a in actions)
 
 
 def test_collect_origin_main_skips_fetch_when_disabled(tmp_path: Path) -> None:
@@ -180,3 +238,23 @@ def test_collect_origin_main_skips_fetch_when_disabled(tmp_path: Path) -> None:
     assert sha == "sha123"
     assert not warnings
     assert not any(len(c) >= 2 and c[1] == "fetch" for c in calls)
+
+
+def test_json_output_includes_schema_version(tmp_path: Path) -> None:
+    def fake_git(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if len(cmd) >= 2 and cmd[1] == "rev-parse":
+            return subprocess.CompletedProcess(cmd, 0, "sha\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    def fake_gh(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    result = collect_autopilot_status(
+        repo_root=tmp_path,
+        outputs_root=tmp_path,
+        fetch_main=False,
+        git_runner=fake_git,
+        gh_runner=fake_gh,
+    )
+    payload = json.loads(format_autopilot_status_json(result))
+    assert payload["schema_version"] == AUTOPILOT_STATUS_SCHEMA_VERSION
