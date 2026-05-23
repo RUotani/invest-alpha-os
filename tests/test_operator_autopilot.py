@@ -8,7 +8,10 @@ from pathlib import Path
 
 from invis_alpha_os.operator.operator_autopilot import (
     collect_autopilot_status,
+    collect_git_worktree,
+    collect_main_ci,
     collect_open_prs,
+    collect_origin_main_sha,
     format_autopilot_status_markdown,
 )
 
@@ -127,3 +130,53 @@ def test_autopilot_does_not_invoke_merge_commands(tmp_path: Path, monkeypatch) -
     assert "gh pr merge" not in joined
     assert "git push" not in joined
     assert "gh pr close" not in joined
+
+
+def test_collect_open_prs_gh_failure_warns() -> None:
+    def fail_gh(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(cmd, 1, "", "rate limit")
+
+    rows, warnings = collect_open_prs(gh_runner=fail_gh)
+    assert rows == []
+    assert any("gh pr list failed" in w for w in warnings)
+
+
+def test_collect_main_ci_no_runs_warns() -> None:
+    def empty_gh(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    summary, warnings = collect_main_ci(gh_runner=empty_gh)
+    assert summary is None
+    assert any("no workflow runs" in w for w in warnings)
+
+
+def test_git_status_redacts_secret_like_paths(tmp_path: Path) -> None:
+    def fake_git(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if len(cmd) >= 2 and cmd[1] == "branch":
+            return subprocess.CompletedProcess(cmd, 0, "main\n", "")
+        if len(cmd) >= 2 and cmd[1] == "status":
+            return subprocess.CompletedProcess(cmd, 0, " M .env\n M README.md\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    branch, clean, dirty_count, warnings = collect_git_worktree(
+        repo_root=tmp_path, git_runner=fake_git
+    )
+    assert branch == "main"
+    assert clean is False
+    assert dirty_count == 1
+    assert any("redacted" in w for w in warnings)
+
+
+def test_collect_origin_main_skips_fetch_when_disabled(tmp_path: Path) -> None:
+    calls: list[list[str]] = []
+
+    def record_git(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(cmd, 0, "sha123\n", "")
+
+    sha, warnings = collect_origin_main_sha(
+        repo_root=tmp_path, git_runner=record_git, fetch=False
+    )
+    assert sha == "sha123"
+    assert not warnings
+    assert not any(len(c) >= 2 and c[1] == "fetch" for c in calls)
