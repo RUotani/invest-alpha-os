@@ -170,13 +170,16 @@ def build_us_cache_signals_preview(
         path, expect_symbol=expect_symbol, asset_class=asset_class
     )
     if row is None:
-        return {
+        out_invalid: dict[str, Any] = {
             "status": "invalid",
             "reason": "parse_failed",
             "path": rel_path,
             "expect_symbol": expect_symbol,
             "live_http": False,
         }
+        if expect_symbol:
+            out_invalid["symbol"] = str(expect_symbol).strip().upper()
+        return out_invalid
 
     out = dict(row)
     out["path"] = rel_path
