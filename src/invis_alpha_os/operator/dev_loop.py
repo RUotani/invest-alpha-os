@@ -1977,3 +1977,4 @@ def _write_dev_loop_evidence(
         json.dumps(asdict(result), ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+# dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:54:17Z)
