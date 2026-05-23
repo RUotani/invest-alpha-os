@@ -3,6 +3,7 @@
 **Date**: 2026-05-23  
 **Depends on**: Product P1 merged (`6185b95`) — 14/16 US symbols parse; **MSFT** / **AAPL** invalid (monthly stub dates).  
 **Branch**: `work/product-p2-msft-aapl-cache-refresh`
+**Evidence (refresh complete)**: [docs/139](./139_product_p2_msft_aapl_evidence_pack.md) — 16/16 parse, operator logs under `outputs/operator/` (not in git).
 
 ## Goal
 
