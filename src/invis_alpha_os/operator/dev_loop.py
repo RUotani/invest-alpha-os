@@ -175,6 +175,10 @@ def default_productive_12h_v2_task_queue_path() -> Path:
     return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h_v2.yaml"
 
 
+def default_productive_12h_v3_task_queue_path() -> Path:
+    return ROOT_DIR / "config" / "tasks" / "autonomous_dev_queue_productive_12h_v3.yaml"
+
+
 PRODUCTIVE_QUARANTINE_PATHS: frozenset[str] = frozenset(
     {
         "docs/smoke.md",

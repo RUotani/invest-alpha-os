@@ -1,0 +1,1526 @@
+version: ops_dev_queue.v1
+description: >
+  R7.0-Ops-I11 productive 12h v3 queue (84 tasks): 18 primary, 30 reserve, 36 stretch.
+  Fresh task_ids and PR titles to minimize existing_pr skips. early_completion + notify profile.
+tasks:
+  - task_id: ops_i11_primary_longrun_utilization_analysis_doc
+    pr_title: "R7.0-Ops-I11: longrun utilization analysis doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — longrun utilization analysis doc"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/131_r7_0_ops_i11_longrun_utilization_analysis.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_longrun_utilization_analysis_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_v3_queue_runbook_doc
+    pr_title: "R7.0-Ops-I11: v3 productive queue runbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — v3 productive queue runbook"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_v3_productive_queue_runbook.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_v3_queue_runbook_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_longrun_completion_unit_tests
+    pr_title: "R7.0-Ops-I11: longrun completion unit tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — longrun completion unit tests"
+    risk_level: "low"
+    critical: true
+    pytest_cmd: "pytest -q tests/test_longrun_completion.py"
+    change_file: "tests/test_longrun_completion.py"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_longrun_completion_unit_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_early_completion_evidence_tests
+    pr_title: "R7.0-Ops-I11: early completion evidence tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — early completion evidence tests"
+    risk_level: "low"
+    critical: true
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k early_completion"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_early_completion_evidence_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_blocked_notify_status_tests
+    pr_title: "R7.0-Ops-I11: blocked gate notify status tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — blocked gate notify status tests"
+    risk_level: "low"
+    critical: true
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k blocked_gate"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_blocked_notify_status_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_v3_queue_validation_tests
+    pr_title: "R7.0-Ops-I11: v3 queue validation tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — v3 queue validation tests"
+    risk_level: "low"
+    critical: true
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive_12h_v3"
+    change_file: "tests/test_operator_dev_loop.py"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_v3_queue_validation_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "tests/"
+      - "config/tasks/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_post_run_review_utilization
+    pr_title: "R7.0-Ops-I11: post-run review utilization section"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — post-run review utilization section"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/131_r7_0_ops_i11_post_run_review_utilization.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_post_run_review_utilization marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_productive_v3_script_tests
+    pr_title: "R7.0-Ops-I11: v3 runner script contract tests"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — v3 runner script contract tests"
+    risk_level: "low"
+    critical: true
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k productive_12h_v3_script"
+    change_file: "scripts/run_productive_true_longrun_12h_v3.sh"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_productive_v3_script_tests marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "scripts/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_skip_rate_guard_doc
+    pr_title: "R7.0-Ops-I11: skip-rate guard documentation"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — skip-rate guard documentation"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_skip_rate_guard.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_skip_rate_guard_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_primary_reserve_stretch_doc
+    pr_title: "R7.0-Ops-I11: primary reserve stretch tier doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — primary reserve stretch tier doc"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_queue_tiers.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_primary_reserve_stretch_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_utilization_metrics_helper_doc
+    pr_title: "R7.0-Ops-I11: utilization metrics helper notes"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — utilization metrics helper notes"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_utilization_metrics.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_utilization_metrics_helper_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_pr_velocity_tracking_doc
+    pr_title: "R7.0-Ops-I11: PR velocity tracking doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — PR velocity tracking doc"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_pr_velocity.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_pr_velocity_tracking_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_early_completion_playbook
+    pr_title: "R7.0-Ops-I11: early completion operator playbook"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — early completion operator playbook"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_early_completion_playbook.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_early_completion_playbook marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_durability_vs_productive_split
+    pr_title: "R7.0-Ops-I11: durability vs productive run split"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — durability vs productive run split"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_durability_productive_split.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_durability_vs_productive_split marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_superseded_v2_tasks_policy
+    pr_title: "R7.0-Ops-I11: superseded v2 task policy doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — superseded v2 task policy doc"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_superseded_v2_policy.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_superseded_v2_tasks_policy marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_dev_loop_profile_v3_doc
+    pr_title: "R7.0-Ops-I11: true_longrun_12h_productive_v3 profile doc"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — true_longrun_12h_productive_v3 profile doc"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_profile_v3.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_dev_loop_profile_v3_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_failure_budget_v3_doc
+    pr_title: "R7.0-Ops-I11: failure budget for v3 queue"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — failure budget for v3 queue"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_failure_budget.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_failure_budget_v3_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_primary_consolidation_after_v3_doc
+    pr_title: "R7.0-Ops-I11: post-v3 consolidation checklist"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:primary — post-v3 consolidation checklist"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_consolidation_checklist.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_primary_consolidation_after_v3_doc marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_dev_loop_01
+    pr_title: "R7.0-Ops-I11: reserve dev loop 01"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task dev_loop_01"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_operator_dev_loop.py -k longrun"
+    change_file: "docs/132_r7_0_ops_i11_reserve_dev_loop_01.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_dev_loop_01 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+      - "src/invis_alpha_os/operator/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_pr_loop_02
+    pr_title: "R7.0-Ops-I11: reserve pr loop 02"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task pr_loop_02"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_operator_pr_loop.py"
+    change_file: "docs/132_r7_0_ops_i11_reserve_pr_loop_02.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_pr_loop_02 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_post_run_review_03
+    pr_title: "R7.0-Ops-I11: reserve post run review 03"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task post_run_review_03"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_operator_post_run_review.py"
+    change_file: "docs/132_r7_0_ops_i11_reserve_post_run_review_03.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_post_run_review_03 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_longrun_completion_04
+    pr_title: "R7.0-Ops-I11: reserve longrun completion 04"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task longrun_completion_04"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_longrun_completion.py"
+    change_file: "docs/132_r7_0_ops_i11_reserve_longrun_completion_04.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_longrun_completion_04 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_operator_runner_gated_05
+    pr_title: "R7.0-Ops-I11: reserve operator runner gated 05"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task operator_runner_gated_05"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "pytest -q tests/test_operator_runner_gated.py -k gate"
+    change_file: "docs/132_r7_0_ops_i11_reserve_operator_runner_gated_05.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_operator_runner_gated_05 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+      - "tests/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_06
+    pr_title: "R7.0-Ops-I11: reserve doc 06"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_06"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_06.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_06 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_07
+    pr_title: "R7.0-Ops-I11: reserve doc 07"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_07"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_07.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_07 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_08
+    pr_title: "R7.0-Ops-I11: reserve doc 08"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_08"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_08.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_08 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_09
+    pr_title: "R7.0-Ops-I11: reserve doc 09"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_09"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_09.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_09 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_10
+    pr_title: "R7.0-Ops-I11: reserve doc 10"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_10"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_10.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_10 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_11
+    pr_title: "R7.0-Ops-I11: reserve doc 11"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_11"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_11.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_11 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_12
+    pr_title: "R7.0-Ops-I11: reserve doc 12"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_12"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_12.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_12 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_13
+    pr_title: "R7.0-Ops-I11: reserve doc 13"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_13"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_13.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_13 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_14
+    pr_title: "R7.0-Ops-I11: reserve doc 14"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_14"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_14.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_14 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_15
+    pr_title: "R7.0-Ops-I11: reserve doc 15"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_15"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_15.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_15 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_16
+    pr_title: "R7.0-Ops-I11: reserve doc 16"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_16"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_16.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_16 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_17
+    pr_title: "R7.0-Ops-I11: reserve doc 17"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_17"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_17.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_17 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_18
+    pr_title: "R7.0-Ops-I11: reserve doc 18"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_18"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_18.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_18 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_19
+    pr_title: "R7.0-Ops-I11: reserve doc 19"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_19"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_19.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_19 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_20
+    pr_title: "R7.0-Ops-I11: reserve doc 20"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_20"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_20.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_20 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_21
+    pr_title: "R7.0-Ops-I11: reserve doc 21"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_21"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_21.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_21 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_22
+    pr_title: "R7.0-Ops-I11: reserve doc 22"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_22"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_22.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_22 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_23
+    pr_title: "R7.0-Ops-I11: reserve doc 23"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_23"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_23.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_23 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_24
+    pr_title: "R7.0-Ops-I11: reserve doc 24"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_24"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_24.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_24 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_25
+    pr_title: "R7.0-Ops-I11: reserve doc 25"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_25"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_25.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_25 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_26
+    pr_title: "R7.0-Ops-I11: reserve doc 26"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_26"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_26.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_26 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_27
+    pr_title: "R7.0-Ops-I11: reserve doc 27"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_27"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_27.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_27 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_28
+    pr_title: "R7.0-Ops-I11: reserve doc 28"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_28"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_28.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_28 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_29
+    pr_title: "R7.0-Ops-I11: reserve doc 29"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_29"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_29.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_29 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_reserve_doc_30
+    pr_title: "R7.0-Ops-I11: reserve doc 30"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:reserve — reserve task doc_30"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/132_r7_0_ops_i11_reserve_doc_30.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_reserve_doc_30 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_01
+    pr_title: "R7.0-Ops-I11: stretch doc 1"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 1"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_01.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_01 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_02
+    pr_title: "R7.0-Ops-I11: stretch doc 2"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 2"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_02.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_02 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_03
+    pr_title: "R7.0-Ops-I11: stretch doc 3"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 3"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_03.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_03 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_04
+    pr_title: "R7.0-Ops-I11: stretch doc 4"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 4"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_04.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_04 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_05
+    pr_title: "R7.0-Ops-I11: stretch doc 5"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 5"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_05.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_05 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_06
+    pr_title: "R7.0-Ops-I11: stretch doc 6"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 6"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_06.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_06 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_07
+    pr_title: "R7.0-Ops-I11: stretch doc 7"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 7"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_07.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_07 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_08
+    pr_title: "R7.0-Ops-I11: stretch doc 8"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 8"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_08.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_08 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_09
+    pr_title: "R7.0-Ops-I11: stretch doc 9"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 9"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_09.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_09 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_10
+    pr_title: "R7.0-Ops-I11: stretch doc 10"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 10"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_10.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_10 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_11
+    pr_title: "R7.0-Ops-I11: stretch doc 11"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 11"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_11.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_11 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_12
+    pr_title: "R7.0-Ops-I11: stretch doc 12"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 12"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_12.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_12 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_13
+    pr_title: "R7.0-Ops-I11: stretch doc 13"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 13"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_13.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_13 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_14
+    pr_title: "R7.0-Ops-I11: stretch doc 14"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 14"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_14.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_14 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_15
+    pr_title: "R7.0-Ops-I11: stretch doc 15"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 15"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_15.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_15 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_16
+    pr_title: "R7.0-Ops-I11: stretch doc 16"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 16"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_16.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_16 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_17
+    pr_title: "R7.0-Ops-I11: stretch doc 17"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 17"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_17.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_17 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_18
+    pr_title: "R7.0-Ops-I11: stretch doc 18"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 18"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_18.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_18 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_19
+    pr_title: "R7.0-Ops-I11: stretch doc 19"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 19"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_19.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_19 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_20
+    pr_title: "R7.0-Ops-I11: stretch doc 20"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 20"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_20.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_20 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_21
+    pr_title: "R7.0-Ops-I11: stretch doc 21"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 21"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_21.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_21 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_22
+    pr_title: "R7.0-Ops-I11: stretch doc 22"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 22"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_22.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_22 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_23
+    pr_title: "R7.0-Ops-I11: stretch doc 23"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 23"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_23.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_23 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_24
+    pr_title: "R7.0-Ops-I11: stretch doc 24"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 24"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_24.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_24 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_25
+    pr_title: "R7.0-Ops-I11: stretch doc 25"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 25"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_25.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_25 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_26
+    pr_title: "R7.0-Ops-I11: stretch doc 26"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 26"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_26.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_26 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_27
+    pr_title: "R7.0-Ops-I11: stretch doc 27"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 27"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_27.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_27 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_28
+    pr_title: "R7.0-Ops-I11: stretch doc 28"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 28"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_28.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_28 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_29
+    pr_title: "R7.0-Ops-I11: stretch doc 29"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 29"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_29.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_29 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_30
+    pr_title: "R7.0-Ops-I11: stretch doc 30"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 30"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_30.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_30 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_31
+    pr_title: "R7.0-Ops-I11: stretch doc 31"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 31"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_31.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_31 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_32
+    pr_title: "R7.0-Ops-I11: stretch doc 32"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 32"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_32.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_32 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_33
+    pr_title: "R7.0-Ops-I11: stretch doc 33"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 33"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_33.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_33 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_34
+    pr_title: "R7.0-Ops-I11: stretch doc 34"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 34"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_34.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_34 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_35
+    pr_title: "R7.0-Ops-I11: stretch doc 35"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 35"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_35.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_35 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
+  - task_id: ops_i11_stretch_stretch_36
+    pr_title: "R7.0-Ops-I11: stretch doc 36"
+    branch: "work/dev-loop/autonomous/{task_id}/{run_id}"
+    scope: "tier:stretch — stretch documentation slice 36"
+    risk_level: "low"
+    critical: false
+    pytest_cmd: "git diff --check"
+    change_file: "docs/133_r7_0_ops_i11_stretch_stretch_36.md"
+    commit_message: "R7.0-Ops-I11: ops_i11_stretch_stretch_36 marker"
+    prepare_for_pr: true
+    allowed_paths:
+      - "docs/"
+    forbidden_paths:
+        - .github/workflows/
+        - Makefile
+        - pyproject.toml
+        - outputs/
+
