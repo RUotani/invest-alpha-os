@@ -18,6 +18,7 @@ from invis_alpha_os.operator.dev_loop import (
     _load_profile,
     _load_queue,
     default_productive_12h_v2_task_queue_path,
+    default_productive_12h_v3_task_queue_path,
     _prepare_smoke_task,
     _resolve_prepare_change_file,
     productive_queue_prepare_violations,
@@ -2516,6 +2517,41 @@ def test_productive_12h_v2_script_flags() -> None:
 def test_productive_12h_v2_queue_exists() -> None:
     tasks = _load_queue(default_productive_12h_v2_task_queue_path())
     assert 28 <= len(tasks) <= 34
+
+
+def test_productive_12h_v3_queue_tiers_and_size() -> None:
+    tasks = _load_queue(default_productive_12h_v3_task_queue_path())
+    assert len(tasks) == 84
+    primary = sum(1 for t in tasks if "tier:primary" in t.scope)
+    reserve = sum(1 for t in tasks if "tier:reserve" in t.scope)
+    stretch = sum(1 for t in tasks if "tier:stretch" in t.scope)
+    assert primary == 18
+    assert reserve == 30
+    assert stretch == 36
+    assert not productive_queue_prepare_violations(default_productive_12h_v3_task_queue_path(), tasks)
+    v2_ids = {t.task_id for t in _load_queue(default_productive_12h_v2_task_queue_path())}
+    assert v2_ids.isdisjoint({t.task_id for t in tasks})
+
+
+def test_productive_12h_v3_profile() -> None:
+    profile = _load_profile("true_longrun_12h_productive_v3", profile_path=default_profile_path())
+    assert profile.allow_early_completion is True
+    assert profile.completion_notify_enabled is True
+    assert profile.max_prs == 15
+    assert profile.max_tasks == 72
+
+
+def test_productive_12h_v3_script_flags() -> None:
+    path = ROOT_DIR / "scripts" / "run_productive_true_longrun_12h_v3.sh"
+    assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "autonomous_dev_queue_productive_12h_v3.yaml" in text
+    assert "true_longrun_12h_productive_v3" in text
+    assert "MAX_PRS=15" in text
+    assert "MAX_TASKS=72" in text
+    assert "--allow-early-completion" in text
+    assert "--completion-notify" in text
+    assert "productive_true_longrun_12h_v3" in text
 
 
 def test_completion_notification_on_blocked_gate(tmp_path: Path, monkeypatch) -> None:

@@ -1175,9 +1175,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I10 — night 12h v2 bounded + early completion（進行中）
+## R7.0-Ops-I10 — night 12h v2 bounded + early completion（完了）
 
 **内容**: `longrun_completion` モジュール、`true_longrun_12h_bounded` profile、`run_productive_true_longrun_12h_v2.sh`。詳細 **[docs/130](./130_r7_0_ops_i10_early_completion_notification.md)**。
+
+---
+
+## R7.0-Ops-I11 — utilization-based 12h v3 queue（進行中）
+
+**内容**: 履歴分析 doc、84 task v3 queue（primary/reserve/stretch）、`true_longrun_12h_productive_v3`、`run_productive_true_longrun_12h_v3.sh`。詳細 **[docs/131](./131_r7_0_ops_i11_longrun_utilization_analysis.md)**。
 
 ---
 
