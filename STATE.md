@@ -6,7 +6,7 @@
 週次で人間が更新するか、AIが更新案を作成し、ユーザー承認後にコミットする。
 
 ## 3行サマリー
-- `origin/main` は `1a4a865`、open PR は 0、P7/P8 まで main 反映済み。
+- `origin/main` は `9ea1f93`、open PR は 0、SSoT Phase 1 まで main 反映済み。
 - US cache-only signals、forward-return validation v2、weekly/daily observation summary は observation-only で稼働可能。
 - 次の優先課題は observation_log 蓄積、veto-at-t structured observation、US 30+ tier-1 gated refresh準備。
 
@@ -40,8 +40,8 @@
 
 ```text
 repo: RUotani/invest-alpha-os
-latest confirmed origin/main: 1a4a865
-latest merged PR: #211 Product P7/P8: Forward validation v2 and report usefulness upgrade
+latest confirmed origin/main: 9ea1f93
+latest merged PR: #213 docs: add SSoT phase1 agent guidance files
 open PRs: 0
 ```
 
