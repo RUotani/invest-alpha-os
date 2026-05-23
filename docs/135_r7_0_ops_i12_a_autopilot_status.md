@@ -12,7 +12,7 @@
 
 ## Includes
 
-- `origin/main` SHA (optional `git fetch`)
+- `origin/main` SHA (optional `git fetch` — network/git metadata read only; use `--no-fetch` offline)
 - working tree clean / dirty count
 - open PR summary (read-only `gh pr list`)
 - latest main CI run (`gh run list --branch main`)
@@ -23,7 +23,7 @@
 - merge PRs
 - push to main
 - live HTTP / cache / Gmail
-- print `.env` or secret-like paths in status
+- print `.env` or secret-like paths in status (dirty count still reflects redacted paths; see `dirty_paths_redacted`)
 
 ## Human retains
 
