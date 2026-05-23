@@ -50,6 +50,6 @@ portfolio summary (read-only) → counts by theme / veto exposure
 
 ## Next implementation slice (when approved)
 
-1. Read-only `portfolio observation-summary` CLI (counts + linked observation IDs)
+1. Read-only `portfolio observation-summary` CLI (counts + linked observation IDs) — **`snapshot portfolio-observation-summary`**
 2. Schema doc for `thesis_evidence_ids` format
 3. Optional weekly markdown appendix (opt-in flag)

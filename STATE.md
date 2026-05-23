@@ -28,7 +28,7 @@
 - [ ] US 30+ tier-1 missing symbolsのgated refresh手順とevidenceを整える（read-only report 整備済み）。
 - [x] peer_sync系シグナル検出の現状を確認し、未実装なら実装計画を作る（→ cache-only MVP + docs/148）。
 - [x] portfolio / position sizing接続方針をobservation-only前提で設計する（docs/149）。
-- [ ] portfolio read-only summary CLI（設計のみ; 実装は次 PR）。
+- [x] portfolio read-only summary CLI（`snapshot portfolio-observation-summary`）
 
 ## §3. 直近の重要決定
 
@@ -68,7 +68,7 @@ pending: peer_sync + portfolio design PR (this branch)
 1. P9 運用: weekly `--write-observation-log` で observation_log 蓄積
 2. P10: tier-1 gated cache refresh（明示承認後・operator）
 3. peer_sync weekly opt-in section（別 PR）
-4. portfolio read-only summary CLI
+4. peer_sync weekly opt-in section（別 PR）
 
 ## §8. このファイルへの追加履歴
 

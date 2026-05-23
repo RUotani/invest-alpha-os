@@ -79,6 +79,11 @@ from invis_alpha_os.product.peer_sync_cache_only import (
     format_peer_sync_cache_only_json,
     format_peer_sync_cache_only_markdown,
 )
+from invis_alpha_os.product.portfolio_observation_summary import (
+    build_portfolio_observation_summary,
+    format_portfolio_observation_summary_json,
+    format_portfolio_observation_summary_markdown,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -1393,6 +1398,50 @@ def snapshot_shadow_portfolio() -> None:
     service = ShadowPortfolioService(OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl")
     positions = service.list_positions()
     typer.echo(f"shadow positions: {len(positions)}")
+
+
+@snapshot_app.command("portfolio-observation-summary")
+def snapshot_portfolio_observation_summary(
+    shadow_path: Optional[str] = typer.Option(
+        None,
+        "--shadow-path",
+        help="Shadow portfolio JSONL (default: outputs/shadow_portfolio/positions.jsonl).",
+    ),
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Observation log JSONL (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only linkage between shadow positions and observation_log (observation only)."""
+
+    fmt_norm = fmt.strip().lower()
+    shadow = (
+        Path(shadow_path)
+        if shadow_path
+        else OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl"
+    )
+    obs = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    summary = build_portfolio_observation_summary(
+        path_base=ROOT_DIR,
+        shadow_path=shadow,
+        observation_path=obs,
+    )
+    if fmt_norm == "json":
+        typer.echo(format_portfolio_observation_summary_json(summary))
+    elif fmt_norm == "markdown":
+        typer.echo(format_portfolio_observation_summary_markdown(summary))
+    else:
+        typer.echo(
+            "snapshot portfolio-observation-summary: --format must be markdown or json",
+            err=True,
+        )
+        raise typer.Exit(2)
 
 
 @log_app.command("outcome")
