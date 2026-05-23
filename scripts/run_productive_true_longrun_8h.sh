@@ -184,3 +184,4 @@ if [[ "${STOP}" -eq 0 ]]; then
   notify_optional "productive-longrun-8h" "SUCCEEDED ${stop_reason:-completed}"
 fi
 exit "${dev_loop_rc}"
+- dev-loop smoke marker: 20260523T035415Z (2026-05-23T03:56:33Z)
