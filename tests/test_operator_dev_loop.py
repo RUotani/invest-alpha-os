@@ -24,6 +24,7 @@ from invis_alpha_os.operator.dev_loop import (
     productive_quarantine_repo_violations,
     productive_queue_scratch_violations,
     _native_longrun_enabled,
+    apply_profile_completion_settings,
     apply_profile_longrun_defaults,
     default_longrun_task_queue_path,
     default_pr_create_smoke_queue_path,
@@ -2437,6 +2438,106 @@ def test_effective_min_runtime_exceeds_max_runtime_warning(capsys, tmp_path: Pat
     out = capsys.readouterr().out
     assert "effective min_runtime_minutes" in out
     assert "max_runtime_minutes" in out
+
+
+def test_longrun_early_completion_skips_heartbeat(tmp_path: Path) -> None:
+    clock = _AdvancingClock()
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        min_runtime_minutes=120,
+        no_early_success_exit=True,
+        allow_early_completion=True,
+        continue_after_task_limit="heartbeat",
+        heartbeat_interval_minutes=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.longrun_exit_success
+    assert result.stop_reason.startswith("early_completion:")
+    assert result.longrun_state == "early_completion"
+    assert not dev_loop_should_exit_nonzero(result)
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"]["early_completion_detected"] is True
+    assert payload["longrun"]["early_completion_reason"] == "task_cap_reached"
+
+
+def test_longrun_durability_still_heartbeats_without_early_completion(tmp_path: Path) -> None:
+    clock = _AdvancingClock()
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        subprocess_run=_git_clean,
+        max_tasks=1,
+        min_runtime_minutes=2,
+        no_early_success_exit=True,
+        allow_early_completion=False,
+        continue_after_task_limit="heartbeat",
+        heartbeat_interval_minutes=1,
+        monotonic_fn=clock.monotonic,
+        sleep_fn=clock.sleep,
+    )
+    assert result.longrun_exit_success
+    assert result.stop_reason == "min_runtime reached: 2"
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"].get("early_completion_detected") is not True
+
+
+def test_true_longrun_12h_bounded_profile() -> None:
+    profile = _load_profile("true_longrun_12h_bounded", profile_path=default_profile_path())
+    assert not longrun_profile_runtime_warnings(profile)
+    assert profile.allow_early_completion is True
+    assert profile.completion_notify_enabled is True
+    assert profile.max_prs == 12
+    ae, cn = apply_profile_completion_settings(
+        profile,
+        allow_early_completion=False,
+        completion_notify_enabled=False,
+    )
+    assert ae is True
+    assert cn is True
+
+
+def test_productive_12h_v2_script_flags() -> None:
+    path = ROOT_DIR / "scripts" / "run_productive_true_longrun_12h_v2.sh"
+    assert path.is_file()
+    text = path.read_text(encoding="utf-8")
+    assert "autonomous_dev_queue_productive_12h_v2.yaml" in text
+    assert "true_longrun_12h_bounded" in text
+    assert "--allow-early-completion" in text
+    assert "--completion-notify" in text
+    assert 'MAX_PRS=12' in text
+    assert "productive_true_longrun_12h_v2" in text
+    assert "--no-early-success-exit" not in text
+
+
+def test_productive_12h_v2_queue_exists() -> None:
+    tasks = _load_queue(default_productive_12h_v2_task_queue_path())
+    assert 28 <= len(tasks) <= 34
+
+
+def test_completion_notification_on_blocked_gate(tmp_path: Path) -> None:
+    notify_cmds: list[list[str]] = []
+
+    def subprocess_with_notify(cmd, **kwargs):  # type: ignore[no-untyped-def]
+        if cmd and cmd[0] in {"afplay", "osascript"}:
+            notify_cmds.append(list(cmd))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+        return _git_clean(cmd, **kwargs)
+
+    result = run_dev_loop(
+        task_queue_path=default_task_queue_path(),
+        outputs_root=tmp_path,
+        execute_dev_loop=True,
+        subprocess_run=subprocess_with_notify,
+        completion_notify_enabled=True,
+    )
+    assert result.status == "blocked"
+    assert notify_cmds
+    payload = json.loads(Path(result.evidence_path).read_text(encoding="utf-8"))
+    assert payload["longrun"]["completion_notification"]["event"] == "failure"
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:24:45Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:25:54Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:30:16Z)

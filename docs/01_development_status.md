@@ -1169,9 +1169,15 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
-## R7.0-Ops-I9 — daytime 8h productive（進行中）
+## R7.0-Ops-I9 — daytime 8h productive（完了）
 
-**内容**: G1 stacked PR helper、G2 pytest exit 5 category、G3 terminal-safe 8h runner、I9 queue、I10 night skeleton。詳細 **[docs/129](./129_r7_0_ops_i9_daytime_8h_prep.md)**。
+**内容**: G1 stacked PR helper、G2 pytest exit 5 category、G3 terminal-safe 8h runner、I9 queue、8h run 証跡。詳細 **[docs/129](./129_r7_0_ops_i9_daytime_8h_prep.md)**。
+
+---
+
+## R7.0-Ops-I10 — night 12h v2 bounded + early completion（進行中）
+
+**内容**: `longrun_completion` モジュール、`true_longrun_12h_bounded` profile、`run_productive_true_longrun_12h_v2.sh`。詳細 **[docs/130](./130_r7_0_ops_i10_early_completion_notification.md)**。
 
 ---
 

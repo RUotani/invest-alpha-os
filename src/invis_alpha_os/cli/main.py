@@ -799,6 +799,16 @@ def operator_runner_dev_loop(
         "--no-early-success-exit",
         help="After task/PR caps, heartbeat until --min-runtime-minutes instead of stopping.",
     ),
+    allow_early_completion: bool = typer.Option(
+        False,
+        "--allow-early-completion",
+        help="When productive queue work is done, exit without heartbeat-only min_runtime wait.",
+    ),
+    completion_notify: bool = typer.Option(
+        False,
+        "--completion-notify",
+        help="Best-effort macOS sound/notification on run completion (never fails the run).",
+    ),
     heartbeat_interval_minutes: int = typer.Option(
         10,
         "--heartbeat-interval-minutes",
@@ -875,6 +885,8 @@ def operator_runner_dev_loop(
             stop_on_dirty_tree=stop_on_dirty_tree,
             min_runtime_minutes=min_runtime_minutes,
             no_early_success_exit=no_early_success_exit,
+            allow_early_completion=allow_early_completion,
+            completion_notify_enabled=completion_notify,
             heartbeat_interval_minutes=heartbeat_interval_minutes,
             continue_after_pr_limit=continue_after_pr_limit,
             continue_after_task_limit=continue_after_task_limit,
