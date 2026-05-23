@@ -10,3 +10,67 @@ superseded_tasks:
     reason: self_referential_ops_i_cluster_superseded_by_i5_replacements
   - task_id: ops_i_heartbeat_coverage
     reason: self_referential_ops_i_cluster_superseded_by_i5_replacements
+  - task_id: ops_i7_v2_post_run_review_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_classify_interruption_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_queue_validation_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_pr_loop_status_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_failure_policy_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_discovery_smoke_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_runner_gated_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_dev_loop_longrun_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_evidence_keys_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_superseded_skip_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_merge_helper_script_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_review_script_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_cli_help_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_daily_report_dryrun_tests
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_post_run_review_impl_doc
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_evidence_parser_helper
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_pr_url_collector_doc
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_failure_diag_enrichment
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_queue_loader_validation
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_cli_post_run_review_wire
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_artifact_path_helper
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_runner_status_parse
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_discovery_summary_helper
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_gmail_dryrun_helper
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_morning_review_flow
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_merge_workflow_doc
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_v2_queue_meta
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_utilization_metrics
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_interruption_playbook
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_ci_review_checklist
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_main_sync_procedure
+    reason: superseded_by_i11_v3_queue_new_task_ids
+  - task_id: ops_i7_v2_next_run_preparation
+    reason: superseded_by_i11_v3_queue_new_task_ids

@@ -140,6 +140,10 @@ productive は明示 `change_file` 必須。`docs/smoke.md` は実行前 quarant
 
 実作業完了後は early completion で heartbeat-only 待ちを避ける。v2 queue + **`scripts/run_productive_true_longrun_12h_v2.sh`** + profile **`true_longrun_12h_bounded`**。耐久試験は従来どおり `true_longrun_12h`（`no_early_success_exit` のみ、early completion なし）。詳細 **[docs/130](./130_r7_0_ops_i10_early_completion_notification.md)**。
 
+## 23. Ops-I11 utilization-based 12h v3
+
+履歴分析に基づく 84 task queue（primary/reserve/stretch）+ **`scripts/run_productive_true_longrun_12h_v3.sh`** + **`true_longrun_12h_productive_v3`**（max_prs 15）。詳細 **[docs/131](./131_r7_0_ops_i11_longrun_utilization_analysis.md)**。
+
 (dev-loop が実行時に marker 行を各 companion doc に追記)
 - dev-loop smoke marker: 20260520T115316Z (2026-05-20T11:53:17Z)
 - dev-loop smoke marker: 20260520T224502Z (2026-05-20T22:45:03Z)
