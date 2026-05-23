@@ -26,3 +26,4 @@ bash scripts/run_productive_true_longrun_12h_v3.sh
 ## Safety
 
 auto-merge 禁止 · live HTTP / cache write / Gmail / trading 文言禁止。
+- dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:28:56Z)

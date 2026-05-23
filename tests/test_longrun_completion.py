@@ -119,3 +119,4 @@ def test_emit_completion_notification_uses_subprocess_mock() -> None:
     )
     assert status["event"] == "completed"
     assert runner.call_count >= 1
+# dev-loop smoke marker: 20260523T112747Z (2026-05-23T11:30:04Z)
