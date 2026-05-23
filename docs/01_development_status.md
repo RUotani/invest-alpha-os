@@ -1221,6 +1221,12 @@ Phase 0-v1.1 は完了し、以下条件を確認済み。
 
 ---
 
+## Product P4 — weekly US observation cycle（進行中）
+
+**内容**: `weekly-us-observation` · `log us-signals-summary` · `us-cache-expansion-report` — P4 orchestration + P3/US read-only expansion gap report。詳細 **[docs/141](./141_product_p4_weekly_observation_cycle.md)** · forward-return design **[docs/142](./142_product_p3_forward_return_validation_design.md)**。
+
+---
+
 ## Product P2 — MSFT / AAPL cache refresh（完了 · operator · evidence docs）
 
 **結果**: MSFT（fixture import · no HTTP）/ AAPL（gated Stooq live write）refresh 後 **16/16** US cache-only signals + momentum parse。**証拠**: **[docs/139](./139_product_p2_msft_aapl_evidence_pack.md)** · runbook **[docs/138](./138_product_p2_msft_aapl_cache_refresh.md)**。cache JSON / operator logs は git 外（`outputs/`）。
