@@ -125,6 +125,7 @@ from invis_alpha_os.operator.dev_loop import (
     dev_loop_should_exit_nonzero,
     run_dev_loop,
 )
+from invis_alpha_os.operator.post_run_integrate import format_integrate_markdown, run_post_run_integrate
 from invis_alpha_os.operator.post_run_review import build_post_run_review_markdown
 from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.operator.pr_loop import run_pr_loop
@@ -936,6 +937,53 @@ def operator_runner_post_run_review(
         typer.echo(f"operator-runner post-run-review: {e}", err=True)
         raise typer.Exit(2) from e
     typer.echo(text)
+    raise typer.Exit(0)
+
+
+@operator_runner_app.command("post-run-integrate")
+def operator_runner_post_run_integrate(
+    run_id: Optional[str] = typer.Option(
+        None,
+        "--run-id",
+        help="Dev-loop run id (default: latest evidence_summary.json).",
+    ),
+    pr_range: Optional[str] = typer.Option(
+        None,
+        "--pr-range",
+        help="PR numbers to audit/integrate (e.g. 185-199). Default: from evidence task_results.",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--execute",
+        help="Audit only (default). Use --execute with --integrate for guarded actions.",
+    ),
+    integrate: bool = typer.Option(
+        False,
+        "--integrate",
+        help="Run guarded integration (requires CONFIRM_PRODUCTIVE_PR_MERGE=YES and --execute).",
+    ),
+) -> None:
+    """Audit and optionally integrate productive longrun PR batches (no auto-merge)."""
+
+    if integrate and dry_run:
+        typer.echo(
+            "operator-runner post-run-integrate: --integrate requires --execute (not --dry-run)",
+            err=True,
+        )
+        raise typer.Exit(2)
+    try:
+        result = run_post_run_integrate(
+            run_id=run_id,
+            pr_range=pr_range,
+            dry_run=dry_run,
+            integrate=integrate,
+        )
+    except ValueError as e:
+        typer.echo(f"operator-runner post-run-integrate: {e}", err=True)
+        raise typer.Exit(2) from e
+    typer.echo(format_integrate_markdown(result))
+    if result.errors:
+        raise typer.Exit(1)
     raise typer.Exit(0)
 
 

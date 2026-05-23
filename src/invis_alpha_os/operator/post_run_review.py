@@ -12,6 +12,8 @@ from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 
 DEV_LOOP_REL = Path("operator/dev_loop")
 PRODUCTIVE_LOG_DIRS = (
+    "productive_true_longrun_12h_v3",
+    "productive_true_longrun_12h_v2",
     "productive_true_longrun_12h",
     "productive_true_longrun_8h",
 )

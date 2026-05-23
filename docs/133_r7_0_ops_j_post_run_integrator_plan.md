@@ -36,8 +36,14 @@
 - Opened consolidation PR for remaining diff from PR #199 tip vs `main`.
 - Close #186–#199 as superseded (branches retained).
 
-## Next implementation slices
+## Implementation status (Ops-J)
 
-1. `post_run_integrate.py` + CLI wiring (dry-run audit only).
-2. Consolidation branch builder (`git diff origin/main...pr_tip`).
-3. Optional: `max_prs` adaptive from historical skip/velocity (queue v4).
+- `src/invis_alpha_os/operator/post_run_integrate.py` — audit, strategy, guarded integrate hooks.
+- CLI: `operator-runner post-run-integrate` (`--dry-run` default, `--execute --integrate` gated).
+- I12 design: **[docs/134](./134_r7_0_ops_i12_effective_12h_design.md)**.
+
+## Next slices
+
+1. Auto-push consolidation PR (still manual squash merge).
+2. Productive wave runner script.
+3. Queue v4 + adaptive caps from evidence history.
