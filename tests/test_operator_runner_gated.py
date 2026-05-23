@@ -193,3 +193,4 @@ def test_gate_missing_individual_env(tmp_path: Path, gated_task_path: Path, monk
     assert state.gate_status["CONFIRM_OPERATOR_GATED_INGEST"] is False
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:33:35Z)
 # dev-loop smoke marker: 20260522T142443Z (2026-05-22T14:43:38Z)
+# dev-loop smoke marker: 20260523T094524Z (2026-05-23T09:45:32Z)
