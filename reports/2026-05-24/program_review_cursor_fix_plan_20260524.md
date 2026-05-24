@@ -1,5 +1,7 @@
 # Program Review / Cursor Fix Plan — 2026-05-24
 
+> **Status: COMPLETED** (2026-05-24) — PR #228–#230 merged. See follow-up report.
+
 ## 3行サマリー
 
 - 判定: **APPROVE_WITH_ACTION_ITEMS**。`pytest` は **1020 passed**、read-only smoke も通るが、lint 失敗・ops smoke の弱い判定・handoff/STATE の stale 化が残る。

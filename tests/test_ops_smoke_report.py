@@ -163,6 +163,28 @@ def test_build_ops_smoke_report_ok(mini_us_cache: Path) -> None:
     assert report.signals_ok >= 1
 
 
+def test_build_ops_smoke_report_warns_repeat_signals(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+
+    obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True, exist_ok=True)
+    from invis_alpha_os.observation.service import ObservationService
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+
+    svc = ObservationService(observation_path=obs_path, outcome_path=mini_us_cache / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "uptrend", "last_date": "2024-04-10"})
+    svc.log_observation("MSFT", note)
+    svc.log_observation("MSFT", note)
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", mini_us_cache / "outputs")
+
+    report = build_ops_smoke_report(path_base=mini_us_cache)
+    health_check = next(c for c in report.checks if c.name == "observation_health")
+    assert health_check.status == "warn"
+    assert "repeat_signals=" in health_check.detail
+
+
 def test_cli_validate_ops_smoke_json(mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 

@@ -74,6 +74,40 @@ def _signal_quality_snapshot_status(signals_ok: int, signals_total: int) -> str:
     return "ok"
 
 
+def _observation_health_check(health: Any) -> OpsSmokeCheck:
+    integrity = health.log_integrity
+    parse_err = int(integrity.get("json_parse_errors") or 0)
+    us = health.us_signals
+    repeat = int(us.get("repeat_signal_count") or 0)
+    us_rows = int(us.get("us_signal_rows") or 0)
+    fwd = health.forward_validation
+    fwd_matched = int(fwd.get("rows_matched") or 0) if isinstance(fwd, dict) else 0
+    stale_forward = False
+    if isinstance(fwd, dict):
+        sq = fwd.get("sample_quality") or {}
+        reason = str(sq.get("reason") or "")
+        skipped = fwd.get("skipped_reasons") or {}
+        stale_forward = (
+            fwd_matched == 0
+            and us_rows > 0
+            and (
+                "cache end" in reason
+                or int(skipped.get("cache_stale_event_after_cache_end") or 0) > 0
+            )
+        )
+    status = "ok"
+    if parse_err > 0:
+        status = "warn"
+    elif repeat > 0 or stale_forward:
+        status = "warn"
+    detail = f"us_signal_rows={us_rows} parse_errors={parse_err}"
+    if repeat > 0:
+        detail += f" repeat_signals={repeat}"
+    if stale_forward:
+        detail += " forward_stale_cache=1"
+    return OpsSmokeCheck(name="observation_health", status=status, detail=detail)
+
+
 def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
     root = path_base or ROOT_DIR
     checks: list[OpsSmokeCheck] = []
@@ -121,15 +155,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
 
     obs_path = OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
     health = build_observation_health_report(path_base=root, observation_path=obs_path)
-    integrity = health.log_integrity
-    parse_err = int(integrity.get("json_parse_errors") or 0)
-    checks.append(
-        OpsSmokeCheck(
-            name="observation_health",
-            status="ok" if parse_err == 0 else "warn",
-            detail=f"us_signal_rows={health.us_signals.get('us_signal_rows', 0)} parse_errors={parse_err}",
-        )
-    )
+    checks.append(_observation_health_check(health))
 
     pmap = CONFIG_DIR / "peer_map.yaml"
     checks.append(
