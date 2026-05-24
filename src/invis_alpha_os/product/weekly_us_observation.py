@@ -603,5 +603,13 @@ def format_weekly_us_observation_markdown(
                     f"{row.get('status')} (spread {spread_s})"
                 )
 
+    lines.extend(
+        [
+            "",
+            "## Ops smoke (read-only)",
+            "- `validate ops-smoke --format markdown`",
+            "- `snapshot observation-health --format json`",
+        ]
+    )
     lines.append("")
     return "\n".join(lines)
