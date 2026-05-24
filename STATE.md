@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `d10098c`（#238–#239 · tier-1 gap · weekly #3 · AMD blocked）。
+- `origin/main` @ `a73fe70`（#240 longrun standard · #238–#239 wave）。
 - observation_log **58行**（US 48 + peer_sync 10 · 週次蓄積 #3 承認実行済）。
 - P10 AMD refresh: **失敗**（`STOOQ_APIKEY` 未設定 · cache 未書込）。
 
@@ -29,9 +29,9 @@
 ## §4. 最新main
 
 ```text
-origin/main: d10098c
-open PRs: 0
-tests: 1047 passed
+origin/main: a73fe70
+open PRs: wave ops-quality (taxonomy · evidence manifest · repeat summary)
+tests: 1052 passed (local wave branch)
 observation_log: 58 lines (local outputs/)
 tier-1 missing: AMD (STOOQ_APIKEY blocker)
 ops-smoke --strict: exit 2 expected

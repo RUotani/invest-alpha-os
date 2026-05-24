@@ -161,6 +161,8 @@ def test_build_ops_smoke_report_ok(mini_us_cache: Path) -> None:
     assert report.all_ok
     assert report.manifest_entries >= 1
     assert report.signals_ok >= 1
+    payload = report.to_dict()
+    assert payload["strict_taxonomy"]["taxonomy"] == "PASS"
 
 
 def test_build_ops_smoke_report_warns_repeat_signals(

@@ -8,9 +8,9 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `d10098c` |
-| **open PR** | 0 |
-| **テスト** | **1047 passed** |
+| **origin/main** | `a73fe70` |
+| **open PR** | wave ops-quality（taxonomy · manifest · repeat · readiness labels · Gmail docs） |
+| **テスト** | **1052 passed**（wave branch） |
 | **observation_log** | **58行**（US 48 + peer_sync 10） |
 | **tier-1 missing** | **AMD**（Stooq API key 要） |
 
@@ -24,9 +24,17 @@
 | `log peer-sync-snapshot` | （週次と同批） | +4 peer_sync 行 |
 | P10 AMD refresh | **yes** | **失敗** · `provider_api_key_required` |
 | portfolio STATE % | **keep** | `[要確認]%` 維持 |
-| dev batch | **yes** | #238 マージ済 |
+| dev batch | **yes** | #238–#240 マージ済 · wave ops-quality PR 待ち |
 
 ---
+
+## 4. Wave ops-quality（PR 待ち）
+
+- ops-smoke `strict_taxonomy`（PASS / EXPECTED_BLOCKED / REGRESSION）
+- `log evidence-manifest` → `reports/YYYY-MM-DD/evidence_manifest_*.md`
+- observation `repeat_summary`（first_seen · consecutive_weeks）
+- portfolio readiness `label` / `operator_hint` / `next_milestone`
+- docs/123 · docs/124 → DEPRECATED（docs/81 へ誘導）
 
 ## 2. P10 AMD evidence（git 外）
 

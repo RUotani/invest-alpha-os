@@ -220,6 +220,18 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         if len(repeat_syms) > 8:
             preview += f", … (+{len(repeat_syms) - 8})"
         lines.append(f"- repeat_signal_symbols: {preview}")
+    repeat_summary = us.get("repeat_summary") or {}
+    repeat_rows = repeat_summary.get("repeat_by_symbol") or []
+    if repeat_rows:
+        lines.extend(["", "## Repeat summary", ""])
+        for item in repeat_rows[:8]:
+            if isinstance(item, dict):
+                lines.append(
+                    f"- {item.get('symbol')}: count={item.get('count')} "
+                    f"weeks={item.get('consecutive_weeks')} "
+                    f"first={str(item.get('first_seen', ''))[:10]} "
+                    f"last={str(item.get('last_seen', ''))[:10]}"
+                )
     checklist = us.get("research_checklist") or []
     if checklist:
         lines.extend(["", "## Research checklist", ""])
@@ -247,14 +259,19 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             [
                 "",
                 "## Portfolio readiness (docs/154)",
-                f"- accepted_tier: {readiness.get('accepted_tier')}",
+                f"- accepted_tier: {readiness.get('accepted_tier')} — {readiness.get('accepted_tier_label', '')}",
                 f"- suggested_percent: {readiness.get('suggested_percent')} (STATE locked)",
             ]
         )
+        nxt = readiness.get("next_milestone")
+        if isinstance(nxt, dict):
+            lines.append(
+                f"- next_milestone: {nxt.get('id')} {nxt.get('label')} ({nxt.get('status')})"
+            )
         for m in readiness.get("milestones") or []:
             if isinstance(m, dict):
                 mark = "✓" if m.get("passed") else "·"
-                lines.append(f"- {mark} {m.get('id')}: {m.get('detail')}")
+                lines.append(f"- {mark} {m.get('id')} {m.get('label')}: {m.get('detail')}")
     lines.extend(
         [
         "",

@@ -25,10 +25,13 @@ def test_portfolio_readiness_p0_only(tmp_path: Path, monkeypatch: pytest.MonkeyP
     _patch_outputs(monkeypatch, outputs)
     report = evaluate_portfolio_readiness(path_base=tmp_path)
     assert report["accepted_tier"] == "P0"
+    assert report["accepted_tier_label"] == "P0 only (CLI ready)"
     assert report["suggested_percent"] == 25
     assert report["state_percent_locked"] is True
     p1 = next(m for m in report["milestones"] if m["id"] == "P1")
     assert p1["passed"] is False
+    assert p1["label"] == "Observation linkage"
+    assert report["next_milestone"]["id"] == "P1"
 
 
 def test_portfolio_readiness_p3_blocked_on_stale_cache(
