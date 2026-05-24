@@ -10,7 +10,6 @@ import pytest
 
 from invis_alpha_os.config.paths import CONFIG_DIR
 from invis_alpha_os.operator.pr_loop import (
-    FORBIDDEN_GH_SUBCOMMANDS,
     assert_gh_command_allowed,
     build_pr_body_draft,
     check_github_pr_create_gate,

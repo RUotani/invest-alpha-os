@@ -399,7 +399,7 @@ def test_daily_report_momentum_section_includes_285a(
     )
     _write_min_cache(tmp_path, "285A", n=280)
     # Second code reuses already-created cache dir — write file directly.
-    import shutil, json as _json
+    import json as _json
     src = tmp_path / "market_data" / "jquants_daily_bars" / "285A.json"
     raw = _json.loads(src.read_text())
     raw["code"] = "7011"
@@ -436,7 +436,7 @@ def test_veto_cell_shows_overheat_rule_when_flagged(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """overheat_flagがTrueの銘柄はVeto列にhard_momentum_overheatが表示されること。"""
-    from invis_alpha_os.signals.momentum import MomentumBreakdown, build_momentum_signals
+    from invis_alpha_os.signals.momentum import MomentumBreakdown
 
     overheat = MomentumBreakdown(
         code="7011", bar_count=280, labels=("overheat",), score=0,

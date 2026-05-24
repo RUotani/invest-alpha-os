@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file, parse_us_daily_bars_payload
 

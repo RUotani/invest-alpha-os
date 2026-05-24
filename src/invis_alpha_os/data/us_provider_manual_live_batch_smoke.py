@@ -1359,7 +1359,7 @@ def render_manual_live_batch_smoke_markdown(payload: dict[str, Any]) -> str:
             f"- live_preview_success_count: `{op_sum.get('live_preview_success_count', 0)}`",
             f"- live_preview_failure_count: `{op_sum.get('live_preview_failure_count', 0)}`",
             f"- skipped_max_http_cap_count: `{op_sum.get('skipped_max_http_cap_count', 0)}`",
-            f"- cache_write_allowed_count: `0`",
+            "- cache_write_allowed_count: `0`",
             "",
         ]
         for r in ok_rows:

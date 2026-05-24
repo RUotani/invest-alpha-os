@@ -122,7 +122,6 @@ from invis_alpha_os.product.weekly_us_observation import (
     run_weekly_us_observation_cycle,
     summarize_us_observation_log,
     us_cache_expansion_report,
-    us_signal_quality_snapshot,
 )
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.reporting.jquants_smoke_summary import (
@@ -187,7 +186,7 @@ from invis_alpha_os.operator.operator_autopilot import (
 )
 from invis_alpha_os.operator.post_run_integrate import format_integrate_markdown, run_post_run_integrate
 from invis_alpha_os.operator.post_run_review import build_post_run_review_markdown
-from invis_alpha_os.operator.runner import RunnerStop, default_gated_task_path, default_policy_path, default_task_path, run_operator_task
+from invis_alpha_os.operator.runner import RunnerStop, default_policy_path, default_task_path, run_operator_task
 from invis_alpha_os.operator.pr_loop import run_pr_loop
 from invis_alpha_os.utils.date_utils import today_jst_iso
 

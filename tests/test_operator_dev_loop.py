@@ -11,7 +11,6 @@ import pytest
 
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.operator.dev_loop import (
-    normalize_failure_category,
     DevLoopProfile,
     _check_scope,
     _has_forbidden_dirty_paths,

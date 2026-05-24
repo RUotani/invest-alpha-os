@@ -6,10 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
-import pytest
 
 from invis_alpha_os.operator.post_run_integrate import (
-    audit_pr,
     choose_integration_strategy,
     classify_pr_risk,
     detect_stacked_pr_chain,

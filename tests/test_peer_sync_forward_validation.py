@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
-from invis_alpha_os.cli.main import app
 from invis_alpha_os.observation.us_peer_sync_note import build_us_peer_sync_observation_note
 from invis_alpha_os.product.jp_peer_sync_loader import (
     build_jp_peer_sync_readiness_report,

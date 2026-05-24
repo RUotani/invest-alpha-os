@@ -235,8 +235,6 @@ def _latest_longrun_snippet(
     tasks_executed = int(evidence.get("tasks_executed") or 0)
     prs = int(evidence.get("prs_created") or 0)
     task_line = f"{tasks_executed}/{tasks_seen}"
-    pr_nums = pr_numbers_from_evidence(evidence)
-    pr_range = f"{pr_nums[0]}-{pr_nums[-1]}" if pr_nums else ""
     return run_id, stop, prs, task_line, warnings
 
 

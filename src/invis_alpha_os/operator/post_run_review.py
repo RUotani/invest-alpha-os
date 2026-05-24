@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
+from invis_alpha_os.config.paths import OUTPUTS_DIR
 
 DEV_LOOP_REL = Path("operator/dev_loop")
 PRODUCTIVE_LOG_DIRS = (

@@ -62,7 +62,6 @@ def test_resolve_observation_event_date_prefers_as_of() -> None:
 
 def test_backtest_within_cache_enables_forward(tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
     import json
-    from pathlib import Path
 
     import invis_alpha_os.data.us_daily_bars_cache as usc
 

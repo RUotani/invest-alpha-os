@@ -12,7 +12,6 @@ from invis_alpha_os.config.paths import CONFIG_DIR
 from invis_alpha_os.operator.jquants_ingest_wiring import (
     JquantsIngestWiring,
     build_jquants_ingest_cli_argv,
-    command_template_for_symbol,
     make_jquants_ingest_executor,
     run_jquants_ingest_subprocess,
 )
