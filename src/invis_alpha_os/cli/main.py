@@ -84,6 +84,11 @@ from invis_alpha_os.product.peer_sync_cache_only import (
     format_peer_sync_cache_only_json,
     format_peer_sync_cache_only_markdown,
 )
+from invis_alpha_os.product.observation_health import (
+    build_observation_health_report,
+    format_observation_health_json,
+    format_observation_health_markdown,
+)
 from invis_alpha_os.product.portfolio_observation_summary import (
     build_portfolio_observation_summary,
     format_portfolio_observation_summary_json,
@@ -1453,6 +1458,45 @@ def snapshot_portfolio_observation_summary(
             "snapshot portfolio-observation-summary: --format must be markdown or json",
             err=True,
         )
+        raise typer.Exit(2)
+
+
+@snapshot_app.command("observation-health")
+def snapshot_observation_health(
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Observation log JSONL (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    cache_dir: Optional[str] = typer.Option(
+        None,
+        "--cache-dir",
+        help="US daily bars cache directory (default: outputs/market_data/us_daily_bars).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only observation_log health: signals, peer_sync, portfolio, forward sample."""
+
+    fmt_norm = fmt.strip().lower()
+    obs = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    cache = (
+        Path(cache_dir) if cache_dir else OUTPUTS_DIR / "market_data" / "us_daily_bars"
+    )
+    report = build_observation_health_report(
+        path_base=ROOT_DIR,
+        observation_path=obs,
+        cache_dir=cache,
+    )
+    if fmt_norm == "json":
+        typer.echo(format_observation_health_json(report))
+    elif fmt_norm == "markdown":
+        typer.echo(format_observation_health_markdown(report))
+    else:
+        typer.echo("snapshot observation-health: --format must be markdown or json", err=True)
         raise typer.Exit(2)
 
 
