@@ -42,3 +42,6 @@ outputs/jquants_smoke/*.json
 .ai/reviews/*.md
 .ai/reviews/*.json
 
+# Local ops smoke artifacts (generated; do not commit)
+.agent/ops_smoke/
+

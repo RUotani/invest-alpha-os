@@ -1,6 +1,6 @@
-# Product ロングラン Handoff — 完全版（2026-05-24 更新）
+# Product ロングラン Handoff — 2026-05-24（更新）
 
-> ChatGPT 引き継ぎ用。ops smoke 結果 + 3セッション統合。
+> ChatGPT / Cursor 引き継ぎ用。program review fix plan 反映。
 
 ---
 
@@ -8,71 +8,59 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `4402dae` (#217 merged) |
-| **作業ブランチ** | `work/product-ops-smoke-and-continue-20260524` |
-| **pending PR** | #218 予定 — ops report + peer_sync observation_log |
-| **テスト** | **999 passed** |
+| **origin/main** | `b5ee55e` |
+| **open PR** | 0 |
+| **テスト** | **1029 passed** · ruff clean |
+| **observation_log** | 18行（US 16 + peer_sync 2 · 承認済み書込） |
 
 ---
 
-## 1. Ops smoke（2026-05-24 · read-only · 実施済み）
+## 1. マージ済み PR（新→古 · 抜粋）
 
-詳細: `docs/152_product_ops_smoke_report_20260524.md`
-
-| # | コマンド | exit | 判定 |
-| --- | --- | ---: | --- |
-| 1 | `weekly-us-observation --dry-run --with-peer-sync --format markdown` | 0 | ✅ 16/16 signals, peer_sync 2 pairs |
-| 2 | `validate peer-sync --format markdown` | 0 | ✅ AAPL→MSFT/GOOGL diverged |
-| 3 | `snapshot portfolio-observation-summary --format json` | 0 | ✅ 空 JSON valid |
-
-**意図的未実行**
-
-- `--write-observation-log` — outputs 書込 · 明示承認時のみ
-- P10 tier-1 refresh — live HTTP/cache write **禁止**
-- `log peer-sync-snapshot` — CLI 追加済み · 実行は opt-in
+| PR | 内容 |
+| --- | --- |
+| #229 | ruff lint clean |
+| #228 | ops-smoke meaningful fail/warn |
+| #227 | as_of + backtest-within-cache forward |
+| #226 | JP peer_sync in validate + fresh-log UX |
+| #225 | peer_sync forward join + weekly one-pager |
 
 ---
 
-## 2. セッション履歴
+## 2. Ops smoke（read-only · 実施済み）
 
-| PR | 内容 | 状態 |
-| --- | --- | --- |
-| #216 | peer_sync MVP + portfolio | merged |
-| #217 | weekly `--with-peer-sync` + runbooks | merged |
-| #218 | ops report + `log peer-sync-snapshot` + next_commands fix | **pending** |
-
----
-
-## 3. エラー記録（全セッション）
-
-| ID | セッション | 症状 | 修正 |
-| --- | --- | --- | --- |
-| E5 | 1 | 相関テスト定数系列 | テストデータ修正 |
-| E6 | 1 | テストファイル混線 | 書き直し |
-| E7 | 3 | peer_sync log テスト logged=0 | `peer_map_path` 明示渡し |
+| コマンド | 判定 |
+| --- | --- |
+| `validate ops-smoke` | OK（16/16 cache · strict で warn 検知可） |
+| `validate us-forward-returns --backtest-within-cache` | matched=16（探索のみ） |
+| `validate jp-peer-sync-readiness` | JP 2/2 ready |
 
 ---
 
-## 4. 人間作業
+## 3. 人間ゲート（未実行 / 承認待ち）
 
-1. **PR #218 マージ**
-2. **週次 `--write-observation-log`**（docs/150 · 明示承認後）
-3. **P10 tier-1**（docs/151 · まだ実行禁止）
-4. portfolio `[要確認]%`
-
----
-
-## 5. Agent 完了 / 未完了
-
-### 完了
-- peer_sync MVP, weekly opt-in, runbooks, ops smoke doc
-- `log peer-sync-snapshot`（explicit opt-in CLI）
-
-### 未完了（人間 / 禁止）
-- observation_log 実蓄積（運用）
-- tier-1 live refresh
-- Gmail, portfolio sizing
+| 項目 | 状態 |
+| --- | --- |
+| 来週 `--write-observation-log` | 承認ボタン待ち |
+| P10 tier-1 cache refresh | **禁止** |
+| portfolio STATE % | docs/154 rubric · 承認待ち |
+| Gmail 配信 | 別 runbook |
 
 ---
 
-*最終更新: session 3 · ops smoke + peer_sync log*
+## 4. ローカル生成物
+
+- `.agent/ops_smoke/` → **gitignore**（承認済み · 2026-05-24）
+- `outputs/` → git 外 · commit 禁止
+
+---
+
+## 5. 参照
+
+- Fix plan: `reports/2026-05-24/program_review_cursor_fix_plan_20260524.md`
+- Weekly one-pager: `docs/160_product_weekly_operator_one_pager.md`
+- Forward guidance: `docs/161_product_forward_validation_fresh_log_guidance.md`
+
+---
+
+*最終更新: 2026-05-24 · post #229*
