@@ -116,6 +116,12 @@ def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:
     assert payload["quality"]["signals_ok"] == 1
 
 
+def test_cli_weekly_dry_run_includes_ops_smoke_hint(mini_us_cache: Path) -> None:
+    result = CliRunner().invoke(app, ["weekly-us-observation", "--dry-run", "--format", "markdown"])
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert "validate ops-smoke" in result.stdout
+
+
 def test_cli_weekly_with_peer_sync(mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import invis_alpha_os.cli.main as cli_main
 

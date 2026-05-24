@@ -28,6 +28,7 @@
 | forward validation | validate us-forward-returns |
 | portfolio | snapshot portfolio-observation-summary |
 | health | snapshot observation-health |
+| ops | validate ops-smoke |
 
 ## Recommended next (low-risk)
 
