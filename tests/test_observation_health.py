@@ -156,6 +156,21 @@ def test_observation_health_enriched_forward_checklist(
     assert "thin_forward_validation" in categories or "repeat_signal" in categories
 
 
+def test_observation_health_tier1_missing_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invis_alpha_os.product.observation_health import format_observation_health_markdown
+
+    outputs = tmp_path / "outputs"
+    outputs.mkdir()
+    _patch_outputs_dir(monkeypatch, outputs)
+    report = build_observation_health_report(path_base=tmp_path)
+    md = format_observation_health_markdown(report)
+    if report.tier1_missing:
+        assert "tier-1 cache gaps" in md
+        assert report.tier1_missing[0] in md
+
+
 def test_cli_snapshot_observation_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 
