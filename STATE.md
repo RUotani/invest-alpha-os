@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `766eb8c`（#241 ops taxonomy · evidence manifest · repeat summary）。
+- `origin/main` @ `b5a7be2`（#241–#242 · taxonomy · STATE sync）。
 - observation_log **58行**（US 48 + peer_sync 10 · strict_taxonomy = EXPECTED_BLOCKED 想定内）。
 - P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · preflight 2026-05-24 再実行済）。
 
@@ -15,7 +15,7 @@
 | risk/ | 62% | veto-at-t join |
 | portfolio/ | [要確認]% | readiness evaluator · % 人間承認待ち |
 | data ingest | 64% | tier-1 **AMD** gap（Stooq API key 要） |
-| reports/ui | 68% | strict_taxonomy · evidence-manifest CLI · docs/81 Gmail |
+| reports/ui | 70% | strict stderr · repeat_summary JSON · docs/160 evidence |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業

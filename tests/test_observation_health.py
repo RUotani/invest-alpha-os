@@ -186,3 +186,5 @@ def test_cli_snapshot_observation_health(tmp_path: Path, monkeypatch: pytest.Mon
     assert result.exit_code == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
     assert "us_signals" in payload
+    assert "repeat_summary" in payload
+    assert "repeat_by_symbol" in payload["repeat_summary"]

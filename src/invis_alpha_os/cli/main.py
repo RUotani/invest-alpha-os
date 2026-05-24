@@ -94,6 +94,7 @@ from invis_alpha_os.product.ops_smoke_report import (
     format_ops_smoke_json,
     format_ops_smoke_markdown,
 )
+from invis_alpha_os.product.ops_smoke_taxonomy import format_strict_taxonomy_stderr_line
 from invis_alpha_os.product.portfolio_observation_summary import (
     build_portfolio_observation_summary,
     format_portfolio_observation_summary_json,
@@ -640,8 +641,7 @@ def validate_ops_smoke_command(
         typer.echo("validate ops-smoke: --format must be markdown or json", err=True)
         raise typer.Exit(2)
     if strict and not report.all_ok:
-        raise typer.Exit(2)
-    if strict and any(c.status == "fail" for c in report.checks):
+        typer.echo(format_strict_taxonomy_stderr_line(report), err=True)
         raise typer.Exit(2)
 
 

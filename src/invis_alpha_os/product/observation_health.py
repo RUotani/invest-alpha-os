@@ -31,7 +31,7 @@ class ObservationHealthReport:
     observation_only: bool = True
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "observation_path": self.observation_path,
             "us_signals": self.us_signals,
             "peer_sync": self.peer_sync,
@@ -42,6 +42,10 @@ class ObservationHealthReport:
             "next_commands": self.next_commands,
             "observation_only": self.observation_only,
         }
+        repeat_summary = self.us_signals.get("repeat_summary")
+        if repeat_summary:
+            payload["repeat_summary"] = repeat_summary
+        return payload
 
 
 def _scan_log_integrity(observation_path: Path) -> dict[str, Any]:
