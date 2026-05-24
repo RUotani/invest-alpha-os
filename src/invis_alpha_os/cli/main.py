@@ -89,6 +89,11 @@ from invis_alpha_os.product.observation_health import (
     format_observation_health_json,
     format_observation_health_markdown,
 )
+from invis_alpha_os.product.ops_smoke_report import (
+    build_ops_smoke_report,
+    format_ops_smoke_json,
+    format_ops_smoke_markdown,
+)
 from invis_alpha_os.product.portfolio_observation_summary import (
     build_portfolio_observation_summary,
     format_portfolio_observation_summary_json,
@@ -594,6 +599,32 @@ def validate_peer_sync_command(
         typer.echo(format_peer_sync_cache_only_markdown(report))
     else:
         typer.echo("validate peer-sync: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+
+
+@validate_app.command("ops-smoke")
+def validate_ops_smoke_command(
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+    strict: bool = typer.Option(
+        False,
+        "--strict",
+        help="Exit 2 if any check status is fail (warn is ok).",
+    ),
+) -> None:
+    """Read-only consolidated ops smoke (manifest, peer_sync, portfolio, observation health)."""
+
+    fmt_norm = fmt.strip().lower()
+    report = build_ops_smoke_report(path_base=ROOT_DIR)
+    if fmt_norm == "json":
+        typer.echo(format_ops_smoke_json(report))
+    elif fmt_norm == "markdown":
+        typer.echo(format_ops_smoke_markdown(report))
+    else:
+        typer.echo("validate ops-smoke: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    if strict and not report.all_ok:
+        raise typer.Exit(2)
+    if strict and any(c.status == "fail" for c in report.checks):
         raise typer.Exit(2)
 
 

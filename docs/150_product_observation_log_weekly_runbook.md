@@ -15,7 +15,14 @@
 - live HTTP / cache write は本 runbook では **不要**（既存 cache のみ）
 - 取引推奨ではない（observation-only ラベル）
 
-## 週次コマンド（推奨）
+## 週次・日常確認（read-only · 1コマンド）
+
+```bash
+.venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format markdown
+.venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format json --strict
+```
+
+## 週次コマンド（書込あり · 人間承認）
 
 ```bash
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation \
