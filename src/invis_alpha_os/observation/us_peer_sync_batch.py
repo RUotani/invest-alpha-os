@@ -7,6 +7,8 @@ from typing import Any
 
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.observation.us_peer_sync_note import build_us_peer_sync_observation_note
+from invis_alpha_os.product.forward_event_resolution import bar_dates
+from invis_alpha_os.product.jp_peer_sync_loader import try_load_bars_for_peer_sync
 from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
 
 
@@ -43,7 +45,13 @@ def log_peer_sync_snapshot_observations(
         if not anchor:
             skipped += 1
             continue
-        note = build_us_peer_sync_observation_note(row)
+        pair_row = dict(row)
+        loaded = try_load_bars_for_peer_sync(anchor)
+        if loaded is not None:
+            dates = bar_dates(loaded[0])
+            if dates:
+                pair_row["as_of"] = dates[-1].isoformat()
+        note = build_us_peer_sync_observation_note(pair_row)
         service.log_observation(anchor, note)
         logged += 1
     return {

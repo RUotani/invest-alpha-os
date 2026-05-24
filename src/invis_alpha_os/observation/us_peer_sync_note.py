@@ -21,6 +21,9 @@ def build_us_peer_sync_observation_note(pair: dict[str, Any]) -> str:
     spread = pair.get("return_spread")
     if isinstance(spread, (int, float)):
         parts.append(f"spread={spread:.6f}")
+    as_of = pair.get("as_of") or pair.get("anchor_as_of")
+    if as_of:
+        parts.append(f"as_of={str(as_of)[:10]}")
     corr = pair.get("correlation")
     if isinstance(corr, (int, float)):
         parts.append(f"correlation={corr:.4f}")
@@ -35,7 +38,7 @@ def parse_us_peer_sync_observation_note(note: str) -> dict[str, Any]:
     out: dict[str, Any] = {}
     if US_PEER_SYNC_NOTE_PREFIX not in note:
         return out
-    for key in ("anchor", "peer", "status"):
+    for key in ("anchor", "peer", "status", "as_of"):
         m = re.search(rf"{key}=([^\s]+)", note)
         if m:
             out[key] = m.group(1)

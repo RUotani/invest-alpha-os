@@ -531,6 +531,11 @@ def validate_us_forward_returns_command(
         "--reference-date",
         help="Optional ISO date; skip observations after this date.",
     ),
+    backtest_within_cache: bool = typer.Option(
+        False,
+        "--backtest-within-cache",
+        help="Exploratory: shift event to last in-cache window when future bars missing.",
+    ),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
     """P5: cache-only forward returns from US observation_log rows (observation only)."""
@@ -562,6 +567,7 @@ def validate_us_forward_returns_command(
             cache_dir=cache_path,
             horizons=hz,
             reference_date=ref,
+            backtest_within_cache=backtest_within_cache,
         )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)
@@ -653,6 +659,11 @@ def validate_peer_sync_forward_returns_command(
         "--reference-date",
         help="Optional ISO date; skip observations after this date.",
     ),
+    backtest_within_cache: bool = typer.Option(
+        False,
+        "--backtest-within-cache",
+        help="Exploratory: shift event to last in-cache window when future bars missing.",
+    ),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
     """Read-only: join peer_sync log rows to anchor forward returns (cache-only)."""
@@ -680,6 +691,7 @@ def validate_peer_sync_forward_returns_command(
             observation_path=obs_path,
             horizons=hz,
             reference_date=ref,
+            backtest_within_cache=backtest_within_cache,
         )
     except (FileNotFoundError, ValueError) as exc:
         typer.echo(str(exc), err=True)

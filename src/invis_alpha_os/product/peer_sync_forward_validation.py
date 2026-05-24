@@ -13,13 +13,16 @@ from invis_alpha_os.observation.us_peer_sync_note import (
     parse_us_peer_sync_observation_note,
 )
 from invis_alpha_os.product.jp_peer_sync_loader import try_load_bars_for_peer_sync
+from invis_alpha_os.product.forward_event_resolution import (
+    cache_stale_skip_reason,
+    event_bar_index,
+    resolve_forward_horizons,
+    resolve_observation_event_date,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     DEFAULT_HORIZONS,
     THIN_SAMPLE_THRESHOLD,
-    _event_bar_index,
-    _forward_return,
     _horizon_bucket_stats,
-    _parse_event_date,
     _sample_quality,
 )
 
@@ -89,7 +92,10 @@ def _iter_peer_sync_log_rows(observation_path: Path) -> tuple[list[dict[str, Any
         if not anchor:
             skipped["missing_anchor"] += 1
             continue
-        event = _parse_event_date(raw.get("created_at"))
+        event, event_source = resolve_observation_event_date(
+            note=note,
+            created_at=raw.get("created_at"),
+        )
         if event is None:
             skipped["missing_event_date"] += 1
             continue
@@ -100,6 +106,7 @@ def _iter_peer_sync_log_rows(observation_path: Path) -> tuple[list[dict[str, Any
                 "peer_sync_status": str(parsed.get("status") or "unknown"),
                 "return_spread_at_log": parsed.get("spread"),
                 "event_date": event,
+                "event_date_source": event_source,
                 "created_at": raw.get("created_at"),
             }
         )
@@ -148,6 +155,7 @@ def compute_peer_sync_forward_join(
     observation_path: Path,
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     reference_date: date | None = None,
+    backtest_within_cache: bool = False,
 ) -> dict[str, Any]:
     """Join peer_sync log rows to anchor-symbol forward returns (cache-only)."""
 
@@ -175,20 +183,23 @@ def compute_peer_sync_forward_join(
             skipped["price_data_missing"] += 1
             continue
         bars, cache_src = loaded
-        idx = _event_bar_index(bars, event)
-        if idx is None:
+        if event_bar_index(bars, event) is None:
             skipped["event_date_outside_cache"] += 1
             continue
-        horizon_returns: dict[str, float | None] = {}
-        any_ok = False
-        for h in horizons:
-            fr = _forward_return(bars, idx, int(h))
-            horizon_returns[str(h)] = fr
-            if fr is not None:
-                any_ok = True
-        if not any_ok:
-            skipped["insufficient_future_bars"] += 1
+        stale = cache_stale_skip_reason(event, bars)
+        resolved = resolve_forward_horizons(
+            bars,
+            event,
+            horizons,
+            backtest_within_cache=backtest_within_cache,
+        )
+        if resolved is None:
+            if stale and not backtest_within_cache:
+                skipped[stale] += 1
+            else:
+                skipped["insufficient_future_bars"] += 1
             continue
+        idx, horizon_returns, event_resolution = resolved
         matched.append(
             {
                 "anchor_symbol": anchor,
@@ -197,6 +208,9 @@ def compute_peer_sync_forward_join(
                 "return_spread_at_log": row.get("return_spread_at_log"),
                 "cache_source": cache_src,
                 "event_date": event.isoformat(),
+                "event_date_source": row.get("event_date_source"),
+                "event_resolution": event_resolution,
+                "bar_index": idx,
                 "horizons": horizon_returns,
             }
         )
@@ -214,6 +228,7 @@ def compute_peer_sync_forward_join(
         "observation_path": str(observation_path),
         "horizons": list(horizons),
         "reference_date": reference_date.isoformat() if reference_date else None,
+        "backtest_within_cache": backtest_within_cache,
         "peer_sync_rows_considered": len(peer_rows),
         "rows_matched": len(matched),
         "rows_skipped": sum(skipped.values()),
