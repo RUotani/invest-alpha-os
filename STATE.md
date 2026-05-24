@@ -2,71 +2,42 @@
 
 版: v0.1 / 最終更新: 2026-05-24
 
-このファイルはプロジェクトの現状を AI ツールに素早く伝えるためのスナップショット。
-週次で人間が更新するか、AIが更新案を作成し、ユーザー承認後にコミットする。
-
 ## 3行サマリー
-- `origin/main` は `3601554`（#216 peer_sync + portfolio summary）、open PR は 0（weekly/runbook PR 作成予定）。
-- US cache-only signals、forward validation、peer_sync、portfolio snapshot CLI は稼働。
-- 次: observation_log 週次蓄積（人間運用）、tier-1 refresh（明示承認）、peer_sync observation_log 連携は未実装。
+- `origin/main` は `4402dae`（#217 weekly peer_sync + runbooks）、ops smoke docs/152 実施済み。
+- read-only CLI 3本（weekly/validate/snapshot）はローカルで exit 0 確認。
+- 次: `log peer-sync-snapshot` / `--write-observation-log` は明示 opt-in のみ。tier-1 refresh 禁止。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 75% | momentum + peer_sync MVP + weekly `--with-peer-sync` opt-in。 |
-| risk/ | 55% | veto-at-t observation note + forward validation join。 |
-| portfolio/ | [要確認]% | shadow JSONL + `snapshot portfolio-observation-summary`。 |
-| data ingest | 60% | US16稼働、US30+ readiness。tier-1 refresh evidence template 追加。 |
-| reports/ui | 42% | weekly runbook docs/150、forward sample_quality 導線。 |
-| operator/ | 80% | 拡張凍結。 |
+| signals/ | 78% | peer_sync + weekly opt-in + observation note（PR 予定） |
+| risk/ | 55% | veto-at-t join |
+| portfolio/ | [要確認]% | snapshot portfolio-observation-summary |
+| data ingest | 60% | US16 cache ローカル確認。tier-1 AMD gap |
+| reports/ui | 45% | docs/150-152 runbook + ops smoke |
+| operator/ | 80% | 凍結 |
 
-## §2. 投資ロジック稼働までの残作業
+## §2. 残作業
 
-- [ ] observation_logを週次運用で蓄積（runbook: docs/150）
-- [x] veto-at-t observation note + forward validation join
-- [ ] US 30+ tier-1 gated refresh（evidence template: docs/151、実行は人間承認）
-- [x] peer_sync cache-only MVP + weekly opt-in
-- [x] portfolio observation-only 設計 + read-only summary CLI
-- [ ] peer_sync 行の observation_log 構造化（別 PR 候補）
+- [ ] observation_log 週次 `--write-observation-log`（人間・明示承認）
+- [ ] US tier-1 refresh（禁止中 · docs/151）
+- [x] ops smoke 3 CLI
+- [ ] peer_sync observation_log CLI — **実装済み・PR 待ち**
 
-## §3. 直近の重要決定
-
-- 2026-05-24: peer_sync weekly `--with-peer-sync` opt-in（default off）
-- 2026-05-24: PR #216 merged — peer_sync MVP + portfolio summary
-- 2026-05-23: P9/P11 (#215), SSoT, Ops 凍結
-
-## §4. 最新main / PR状態
+## §4. 最新main
 
 ```text
-repo: RUotani/invest-alpha-os
-latest confirmed origin/main: 3601554
-latest merged PR: #216 product peer_sync cache-only MVP and portfolio observation design
-open PRs: 0
+latest origin/main: 4402dae (#217 merged)
+pending PR: peer_sync observation_log + ops report + next_commands fix
 ```
 
-## §5. main反映済みの主なProduct work
+## §7. 次の推奨
 
-- P1–P2: US cache-only signals, observation_log path
-- P5–P8: forward validation v2, report usefulness, daily `--us-observation-summary`
-- P9/P11: sample_quality, veto-at-t join
-- P12 (informal): peer_sync MVP, portfolio observation summary (#216)
+1. PR マージ（peer_sync log + docs/152）
+2. 人間: `--write-observation-log` 週次運用
+3. forward validation sample_quality 追跡
 
-## §6. 既知の課題
+## §8. 履歴
 
-- observation_log 薄い間は forward validation 有用性が限定的
-- tier-1 refresh は live HTTP/cache write — 明示承認必須
-- peer_sync JP peers は US cache ローダーでは missing_cache
-- portfolio 進捗 `[要確認]%`
-
-## §7. 次の推奨作業
-
-1. observation_log 週次蓄積（人間運用 · docs/150）
-2. P10 tier-1 refresh（人間承認 · docs/151）
-3. peer_sync observation_log note（Agent · 別 PR）
-
-## §8. このファイルへの追加履歴
-
-- 2026-05-23: 初版
-- 2026-05-24: #216 / peer_sync / portfolio
-- 2026-05-24: weekly peer_sync + runbooks
+- 2026-05-24: ops smoke + peer_sync observation_log CLI

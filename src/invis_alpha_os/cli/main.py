@@ -74,6 +74,11 @@ from invis_alpha_os.observation.us_signals_batch import (
     log_us_signals_batch_observations,
     observation_batch_failed,
 )
+from invis_alpha_os.observation.us_peer_sync_batch import (
+    log_peer_sync_snapshot_observations,
+    peer_sync_log_failed,
+)
+from invis_alpha_os.observation.us_peer_sync_summary import summarize_peer_sync_observation_log
 from invis_alpha_os.product.peer_sync_cache_only import (
     build_peer_sync_cache_only_report,
     format_peer_sync_cache_only_json,
@@ -1466,6 +1471,48 @@ def log_us_signals_summary() -> None:
     """Summarize US cache signal rows in observation_log.jsonl (read-only)."""
 
     summary = summarize_us_observation_log(
+        OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+@log_app.command("peer-sync-snapshot")
+def log_peer_sync_snapshot(
+    peer_map: Optional[str] = typer.Option(
+        None,
+        "--peer-map",
+        help="Path to peer_map.yaml (default: config/peer_map.yaml).",
+    ),
+    window_days: int = typer.Option(20, "--window-days"),
+    divergence_threshold: float = typer.Option(0.05, "--divergence-threshold"),
+    skip_missing_cache: bool = typer.Option(
+        True,
+        "--skip-missing-cache/--include-missing-cache",
+        help="Skip pairs with missing_cache status (default: skip).",
+    ),
+) -> None:
+    """Append peer_sync pair rows to observation_log (writes outputs/; explicit opt-in)."""
+
+    pmap = Path(peer_map) if peer_map else CONFIG_DIR / "peer_map.yaml"
+    skip: frozenset[str] = frozenset({"missing_cache"}) if skip_missing_cache else frozenset()
+    result = log_peer_sync_snapshot_observations(
+        path_base=ROOT_DIR,
+        service=_obs_service(),
+        peer_map_path=pmap,
+        window_days=window_days,
+        divergence_threshold=divergence_threshold,
+        skip_statuses=skip,
+    )
+    typer.echo(json.dumps(result, ensure_ascii=False, indent=2))
+    if peer_sync_log_failed(result):
+        raise typer.Exit(2)
+
+
+@log_app.command("peer-sync-summary")
+def log_peer_sync_summary() -> None:
+    """Summarize peer_sync rows in observation_log.jsonl (read-only)."""
+
+    summary = summarize_peer_sync_observation_log(
         OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
     )
     typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))

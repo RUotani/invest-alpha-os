@@ -1,132 +1,78 @@
-# Product ロングラン Handoff — 完全版（2026-05-24）
+# Product ロングラン Handoff — 完全版（2026-05-24 更新）
 
-> **用途**: ChatGPT 等への引き継ぎ。2セッション分の実装・エラー・人間作業を統合。
+> ChatGPT 引き継ぎ用。ops smoke 結果 + 3セッション統合。
 
 ---
 
-## 0. 現在状態（最新）
+## 0. 現在状態
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `3601554` — PR **#216 MERGED** |
-| **進行中 PR** | **#217 作成予定** — weekly peer_sync + runbooks |
-| **ブランチ（作業中）** | `work/product-peer-sync-weekly-runbook-20260524` |
-| **テスト** | **996 passed**（session 2 完了時点） |
-| **open PRs** | 0（#217 push 前） |
+| **origin/main** | `4402dae` (#217 merged) |
+| **作業ブランチ** | `work/product-ops-smoke-and-continue-20260524` |
+| **pending PR** | #218 予定 — ops report + peer_sync observation_log |
+| **テスト** | **999 passed** |
 
 ---
 
-## 1. セッション1 — peer_sync MVP + portfolio（#216）
+## 1. Ops smoke（2026-05-24 · read-only · 実施済み）
 
-### 実装
+詳細: `docs/152_product_ops_smoke_report_20260524.md`
 
-- `signals/peer_sync.py`, `validate peer-sync`
-- `snapshot portfolio-observation-summary`
-- docs/148, 149, decision, STATE 更新
+| # | コマンド | exit | 判定 |
+| --- | --- | ---: | --- |
+| 1 | `weekly-us-observation --dry-run --with-peer-sync --format markdown` | 0 | ✅ 16/16 signals, peer_sync 2 pairs |
+| 2 | `validate peer-sync --format markdown` | 0 | ✅ AAPL→MSFT/GOOGL diverged |
+| 3 | `snapshot portfolio-observation-summary --format json` | 0 | ✅ 空 JSON valid |
 
-### エラー記録
+**意図的未実行**
 
-| ID | 症状 | 修正 |
-| --- | --- | --- |
-| E5 | 相関テスト: 定数系列 → `corr=None` | テストデータに微小変動追加 |
-| E6 | テストファイル編集混線 | ファイル書き直し |
-
-### 人間作業
-
-- [x] PR #216 マージ済み（ユーザー承認後）
+- `--write-observation-log` — outputs 書込 · 明示承認時のみ
+- P10 tier-1 refresh — live HTTP/cache write **禁止**
+- `log peer-sync-snapshot` — CLI 追加済み · 実行は opt-in
 
 ---
 
-## 2. セッション2 — weekly 統合 + runbooks（#217 予定）
-
-### 実装
-
-| 変更 | 内容 |
-| --- | --- |
-| `weekly_us_observation.py` | `include_peer_sync` / `WeeklyUsObservationResult.peer_sync` |
-| CLI | `--with-peer-sync`（default off） |
-| docs/150 | observation_log 週次 runbook |
-| docs/151 | P10 tier-1 refresh evidence template（read-only） |
-| docs/141, 148 | weekly peer_sync 反映 |
-| decision | `2026-05-24_peer_sync_weekly_opt_in.md` |
-| STATE.md | #216 反映 + 進捗更新 |
-
-### エラー記録
-
-| ID | 症状 | 修正 |
-| --- | --- | --- |
-| — | なし | session 2 は初回 pytest green |
-
-### 検証コマンド
-
-```bash
-.venv/bin/python -m pytest -q
-.venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync --format markdown
-```
-
----
-
-## 3. 人間がまだ必要な作業
-
-| 優先 | 項目 | 理由 |
-| ---: | --- | --- |
-| 1 | **PR #217 マージ** | Agent は main merge 不可 |
-| 2 | **observation_log 週次蓄積** | ローカル `outputs/` 運用（docs/150） |
-| 3 | **P10 tier-1 cache refresh** | live HTTP + cache write（docs/151、明示承認） |
-| 4 | **portfolio 進捗 %** | STATE `[要確認]%` の確定 |
-
----
-
-## 4. Agent スコープ完了 vs 未完了
-
-### 完了（Product コード + docs）
-
-- [x] P9/P11 (#215)
-- [x] peer_sync MVP (#216)
-- [x] portfolio read-only summary (#216)
-- [x] weekly `--with-peer-sync` opt-in
-- [x] observation runbook + tier-1 evidence template
-
-### 未完了（意図的 / 人間 / 別 PR）
-
-- [ ] peer_sync → observation_log 構造化 note
-- [ ] JP peer_sync（J-Quants cache）
-- [ ] tier-1 live refresh 実行
-- [ ] Gmail 配信
-- [ ] portfolio sizing / allocation
-
----
-
-## 5. 安全境界（全セッション）
-
-| 項目 | 結果 |
-| --- | --- |
-| main 直 push | なし |
-| live HTTP / cache write | なし |
-| daily/signals default 変更 | なし |
-| operator/ 拡張 | なし |
-
----
-
-## 6. PR 履歴
+## 2. セッション履歴
 
 | PR | 内容 | 状態 |
 | --- | --- | --- |
-| #215 | P9/P11 | merged |
-| #216 | peer_sync + portfolio | merged @ `3601554` |
-| #217 | weekly peer_sync + runbooks | **pending** |
+| #216 | peer_sync MVP + portfolio | merged |
+| #217 | weekly `--with-peer-sync` + runbooks | merged |
+| #218 | ops report + `log peer-sync-snapshot` + next_commands fix | **pending** |
 
 ---
 
-## 7. ChatGPT プロンプト例
+## 3. エラー記録（全セッション）
 
-```text
-handoff: .agent/product_peer_sync_portfolio_longrun_handoff_20260524.md
-
-#216 はマージ済み。#217（weekly --with-peer-sync + docs/150-151）をレビューしてください。
-人間は observation_log 週次運用と tier-1 refresh 承認のみ残っています。
-```
+| ID | セッション | 症状 | 修正 |
+| --- | --- | --- | --- |
+| E5 | 1 | 相関テスト定数系列 | テストデータ修正 |
+| E6 | 1 | テストファイル混線 | 書き直し |
+| E7 | 3 | peer_sync log テスト logged=0 | `peer_map_path` 明示渡し |
 
 ---
 
-*最終更新: 2026-05-24 · session 2 完了*
+## 4. 人間作業
+
+1. **PR #218 マージ**
+2. **週次 `--write-observation-log`**（docs/150 · 明示承認後）
+3. **P10 tier-1**（docs/151 · まだ実行禁止）
+4. portfolio `[要確認]%`
+
+---
+
+## 5. Agent 完了 / 未完了
+
+### 完了
+- peer_sync MVP, weekly opt-in, runbooks, ops smoke doc
+- `log peer-sync-snapshot`（explicit opt-in CLI）
+
+### 未完了（人間 / 禁止）
+- observation_log 実蓄積（運用）
+- tier-1 live refresh
+- Gmail, portfolio sizing
+
+---
+
+*最終更新: session 3 · ops smoke + peer_sync log*

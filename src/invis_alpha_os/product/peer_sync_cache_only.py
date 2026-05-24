@@ -68,9 +68,10 @@ def build_peer_sync_cache_only_report(
     pair_dicts = [r.to_dict() for r in results]
     summary = _summary_counts(pair_dicts)
     next_commands = [
-        "Add peers in config/peer_map.yaml (anchor → list).",
+        "Extend peers in config/peer_map.yaml (anchor → list).",
         ".venv/bin/python -m invis_alpha_os.cli.main validate peer-sync --format markdown",
-        "weekly-us-observation --dry-run  # optional; peer_sync not yet in weekly cycle",
+        ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
+        ".venv/bin/python -m invis_alpha_os.cli.main log peer-sync-snapshot  # explicit opt-in; writes outputs/",
     ]
     return PeerSyncCacheOnlyReport(
         peer_map_path=str(pmap_path.relative_to(root) if pmap_path.is_relative_to(root) else pmap_path),
