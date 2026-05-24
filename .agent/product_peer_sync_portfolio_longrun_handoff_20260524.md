@@ -8,7 +8,7 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `f5d7efa` |
+| **origin/main** | `d10098c` |
 | **open PR** | 0 |
 | **テスト** | **1047 passed** |
 | **observation_log** | **58行**（US 48 + peer_sync 10） |
@@ -39,7 +39,8 @@
 - Weekly: `docs/160`
 - P10: `docs/162`（`STOOQ_APIKEY` 追記）
 - Gmail: `docs/81`（新規整備）
-- Post refresh: `docs/163`
+- Longrun standard: `.agent/cursor_agent_quality_efficiency_longrun_standard.md`
+- P10 evidence manifest: `reports/2026-05-24/evidence_manifest_p10_amd_refresh.md`
 
 ---
 

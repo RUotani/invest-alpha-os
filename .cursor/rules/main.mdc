@@ -22,6 +22,7 @@ alwaysApply: true
 - `@STATE.md` — 現状
 - `@AGENTS.md` — 汎用エージェント指示
 - `@docs/decisions/README.md` — decision log運用
+- `@.agent/cursor_agent_quality_efficiency_longrun_standard.md` — Cursor ロングラン標準（Product 自律開発）
 
 ## 優先順位
 

@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `f5d7efa`（#238 tier-1 gap line · docs/81 · peer_sync tests）。
+- `origin/main` @ `d10098c`（#238–#239 · tier-1 gap · weekly #3 · AMD blocked）。
 - observation_log **58行**（US 48 + peer_sync 10 · 週次蓄積 #3 承認実行済）。
 - P10 AMD refresh: **失敗**（`STOOQ_APIKEY` 未設定 · cache 未書込）。
 
@@ -29,7 +29,7 @@
 ## §4. 最新main
 
 ```text
-origin/main: f5d7efa
+origin/main: d10098c
 open PRs: 0
 tests: 1047 passed
 observation_log: 58 lines (local outputs/)
@@ -45,5 +45,6 @@ ops-smoke --strict: exit 2 expected
 
 ## §8. 履歴
 
+- 2026-05-24: Cursor longrun standard adopted (`.agent/cursor_agent_quality_efficiency_longrun_standard.md`)
 - 2026-05-24: #238 tier-1 gap · docs/81; weekly #3 · AMD refresh blocked
 - 2026-05-24: #236 portfolio readiness evaluator

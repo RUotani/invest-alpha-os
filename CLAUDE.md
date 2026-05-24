@@ -22,8 +22,9 @@ Anthropic の Claude Code 慣習に従い、リポジトリ直下に配置する
 1. `RULES.md` 全文を読む。
 2. `STATE.md` 全文を読む。
 3. `docs/decisions/` 内の最新3ファイルを読む。
-4. 「`RULES.md` と `STATE.md` を読みました」と宣言する。
-5. 作業範囲・禁止事項・変更予定ファイルを簡潔に提示してから着手する。
+4. Cursor ロングラン作業時は `.agent/cursor_agent_quality_efficiency_longrun_standard.md` を読む。
+5. 「`RULES.md` と `STATE.md` を読みました」と宣言する。
+6. 作業範囲・禁止事項・変更予定ファイルを簡潔に提示してから着手する。
 
 ## §3. 設計レビュー時の出力形式
 
