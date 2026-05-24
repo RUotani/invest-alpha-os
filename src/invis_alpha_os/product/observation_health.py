@@ -78,6 +78,17 @@ def _scan_log_integrity(observation_path: Path) -> dict[str, Any]:
     }
 
 
+def _dedupe_next_commands(commands: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for cmd in commands:
+        if cmd in seen:
+            continue
+        seen.add(cmd)
+        out.append(cmd)
+    return out
+
+
 def build_observation_health_report(
     *,
     path_base: Path | None = None,
@@ -139,7 +150,7 @@ def build_observation_health_report(
         portfolio=portfolio,
         forward_validation=forward,
         log_integrity=integrity,
-        next_commands=next_commands,
+        next_commands=_dedupe_next_commands(next_commands),
     )
 
 
