@@ -612,7 +612,7 @@ def test_signals_ranked_rows_have_veto_result(monkeypatch) -> None:
 
 def test_signals_overheat_triggers_veto(monkeypatch) -> None:
     """overheat_flag=Trueの銘柄はveto_result.triggeredがTrueになること。"""
-    from invis_alpha_os.signals.momentum import MomentumBreakdown, build_momentum_signals
+    from invis_alpha_os.signals.momentum import MomentumBreakdown
 
     overheat_breakdown = MomentumBreakdown(
         code="7011",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
@@ -953,32 +954,32 @@ def test_r653_invalid_symbol_not_passed_to_writer() -> None:
 
 def test_r653_parse_error_not_passed_to_writer() -> None:
     calls, writer = _fake_writer_factory()
-    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "parse_error"}], writer=writer, cache_write_confirmed=True)
+    mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "parse_error"}], writer=writer, cache_write_confirmed=True)
     assert calls == []
 
 
 def test_r653_transport_error_not_passed_to_writer() -> None:
     calls, writer = _fake_writer_factory()
-    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "transport_error"}], writer=writer, cache_write_confirmed=True)
+    mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "transport_error"}], writer=writer, cache_write_confirmed=True)
     assert calls == []
 
 
 def test_r653_validation_error_not_passed_to_writer() -> None:
     calls, writer = _fake_writer_factory()
-    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "validation_error"}], writer=writer, cache_write_confirmed=True)
+    mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "status": "validation_error"}], writer=writer, cache_write_confirmed=True)
     assert calls == []
 
 
 def test_r653_max_http_cap_not_passed_to_writer() -> None:
     calls, writer = _fake_writer_factory()
     rows = [{"symbol": "MSFT", "planned_action": "skipped_max_http_cap", "reason": "max_http_cap_reached"}]
-    r = mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
+    mlbs.execute_manual_cache_write_for_eligible_rows(rows, writer=writer, cache_write_confirmed=True)
     assert calls == []
 
 
 def test_r653_raw_response_row_not_passed_to_writer() -> None:
     calls, writer = _fake_writer_factory()
-    r = mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "raw_response_included": True}], writer=writer, cache_write_confirmed=True)
+    mlbs.execute_manual_cache_write_for_eligible_rows([{**_ok_row(), "raw_response_included": True}], writer=writer, cache_write_confirmed=True)
     assert calls == []
 
 
@@ -1511,7 +1512,9 @@ def test_r656_integration_adapter_executor_save_func_called_once() -> None:
     save_calls: list = []
     _, sf = _fake_save_cache_factory()
     # Override to capture
-    sf_cap = lambda sym, bars: save_calls.append((sym, bars))
+
+    def sf_cap(sym: str, bars: list) -> None:
+        save_calls.append((sym, bars))
 
     plan = mlbs.build_manual_cache_write_dry_run_plan([_ok_row_with_bars("MSFT")])
     adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf_cap, cache_write_confirmed=True)
@@ -1533,7 +1536,10 @@ def test_r656_integration_adapter_executor_save_func_called_once() -> None:
 
 def _adapter_with_calls() -> tuple[list, dict]:
     calls: list = []
-    sf = lambda sym, bars: calls.append((sym, bars))
+
+    def sf(sym: str, bars: list) -> None:
+        calls.append((sym, bars))
+
     adapter = mlbs.build_manual_cache_write_save_cache_writer_adapter(sf, cache_write_confirmed=True)
     return calls, adapter
 

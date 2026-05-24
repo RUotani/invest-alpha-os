@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
-from typing import Any
 
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import CONFIG_DIR

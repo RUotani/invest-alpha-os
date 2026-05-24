@@ -360,7 +360,7 @@ def format_us_discovery_markdown(result: UsDiscoveryScanResult) -> str:
         f"- scope: `{result.universe_scope}`",
         f"- symbols scanned: {result.symbol_count}",
         f"- generated_at: {result.generated_at}",
-        f"- live_http: false",
+        "- live_http: false",
         "",
         _RANKED_TABLE_HEADER,
         _RANKED_TABLE_SEPARATOR,

@@ -47,9 +47,9 @@ def test_render_us_momentum_with_one_cache(monkeypatch: pytest.MonkeyPatch) -> N
     price = 100.0
     for i in range(140):
         d = (start + timedelta(days=i)).isoformat()
-        o, h, l, c = price, price * 1.01, price * 0.99, price * 1.002
+        o, h, low, c = price, price * 1.01, price * 0.99, price * 1.002
         vol = 2_500_000.0 + float(i % 101) * 10_000.0
-        bars.append({"date": d, "open": o, "high": h, "low": l, "close": c, "volume": vol})
+        bars.append({"date": d, "open": o, "high": h, "low": low, "close": c, "volume": vol})
         price = c
 
     usc.save_us_daily_bars_cache(
@@ -98,9 +98,9 @@ def test_daily_us_momentum_section_opt_in(
     price = 100.0
     for i in range(140):
         d = (start + timedelta(days=i)).isoformat()
-        o, h, l, c = price, price * 1.01, price * 0.99, price * 1.002
+        o, h, low, c = price, price * 1.01, price * 0.99, price * 1.002
         vol = 2_500_000.0 + float(i % 101) * 10_000.0
-        bars.append({"date": d, "open": o, "high": h, "low": l, "close": c, "volume": vol})
+        bars.append({"date": d, "open": o, "high": h, "low": low, "close": c, "volume": vol})
         price = c
 
     usc.save_us_daily_bars_cache(

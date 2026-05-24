@@ -9,7 +9,6 @@ import pytest
 
 from invis_alpha_os.config.paths import CONFIG_DIR
 from invis_alpha_os.operator.gated_ingest import SymbolBatchResult, load_ingest_progress
-from invis_alpha_os.operator.policy import load_operator_runner_policy
 from invis_alpha_os.operator.runner import RunnerStop, run_operator_task
 from invis_alpha_os.operator.task_spec import load_operator_task
 

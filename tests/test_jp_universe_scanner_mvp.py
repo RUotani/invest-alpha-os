@@ -18,7 +18,6 @@ from invis_alpha_os.discovery.jp_universe_scanner import (
     assert_no_forbidden_terms,
     format_jp_discovery_json,
     format_jp_discovery_markdown,
-    scan_jp_universe,
 )
 from invis_alpha_os.signals.momentum import DailyBar, calculate_returns, volume_ratio_25d_prior_mean
 

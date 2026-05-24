@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from invis_alpha_os.config.loader import load_yaml
-from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR
+from invis_alpha_os.config.paths import OUTPUTS_DIR
 from invis_alpha_os.data.jquants_daily_bars_cache import REL_CACHE_ROOT, load_jquants_daily_bars_cache
 from invis_alpha_os.reports.symbol_display_names import display_symbol
 from invis_alpha_os.discovery.cross_market_contract import (
@@ -381,7 +381,7 @@ def format_jp_discovery_markdown(result: JpDiscoveryScanResult) -> str:
         f"- scope: `{result.universe_scope}`",
         f"- symbols scanned: {result.symbol_count}",
         f"- generated_at: {result.generated_at}",
-        f"- live_http: false",
+        "- live_http: false",
         "",
         _RANKED_TABLE_HEADER,
         _RANKED_TABLE_SEPARATOR,

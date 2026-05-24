@@ -283,7 +283,7 @@ def format_us_daily_bars_cache_inventory_markdown(inventory: dict[str, Any]) -> 
         "",
         f"- **cache_root**: `{inventory.get('cache_root', '')}`",
         f"- **symbol_count**: {inventory.get('symbol_count', 0)}",
-        f"- **live_http**: false",
+        "- **live_http**: false",
         "",
     ]
     summary = inventory.get("summary") or {}

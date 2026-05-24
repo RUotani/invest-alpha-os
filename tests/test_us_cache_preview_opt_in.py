@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import shutil
-from datetime import date
 from pathlib import Path
 
 import pytest
@@ -12,10 +11,8 @@ from typer.testing import CliRunner
 
 from invis_alpha_os.cli import main as cli_main
 from invis_alpha_os.cli.main import app
-from invis_alpha_os.config.paths import OUTPUTS_DIR
 from invis_alpha_os.reports.us_cache_preview_opt_in import (
     _OPT_IN_HEADER,
-    build_us_cache_opt_in_preview,
     build_us_cache_opt_in_preview_row,
     preview_note_for_freshness,
     render_us_cache_opt_in_preview_markdown,

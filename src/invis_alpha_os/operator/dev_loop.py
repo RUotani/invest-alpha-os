@@ -12,11 +12,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-ContinueAfterLimit = Literal["wait", "heartbeat", "next-cycle", "stop"]
-CONTINUE_AFTER_LIMITS: frozenset[str] = frozenset({"wait", "heartbeat", "next-cycle", "stop"})
-CriticalFailurePolicy = Literal["stop", "record"]
-CRITICAL_FAILURE_POLICIES: frozenset[str] = frozenset({"stop", "record"})
-
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.operator.policy import GateSpec
@@ -27,6 +22,11 @@ from invis_alpha_os.operator.longrun_completion import (
     emit_completion_notification,
 )
 from invis_alpha_os.operator.pr_loop import PrLoopResult, check_github_pr_create_gate, run_pr_loop
+
+ContinueAfterLimit = Literal["wait", "heartbeat", "next-cycle", "stop"]
+CONTINUE_AFTER_LIMITS: frozenset[str] = frozenset({"wait", "heartbeat", "next-cycle", "stop"})
+CriticalFailurePolicy = Literal["stop", "record"]
+CRITICAL_FAILURE_POLICIES: frozenset[str] = frozenset({"stop", "record"})
 
 DEV_LOOP_REL_ROOT = Path("operator/dev_loop")
 DEV_LOOP_EXEC_ENV = "CONFIRM_OPERATOR_DEV_LOOP"
