@@ -163,14 +163,29 @@ def forward_validation_next_commands() -> list[str]:
     ]
 
 
-def _sample_quality(matched_count: int) -> dict[str, Any]:
+def _sample_quality(
+    matched_count: int,
+    *,
+    skipped_reasons: dict[str, int] | None = None,
+    signal_rows: int = 0,
+) -> dict[str, Any]:
     hints = forward_validation_next_commands()
     if matched_count == 0:
+        reason = "no observation rows matched to cache forward windows"
+        interpretation = "Do not draw signal-quality conclusions from forward returns yet."
+        if signal_rows > 0 and skipped_reasons:
+            insuf = int(skipped_reasons.get("insufficient_future_bars") or 0)
+            if insuf >= signal_rows:
+                reason = "observation events are too recent for forward windows"
+                interpretation = (
+                    "Rows were logged but cache has no future sessions yet. "
+                    "Re-run after trading sessions pass or accumulate historical rows."
+                )
         return {
             "status": "empty",
-            "reason": "no observation rows matched to cache forward windows",
+            "reason": reason,
             "matched_rows": 0,
-            "interpretation": "Do not draw signal-quality conclusions from forward returns yet.",
+            "interpretation": interpretation,
             "needed_more_samples": THIN_SAMPLE_THRESHOLD,
             "next_commands": hints,
         }
@@ -350,7 +365,11 @@ def compute_us_forward_returns(
 
     thin = len(matched) < THIN_SAMPLE_THRESHOLD
     quality_buckets = _build_quality_buckets(matched, horizons, thin_sample=thin)
-    sample_quality = _sample_quality(len(matched))
+    sample_quality = _sample_quality(
+        len(matched),
+        skipped_reasons=dict(skipped_reasons),
+        signal_rows=len(obs_rows),
+    )
 
     by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -474,6 +493,8 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
     ps_at_t = ps_fwd.get("peer_sync_at_t") or {}
     lines.extend(["", "## Peer sync × forward (read-only join)"])
     lines.append(f"- peer_sync_at_t: {ps_at_t.get('status')}")
+    if ps_at_t.get("reason"):
+        lines.append(f"- detail: {ps_at_t.get('reason')}")
     if ps_at_t.get("peer_sync_log_rows") is not None:
         lines.append(f"- peer_sync log rows: {ps_at_t.get('peer_sync_log_rows')}")
         lines.append(f"- matched with forward: {ps_at_t.get('matched_with_forward')}")

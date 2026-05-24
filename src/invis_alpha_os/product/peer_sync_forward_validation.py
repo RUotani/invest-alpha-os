@@ -32,9 +32,40 @@ def _peer_sync_forward_next_commands() -> list[str]:
     ]
 
 
+def _empty_peer_sync_forward_report(
+    *,
+    observation_path: Path,
+    horizons: tuple[int, ...],
+    reference_date: date | None,
+    peer_sync_at_t_status: str,
+    peer_sync_at_t_reason: str,
+) -> dict[str, Any]:
+    sq = _sample_quality(0)
+    sq = {**sq, "next_commands": _peer_sync_forward_next_commands()}
+    return {
+        "schema_version": 1,
+        "observation_path": str(observation_path),
+        "horizons": list(horizons),
+        "reference_date": reference_date.isoformat() if reference_date else None,
+        "peer_sync_rows_considered": 0,
+        "rows_matched": 0,
+        "rows_skipped": 0,
+        "skipped_reasons": {},
+        "sample_quality": sq,
+        "peer_sync_at_t": {
+            "status": peer_sync_at_t_status,
+            "reason": peer_sync_at_t_reason,
+        },
+        "by_peer_sync_status": {},
+        "examples": [],
+        "observation_only": True,
+        "live_http": False,
+    }
+
+
 def _iter_peer_sync_log_rows(observation_path: Path) -> tuple[list[dict[str, Any]], dict[str, int]]:
     if not observation_path.is_file():
-        raise FileNotFoundError(f"observation_log missing: {observation_path}")
+        return [], {}
 
     rows: list[dict[str, Any]] = []
     skipped: dict[str, int] = defaultdict(int)
@@ -120,6 +151,15 @@ def compute_peer_sync_forward_join(
 ) -> dict[str, Any]:
     """Join peer_sync log rows to anchor-symbol forward returns (cache-only)."""
 
+    if not observation_path.is_file():
+        return _empty_peer_sync_forward_report(
+            observation_path=observation_path,
+            horizons=horizons,
+            reference_date=reference_date,
+            peer_sync_at_t_status="missing_observation_log",
+            peer_sync_at_t_reason="observation_log.jsonl not found; run weekly --write-observation-log after approval",
+        )
+
     peer_rows, pre_skipped = _iter_peer_sync_log_rows(observation_path)
     matched: list[dict[str, Any]] = []
     skipped: dict[str, int] = defaultdict(int, pre_skipped)
@@ -162,7 +202,11 @@ def compute_peer_sync_forward_join(
         )
 
     thin = len(matched) < THIN_SAMPLE_THRESHOLD
-    sq = _sample_quality(len(matched))
+    sq = _sample_quality(
+        len(matched),
+        skipped_reasons=dict(skipped),
+        signal_rows=len(peer_rows),
+    )
     sq = {**sq, "next_commands": _peer_sync_forward_next_commands()}
 
     return {

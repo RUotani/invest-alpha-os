@@ -85,5 +85,5 @@
 | 症状 | 確認 |
 | --- | --- |
 | `observation batch failed` | manifest パス・cache ファイル存在 |
-| forward validation `empty` | observation_log 行数、`us_signal` note 形式 |
+| forward validation `empty` | observation_log 行数、`us_signal` note 形式 · [docs/161](./161_product_forward_validation_fresh_log_guidance.md)（直後ログは future bars 不足で正常） |
 | peer_sync 全部 `missing_cache` | US cache 未配置 or peer_map が JP のみ |

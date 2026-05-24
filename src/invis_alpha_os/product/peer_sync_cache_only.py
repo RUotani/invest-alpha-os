@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.paths import CONFIG_DIR, ROOT_DIR
-from invis_alpha_os.data.us_daily_bars_cache import try_load_cached_us_daily_bars
+from invis_alpha_os.product.jp_peer_sync_loader import try_load_bars_for_peer_sync
 from invis_alpha_os.signals.momentum import DailyBar
 from invis_alpha_os.signals.peer_sync import evaluate_peer_map, load_peer_map, peer_sync_status_explanation
 
@@ -53,7 +53,7 @@ def build_peer_sync_cache_only_report(
 
     bars_by_symbol: dict[str, list[DailyBar]] = {}
     for sym in sorted(symbols):
-        loaded = try_load_cached_us_daily_bars(sym)
+        loaded = try_load_bars_for_peer_sync(sym)
         if loaded is None:
             continue
         bars, _src = loaded
@@ -70,6 +70,7 @@ def build_peer_sync_cache_only_report(
     next_commands = [
         "Extend peers in config/peer_map.yaml (anchor → list).",
         ".venv/bin/python -m invis_alpha_os.cli.main validate peer-sync --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main validate jp-peer-sync-readiness --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
         ".venv/bin/python -m invis_alpha_os.cli.main log peer-sync-snapshot  # explicit opt-in; writes outputs/",
     ]
