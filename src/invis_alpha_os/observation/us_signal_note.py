@@ -19,6 +19,9 @@ def build_us_signal_observation_note(
     label = preview.get("momentum_label")
     if label:
         parts.append(f"momentum_label={label}")
+    as_of = preview.get("last_date")
+    if as_of:
+        parts.append(f"as_of={str(as_of)[:10]}")
     reason = preview.get("reason")
     if reason and status != "ok":
         parts.append(f"reason={reason}")
@@ -34,7 +37,7 @@ def build_us_signal_observation_note(
 
 def parse_us_signal_observation_note(note: str) -> dict[str, Any]:
     out: dict[str, str | bool | list[str]] = {}
-    for key in ("status", "momentum_label", "reason"):
+    for key in ("status", "momentum_label", "reason", "as_of"):
         m = re.search(rf"{key}=([^\s]+)", note)
         if m:
             out[key] = m.group(1)
