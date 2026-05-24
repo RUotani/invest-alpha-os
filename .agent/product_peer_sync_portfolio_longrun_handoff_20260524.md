@@ -1,6 +1,6 @@
 # Product ロングラン Handoff — 2026-05-24（更新）
 
-> Autonomous longrun · #236 portfolio readiness evaluator マージ済
+> post #238 · weekly #3 実行 · AMD refresh blocked (STOOQ_APIKEY)
 
 ---
 
@@ -8,60 +8,39 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `7f2101e` |
+| **origin/main** | `f5d7efa` |
 | **open PR** | 0 |
-| **テスト** | **1043 passed** · ruff clean |
-| **observation_log** | **38行**（US 32 + peer_sync 6） |
-| **tier-1 missing** | **AMD** |
+| **テスト** | **1047 passed** |
+| **observation_log** | **58行**（US 48 + peer_sync 10） |
+| **tier-1 missing** | **AMD**（Stooq API key 要） |
 
 ---
 
-## 1. 週次運用（最新）
+## 1. 人間承認結果（2026-05-24）
 
-| 実行 | 日時 | 結果 |
+| 項目 | 承認 | 結果 |
 | --- | --- | --- |
-| 週次蓄積 #1 | 2026-05-24 初回 | 18行 |
-| 週次蓄積 #2 | 2026-05-24 承認 **1** | +20行 → **38行** |
-
-**read-only smoke（post #236）**
-
-- ops-smoke `--strict`: exit 2（repeat/stale · 想定内）
-- observation-health: enriched checklist + `portfolio.readiness` P0–P3
-- forward 通常: matched=0（cache stale）
-- weekly dry-run: 既存 log あれば `observation_log` summary 返却
-
-**週次 one-pager**: `docs/160` · P10: `docs/162` · post-refresh: `docs/163`
+| 週次 `--write-observation-log` | **yes** | 実行済 · +20行 |
+| `log peer-sync-snapshot` | （週次と同批） | +4 peer_sync 行 |
+| P10 AMD refresh | **yes** | **失敗** · `provider_api_key_required` |
+| portfolio STATE % | **keep** | `[要確認]%` 維持 |
+| dev batch | **yes** | #238 マージ済 |
 
 ---
 
-## 2. マージ済み PR（抜粋）
+## 2. P10 AMD evidence（git 外）
 
-| PR | 内容 |
-| --- | --- |
-| #236 | portfolio readiness rubric code · weekly_trend · enriched checklist |
-| #233–235 | P10 evidence pack · STATE sync · docs/147 cross-link |
-| #232 | ops-smoke strict exit 2 |
-| #225–231 | peer_sync forward · ops-smoke · health UX |
+`outputs/evidence/p10_tier1_amd_refresh_20260524.md`
 
 ---
 
-## 3. 人間ゲート
+## 3. 参照
 
-| 項目 | 状態 |
-| --- | --- |
-| 次回 `--write-observation-log` | 承認時のみ |
-| P10 tier-1 / live HTTP | **禁止**（pre: docs/162 · post: docs/163） |
-| portfolio STATE % | `[要確認]%` 維持（evaluator は suggested_percent のみ） |
-| Gmail | 別 runbook |
+- Weekly: `docs/160`
+- P10: `docs/162`（`STOOQ_APIKEY` 追記）
+- Gmail: `docs/81`（新規整備）
+- Post refresh: `docs/163`
 
 ---
 
-## 4. 参照
-
-- Fix plan / follow-up: **完了**
-- Portfolio rubric: `docs/154` + `portfolio_readiness.py`
-- Weekly: `docs/160_product_weekly_operator_one_pager.md`
-
----
-
-*最終更新: 2026-05-24 · post #236 merge*
+*最終更新: 2026-05-24 · post #238 + weekly #3*
