@@ -1,7 +1,7 @@
 # Product P10 — tier-1 US cache refresh evidence template
 
 **Status**: read-only template · **no live HTTP in this doc**  
-**Related**: `us-universe-expansion-plan`, [docs/148](./148_product_peer_sync_inventory_and_mvp.md)
+**Related**: `us-universe-expansion-plan`, [docs/148](./148_product_peer_sync_inventory_and_mvp.md), [docs/155](./155_product_p10_tier1_refresh_risk_boundary.md), [docs/162](./162_product_p10_tier1_evidence_pack.md), [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
 
 ---
 
@@ -49,6 +49,7 @@ outputs/evidence/p10_tier1_missing_YYYYMMDD.md
 ## Post-refresh smoke
 - [ ] validate peer-sync — diverged/missing 減少
 - [ ] weekly-us-observation --dry-run — manifest entries 増加
+- [ ] forward validation — 通常モードで matched > 0 → [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
 - [ ] pytest -q（repo; cache は git 外）
 
 ## Notes
@@ -68,3 +69,10 @@ outputs/evidence/p10_tier1_missing_YYYYMMDD.md
 - 本テンプレートだけでは live HTTP を実行しない
 - evidence を repo に commit しない（cache JSON / vendor payload）
 - daily/signals default の変更
+
+## 参照
+
+- **Evidence pack（read-only 一冊）**: [docs/162](./162_product_p10_tier1_evidence_pack.md)
+- refresh 後 forward smoke: [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
+- リスク境界: [docs/155](./155_product_p10_tier1_refresh_risk_boundary.md)
+- 週次 one-pager: [docs/160](./160_product_weekly_operator_one_pager.md)

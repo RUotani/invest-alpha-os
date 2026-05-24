@@ -1,7 +1,7 @@
 # Product — 週次 ops コピペ one-pager
 
 **Status**: operator copy-paste · read-first  
-**Related**: [docs/150](./150_product_observation_log_weekly_runbook.md)
+**Related**: [docs/150](./150_product_observation_log_weekly_runbook.md), [docs/154](./154_product_observation_health_rubric.md), [docs/162](./162_product_p10_tier1_evidence_pack.md), [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
 
 ---
 
@@ -23,6 +23,8 @@ cd /path/to/invest-alpha-os
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync --format markdown
 ```
 
+**read-only 既定**: 上記 JSON 行は **`--strict` 必須**（週次デフォルト）。`repeat_signals` / `forward_stale_cache` 等の warn でも exit 2 となり **`all_ok=False` は正常**（蓄積中の repeat や stale cache 想定）。WARN を見逃さないゲート用。
+
 ## 週次蓄積（outputs 書込 · 人間承認後のみ）
 
 ```bash
@@ -43,7 +45,8 @@ cd /path/to/invest-alpha-os
 
 ## 人間ゲート（本 one-pager では実行しない）
 
-- tier-1 cache refresh / live HTTP → [docs/151](./151_product_p10_tier1_refresh_evidence_template.md)
+- tier-1 cache refresh / live HTTP → [docs/162](./162_product_p10_tier1_evidence_pack.md) · [docs/151](./151_product_p10_tier1_refresh_evidence_template.md)
+- refresh 後 forward smoke → [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
 - Gmail 配信 → 別 runbook
 - `RULES.md` / portfolio 進捗 `[要確認]%` 更新
 
