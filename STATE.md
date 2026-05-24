@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `0b78da0`（#233 P10 evidence pack / post-refresh smoke docs マージ済）。
+- `origin/main` @ `67971dd`（#233–#234 · docs/162–163 + STATE sync マージ済）。
 - observation_log **38行**（US 32 + peer_sync 6 · 週次蓄積 2回目完了）。
 - forward: 通常 matched=0（cache stale · 想定内）· `--backtest-within-cache` で usable（探索のみ）。
 
@@ -30,7 +30,7 @@
 ## §4. 最新main
 
 ```text
-origin/main: 0b78da0
+origin/main: 67971dd
 open PRs: 0
 tests: 1033 passed
 ruff: clean
@@ -47,5 +47,5 @@ tier-1 missing: AMD
 
 ## §8. 履歴
 
-- 2026-05-24: #233 docs/162–163; ops-smoke strict 週次既定; fix plan #228–#232 完了
+- 2026-05-24: #234 STATE/handoff sync; #233 docs/162–163
 - 2026-05-24: 週次蓄積 38行; #227 as_of/backtest
