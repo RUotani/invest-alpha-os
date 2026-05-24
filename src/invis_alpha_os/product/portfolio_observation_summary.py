@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ class PortfolioObservationSummary:
     positions_with_resolved_links: int
     unresolved_evidence_ids: list[str]
     positions: list[dict[str, Any]]
+    by_symbol: dict[str, int]
+    by_tag: dict[str, int]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -32,6 +35,8 @@ class PortfolioObservationSummary:
             "positions_with_resolved_links": self.positions_with_resolved_links,
             "unresolved_evidence_ids": self.unresolved_evidence_ids,
             "positions": self.positions,
+            "by_symbol": self.by_symbol,
+            "by_tag": self.by_tag,
         }
 
 
@@ -69,7 +74,13 @@ def build_portfolio_observation_summary(
     with_evidence = 0
     resolved = 0
     unresolved: set[str] = set()
+    symbol_counts: Counter[str] = Counter()
+    tag_counts: Counter[str] = Counter()
     for pos in positions:
+        sym_key = str(pos.symbol or "").strip().upper() or "(empty)"
+        symbol_counts[sym_key] += 1
+        for tag in pos.tags or []:
+            tag_counts[str(tag)] += 1
         evidence = list(pos.thesis_evidence_ids or [])
         if evidence:
             with_evidence += 1
@@ -104,6 +115,8 @@ def build_portfolio_observation_summary(
         positions_with_resolved_links=resolved,
         unresolved_evidence_ids=sorted(unresolved),
         positions=position_rows,
+        by_symbol=dict(sorted(symbol_counts.items())),
+        by_tag=dict(sorted(tag_counts.items())),
     )
 
 
@@ -117,6 +130,16 @@ def format_portfolio_observation_summary_markdown(summary: PortfolioObservationS
         f"- positions with ≥1 resolved observation link: {summary.positions_with_resolved_links}",
         "",
     ]
+    if summary.by_symbol:
+        lines.extend(["## Exposure by symbol", ""])
+        for sym, count in summary.by_symbol.items():
+            lines.append(f"- {sym}: {count}")
+        lines.append("")
+    if summary.by_tag:
+        lines.extend(["## Exposure by tag", ""])
+        for tag, count in summary.by_tag.items():
+            lines.append(f"- {tag}: {count}")
+        lines.append("")
     if summary.unresolved_evidence_ids:
         lines.append("## Unresolved evidence IDs")
         lines.append("")
