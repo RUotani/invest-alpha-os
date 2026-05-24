@@ -7,7 +7,23 @@ from pathlib import Path
 
 import pytest
 
-from invis_alpha_os.product.ops_smoke_report import build_ops_smoke_report
+from invis_alpha_os.product.ops_smoke_report import (
+    _signal_quality_snapshot_status,
+    _watchlist_manifest_status,
+    build_ops_smoke_report,
+)
+
+
+def test_watchlist_manifest_status_helpers() -> None:
+    assert _watchlist_manifest_status(0, 0) == "fail"
+    assert _watchlist_manifest_status(1, 1) == "warn"
+    assert _watchlist_manifest_status(2, 0) == "ok"
+
+
+def test_signal_quality_snapshot_status_helpers() -> None:
+    assert _signal_quality_snapshot_status(0, 0) == "fail"
+    assert _signal_quality_snapshot_status(1, 2) == "fail"
+    assert _signal_quality_snapshot_status(2, 2) == "ok"
 
 
 @pytest.fixture
@@ -51,6 +67,93 @@ def mini_us_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         generated_at="2026-05-24T12:00:05+00:00",
     )
     return tmp_path
+
+
+def test_build_ops_smoke_report_fails_zero_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.config.paths as config_paths
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+
+    outputs = tmp_path / "outputs"
+    outputs.mkdir()
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "peer_map.yaml").write_text("peer_map: {}\n", encoding="utf-8")
+    monkeypatch.setattr(config_paths, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(config_paths, "CONFIG_DIR", cfg)
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(
+        "invis_alpha_os.product.weekly_us_observation.load_us_watchlist_tickers",
+        lambda: [],
+    )
+    report = build_ops_smoke_report(path_base=tmp_path)
+    manifest = next(c for c in report.checks if c.name == "watchlist_manifest")
+    assert manifest.status == "fail"
+    assert not report.all_ok
+
+
+def test_build_ops_smoke_report_warns_missing_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.config.paths as config_paths
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+    import invis_alpha_os.product.peer_sync_cache_only as psc
+    import invis_alpha_os.product.weekly_us_observation as weekly
+
+    repo = Path(__file__).resolve().parents[1]
+    outputs = tmp_path / "outputs"
+    outputs.mkdir()
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "peer_map.yaml").write_text("peer_map: {}\n", encoding="utf-8")
+    monkeypatch.setattr(config_paths, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(config_paths, "CONFIG_DIR", cfg)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(psc, "CONFIG_DIR", cfg)
+    monkeypatch.setattr(weekly, "ROOT_DIR", tmp_path)
+    monkeypatch.setattr(
+        "invis_alpha_os.product.weekly_us_observation.load_us_watchlist_tickers",
+        lambda: ["MSFT", "AMD"],
+    )
+    from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
+    from invis_alpha_os.signals.momentum import load_bars_json_file
+
+    bars = load_bars_json_file(repo / "tests" / "fixtures" / "us_daily_bars" / "MSFT.json")
+    save_us_daily_bars_cache(
+        "MSFT",
+        [dict(b) for b in bars],
+        asset_class="us_equity",
+        source="local_fixture",
+        fetched_at="2026-05-24T12:00:00+00:00",
+        generated_at="2026-05-24T12:00:05+00:00",
+    )
+    report = build_ops_smoke_report(path_base=tmp_path)
+    manifest = next(c for c in report.checks if c.name == "watchlist_manifest")
+    assert manifest.status == "warn"
+    assert report.manifest_entries == 1
+
+
+def test_build_ops_smoke_report_fails_partial_signal_quality(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+
+    monkeypatch.setattr(
+        ops_mod,
+        "us_signal_quality_snapshot",
+        lambda **kwargs: {
+            "symbol_count": 2,
+            "signals_ok": 1,
+            "rows": [],
+        },
+    )
+    report = build_ops_smoke_report(path_base=mini_us_cache)
+    quality = next(c for c in report.checks if c.name == "signal_quality_snapshot")
+    assert quality.status == "fail"
+    assert not report.all_ok
 
 
 def test_build_ops_smoke_report_ok(mini_us_cache: Path) -> None:
