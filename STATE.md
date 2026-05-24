@@ -3,9 +3,9 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `a73fe70`（#240 longrun standard · #238–#239 wave）。
-- observation_log **58行**（US 48 + peer_sync 10 · 週次蓄積 #3 承認実行済）。
-- P10 AMD refresh: **失敗**（`STOOQ_APIKEY` 未設定 · cache 未書込）。
+- `origin/main` @ `766eb8c`（#241 ops taxonomy · evidence manifest · repeat summary）。
+- observation_log **58行**（US 48 + peer_sync 10 · strict_taxonomy = EXPECTED_BLOCKED 想定内）。
+- P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · preflight 2026-05-24 再実行済）。
 
 ## §1. ドメイン別進捗
 
@@ -15,7 +15,7 @@
 | risk/ | 62% | veto-at-t join |
 | portfolio/ | [要確認]% | readiness evaluator · % 人間承認待ち |
 | data ingest | 64% | tier-1 **AMD** gap（Stooq API key 要） |
-| reports/ui | 66% | observation-health tier-1 line · docs/81 Gmail |
+| reports/ui | 68% | strict_taxonomy · evidence-manifest CLI · docs/81 Gmail |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
@@ -29,12 +29,12 @@
 ## §4. 最新main
 
 ```text
-origin/main: a73fe70
-open PRs: wave ops-quality (taxonomy · evidence manifest · repeat summary)
-tests: 1052 passed (local wave branch)
+origin/main: 766eb8c
+open PRs: 0
+tests: 1052 passed
 observation_log: 58 lines (local outputs/)
 tier-1 missing: AMD (STOOQ_APIKEY blocker)
-ops-smoke --strict: exit 2 expected
+ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale)
 ```
 
 ## §7. 次の推奨
@@ -45,6 +45,6 @@ ops-smoke --strict: exit 2 expected
 
 ## §8. 履歴
 
-- 2026-05-24: Cursor longrun standard adopted (`.agent/cursor_agent_quality_efficiency_longrun_standard.md`)
+- 2026-05-24: #241 ops-smoke taxonomy · evidence manifest · repeat summary（Cursor 承認 A → merge）
 - 2026-05-24: #238 tier-1 gap · docs/81; weekly #3 · AMD refresh blocked
 - 2026-05-24: #236 portfolio readiness evaluator

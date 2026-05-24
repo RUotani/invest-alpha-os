@@ -1,6 +1,6 @@
 # Product ロングラン Handoff — 2026-05-24（更新）
 
-> post #238 · weekly #3 実行 · AMD refresh blocked (STOOQ_APIKEY)
+> post #241 · Cursor 承認 A → merge · P10 preflight 再実行
 
 ---
 
@@ -8,11 +8,21 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `a73fe70` |
-| **open PR** | wave ops-quality（taxonomy · manifest · repeat · readiness labels · Gmail docs） |
-| **テスト** | **1052 passed**（wave branch） |
+| **origin/main** | `766eb8c` |
+| **open PR** | STATE sync 待ち（post #241） |
+| **テスト** | **1052 passed** |
 | **observation_log** | **58行**（US 48 + peer_sync 10） |
-| **tier-1 missing** | **AMD**（Stooq API key 要） |
+| **tier-1 missing** | **AMD**（`STOOQ_APIKEY` 未設定） |
+| **ops-smoke strict** | taxonomy **EXPECTED_BLOCKED**（repeat + stale · 想定内） |
+
+---
+
+## 0.1 Merge 運用（2026-05-24 確定）
+
+1. Agent が **Cursor 承認依頼**（AskQuestion または明示メッセージ）を人間へ出す
+2. 人間が **A（承認）** 等で応答
+3. **Cursor Agent** が `gh pr merge --squash` を実行
+4. ChatGPT merge queue は記録用（Agent は `PENDING_CHATGPT` のみ付与 · 人間承認後 merge）
 
 ---
 
@@ -20,36 +30,39 @@
 
 | 項目 | 承認 | 結果 |
 | --- | --- | --- |
-| 週次 `--write-observation-log` | **yes** | 実行済 · +20行 |
-| `log peer-sync-snapshot` | （週次と同批） | +4 peer_sync 行 |
-| P10 AMD refresh | **yes** | **失敗** · `provider_api_key_required` |
+| 週次 `--write-observation-log` | **yes** | 実行済 |
+| P10 AMD refresh | **yes** | **ブロック** · `STOOQ_APIKEY` unset |
 | portfolio STATE % | **keep** | `[要確認]%` 維持 |
-| dev batch | **yes** | #238–#240 マージ済 · wave ops-quality PR 待ち |
+| #241 merge | **A（Cursor）** | **merged** @ `766eb8c` |
 
 ---
 
-## 4. Wave ops-quality（PR 待ち）
+## 2. #241 マージ内容
 
-- ops-smoke `strict_taxonomy`（PASS / EXPECTED_BLOCKED / REGRESSION）
-- `log evidence-manifest` → `reports/YYYY-MM-DD/evidence_manifest_*.md`
-- observation `repeat_summary`（first_seen · consecutive_weeks）
-- portfolio readiness `label` / `operator_hint` / `next_milestone`
-- docs/123 · docs/124 → DEPRECATED（docs/81 へ誘導）
-
-## 2. P10 AMD evidence（git 外）
-
-`outputs/evidence/p10_tier1_amd_refresh_20260524.md`
+- ops-smoke `strict_taxonomy`
+- `log evidence-manifest`
+- observation `repeat_summary`
+- portfolio readiness labels
+- docs/123 · 124 DEPRECATED → docs/81
 
 ---
 
-## 3. 参照
+## 3. P10 evidence（git 外）
+
+| ファイル | 内容 |
+| --- | --- |
+| `outputs/evidence/p10_tier1_amd_refresh_20260524.md` | 初回 refresh 失敗 |
+| `outputs/evidence/p10_tier1_pre_20260524.md` | post #241 preflight（STOOQ unset） |
+
+---
+
+## 4. 参照
 
 - Weekly: `docs/160`
-- P10: `docs/162`（`STOOQ_APIKEY` 追記）
-- Gmail: `docs/81`（新規整備）
+- P10: `docs/162` · post: `docs/163`
+- Gmail: `docs/81`
 - Longrun standard: `.agent/cursor_agent_quality_efficiency_longrun_standard.md`
-- P10 evidence manifest: `reports/2026-05-24/evidence_manifest_p10_amd_refresh.md`
 
 ---
 
-*最終更新: 2026-05-24 · post #238 + weekly #3*
+*最終更新: 2026-05-24 · post #241 merge + P10 preflight*
