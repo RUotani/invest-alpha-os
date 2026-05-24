@@ -12,6 +12,7 @@
 ```bash
 cd /path/to/invest-alpha-os
 .venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format markdown
+.venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format json --strict
 .venv/bin/python -m invis_alpha_os.cli.main validate peer-sync --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --backtest-within-cache --format markdown

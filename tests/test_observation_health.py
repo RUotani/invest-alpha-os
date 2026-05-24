@@ -99,6 +99,24 @@ def test_observation_health_with_us_signal_row(tmp_path: Path, monkeypatch: pyte
     assert report.us_signals["us_signal_rows"] == 1
 
 
+def test_observation_health_markdown_repeat_signals(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invis_alpha_os.product.observation_health import format_observation_health_markdown
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    svc = ObservationService(observation_path=obs, outcome_path=tmp_path / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "neutral", "last_date": "2024-04-10"})
+    svc.log_observation("MSFT", note)
+    svc.log_observation("MSFT", note)
+    _patch_outputs_dir(monkeypatch, outputs)
+    report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
+    md = format_observation_health_markdown(report)
+    assert "repeat_signal_count" in md
+
+
 def test_cli_snapshot_observation_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 

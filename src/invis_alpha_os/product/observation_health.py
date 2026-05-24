@@ -170,6 +170,18 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         f"- status: {us.get('status')}",
         f"- us_signal_rows: {us.get('us_signal_rows', 0)}",
         f"- by_status: {us.get('by_status', {})}",
+    ]
+    repeat_n = us.get("repeat_signal_count")
+    repeat_syms = us.get("repeat_signal_symbols") or []
+    if repeat_n:
+        lines.append(f"- repeat_signal_count: {repeat_n}")
+    if repeat_syms:
+        preview = ", ".join(repeat_syms[:8])
+        if len(repeat_syms) > 8:
+            preview += f", … (+{len(repeat_syms) - 8})"
+        lines.append(f"- repeat_signal_symbols: {preview}")
+    lines.extend(
+        [
         "",
         "## Peer sync rows",
         f"- peer_sync_rows: {peer.get('peer_sync_rows', 0)}",
@@ -183,7 +195,8 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         f"- total lines: {integrity.get('total_lines', 0)}",
         f"- json_parse_errors: {integrity.get('json_parse_errors', 0)}",
         f"- unclassified_notes: {integrity.get('unclassified_notes', 0)}",
-    ]
+        ]
+    )
     if report.forward_validation:
         fwd = report.forward_validation
         sq = fwd.get("sample_quality") or {}
@@ -195,6 +208,10 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 f"- matched rows: {fwd.get('rows_matched', 0)}",
             ]
         )
+        skipped = fwd.get("skipped_reasons") or {}
+        if skipped:
+            top = max(skipped.items(), key=lambda kv: kv[1])
+            lines.append(f"- top skipped_reason: {top[0]} ({top[1]})")
         if sq.get("needed_more_samples"):
             lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
     lines.extend(["", "## Next commands", ""])
