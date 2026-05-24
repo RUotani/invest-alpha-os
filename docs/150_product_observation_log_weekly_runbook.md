@@ -22,7 +22,9 @@
 .venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format json --strict
 ```
 
-**コピペ one-pager**: [docs/160_product_weekly_operator_one_pager.md](./160_product_weekly_operator_one_pager.md)
+**コピペ one-pager**: [docs/160_product_weekly_operator_one_pager.md](./160_product_weekly_operator_one_pager.md)（read-only 既定: `validate ops-smoke --strict`）
+
+**P10 tier-1 evidence pack**: [docs/162_product_p10_tier1_evidence_pack.md](./162_product_p10_tier1_evidence_pack.md) · refresh 後 forward smoke: [docs/163](./163_product_forward_validation_post_refresh_smoke.md)
 
 ## 週次コマンド（書込あり · 人間承認）
 
