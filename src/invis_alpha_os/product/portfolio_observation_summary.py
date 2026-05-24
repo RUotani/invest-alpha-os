@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
-from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 
 
@@ -52,10 +51,19 @@ def build_portfolio_observation_summary(
     obs_ids: set[str] = set()
     obs_count = 0
     if obs_path.is_file():
-        svc = ObservationService(observation_path=obs_path, outcome_path=obs_path.parent / "_noop.jsonl")
-        for row in svc._observation_store().iter_all():
+        for line in obs_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(row, dict):
+                continue
             obs_count += 1
-            obs_ids.add(row.id)
+            rid = row.get("id")
+            if rid:
+                obs_ids.add(str(rid))
 
     position_rows: list[dict[str, Any]] = []
     with_evidence = 0

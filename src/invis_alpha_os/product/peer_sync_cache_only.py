@@ -10,7 +10,7 @@ from typing import Any
 from invis_alpha_os.config.paths import CONFIG_DIR, ROOT_DIR
 from invis_alpha_os.data.us_daily_bars_cache import try_load_cached_us_daily_bars
 from invis_alpha_os.signals.momentum import DailyBar
-from invis_alpha_os.signals.peer_sync import evaluate_peer_map, load_peer_map
+from invis_alpha_os.signals.peer_sync import evaluate_peer_map, load_peer_map, peer_sync_status_explanation
 
 
 @dataclass(frozen=True)
@@ -93,7 +93,7 @@ def format_peer_sync_cache_only_markdown(report: PeerSyncCacheOnlyReport) -> str
     ]
     if report.summary:
         for status, count in sorted(report.summary.items()):
-            lines.append(f"- `{status}`: {count}")
+            lines.append(f"- `{status}`: {count} — {peer_sync_status_explanation(status)}")
     else:
         lines.append("- (no pairs)")
     lines.extend(["", "## Pairs", ""])

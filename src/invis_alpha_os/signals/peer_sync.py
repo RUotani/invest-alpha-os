@@ -216,6 +216,19 @@ def evaluate_peer_pair(
     )
 
 
+def peer_sync_status_explanation(status: str) -> str:
+    """Observation-only explanation for peer_sync status codes."""
+
+    key = status.strip().lower()
+    return {
+        "in_sync": "Trailing returns aligned within threshold (observation only).",
+        "diverged_anchor_outperform": "Anchor outperformed peer over the window.",
+        "diverged_peer_outperform": "Peer outperformed anchor over the window.",
+        "insufficient_data": "Not enough aligned cache sessions for this pair.",
+        "missing_cache": "US daily bars cache missing for anchor or peer.",
+    }.get(key, f"Unknown peer_sync status: {status}")
+
+
 def evaluate_peer_map(
     peer_map: Mapping[str, Sequence[str]],
     bars_by_symbol: Mapping[str, Sequence[DailyBar]],
