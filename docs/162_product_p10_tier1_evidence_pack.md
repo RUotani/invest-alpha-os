@@ -42,6 +42,7 @@ cd /path/to/invest-alpha-os
 - [ ] cache 書込先: `outputs/market_data/us_daily_bars/{SYMBOL}.json`
 - [ ] ロールバック手順（バックアップ or コピー退避）
 - [ ] Longpack / issue 番号で **明示承認** 記録
+- [ ] Stooq live refresh 時: `STOOQ_APIKEY` 環境変数（git 外 · `.env` 禁止 commit）
 - [ ] live HTTP / cache write は **本 doc では実行しない**
 
 ## Step C — 承認後 evidence 記録テンプレ

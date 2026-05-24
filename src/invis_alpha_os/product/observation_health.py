@@ -14,6 +14,7 @@ from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readin
 from invis_alpha_os.product.us_forward_return_validation import (
     forward_validation_next_commands,
 )
+from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 from invis_alpha_os.product.weekly_us_observation import build_enriched_us_observation_summary
 
 
@@ -25,6 +26,7 @@ class ObservationHealthReport:
     portfolio: dict[str, Any]
     forward_validation: dict[str, Any] | None
     log_integrity: dict[str, Any]
+    tier1_missing: list[str]
     next_commands: list[str]
     observation_only: bool = True
 
@@ -36,6 +38,7 @@ class ObservationHealthReport:
             "portfolio": self.portfolio,
             "forward_validation": self.forward_validation,
             "log_integrity": self.log_integrity,
+            "tier1_missing": self.tier1_missing,
             "next_commands": self.next_commands,
             "observation_only": self.observation_only,
         }
@@ -116,6 +119,17 @@ def build_observation_health_report(
     }
     integrity = _scan_log_integrity(obs)
 
+    tier1_missing: list[str] = []
+    try:
+        expansion = build_us_universe_expansion_report(
+            path_base=root,
+            tier="1",
+            missing_only=True,
+        )
+        tier1_missing = list(expansion.get("tier_1_missing_refresh_order") or [])
+    except (FileNotFoundError, ValueError):
+        tier1_missing = []
+
     forward: dict[str, Any] | None = None
     if obs.is_file() and int(us.get("us_signal_rows") or 0) > 0:
         try:
@@ -160,6 +174,7 @@ def build_observation_health_report(
         portfolio=portfolio,
         forward_validation=forward,
         log_integrity=integrity,
+        tier1_missing=tier1_missing,
         next_commands=_dedupe_next_commands(next_commands),
     )
 
@@ -175,12 +190,21 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         "Observation only — not buy/sell advice.",
         "",
         f"- observation_log: `{report.observation_path}`",
-        "",
-        "## US signals",
-        f"- status: {us.get('status')}",
-        f"- us_signal_rows: {us.get('us_signal_rows', 0)}",
-        f"- by_status: {us.get('by_status', {})}",
     ]
+    if report.tier1_missing:
+        preview = ", ".join(report.tier1_missing[:8])
+        if len(report.tier1_missing) > 8:
+            preview += f", … (+{len(report.tier1_missing) - 8})"
+        lines.append(f"- tier-1 cache gaps (gated refresh): **{preview}**")
+    lines.extend(
+        [
+            "",
+            "## US signals",
+            f"- status: {us.get('status')}",
+            f"- us_signal_rows: {us.get('us_signal_rows', 0)}",
+            f"- by_status: {us.get('by_status', {})}",
+        ]
+    )
     weekly = us.get("weekly_trend") or {}
     if weekly.get("status"):
         lines.append(
