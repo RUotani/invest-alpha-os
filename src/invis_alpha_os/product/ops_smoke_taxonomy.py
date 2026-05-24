@@ -94,6 +94,18 @@ def classify_ops_smoke_strict(report: _OpsSmokeReportLike) -> dict[str, Any]:
     }
 
 
+def format_strict_taxonomy_stderr_line(report: _OpsSmokeReportLike) -> str:
+    """One-line stderr summary for validate ops-smoke --strict."""
+
+    tax = classify_ops_smoke_strict(report)
+    reasons = tax.get("reasons") or []
+    reason_part = ",".join(reasons) if reasons else "none"
+    return (
+        f"ops-smoke --strict: taxonomy={tax.get('taxonomy')} "
+        f"exit={tax.get('strict_exit_hint')} reasons=[{reason_part}]"
+    )
+
+
 def _interpretation(taxonomy: str, reasons: list[str]) -> str:
     if taxonomy == "PASS":
         return "All checks ok; strict gate passes."

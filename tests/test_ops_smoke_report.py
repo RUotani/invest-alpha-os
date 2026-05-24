@@ -241,6 +241,8 @@ def test_cli_validate_ops_smoke_strict_exits_on_warn(
     runner = CliRunner()
     result = runner.invoke(cli_main.app, ["validate", "ops-smoke", "--format", "json", "--strict"])
     assert result.exit_code == 2, result.stdout + result.stderr
+    assert "taxonomy=" in result.stderr
+    assert "ops-smoke --strict:" in result.stderr
 
 
 def test_cli_validate_ops_smoke_json(mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:

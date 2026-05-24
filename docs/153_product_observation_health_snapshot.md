@@ -14,6 +14,7 @@
 Aggregates:
 
 - US signal rows (`us_signals`)
+- **`repeat_summary`** (top-level JSON; also under `us_signals.repeat_summary`)
 - peer_sync rows (`peer_sync`)
 - portfolio linkage counts
 - forward validation `sample_quality` (when signal rows exist)

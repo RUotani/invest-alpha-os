@@ -8,9 +8,9 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `766eb8c` |
-| **open PR** | STATE sync 待ち（post #241） |
-| **テスト** | **1052 passed** |
+| **origin/main** | `b5a7be2` |
+| **open PR** | wave ops-ux（next wave 3件） |
+| **テスト** | **1054 passed**（wave branch） |
 | **observation_log** | **58行**（US 48 + peer_sync 10） |
 | **tier-1 missing** | **AMD**（`STOOQ_APIKEY` 未設定） |
 | **ops-smoke strict** | taxonomy **EXPECTED_BLOCKED**（repeat + stale · 想定内） |
