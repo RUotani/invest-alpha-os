@@ -108,6 +108,21 @@ def test_weekly_cycle_and_observation_log(mini_us_cache: Path) -> None:
     assert "not buy/sell advice" in svc.observation_path.read_text(encoding="utf-8")
 
 
+def test_weekly_dry_run_reads_existing_observation_log(mini_us_cache: Path) -> None:
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+
+    obs = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs.parent.mkdir(parents=True, exist_ok=True)
+    svc = ObservationService(observation_path=obs, outcome_path=mini_us_cache / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "neutral", "last_date": "2024-04-10"})
+    svc.log_observation("MSFT", note)
+
+    result = run_weekly_us_observation_cycle(path_base=mini_us_cache, write_observation_log=False)
+    assert result.observation_log is not None
+    assert result.observation_log.get("us_signal_rows") == 1
+    assert "weekly_trend" in result.observation_log
+
+
 def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:
     result = CliRunner().invoke(app, ["weekly-us-observation", "--dry-run", "--format", "json"])
     assert result.exit_code == 0, result.stdout + result.stderr

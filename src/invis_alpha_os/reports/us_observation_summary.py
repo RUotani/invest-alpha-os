@@ -11,11 +11,7 @@ from invis_alpha_os.product.us_forward_return_validation import (
     forward_validation_next_commands,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
-from invis_alpha_os.product.weekly_us_observation import (
-    build_us_watchlist_signals_manifest,
-    summarize_us_observation_log,
-    us_signal_quality_snapshot,
-)
+from invis_alpha_os.product.weekly_us_observation import build_enriched_us_observation_summary
 
 
 def build_us_observation_usefulness_payload(*, path_base: Path | None = None) -> dict[str, Any]:
@@ -24,11 +20,10 @@ def build_us_observation_usefulness_payload(*, path_base: Path | None = None) ->
     root = path_base or ROOT_DIR
     obs_path = root / "outputs" / "observation_log" / "observation_log.jsonl"
     cache_dir = root / "outputs" / "market_data" / "us_daily_bars"
-    manifest = build_us_watchlist_signals_manifest(path_base=root)
-    obs_summary = summarize_us_observation_log(
+    obs_summary = build_enriched_us_observation_summary(
         obs_path,
-        missing_cache_symbols=list(manifest.get("missing_cache_symbols") or []),
-        quality_snapshot=us_signal_quality_snapshot(path_base=root),
+        path_base=root,
+        cache_dir=cache_dir if cache_dir.is_dir() else None,
     )
     forward: dict[str, Any] | None = None
     if obs_path.is_file() and obs_summary.get("us_signal_rows", 0) > 0:
@@ -72,6 +67,9 @@ def render_us_observation_summary_markdown(*, path_base: Path | None = None) -> 
         lines.append(f"- signal aging avg/max (days): {obs.get('signal_aging_days_avg')} / {obs.get('signal_aging_days_max')}")
         repeat = obs.get("repeat_signal_symbols") or []
         lines.append(f"- repeat symbols: {', '.join(repeat) if repeat else '(none)'}")
+        weekly = obs.get("weekly_trend") or {}
+        if weekly.get("status"):
+            lines.append(f"- weekly_trend: {weekly.get('status')} (delta={weekly.get('delta')})")
         checklist = obs.get("research_checklist") or []
         if checklist:
             lines.append("")

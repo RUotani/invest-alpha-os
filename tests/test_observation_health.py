@@ -115,6 +115,45 @@ def test_observation_health_markdown_repeat_signals(
     report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
     md = format_observation_health_markdown(report)
     assert "repeat_signal_count" in md
+    assert "Portfolio readiness" in md
+    assert "research_checklist" in md.lower() or "Research checklist" in md
+
+
+def test_observation_health_enriched_forward_checklist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    svc = ObservationService(observation_path=obs, outcome_path=tmp_path / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "neutral", "last_date": "2024-04-10"})
+    svc.log_observation("MSFT", note)
+    _patch_outputs_dir(monkeypatch, outputs)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+
+    repo = Path(__file__).resolve().parents[1]
+    from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
+    from invis_alpha_os.signals.momentum import load_bars_json_file
+
+    bars = load_bars_json_file(repo / "tests" / "fixtures" / "us_daily_bars" / "MSFT.json")
+    save_us_daily_bars_cache(
+        "MSFT",
+        [dict(b) for b in bars],
+        asset_class="us_equity",
+        source="local_fixture",
+        fetched_at="2026-05-24T12:00:00+00:00",
+        generated_at="2026-05-24T12:00:05+00:00",
+    )
+
+    report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
+    categories = {
+        item.get("category")
+        for item in report.us_signals.get("research_checklist") or []
+        if isinstance(item, dict)
+    }
+    assert "thin_forward_validation" in categories or "repeat_signal" in categories
 
 
 def test_cli_snapshot_observation_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

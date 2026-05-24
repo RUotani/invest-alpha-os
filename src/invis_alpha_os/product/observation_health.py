@@ -10,10 +10,11 @@ from typing import Any
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.observation.us_peer_sync_summary import summarize_peer_sync_observation_log
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
+from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readiness
 from invis_alpha_os.product.us_forward_return_validation import (
     forward_validation_next_commands,
 )
-from invis_alpha_os.product.weekly_us_observation import summarize_us_observation_log
+from invis_alpha_os.product.weekly_us_observation import build_enriched_us_observation_summary
 
 
 @dataclass(frozen=True)
@@ -97,12 +98,22 @@ def build_observation_health_report(
 ) -> ObservationHealthReport:
     root = path_base or ROOT_DIR
     obs = observation_path or (OUTPUTS_DIR / "observation_log" / "observation_log.jsonl")
-    us = summarize_us_observation_log(obs)
+    cache = cache_dir or (OUTPUTS_DIR / "market_data" / "us_daily_bars")
+    us = build_enriched_us_observation_summary(obs, path_base=root, cache_dir=cache)
     peer = summarize_peer_sync_observation_log(obs)
-    portfolio = build_portfolio_observation_summary(
+    portfolio_summary = build_portfolio_observation_summary(
         path_base=root,
         observation_path=obs,
-    ).to_dict()
+    )
+    readiness = evaluate_portfolio_readiness(
+        path_base=root,
+        observation_path=obs,
+        cache_dir=cache,
+    )
+    portfolio = {
+        **portfolio_summary.to_dict(),
+        "readiness": readiness,
+    }
     integrity = _scan_log_integrity(obs)
 
     forward: dict[str, Any] | None = None
@@ -110,7 +121,6 @@ def build_observation_health_report(
         try:
             from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
 
-            cache = cache_dir or (OUTPUTS_DIR / "market_data" / "us_daily_bars")
             forward = compute_us_forward_returns(
                 observation_path=obs,
                 cache_dir=cache,
@@ -171,6 +181,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         f"- us_signal_rows: {us.get('us_signal_rows', 0)}",
         f"- by_status: {us.get('by_status', {})}",
     ]
+    weekly = us.get("weekly_trend") or {}
+    if weekly.get("status"):
+        lines.append(
+            f"- weekly_trend: {weekly.get('status')} "
+            f"(latest={weekly.get('latest_week_count', 0)} prior={weekly.get('prior_week_count', 0)})"
+        )
     repeat_n = us.get("repeat_signal_count")
     repeat_syms = us.get("repeat_signal_symbols") or []
     if repeat_n:
@@ -180,6 +196,15 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         if len(repeat_syms) > 8:
             preview += f", … (+{len(repeat_syms) - 8})"
         lines.append(f"- repeat_signal_symbols: {preview}")
+    checklist = us.get("research_checklist") or []
+    if checklist:
+        lines.extend(["", "## Research checklist", ""])
+        for item in checklist[:6]:
+            if isinstance(item, dict):
+                sym = item.get("symbol") or "—"
+                lines.append(
+                    f"- [{item.get('category')}] {sym}: {item.get('reason')}"
+                )
     lines.extend(
         [
         "",
@@ -190,6 +215,24 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         "## Portfolio linkage",
         f"- shadow positions: {port.get('shadow_position_count', 0)}",
         f"- resolved links: {port.get('positions_with_resolved_links', 0)}",
+        ]
+    )
+    readiness = port.get("readiness") or {}
+    if readiness:
+        lines.extend(
+            [
+                "",
+                "## Portfolio readiness (docs/154)",
+                f"- accepted_tier: {readiness.get('accepted_tier')}",
+                f"- suggested_percent: {readiness.get('suggested_percent')} (STATE locked)",
+            ]
+        )
+        for m in readiness.get("milestones") or []:
+            if isinstance(m, dict):
+                mark = "✓" if m.get("passed") else "·"
+                lines.append(f"- {mark} {m.get('id')}: {m.get('detail')}")
+    lines.extend(
+        [
         "",
         "## Log integrity",
         f"- total lines: {integrity.get('total_lines', 0)}",
