@@ -67,6 +67,7 @@ def test_build_portfolio_observation_summary_links(tmp_path: Path) -> None:
             symbol="AAPL",
             quantity=1.0,
             thesis_evidence_ids=[row.id, "missing-id"],
+            tags=["theme:ai"],
         )
     )
 
@@ -81,6 +82,8 @@ def test_build_portfolio_observation_summary_links(tmp_path: Path) -> None:
     assert "missing-id" in summary.unresolved_evidence_ids
     md = format_portfolio_observation_summary_markdown(summary)
     assert "AAPL" in md
+    assert summary.by_symbol.get("AAPL") == 1
+    assert summary.by_tag.get("theme:ai") == 1
 
 
 def test_cli_snapshot_portfolio_observation_summary(
