@@ -797,6 +797,11 @@ def format_weekly_us_observation_markdown(
             "## Ops smoke (read-only)",
             "- `validate ops-smoke --format markdown`",
             "- `snapshot observation-health --format json`",
+            "",
+            "## Operator one-pager (docs/160)",
+            "- Weekly copy-paste: `docs/160_product_weekly_operator_one_pager.md`",
+            "- Evidence manifest: `.venv/bin/python -m invis_alpha_os.cli.main log evidence-manifest "
+            "--task-id weekly_preflight_YYYYMMDD --report-date YYYY-MM-DD`",
         ]
     )
     lines.append("")
