@@ -15,7 +15,7 @@
 | risk/ | 62% | veto-at-t join |
 | portfolio/ | [要確認]% | readiness evaluator · % 人間承認待ち |
 | data ingest | 64% | tier-1 **AMD** gap（Stooq API key 要） |
-| reports/ui | 70% | strict stderr · repeat_summary JSON · docs/160 evidence |
+| reports/ui | 72% | observation-health peer_sync_forward join (docs/153/158) |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業

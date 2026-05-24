@@ -25,6 +25,7 @@ class ObservationHealthReport:
     peer_sync: dict[str, Any]
     portfolio: dict[str, Any]
     forward_validation: dict[str, Any] | None
+    peer_sync_forward: dict[str, Any] | None
     log_integrity: dict[str, Any]
     tier1_missing: list[str]
     next_commands: list[str]
@@ -37,6 +38,7 @@ class ObservationHealthReport:
             "peer_sync": self.peer_sync,
             "portfolio": self.portfolio,
             "forward_validation": self.forward_validation,
+            "peer_sync_forward": self.peer_sync_forward,
             "log_integrity": self.log_integrity,
             "tier1_missing": self.tier1_missing,
             "next_commands": self.next_commands,
@@ -147,6 +149,17 @@ def build_observation_health_report(
         except (FileNotFoundError, ValueError):
             forward = None
 
+    peer_sync_forward: dict[str, Any] | None = None
+    if obs.is_file() and int(peer.get("peer_sync_rows") or 0) > 0:
+        try:
+            from invis_alpha_os.product.peer_sync_forward_validation import (
+                compute_peer_sync_forward_join,
+            )
+
+            peer_sync_forward = compute_peer_sync_forward_join(observation_path=obs)
+        except (FileNotFoundError, ValueError):
+            peer_sync_forward = None
+
     next_commands: list[str] = [
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
@@ -165,6 +178,13 @@ def build_observation_health_report(
             "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"
         )
 
+    if peer_sync_forward:
+        ps_sq = peer_sync_forward.get("sample_quality") or {}
+        ps_st = str(ps_sq.get("status") or "")
+        if ps_st in {"empty", "thin"}:
+            for cmd in ps_sq.get("next_commands") or []:
+                next_commands.append(cmd)
+
     def _rel(p: Path) -> str:
         try:
             return str(p.relative_to(root))
@@ -177,6 +197,7 @@ def build_observation_health_report(
         peer_sync=peer,
         portfolio=portfolio,
         forward_validation=forward,
+        peer_sync_forward=peer_sync_forward,
         log_integrity=integrity,
         tier1_missing=tier1_missing,
         next_commands=_dedupe_next_commands(next_commands),
@@ -230,9 +251,11 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         lines.extend(["", "## Repeat summary", ""])
         for item in repeat_rows[:8]:
             if isinstance(item, dict):
+                stale = item.get("stale_repeat_flag")
+                stale_tag = " stale_repeat" if stale else ""
                 lines.append(
                     f"- {item.get('symbol')}: count={item.get('count')} "
-                    f"weeks={item.get('consecutive_weeks')} "
+                    f"weeks={item.get('consecutive_weeks')}{stale_tag} "
                     f"first={str(item.get('first_seen', ''))[:10]} "
                     f"last={str(item.get('last_seen', ''))[:10]}"
                 )
@@ -251,6 +274,25 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         "## Peer sync rows",
         f"- peer_sync_rows: {peer.get('peer_sync_rows', 0)}",
         f"- by_status: {peer.get('by_status', {})}",
+        ]
+    )
+    if report.peer_sync_forward:
+        ps_fwd = report.peer_sync_forward
+        ps_sq = ps_fwd.get("sample_quality") or {}
+        ps_at_t = ps_fwd.get("peer_sync_at_t") or {}
+        lines.extend(
+            [
+                "",
+                "## Peer sync forward (docs/158)",
+                f"- peer_sync_at_t: {ps_at_t.get('status')} — {ps_at_t.get('reason', '')}",
+                f"- rows_matched: {ps_fwd.get('rows_matched', 0)}",
+                f"- sample_quality: {ps_sq.get('status')} — {ps_sq.get('interpretation', '')}",
+            ]
+        )
+        if ps_sq.get("needed_more_samples"):
+            lines.append(f"- needed_more_samples: {ps_sq.get('needed_more_samples')}")
+    lines.extend(
+        [
         "",
         "## Portfolio linkage",
         f"- shadow positions: {port.get('shadow_position_count', 0)}",

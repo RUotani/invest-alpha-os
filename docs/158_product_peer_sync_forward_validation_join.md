@@ -29,6 +29,8 @@
 
 `validate us-forward-returns` レポートには `peer_sync_forward` ブロックが自動同梱される。
 
+`snapshot observation-health`（docs/153）でも `peer_sync_rows` > 0 のとき同じ join 結果を `peer_sync_forward` として出力する。
+
 ## `peer_sync_at_t` ステータス
 
 | status | 意味 |
