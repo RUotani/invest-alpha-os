@@ -50,60 +50,6 @@ def parse_positive_horizons(raw: str) -> tuple[int, ...]:
     return tuple(out)
 
 
-def _parse_event_date(created_at: object) -> date | None:
-    if created_at is None:
-        return None
-    if isinstance(created_at, datetime):
-        return created_at.date()
-    if isinstance(created_at, date):
-        return created_at
-    s = str(created_at).strip()
-    if not s:
-        return None
-    if "T" in s:
-        s = s.split("T", 1)[0]
-    elif " " in s:
-        s = s.split(" ", 1)[0]
-    try:
-        return date.fromisoformat(s[:10])
-    except ValueError:
-        return None
-
-
-def _bar_dates(bars: list[DailyBar]) -> list[date]:
-    out: list[date] = []
-    for b in bars:
-        try:
-            out.append(date.fromisoformat(str(b["date"])[:10]))
-        except ValueError:
-            continue
-    return out
-
-
-def _event_bar_index(bars: list[DailyBar], event: date) -> int | None:
-    dates = _bar_dates(bars)
-    if len(dates) != len(bars):
-        return None
-    idx: int | None = None
-    for i, d in enumerate(dates):
-        if d <= event:
-            idx = i
-        else:
-            break
-    return idx
-
-
-def _forward_return(bars: list[DailyBar], start_idx: int, horizon: int) -> float | None:
-    end_idx = start_idx + horizon
-    if end_idx >= len(bars):
-        return None
-    old = float(bars[start_idx]["close"])
-    new = float(bars[end_idx]["close"])
-    if old == 0:
-        return None
-    return (new / old) - 1.0
-
-
 def _horizon_bucket_stats(values: list[float], *, thin_sample: bool) -> dict[str, Any]:
     n = len(values)
     if n == 0:

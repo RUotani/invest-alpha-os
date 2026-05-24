@@ -33,6 +33,13 @@ def _block_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(urllib.request, "urlopen", lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("no HTTP")))
 
 
+def test_peer_sync_forward_missing_observation_log(tmp_path: Path) -> None:
+    missing = tmp_path / "outputs" / "observation_log" / "observation_log.jsonl"
+    report = compute_peer_sync_forward_join(observation_path=missing)
+    assert report["rows_matched"] == 0
+    assert report["peer_sync_at_t"]["status"] == "missing_observation_log"
+
+
 def test_classify_peer_map_symbol() -> None:
     assert classify_peer_map_symbol("7011") == "jp"
     assert classify_peer_map_symbol("AAPL") == "us"

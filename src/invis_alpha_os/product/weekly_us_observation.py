@@ -90,6 +90,7 @@ def summarize_us_observation_log(
             "by_status": {},
             "symbols": [],
             "research_checklist": checklist,
+            "weekly_trend": compute_us_signal_weekly_trend([]),
             "observation_only": True,
         }
     rows: list[dict[str, Any]] = []
@@ -162,7 +163,109 @@ def summarize_us_observation_log(
         "rows": rows,
         "observation_only": True,
         "research_checklist": checklist,
+        "weekly_trend": compute_us_signal_weekly_trend(rows),
     }
+
+
+def compute_us_signal_weekly_trend(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """ISO-week US signal row counts for docs/154 P2 (read-only)."""
+
+    week_counts: Counter[tuple[int, int]] = Counter()
+    for row in rows:
+        created = row.get("created_at")
+        if isinstance(created, datetime):
+            iso = created.isocalendar()
+            week_counts[(iso.year, iso.week)] += 1
+            continue
+        if isinstance(created, date):
+            iso = created.isocalendar()
+            week_counts[(iso.year, iso.week)] += 1
+            continue
+        text = str(created or "").strip()
+        if not text:
+            continue
+        try:
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            iso = dt.isocalendar()
+            week_counts[(iso.year, iso.week)] += 1
+        except ValueError:
+            try:
+                d0 = date.fromisoformat(text[:10])
+                iso = d0.isocalendar()
+                week_counts[(iso.year, iso.week)] += 1
+            except ValueError:
+                continue
+
+    sorted_weeks = sorted(week_counts.keys())
+    weekly_counts = {f"{y}-W{w:02d}": week_counts[(y, w)] for y, w in sorted_weeks}
+    base: dict[str, Any] = {
+        "weekly_counts": weekly_counts,
+        "latest_week": None,
+        "prior_week": None,
+        "latest_week_count": 0,
+        "prior_week_count": 0,
+        "delta": 0,
+        "status": "insufficient_history",
+    }
+    if len(sorted_weeks) < 2:
+        if len(sorted_weeks) == 1:
+            y, w = sorted_weeks[0]
+            base["latest_week"] = f"{y}-W{w:02d}"
+            base["latest_week_count"] = week_counts[(y, w)]
+        return base
+
+    latest, prior = sorted_weeks[-1], sorted_weeks[-2]
+    latest_c = week_counts[latest]
+    prior_c = week_counts[prior]
+    delta = latest_c - prior_c
+    if delta > 0:
+        status = "growing"
+    elif delta == 0:
+        status = "flat"
+    else:
+        status = "declining"
+    return {
+        "weekly_counts": weekly_counts,
+        "latest_week": f"{latest[0]}-W{latest[1]:02d}",
+        "prior_week": f"{prior[0]}-W{prior[1]:02d}",
+        "latest_week_count": latest_c,
+        "prior_week_count": prior_c,
+        "delta": delta,
+        "status": status,
+    }
+
+
+def build_enriched_us_observation_summary(
+    observation_path: Path,
+    *,
+    path_base: Path | None = None,
+    cache_dir: Path | None = None,
+) -> dict[str, Any]:
+    """US observation_log summary with manifest/quality/forward enrichment (read-only)."""
+
+    root = path_base or ROOT_DIR
+    manifest = build_us_watchlist_signals_manifest(path_base=root)
+    quality = us_signal_quality_snapshot(path_base=root)
+    forward_sq: dict[str, Any] | None = None
+    if observation_path.is_file():
+        try:
+            from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
+
+            cache = cache_dir or (root / "outputs" / "market_data" / "us_daily_bars")
+            fwd = compute_us_forward_returns(
+                observation_path=observation_path,
+                cache_dir=cache if cache.is_dir() else None,
+                path_base=root,
+            )
+            forward_sq = fwd.get("sample_quality")
+        except (FileNotFoundError, ValueError):
+            forward_sq = None
+    return summarize_us_observation_log(
+        observation_path,
+        missing_cache_symbols=list(manifest.get("missing_cache_symbols") or []),
+        quality_snapshot=quality,
+        forward_sample_quality=forward_sq,
+    )
 
 
 def _checklist_item(
@@ -398,22 +501,9 @@ def run_weekly_us_observation_cycle(
         )
         if observation_batch_failed(obs_result):
             raise ValueError(f"observation batch failed: {obs_result}")
-        forward_sq: dict[str, Any] | None = None
-        try:
-            from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
-
-            fwd = compute_us_forward_returns(
-                observation_path=observation_service.observation_path,
-                path_base=root,
-            )
-            forward_sq = fwd.get("sample_quality")
-        except (FileNotFoundError, ValueError):
-            forward_sq = None
-        obs_summary = summarize_us_observation_log(
+        obs_summary = build_enriched_us_observation_summary(
             observation_service.observation_path,
-            missing_cache_symbols=list(manifest.get("missing_cache_symbols") or []),
-            quality_snapshot=quality,
-            forward_sample_quality=forward_sq,
+            path_base=root,
         )
 
     peer_sync_payload: dict[str, Any] | None = None
@@ -421,6 +511,16 @@ def run_weekly_us_observation_cycle(
         from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
 
         peer_sync_payload = build_peer_sync_cache_only_report(path_base=root).to_dict()
+
+    if obs_summary is None:
+        from invis_alpha_os.config.paths import OUTPUTS_DIR as _outputs
+
+        default_obs = _outputs / "observation_log" / "observation_log.jsonl"
+        if default_obs.is_file():
+            obs_summary = build_enriched_us_observation_summary(
+                default_obs,
+                path_base=root,
+            )
 
     return WeeklyUsObservationResult(
         manifest=manifest,

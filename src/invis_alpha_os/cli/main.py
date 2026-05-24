@@ -120,7 +120,7 @@ from invis_alpha_os.product.us_universe_expansion import (
 from invis_alpha_os.product.weekly_us_observation import (
     format_weekly_us_observation_markdown,
     run_weekly_us_observation_cycle,
-    summarize_us_observation_log,
+    build_enriched_us_observation_summary,
     us_cache_expansion_report,
 )
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
@@ -1644,8 +1644,9 @@ def log_outcome(
 def log_us_signals_summary() -> None:
     """Summarize US cache signal rows in observation_log.jsonl (read-only)."""
 
-    summary = summarize_us_observation_log(
-        OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    summary = build_enriched_us_observation_summary(
+        OUTPUTS_DIR / "observation_log" / "observation_log.jsonl",
+        path_base=ROOT_DIR,
     )
     typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
 

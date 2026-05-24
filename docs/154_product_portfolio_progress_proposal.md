@@ -40,6 +40,8 @@
 .venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format markdown --strict
 ```
 
+**Auto-evaluator (read-only)**: `snapshot observation-health` includes `portfolio.readiness` (P0–P3 milestones, `suggested_percent` only — STATE % remains locked until human acceptance).
+
 ## Out of scope
 
 - Buy/sell recommendations

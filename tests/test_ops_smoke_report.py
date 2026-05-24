@@ -185,6 +185,56 @@ def test_build_ops_smoke_report_warns_repeat_signals(
     assert "repeat_signals=" in health_check.detail
 
 
+def test_build_ops_smoke_report_warns_stale_forward_cache(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+
+    obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True, exist_ok=True)
+    from invis_alpha_os.observation.service import ObservationService
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+
+    svc = ObservationService(observation_path=obs_path, outcome_path=mini_us_cache / "outcome.jsonl")
+    note = build_us_signal_observation_note(
+        {"status": "ok", "momentum_label": "uptrend", "last_date": "2026-05-22"}
+    )
+    svc.log_observation("MSFT", note)
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", mini_us_cache / "outputs")
+
+    report = build_ops_smoke_report(path_base=mini_us_cache)
+    health_check = next(c for c in report.checks if c.name == "observation_health")
+    assert health_check.status == "warn"
+    assert "forward_stale_cache=1" in health_check.detail
+
+
+def test_cli_validate_ops_smoke_strict_exits_on_warn(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from typer.testing import CliRunner
+
+    import invis_alpha_os.cli.main as cli_main
+    import invis_alpha_os.product.ops_smoke_report as ops_mod
+
+    obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True, exist_ok=True)
+    from invis_alpha_os.observation.service import ObservationService
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+
+    svc = ObservationService(observation_path=obs_path, outcome_path=mini_us_cache / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "uptrend", "last_date": "2026-05-22"})
+    svc.log_observation("MSFT", note)
+    svc.log_observation("MSFT", note)
+    monkeypatch.setattr(cli_main, "ROOT_DIR", mini_us_cache)
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", mini_us_cache / "outputs")
+    monkeypatch.setattr(cli_main, "CONFIG_DIR", mini_us_cache / "config")
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", mini_us_cache / "outputs")
+
+    runner = CliRunner()
+    result = runner.invoke(cli_main.app, ["validate", "ops-smoke", "--format", "json", "--strict"])
+    assert result.exit_code == 2, result.stdout + result.stderr
+
+
 def test_cli_validate_ops_smoke_json(mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from typer.testing import CliRunner
 
