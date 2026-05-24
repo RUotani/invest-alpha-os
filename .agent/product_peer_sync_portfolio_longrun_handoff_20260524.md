@@ -1,6 +1,6 @@
 # Product ロングラン Handoff — 2026-05-24（更新）
 
-> post #241 · Cursor 承認 A → merge · P10 preflight 再実行
+> post #243 · Cursor 承認 A → merge
 
 ---
 
@@ -8,61 +8,47 @@
 
 | 項目 | 値 |
 | --- | --- |
-| **origin/main** | `b5a7be2` |
-| **open PR** | wave ops-ux（next wave 3件） |
-| **テスト** | **1054 passed**（wave branch） |
-| **observation_log** | **58行**（US 48 + peer_sync 10） |
-| **tier-1 missing** | **AMD**（`STOOQ_APIKEY` 未設定） |
-| **ops-smoke strict** | taxonomy **EXPECTED_BLOCKED**（repeat + stale · 想定内） |
+| **origin/main** | `5b7e2aa` |
+| **open PR** | 0（STATE sync 待ち可） |
+| **テスト** | **1054 passed** |
+| **observation_log** | **58行** |
+| **tier-1 missing** | **AMD**（`STOOQ_APIKEY` unset） |
+| **ops-smoke strict** | stderr: `taxonomy=EXPECTED_BLOCKED`（想定内） |
 
 ---
 
-## 0.1 Merge 運用（2026-05-24 確定）
+## 0.1 Merge 運用
 
-1. Agent が **Cursor 承認依頼**（AskQuestion または明示メッセージ）を人間へ出す
-2. 人間が **A（承認）** 等で応答
-3. **Cursor Agent** が `gh pr merge --squash` を実行
-4. ChatGPT merge queue は記録用（Agent は `PENDING_CHATGPT` のみ付与 · 人間承認後 merge）
-
----
-
-## 1. 人間承認結果（2026-05-24）
-
-| 項目 | 承認 | 結果 |
-| --- | --- | --- |
-| 週次 `--write-observation-log` | **yes** | 実行済 |
-| P10 AMD refresh | **yes** | **ブロック** · `STOOQ_APIKEY` unset |
-| portfolio STATE % | **keep** | `[要確認]%` 維持 |
-| #241 merge | **A（Cursor）** | **merged** @ `766eb8c` |
+1. Agent → Cursor 承認依頼（AskQuestion）
+2. 人間 → **A**
+3. Cursor Agent → `gh pr merge --squash`
 
 ---
 
-## 2. #241 マージ内容
+## 1. #243 マージ内容
 
-- ops-smoke `strict_taxonomy`
-- `log evidence-manifest`
-- observation `repeat_summary`
-- portfolio readiness labels
-- docs/123 · 124 DEPRECATED → docs/81
+- `validate ops-smoke --strict` → stderr taxonomy 一行
+- `snapshot observation-health --format json` → トップレベル `repeat_summary`
+- docs/160 evidence-manifest セクション · docs/153 更新
 
 ---
 
-## 3. P10 evidence（git 外）
+## 2. ブロッカー / 次 wave
 
-| ファイル | 内容 |
+| 項目 | 状態 |
 | --- | --- |
-| `outputs/evidence/p10_tier1_amd_refresh_20260524.md` | 初回 refresh 失敗 |
-| `outputs/evidence/p10_tier1_pre_20260524.md` | post #241 preflight（STOOQ unset） |
+| P10 AMD | `STOOQ_APIKEY` 設定後 · docs/162 |
+| portfolio % | `[要確認]%` 維持 |
+| 次候補 | observation-health next_commands dedupe（PR4）· portfolio rubric（PR5） |
 
 ---
 
-## 4. 参照
+## 3. 参照
 
 - Weekly: `docs/160`
-- P10: `docs/162` · post: `docs/163`
+- P10: `docs/162` · `docs/163`
 - Gmail: `docs/81`
-- Longrun standard: `.agent/cursor_agent_quality_efficiency_longrun_standard.md`
 
 ---
 
-*最終更新: 2026-05-24 · post #241 merge + P10 preflight*
+*最終更新: 2026-05-24 · post #243*
