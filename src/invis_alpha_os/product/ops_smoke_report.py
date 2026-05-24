@@ -60,6 +60,20 @@ class OpsSmokeReport:
         }
 
 
+def _watchlist_manifest_status(entries: int, missing: int) -> str:
+    if entries == 0:
+        return "fail"
+    if missing > 0:
+        return "warn"
+    return "ok"
+
+
+def _signal_quality_snapshot_status(signals_ok: int, signals_total: int) -> str:
+    if signals_total == 0 or signals_ok < signals_total:
+        return "fail"
+    return "ok"
+
+
 def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
     root = path_base or ROOT_DIR
     checks: list[OpsSmokeCheck] = []
@@ -70,7 +84,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
     checks.append(
         OpsSmokeCheck(
             name="watchlist_manifest",
-            status="ok" if entries > 0 or missing >= 0 else "fail",
+            status=_watchlist_manifest_status(entries, missing),
             detail=f"entries={entries} missing_cache={missing}",
         )
     )
@@ -81,7 +95,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
     checks.append(
         OpsSmokeCheck(
             name="signal_quality_snapshot",
-            status="ok" if sig_total == 0 or sig_ok >= 0 else "fail",
+            status=_signal_quality_snapshot_status(sig_ok, sig_total),
             detail=f"signals_ok={sig_ok}/{sig_total}",
         )
     )
