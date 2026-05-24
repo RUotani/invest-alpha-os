@@ -47,6 +47,7 @@ Claude Code 専用指示は `CLAUDE.md` を参照する。
 ### Cursor(AUTO / Composer 2)
 
 - `.cursor/rules/main.mdc` を自動読み込みルールとして扱う。
+- **ロングラン自律開発**: `.agent/cursor_agent_quality_efficiency_longrun_standard.md` に従う（PR粒度・テスト標準・P10 preflight・Final Report 形式）。
 - 多ファイル編集前に `git status --short` を確認する。
 - 未コミット変更がある場合は、作業開始前にユーザーへ報告する。
 - Composer 2 使用時は、事前に Settings → Billing で spend limit を確認する。
@@ -92,4 +93,5 @@ Claude Code 専用指示は `CLAUDE.md` を参照する。
 
 ## §7. このファイルへの追加履歴
 
+- 2026-05-24: Cursor longrun standard 参照追加（`.agent/cursor_agent_quality_efficiency_longrun_standard.md`）
 - 2026-05-23: 初版作成
