@@ -3,7 +3,7 @@
 
 | PR | Title | Base | Head | CI | Mergeable | Files | Risk | Depends on | Agent Recommendation |
 |---|---|---|---|---|---|---:|---|---|---|
-| #TBD | feat(product): ops-smoke taxonomy, evidence manifest, repeat summary | main | work/wave-ops-quality-20260524 | pending | pending | ~15 | MEDIUM | none | PENDING_CHATGPT |
+| #241 | feat(product): ops-smoke taxonomy, evidence manifest, repeat summary | main | work/wave-ops-quality-20260524 | pending | pending | ~17 | MEDIUM | none | PENDING_CHATGPT |
 
 ## Notes
 - Strict taxonomy classifies repeat_signals + forward_stale_cache as EXPECTED_BLOCKED (exit 2 unchanged).
