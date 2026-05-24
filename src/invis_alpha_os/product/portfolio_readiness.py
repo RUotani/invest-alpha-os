@@ -21,6 +21,25 @@ _SUGGESTED_PERCENT: dict[str, int | None] = {
     "P4": None,
 }
 
+_MILESTONE_META: dict[str, dict[str, str]] = {
+    "P0": {
+        "label": "Shadow JSONL + CLI",
+        "operator_hint": "snapshot portfolio-observation-summary exit 0",
+    },
+    "P1": {
+        "label": "Observation linkage",
+        "operator_hint": "shadow positions with resolved evidence links",
+    },
+    "P2": {
+        "label": "Weekly log sustained",
+        "operator_hint": "us_signal_rows grow week-over-week",
+    },
+    "P3": {
+        "label": "Forward usable",
+        "operator_hint": "validate us-forward-returns sample_quality=usable (normal mode)",
+    },
+}
+
 
 def _milestone(
     *,
@@ -29,8 +48,11 @@ def _milestone(
     status: str,
     detail: str,
 ) -> dict[str, Any]:
+    meta = _MILESTONE_META.get(milestone_id, {})
     return {
         "id": milestone_id,
+        "label": meta.get("label", milestone_id),
+        "operator_hint": meta.get("operator_hint", ""),
         "passed": passed,
         "status": status,
         "detail": detail,
@@ -84,7 +106,7 @@ def evaluate_portfolio_readiness(
         p1 = _milestone(
             milestone_id="P1",
             passed=False,
-            status="blocked",
+            status="not_applicable",
             detail="no shadow positions; linkage not applicable yet",
         )
     elif with_evidence > 0 and with_links > 0:
@@ -150,7 +172,8 @@ def evaluate_portfolio_readiness(
         )
 
     milestones = [p0, p1, p2, p3]
-    blockers = [m["detail"] for m in milestones if not m["passed"]]
+    blockers = [f"{m['id']} {m['label']}: {m['detail']}" for m in milestones if not m["passed"]]
+    next_milestone = next((m for m in milestones if not m["passed"]), None)
 
     if p0["passed"] and p1["passed"] and p2["passed"] and p3["passed"]:
         tier = "P0-P3"
@@ -166,9 +189,22 @@ def evaluate_portfolio_readiness(
     return {
         "milestones": milestones,
         "accepted_tier": tier,
+        "accepted_tier_label": _tier_label(tier),
+        "next_milestone": next_milestone,
         "suggested_percent": _SUGGESTED_PERCENT.get(tier),
         "state_percent_locked": True,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,
     }
+
+
+def _tier_label(tier: str) -> str:
+    labels = {
+        "P0-P3": "P0 through P3 (forward usable)",
+        "P0-P2": "P0 through P2 (weekly sustained)",
+        "P0+P1": "P0 + P1 (linkage)",
+        "P0": "P0 only (CLI ready)",
+        "none": "none",
+    }
+    return labels.get(tier, tier)

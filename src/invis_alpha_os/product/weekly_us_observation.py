@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -91,6 +91,7 @@ def summarize_us_observation_log(
             "symbols": [],
             "research_checklist": checklist,
             "weekly_trend": compute_us_signal_weekly_trend([]),
+            "repeat_summary": compute_repeat_signal_summary([]),
             "observation_only": True,
         }
     rows: list[dict[str, Any]] = []
@@ -164,6 +165,94 @@ def summarize_us_observation_log(
         "observation_only": True,
         "research_checklist": checklist,
         "weekly_trend": compute_us_signal_weekly_trend(rows),
+        "repeat_summary": compute_repeat_signal_summary(rows),
+    }
+
+
+def _parse_row_created_at(value: object) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            d0 = date.fromisoformat(text[:10])
+            return datetime.combine(d0, datetime.min.time())
+        except ValueError:
+            return None
+
+
+def _trailing_consecutive_weeks(weeks: list[tuple[int, int]]) -> int:
+    if not weeks:
+        return 0
+    ords = sorted(date.fromisocalendar(y, w, 1).toordinal() for y, w in weeks)
+    best = 1
+    run = 1
+    for i in range(1, len(ords)):
+        if ords[i] - ords[i - 1] == 7:
+            run += 1
+        else:
+            run = 1
+        best = max(best, run)
+    return best
+
+
+def compute_repeat_signal_summary(
+    rows: list[dict[str, Any]],
+    *,
+    stale_repeat_weeks: int = 2,
+) -> dict[str, Any]:
+    """Repeat signal grouping (raw rows preserved; summary only)."""
+
+    by_symbol: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        sym = row.get("symbol")
+        if sym:
+            by_symbol[str(sym)].append(row)
+
+    repeat_by_symbol: list[dict[str, Any]] = []
+    repeat_by_label: Counter[str] = Counter()
+
+    for sym, sym_rows in sorted(by_symbol.items()):
+        if len(sym_rows) < 2:
+            continue
+        dts: list[datetime] = []
+        labels: list[str] = []
+        for row in sym_rows:
+            dt = _parse_row_created_at(row.get("created_at"))
+            if dt is not None:
+                dts.append(dt)
+            label = row.get("momentum_label")
+            if label:
+                repeat_by_label[str(label)] += 1
+                labels.append(str(label))
+        if not dts:
+            continue
+        dts.sort()
+        weeks = list({(d.isocalendar().year, d.isocalendar().week) for d in dts})
+        consecutive = _trailing_consecutive_weeks(weeks)
+        repeat_by_symbol.append(
+            {
+                "symbol": sym,
+                "count": len(sym_rows),
+                "first_seen": dts[0].isoformat(),
+                "last_seen": dts[-1].isoformat(),
+                "consecutive_weeks": consecutive,
+                "momentum_labels": sorted(set(labels)),
+                "stale_repeat_flag": consecutive >= stale_repeat_weeks,
+            }
+        )
+
+    return {
+        "repeat_by_symbol": repeat_by_symbol,
+        "repeat_by_label": dict(repeat_by_label),
+        "repeat_symbol_count": len(repeat_by_symbol),
+        "observation_only": True,
     }
 
 

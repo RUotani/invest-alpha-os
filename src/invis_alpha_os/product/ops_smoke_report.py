@@ -11,6 +11,7 @@ from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.observation_health import build_observation_health_report
 from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
+from invis_alpha_os.product.ops_smoke_taxonomy import classify_ops_smoke_strict
 from invis_alpha_os.product.weekly_us_observation import (
     build_us_watchlist_signals_manifest,
     us_signal_quality_snapshot,
@@ -45,7 +46,7 @@ class OpsSmokeReport:
         return all(c.status == "ok" for c in self.checks)
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "all_ok": self.all_ok,
             "checks": [c.to_dict() for c in self.checks],
             "observation_health": self.observation_health,
@@ -58,6 +59,8 @@ class OpsSmokeReport:
             "observation_only": self.observation_only,
             "live_http": self.live_http,
         }
+        payload["strict_taxonomy"] = classify_ops_smoke_strict(self)
+        return payload
 
 
 def _watchlist_manifest_status(entries: int, missing: int) -> str:
@@ -202,7 +205,21 @@ def format_ops_smoke_markdown(report: OpsSmokeReport) -> str:
     ]
     for c in report.checks:
         lines.append(f"| {c.name} | {c.status} | {c.detail} |")
-    lines.extend(["", "## Next commands", ""])
+    tax = classify_ops_smoke_strict(report)
+    lines.extend(
+        [
+            "",
+            "## Strict taxonomy",
+            "",
+            f"- taxonomy: **{tax.get('taxonomy')}**",
+            f"- strict_exit_hint: {tax.get('strict_exit_hint')}",
+            f"- reasons: {', '.join(tax.get('reasons') or []) or '(none)'}",
+            f"- interpretation: {tax.get('interpretation')}",
+            "",
+            "## Next commands",
+            "",
+        ]
+    )
     for cmd in report.next_commands:
         lines.append(f"- `{cmd}`")
     lines.append("")

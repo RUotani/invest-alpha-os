@@ -123,6 +123,10 @@ from invis_alpha_os.product.weekly_us_observation import (
     build_enriched_us_observation_summary,
     us_cache_expansion_report,
 )
+from invis_alpha_os.product.evidence_manifest import (
+    build_evidence_manifest,
+    write_evidence_manifest_report,
+)
 from invis_alpha_os.portfolio.shadow_portfolio import ShadowPortfolioService
 from invis_alpha_os.reporting.jquants_smoke_summary import (
     build_watchlist_filename_date_slug,
@@ -1649,6 +1653,33 @@ def log_us_signals_summary() -> None:
         path_base=ROOT_DIR,
     )
     typer.echo(json.dumps(summary, ensure_ascii=False, indent=2))
+
+
+@log_app.command("evidence-manifest")
+def log_evidence_manifest(
+    task_id: str = typer.Option(..., "--task-id"),
+    evidence_path: str = typer.Option(..., "--evidence-path"),
+    command: str = typer.Option(..., "--command"),
+    result: str = typer.Option(..., "--result"),
+    summary: str = typer.Option(..., "--summary"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+) -> None:
+    """Write evidence manifest markdown to reports/ (read-only metadata; no secrets)."""
+
+    manifest = build_evidence_manifest(
+        task_id=task_id,
+        evidence_path=Path(evidence_path),
+        command=command,
+        result=result,
+        summary=summary,
+    )
+    out = write_evidence_manifest_report(
+        manifest,
+        path_base=ROOT_DIR,
+        report_date=report_date,
+    )
+    payload = {**manifest, "manifest_report_path": str(out.relative_to(ROOT_DIR))}
+    typer.echo(json.dumps(payload, ensure_ascii=False, indent=2))
 
 
 @log_app.command("peer-sync-snapshot")
