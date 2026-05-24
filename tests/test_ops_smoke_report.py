@@ -188,6 +188,7 @@ def test_build_ops_smoke_report_warns_repeat_signals(
 def test_build_ops_smoke_report_warns_stale_forward_cache(
     mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import invis_alpha_os.product.observation_health as oh_mod
     import invis_alpha_os.product.ops_smoke_report as ops_mod
 
     obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
@@ -200,7 +201,9 @@ def test_build_ops_smoke_report_warns_stale_forward_cache(
         {"status": "ok", "momentum_label": "uptrend", "last_date": "2026-05-22"}
     )
     svc.log_observation("MSFT", note)
-    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", mini_us_cache / "outputs")
+    outputs = mini_us_cache / "outputs"
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(oh_mod, "OUTPUTS_DIR", outputs)
 
     report = build_ops_smoke_report(path_base=mini_us_cache)
     health_check = next(c for c in report.checks if c.name == "observation_health")
@@ -214,6 +217,7 @@ def test_cli_validate_ops_smoke_strict_exits_on_warn(
     from typer.testing import CliRunner
 
     import invis_alpha_os.cli.main as cli_main
+    import invis_alpha_os.product.observation_health as oh_mod
     import invis_alpha_os.product.ops_smoke_report as ops_mod
 
     obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
@@ -225,10 +229,12 @@ def test_cli_validate_ops_smoke_strict_exits_on_warn(
     note = build_us_signal_observation_note({"status": "ok", "momentum_label": "uptrend", "last_date": "2026-05-22"})
     svc.log_observation("MSFT", note)
     svc.log_observation("MSFT", note)
+    outputs = mini_us_cache / "outputs"
     monkeypatch.setattr(cli_main, "ROOT_DIR", mini_us_cache)
-    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", mini_us_cache / "outputs")
+    monkeypatch.setattr(cli_main, "OUTPUTS_DIR", outputs)
     monkeypatch.setattr(cli_main, "CONFIG_DIR", mini_us_cache / "config")
-    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", mini_us_cache / "outputs")
+    monkeypatch.setattr(ops_mod, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(oh_mod, "OUTPUTS_DIR", outputs)
 
     runner = CliRunner()
     result = runner.invoke(cli_main.app, ["validate", "ops-smoke", "--format", "json", "--strict"])
