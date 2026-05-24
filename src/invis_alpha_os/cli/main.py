@@ -104,6 +104,14 @@ from invis_alpha_os.product.us_forward_return_validation import (
     format_us_forward_return_markdown,
     parse_positive_horizons,
 )
+from invis_alpha_os.product.peer_sync_forward_validation import (
+    compute_peer_sync_forward_join,
+    format_peer_sync_forward_markdown,
+)
+from invis_alpha_os.product.jp_peer_sync_loader import (
+    build_jp_peer_sync_readiness_report,
+    format_jp_peer_sync_readiness_markdown,
+)
 from invis_alpha_os.reports.us_observation_summary import render_us_observation_summary_markdown
 from invis_alpha_os.product.us_universe_expansion import (
     build_us_universe_expansion_report,
@@ -625,6 +633,86 @@ def validate_ops_smoke_command(
     if strict and not report.all_ok:
         raise typer.Exit(2)
     if strict and any(c.status == "fail" for c in report.checks):
+        raise typer.Exit(2)
+
+
+@validate_app.command("peer-sync-forward-returns")
+def validate_peer_sync_forward_returns_command(
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Path to observation_log.jsonl (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    horizons: Optional[str] = typer.Option(
+        "5,20,60",
+        "--horizons",
+        help="Comma-separated session horizons (default: 5,20,60).",
+    ),
+    reference_date: Optional[str] = typer.Option(
+        None,
+        "--reference-date",
+        help="Optional ISO date; skip observations after this date.",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only: join peer_sync log rows to anchor forward returns (cache-only)."""
+
+    fmt_norm = fmt.strip().lower()
+    obs_path = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    try:
+        hz = parse_positive_horizons(horizons or "")
+    except ValueError as exc:
+        typer.echo(f"validate peer-sync-forward-returns: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    ref: date | None = None
+    if reference_date:
+        try:
+            ref = date.fromisoformat(reference_date.strip()[:10])
+        except ValueError as exc:
+            typer.echo("validate peer-sync-forward-returns: invalid --reference-date", err=True)
+            raise typer.Exit(2) from exc
+    try:
+        report = compute_peer_sync_forward_join(
+            observation_path=obs_path,
+            horizons=hz,
+            reference_date=ref,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(format_peer_sync_forward_markdown(report))
+
+
+@validate_app.command("jp-peer-sync-readiness")
+def validate_jp_peer_sync_readiness_command(
+    peer_map: Optional[str] = typer.Option(
+        None,
+        "--peer-map",
+        help="Path to peer_map.yaml (default: config/peer_map.yaml).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only: JP peer_map edges vs J-Quants cache on disk (no HTTP)."""
+
+    fmt_norm = fmt.strip().lower()
+    pmap = Path(peer_map) if peer_map else CONFIG_DIR / "peer_map.yaml"
+    report = build_jp_peer_sync_readiness_report(
+        path_base=ROOT_DIR,
+        peer_map_path=pmap,
+    )
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_jp_peer_sync_readiness_markdown(report))
+    else:
+        typer.echo("validate jp-peer-sync-readiness: --format must be markdown or json", err=True)
         raise typer.Exit(2)
 
 

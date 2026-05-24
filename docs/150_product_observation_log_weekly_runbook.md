@@ -22,6 +22,8 @@
 .venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format json --strict
 ```
 
+**コピペ one-pager**: [docs/160_product_weekly_operator_one_pager.md](./160_product_weekly_operator_one_pager.md)
+
 ## 週次コマンド（書込あり · 人間承認）
 
 ```bash
@@ -47,6 +49,7 @@
 .venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary
 .venv/bin/python -m invis_alpha_os.cli.main log peer-sync-summary
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown
+.venv/bin/python -m invis_alpha_os.cli.main validate peer-sync-forward-returns --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main snapshot portfolio-observation-summary --format markdown
 ```
 

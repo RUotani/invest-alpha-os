@@ -364,6 +364,14 @@ def compute_us_forward_returns(
             return None
         return sum(float(v) for v in vals) / len(vals)
 
+    from invis_alpha_os.product.peer_sync_forward_validation import compute_peer_sync_forward_join
+
+    peer_sync_forward = compute_peer_sync_forward_join(
+        observation_path=observation_path,
+        horizons=horizons,
+        reference_date=reference_date,
+    )
+
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now().astimezone().isoformat(),
@@ -388,6 +396,7 @@ def compute_us_forward_returns(
         "examples": matched[:5],
         "veto_at_t": _veto_at_t_report(obs_rows, matched),
         "by_veto_status": _build_by_veto_status(matched, horizons, thin_sample=thin),
+        "peer_sync_forward": peer_sync_forward,
         "observation_only": True,
         "not_investment_advice": True,
         "live_http": False,
@@ -460,6 +469,19 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         lines.append("")
         lines.append("### By veto status (matched rows)")
         for key, block in sorted(by_veto.items()):
+            lines.append(f"- {key}: count={block.get('count')}")
+    ps_fwd = report.get("peer_sync_forward") or {}
+    ps_at_t = ps_fwd.get("peer_sync_at_t") or {}
+    lines.extend(["", "## Peer sync × forward (read-only join)"])
+    lines.append(f"- peer_sync_at_t: {ps_at_t.get('status')}")
+    if ps_at_t.get("peer_sync_log_rows") is not None:
+        lines.append(f"- peer_sync log rows: {ps_at_t.get('peer_sync_log_rows')}")
+        lines.append(f"- matched with forward: {ps_at_t.get('matched_with_forward')}")
+    by_ps = ps_fwd.get("by_peer_sync_status") or {}
+    if by_ps:
+        lines.append("")
+        lines.append("### By peer_sync_status (matched rows)")
+        for key, block in sorted(by_ps.items()):
             lines.append(f"- {key}: count={block.get('count')}")
     lines.append("")
     return "\n".join(lines)
