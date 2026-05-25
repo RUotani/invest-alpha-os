@@ -11,6 +11,7 @@ from invis_alpha_os.product.ops_smoke_report import (
     _signal_quality_snapshot_status,
     _watchlist_manifest_status,
     build_ops_smoke_report,
+    format_ops_smoke_markdown,
 )
 
 
@@ -154,6 +155,13 @@ def test_build_ops_smoke_report_fails_partial_signal_quality(
     quality = next(c for c in report.checks if c.name == "signal_quality_snapshot")
     assert quality.status == "fail"
     assert not report.all_ok
+
+
+def test_ops_smoke_markdown_links_weekly_one_pager(mini_us_cache: Path) -> None:
+    report = build_ops_smoke_report(path_base=mini_us_cache)
+    md = format_ops_smoke_markdown(report)
+    assert "docs/160_product_weekly_operator_one_pager.md" in md
+    assert any("evidence-manifest" in cmd for cmd in report.next_commands)
 
 
 def test_build_ops_smoke_report_ok(mini_us_cache: Path) -> None:

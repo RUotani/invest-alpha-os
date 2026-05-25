@@ -173,6 +173,8 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         ".venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
         ".venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format json",
+        ".venv/bin/python -m invis_alpha_os.cli.main log evidence-manifest "
+        "--task-id ops_smoke_YYYYMMDD --report-date YYYY-MM-DD --summary read-only preflight",
         "weekly-us-observation --write-observation-log  # human approval; writes outputs/",
     ]
 
@@ -215,6 +217,11 @@ def format_ops_smoke_markdown(report: OpsSmokeReport) -> str:
             f"- strict_exit_hint: {tax.get('strict_exit_hint')}",
             f"- reasons: {', '.join(tax.get('reasons') or []) or '(none)'}",
             f"- interpretation: {tax.get('interpretation')}",
+            "",
+            "## Operator one-pager",
+            "",
+            "- Weekly copy-paste: `docs/160_product_weekly_operator_one_pager.md`",
+            "- Evidence manifest: see `log evidence-manifest` in next commands",
             "",
             "## Next commands",
             "",
