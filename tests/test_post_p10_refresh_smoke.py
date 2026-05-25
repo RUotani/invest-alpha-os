@@ -31,6 +31,9 @@ def test_forward_p3_progress_label() -> None:
     p = forward_p3_progress(6)
     assert p["samples_needed_for_usable"] == 4
     assert "6/10" in p["progress_label"]
+    p_ok = forward_p3_progress(12)
+    assert p_ok["samples_needed_for_usable"] == 0
+    assert "usable" in p_ok["progress_label"]
 
 
 def test_forward_p3_recommended_actions_mixed() -> None:
@@ -41,7 +44,7 @@ def test_forward_p3_recommended_actions_mixed() -> None:
         forward_matched=0,
     )
     joined = " ".join(actions)
-    assert "weekly" in joined.lower() or "Approval" in joined
+    assert "weekly" in joined.lower() or "gated" in joined.lower()
     assert "stale" in joined.lower() or "cache refresh" in joined.lower()
 
 

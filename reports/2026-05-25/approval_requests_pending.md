@@ -1,16 +1,16 @@
-# 承認 — 最新（2026-05-25）
+# 承認 — 最新
 
 自律契約: [longrun_autonomous_mode_contract_20260525.md](./longrun_autonomous_mode_contract_20260525.md)
 
-## 実行済み
+## 実行済み（wave5）
 
 | ID | 結果 |
 |---|---|
-| M | log 134 · peer 10/10 usable |
-| N | portfolio **55%** P0-P2 |
+| O | log **154** |
+| P | 8 symbols P10 OK |
 
-[N 詳細](./approved_execution_report_wave4_n_20260525.md) · [M 詳細](./approved_execution_report_wave4_m_20260525.md)
+[詳細](./approved_execution_report_wave5_op_20260525.md)
 
-## 待ち（wave5 · チャットのみ）
+## 次回 gated
 
-[approval_requests_wave5_20260525.md](./approval_requests_wave5_20260525.md) — **O** weekly · **P** P10
+weekly 6回目 / P10 — チャット `承認 … YES` のみ
