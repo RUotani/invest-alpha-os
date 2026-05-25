@@ -7,10 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
+from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.observation.us_peer_sync_summary import summarize_peer_sync_observation_log
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
+from invis_alpha_os.product.jp_peer_sync_loader import classify_peer_map_symbol
 from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readiness
+from invis_alpha_os.signals.peer_sync import load_peer_map
 from invis_alpha_os.product.us_forward_return_validation import (
     forward_validation_next_commands,
 )
@@ -194,6 +196,25 @@ def build_observation_health_report(
         if ps_st in {"empty", "thin"}:
             for cmd in ps_sq.get("next_commands") or []:
                 next_commands.append(cmd)
+
+    pmap_path = (path_base or ROOT_DIR) / "config" / "peer_map.yaml"
+    if not pmap_path.is_file():
+        pmap_path = CONFIG_DIR / "peer_map.yaml"
+    if pmap_path.is_file():
+        try:
+            peer_map = load_peer_map(pmap_path)
+            has_jp = any(
+                classify_peer_map_symbol(anchor) == "jp"
+                or any(classify_peer_map_symbol(str(p)) == "jp" for p in peers)
+                for anchor, peers in peer_map.items()
+            )
+            if has_jp:
+                next_commands.append(
+                    ".venv/bin/python -m invis_alpha_os.cli.main validate "
+                    "jp-peer-sync-readiness --format markdown"
+                )
+        except (ValueError, OSError):
+            pass
 
     def _rel(p: Path) -> str:
         try:
