@@ -3,19 +3,19 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `5b7e2aa`（#243 strict stderr · repeat_summary JSON · docs/160）。
-- observation_log **58行**（US 48 + peer_sync 10 · strict_taxonomy = EXPECTED_BLOCKED 想定内）。
-- P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · preflight 2026-05-24 再実行済）。
+- `origin/main` @ `395c146`（#245 peer_sync_forward · #246 docs/160 リンク）。
+- observation_log **58行**（US 48 + peer_sync 10 · `peer_sync_forward` 統合済）。
+- P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · 承認リクエスト `reports/2026-05-24/approval_requests_20260524.md`）。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 90% | enriched checklist · weekly_trend |
+| signals/ | 91% | observation-health · peer_sync_forward join |
 | risk/ | 62% | veto-at-t join |
 | portfolio/ | [要確認]% | readiness evaluator · % 人間承認待ち |
 | data ingest | 64% | tier-1 **AMD** gap（Stooq API key 要） |
-| reports/ui | 72% | observation-health peer_sync_forward join (docs/153/158) |
+| reports/ui | 74% | docs/160 リンク · peer_sync_forward · stale_repeat markdown |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
@@ -29,9 +29,9 @@
 ## §4. 最新main
 
 ```text
-origin/main: 5b7e2aa
+origin/main: 395c146
 open PRs: 0
-tests: 1054 passed
+tests: 1056 passed
 observation_log: 58 lines (local outputs/)
 tier-1 missing: AMD (STOOQ_APIKEY blocker)
 ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale)
@@ -45,6 +45,7 @@ ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale)
 
 ## §8. 履歴
 
+- 2026-05-24: #245 observation-health peer_sync_forward · #246 docs/160 リンク（Cursor MERGE）
 - 2026-05-24: #243 ops-smoke strict stderr · observation repeat_summary JSON（Cursor 承認 A）
 - 2026-05-24: #241 ops-smoke taxonomy · evidence manifest · repeat summary（Cursor 承認 A → merge）
 - 2026-05-24: #238 tier-1 gap · docs/81; weekly #3 · AMD refresh blocked
