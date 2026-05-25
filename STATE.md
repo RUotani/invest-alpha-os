@@ -3,46 +3,41 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `c08cffd`（#251 skip_pattern · peer_sync co-write · post-refresh-smoke）。
-- observation_log **74行** · tier-1 gap **0** · forward matched=0 · `skip_pattern=fresh_log` 想定内。
-- portfolio **25%** — `config/portfolio_observation_acceptance.yaml`。
+- `origin/main` @ `8a5331e` → wave4 PR 待ち（P2 supplemental · post_refresh_hints · shadow seed docs）。
+- observation_log **74行** · forward matched=0 · skip_pattern 診断済。
+- portfolio **25%** · P1 は `docs/165` + `config/examples/shadow_portfolio_positions.example.jsonl`。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 93% | peer_sync co-write · skip_pattern |
+| signals/ | 94% | weekly_trend trailing_7d · calendar_week_caveat |
 | risk/ | 62% | veto-at-t join |
-| portfolio/ | 25% | human_accepted YAML |
-| data ingest | 68% | AMD + US16 cached |
-| reports/ui | 78% | validate post-refresh-smoke |
+| portfolio/ | 25% | shadow_seed_hint · P1 手動 seed |
+| data ingest | 68% | tier-1 0 missing |
+| reports/ui | 80% | observation-health post_refresh_hints |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
 
-- [x] P10 AMD · weekly write · portfolio 25%
-- [ ] forward P3 usable（セッション蓄積）
-- [ ] portfolio P1 shadow linkage
+- [ ] forward P3 usable
+- [ ] portfolio P1 linkage（shadow 手動配置）
+- [ ] 次回 weekly write（承認後）
 
 ## §4. 最新main
 
 ```text
-origin/main: c08cffd
-open PRs: 0
-tests: 1062 passed
-observation_log: 74 lines
-tier-1 missing: (none)
-forward: matched=0 · skip_pattern=fresh_log
+origin/main: 8a5331e (pre wave4)
+tests: 1065 passed (local wave4)
 ```
 
 ## §7. 次の推奨
 
-1. `validate post-refresh-smoke --format markdown`
-2. 次回 weekly は `--write-observation-log --with-peer-sync`（peer_sync 同梱）
-3. `--backtest-within-cache` は探索のみ
+1. shadow seed → `docs/165`
+2. `validate post-refresh-smoke`
+3. `snapshot observation-health` で post_refresh_hints 確認
 
 ## §8. 履歴
 
-- 2026-05-25: #251 observation wave2 · #250 post-approval
+- 2026-05-25: #251–#252 observation wave2/3
 - 2026-05-25: 承認 A/B/C 実行
-- 2026-05-24: #245–#246 observation-health

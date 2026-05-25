@@ -28,6 +28,7 @@ class ObservationHealthReport:
     peer_sync_forward: dict[str, Any] | None
     log_integrity: dict[str, Any]
     tier1_missing: list[str]
+    post_refresh_hints: dict[str, Any]
     next_commands: list[str]
     observation_only: bool = True
 
@@ -41,6 +42,7 @@ class ObservationHealthReport:
             "peer_sync_forward": self.peer_sync_forward,
             "log_integrity": self.log_integrity,
             "tier1_missing": self.tier1_missing,
+            "post_refresh_hints": self.post_refresh_hints,
             "next_commands": self.next_commands,
             "observation_only": self.observation_only,
         }
@@ -125,6 +127,14 @@ def build_observation_health_report(
     }
     integrity = _scan_log_integrity(obs)
 
+    from invis_alpha_os.product.post_p10_refresh_smoke import build_post_refresh_hints_light
+
+    post_refresh_hints = build_post_refresh_hints_light(
+        path_base=root,
+        observation_path=obs,
+        cache_dir=cache,
+    )
+
     tier1_missing: list[str] = []
     try:
         expansion = build_us_universe_expansion_report(
@@ -200,6 +210,7 @@ def build_observation_health_report(
         peer_sync_forward=peer_sync_forward,
         log_integrity=integrity,
         tier1_missing=tier1_missing,
+        post_refresh_hints=post_refresh_hints,
         next_commands=_dedupe_next_commands(next_commands),
     )
 
@@ -216,6 +227,17 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         "",
         f"- observation_log: `{report.observation_path}`",
     ]
+    hints = report.post_refresh_hints or {}
+    if hints:
+        lines.extend(
+            [
+                "",
+                "## Post-refresh hints (docs/163)",
+                f"- docs_163_hard_pass: {hints.get('docs_163_hard_pass')}",
+                f"- forward_matched: {hints.get('forward_matched', 0)}",
+                f"- skip_pattern: {hints.get('skip_pattern') or '(n/a)'}",
+            ]
+        )
     if report.tier1_missing:
         preview = ", ".join(report.tier1_missing[:8])
         if len(report.tier1_missing) > 8:
@@ -236,6 +258,10 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             f"- weekly_trend: {weekly.get('status')} "
             f"(latest={weekly.get('latest_week_count', 0)} prior={weekly.get('prior_week_count', 0)})"
         )
+        if weekly.get("trailing_7d_count") is not None:
+            lines.append(f"- trailing_7d_count: {weekly.get('trailing_7d_count')}")
+        if weekly.get("calendar_week_caveat"):
+            lines.append(f"- calendar_week_caveat: {weekly.get('calendar_week_caveat')}")
     repeat_n = us.get("repeat_signal_count")
     repeat_syms = us.get("repeat_signal_symbols") or []
     if repeat_n:
@@ -312,6 +338,9 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         human_pct = readiness.get("state_percent_human_accepted")
         if human_pct is not None:
             lines.append(f"- human_accepted_percent: {human_pct}")
+        seed_hint = readiness.get("shadow_seed_hint")
+        if seed_hint:
+            lines.append(f"- shadow_seed_hint: {seed_hint}")
         nxt = readiness.get("next_milestone")
         if isinstance(nxt, dict):
             lines.append(

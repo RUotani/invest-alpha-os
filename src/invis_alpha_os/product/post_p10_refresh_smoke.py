@@ -15,6 +15,55 @@ from invis_alpha_os.product.us_forward_return_validation import (
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 
 
+def build_post_refresh_hints_light(
+    *,
+    path_base: Path | None = None,
+    observation_path: Path | None = None,
+    cache_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Lightweight docs/163 hints for observation-health (no full ops-smoke)."""
+
+    root = path_base or ROOT_DIR
+    obs = observation_path or (OUTPUTS_DIR / "observation_log" / "observation_log.jsonl")
+    cache = cache_dir or (OUTPUTS_DIR / "market_data" / "us_daily_bars")
+
+    tier1_missing: list[str] = []
+    try:
+        expansion = build_us_universe_expansion_report(
+            path_base=root,
+            tier="1",
+            missing_only=True,
+        )
+        tier1_missing = list(expansion.get("tier_1_missing_refresh_order") or [])
+    except (FileNotFoundError, ValueError):
+        tier1_missing = []
+
+    forward: dict[str, Any] = {}
+    try:
+        forward = compute_us_forward_returns(
+            observation_path=obs,
+            cache_dir=cache,
+            path_base=root,
+        )
+    except (FileNotFoundError, ValueError):
+        forward = {}
+
+    sq = forward.get("sample_quality") or {}
+    matched = int(forward.get("rows_matched") or 0)
+    skip_pattern = str(sq.get("skip_pattern") or "")
+    tier1_ok = not tier1_missing
+    forward_ok = matched > 0 and str(sq.get("status") or "") in {"thin", "usable"}
+
+    return {
+        "tier1_missing": tier1_missing,
+        "forward_matched": matched,
+        "forward_sample_quality": str(sq.get("status") or ""),
+        "skip_pattern": skip_pattern,
+        "docs_163_hard_pass": tier1_ok and forward_ok,
+        "observation_only": True,
+    }
+
+
 def build_post_p10_refresh_smoke_summary(
     *,
     path_base: Path | None = None,
