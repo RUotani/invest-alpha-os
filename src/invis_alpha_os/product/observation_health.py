@@ -397,6 +397,8 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         p3_prog = readiness.get("p3_forward_progress") or {}
         if p3_prog.get("progress_label"):
             lines.append(f"- portfolio_p3_forward: {p3_prog.get('progress_label')}")
+        if readiness.get("peer_forward_note"):
+            lines.append(f"- peer_forward_note: {readiness.get('peer_forward_note')}")
         wt = readiness.get("weekly_trend") or {}
         if wt.get("status"):
             lines.append(

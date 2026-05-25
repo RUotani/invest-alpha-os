@@ -248,6 +248,11 @@ def build_post_p10_refresh_smoke_summary(
             ),
         },
         {
+            "id": "peer_forward_usable",
+            "status": "pass" if str(ps_sq.get("status") or "") == "usable" else "warn",
+            "detail": f"peer_sync_forward quality={ps_sq.get('status')}",
+        },
+        {
             "id": "stale_skip_low",
             "status": "pass"
             if int(skipped.get("cache_stale_event_after_cache_end") or 0) == 0

@@ -1,27 +1,23 @@
 # 人間承認リクエスト — 最新（2026-05-25）
 
-**ロングラン**: 承認は**このチャットへの返信のみ**。ターミナル・PC操作は不要（Agent 実行）。  
-→ [longrun_autonomous_mode_contract_20260525.md](./longrun_autonomous_mode_contract_20260525.md)
+**ロングラン**: 承認はチャット返信のみ · [longrun_autonomous_mode_contract_20260525.md](./longrun_autonomous_mode_contract_20260525.md)
 
-## 実行済み（wave3 · 2026-05-25）
+## 実行済み（wave4 M · 2026-05-25）
 
 | ID | 結果 |
 |---|---|
-| I | YES · log 94→**114** |
-| J | YES · 8 symbols P10 OK |
+| M | YES · log **134** · peer forward **usable 10/10** · P2 pass |
 
-詳細: [approved_execution_report_wave3_ij_20260525.md](./approved_execution_report_wave3_ij_20260525.md)
+詳細: [approved_execution_report_wave4_m_20260525.md](./approved_execution_report_wave4_m_20260525.md)
 
-## 待ち（wave4 · 次回）
+## 待ち（任意）
 
-| ID | 内容 | 優先 |
-|---|---|:---:|
-| M | weekly 書込（4回目 · matched 10 目標） | 高 |
-| N | portfolio %（K 相当 · P2 pass 後 55% 等） | 中 |
-| L | Gmail 再送 | 低 |
+| ID | 内容 |
+|---|---|
+| N | portfolio **55%**（P0-P2 達成 · チャット `承認 N: YES` のみ） |
+| L | Gmail 再送（低） |
 
-テンプレ準備: [approval_requests_wave4_20260525.md](./approval_requests_wave4_20260525.md)
+## 次回 gated（新規承認が必要）
 
-## 実行済み（wave2 以前）
-
-[E/F/G/H/D](./approved_execution_report_wave2_ghd_20260525.md) · [wave2 E/F](./approved_execution_report_wave2_ef_20260525.md)
+- weekly 書込（5回目）
+- P10 live refresh

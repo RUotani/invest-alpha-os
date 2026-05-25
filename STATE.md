@@ -3,28 +3,29 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- **ロングラン = 人間ターミナル不要**（[longrun_autonomous_mode_contract_20260525.md](../reports/2026-05-25/longrun_autonomous_mode_contract_20260525.md)）。
-- `origin/main` @ `f828e0e` · I/J 実行済み（ローカル）· US 3/10 · peer 8/10。
-- gated 待ち: チャット **M/N** のみ（wave4）。
+- `origin/main` @ `d3f8a26` · **承認 M 実行済み**（ローカル）。
+- log **134** · peer forward **usable 10/10** · US **3/10** · rubric **P0-P2**（P2 pass）。
+- 承認 N 任意（suggested **55%**）· 自律ロングラン継続中。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 98% | forward-p3-status CLI |
-| portfolio/ | 40% | — |
-| reports/ui | 91% | 自律契約 MD |
-| operator/ | 82% | merge は人間任意 |
+| signals/ | 99% | peer P3 usable · US 3/10 |
+| portfolio/ | 40% human · **55% suggested** | P2 pass |
+| reports/ui | 92% | peer_forward_note |
+| operator/ | 82% | — |
 
-## §4. ローカル観測
+## §4. ローカル観測（M 後）
 
 ```text
-observation_log: 114 lines
-us_forward: 3/10
-peer_sync_forward: 8/10
+observation_log: 134 lines
+peer_sync_forward: usable 10/10
+us_forward: 3/10 thin
+portfolio rubric: P0-P2
 ```
 
 ## §8. 履歴
 
-- 2026-05-25: 自律ロングラン契約明文化
-- 2026-05-25: wave3 I/J · #263–#264
+- 2026-05-25: wave4 M 実行
+- 2026-05-25: #265 forward-p3-status

@@ -46,6 +46,10 @@ def build_forward_p3_status_bundle(
     peer_matched = int(peer_report.get("rows_matched") or 0)
     us_sq = us_report.get("sample_quality") or {}
     peer_sq = peer_report.get("sample_quality") or {}
+    peer_status = str(peer_sq.get("status") or "")
+    us_status = str(us_sq.get("status") or "")
+    peer_usable = peer_status == "usable"
+    us_usable = us_status == "usable"
 
     return {
         "schema_version": 1,
@@ -60,9 +64,17 @@ def build_forward_p3_status_bundle(
         },
         "peer_sync_forward": {
             "rows_matched": peer_matched,
-            "sample_quality_status": str(peer_sq.get("status") or ""),
+            "sample_quality_status": peer_status,
             "p3_progress": peer_sq.get("p3_progress") or forward_p3_progress(peer_matched),
+            "p3_usable": peer_usable,
         },
+        "us_p3_usable": us_usable,
+        "peer_p3_usable": peer_usable,
+        "milestone_note": (
+            "peer_sync_forward P3 track: usable"
+            if peer_usable and not us_usable
+            else None
+        ),
         "observation_only": True,
         "live_http": False,
     }
@@ -90,14 +102,21 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         f"- matched: {peer.get('rows_matched', 0)}",
         f"- sample_quality: {peer.get('sample_quality_status', '')}",
         f"- p3_progress: {peer_p3.get('progress_label', '')}",
-        "",
-        "## Next commands",
-        "",
-        "- `.venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown`",
-        "- `.venv/bin/python -m invis_alpha_os.cli.main validate peer-sync-forward-returns --format markdown`",
-        "- `.venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown`",
-        "",
     ]
+    note = report.get("milestone_note")
+    if note:
+        lines.append(f"- milestone_note: {note}")
+    lines.extend(
+        [
+            "",
+            "## Next commands",
+            "",
+            "- `.venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown`",
+            "- `.venv/bin/python -m invis_alpha_os.cli.main validate peer-sync-forward-returns --format markdown`",
+            "- `.venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown`",
+            "",
+        ]
+    )
     stale = us.get("stale_skip_by_symbol") or []
     if stale:
         preview = ", ".join(f"{x.get('symbol')}({x.get('count')})" for x in stale[:6])
