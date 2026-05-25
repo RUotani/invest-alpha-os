@@ -1,9 +1,11 @@
 # 人間承認リクエスト — wave2（2026-05-25）
 
 ## 3行サマリー
-- **A/B/C は 2026-05-25 実行済み**（AMD P10 · weekly 74行 · portfolio 25%）。
-- **現状 BLOCKER**: forward `matched=0` · `skip_pattern=mixed`（stale 16 + fresh 48）→ **E/F** が P3 解消に有効。
-- **G** は P1 shadow 配置後。**D** は Gmail 本番（未実行）。
+- **E/F 実行済み（2026-05-25 YES）** — log 94行 · forward matched=**3** · docs_163_hard_pass=**True**。
+- **P3 usable 未達**（thin · stale 16 残）— 週次蓄積継続が必要。
+- **G/H/D** は未着手。
+
+実行記録: [approved_execution_report_wave2_ef_20260525.md](./approved_execution_report_wave2_ef_20260525.md)
 
 ## ローカル read-only スナップショット（承認前）
 

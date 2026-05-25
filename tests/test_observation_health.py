@@ -68,6 +68,41 @@ def test_observation_health_next_commands_deduped(
     assert any("jp-peer-sync-readiness" in c for c in cmds)
 
 
+def test_observation_health_thin_forward_adds_post_refresh_smoke(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.product.post_p10_refresh_smoke as smoke_mod
+    import invis_alpha_os.product.us_forward_return_validation as fwd_mod
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    svc = ObservationService(observation_path=obs, outcome_path=tmp_path / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "neutral", "last_date": "2024-04-10"})
+    svc.log_observation("MSFT", note)
+    _patch_outputs_dir(monkeypatch, outputs)
+
+    monkeypatch.setattr(
+        fwd_mod,
+        "compute_us_forward_returns",
+        lambda **kwargs: {
+            "rows_matched": 3,
+            "sample_quality": {"status": "thin", "reason": "below threshold"},
+        },
+    )
+    monkeypatch.setattr(
+        smoke_mod,
+        "build_post_refresh_hints_light",
+        lambda **kwargs: {"docs_163_hard_pass": True, "skip_pattern": "mixed"},
+    )
+
+    report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
+    assert any("post-refresh-smoke" in c for c in report.next_commands)
+    assert not any(
+        c.startswith("weekly-us-observation --write-observation-log") for c in report.next_commands
+    )
+
+
 def test_peer_sync_status_explanation_known() -> None:
     assert "observation" in peer_sync_status_explanation("in_sync").lower()
     assert "cache" in peer_sync_status_explanation("missing_cache").lower()
