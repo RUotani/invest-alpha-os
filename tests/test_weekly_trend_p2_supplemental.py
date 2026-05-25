@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,6 +23,32 @@ def test_weekly_trend_prior_week_bulk_caveat() -> None:
     assert trend.get("calendar_week_caveat") == "prior_week_bulk"
     assert trend.get("p2_supplemental") == "active"
     assert trend.get("trailing_7d_count", 0) >= 4
+
+
+def test_research_checklist_forward_fresh_log_category(tmp_path: Path) -> None:
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+    from invis_alpha_os.product.weekly_us_observation import summarize_us_observation_log
+
+    obs = tmp_path / "obs.jsonl"
+    note = build_us_signal_observation_note(
+        {"status": "ok", "momentum_label": "neutral", "last_date": "2026-05-24"}
+    )
+    obs.write_text(
+        '{"id":"1","created_at":"2026-05-25T12:00:00+00:00","symbol":"MSFT","note":'
+        + json.dumps(note)
+        + ',"evidence_ids":[],"tags":[]}\n',
+        encoding="utf-8",
+    )
+    summary = summarize_us_observation_log(
+        obs,
+        forward_sample_quality={
+            "status": "empty",
+            "reason": "observation events are too recent for forward windows",
+            "skip_pattern": "fresh_log",
+        },
+    )
+    categories = {c.get("category") for c in summary.get("research_checklist") or []}
+    assert "forward_fresh_log" in categories
 
 
 def test_post_refresh_hints_light(tmp_path: Path) -> None:

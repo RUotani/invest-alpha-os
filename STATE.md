@@ -13,8 +13,8 @@
 |---|---:|---|
 | signals/ | 95% | forward_fresh_log · weekly_trend supplemental |
 | portfolio/ | 25% | shadow_seed_hint |
-| reports/ui | 81% | post-refresh-smoke in ops next_commands |
-| data ingest | 68% | — |
+| reports/ui | 81% | post_refresh_hints · post-refresh-smoke in ops next_commands |
+| data ingest | 68% | tier-1 clear |
 | risk/ | 62% | — |
 | operator/ | 80% | 凍結 |
 
