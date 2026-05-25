@@ -98,16 +98,35 @@ def _observation_health_check(health: Any) -> OpsSmokeCheck:
                 or int(skipped.get("cache_stale_event_after_cache_end") or 0) > 0
             )
         )
+    tier1_gaps = list(getattr(health, "tier1_missing", None) or [])
+    ps_fwd = getattr(health, "peer_sync_forward", None)
+    peer_sync_forward_thin = False
+    peer_rows = int((getattr(health, "peer_sync", None) or {}).get("peer_sync_rows") or 0)
+    if isinstance(ps_fwd, dict) and peer_rows > 0:
+        ps_sq = ps_fwd.get("sample_quality") or {}
+        peer_sync_forward_thin = str(ps_sq.get("status") or "") in {"empty", "thin"}
+    repeat_summary = us.get("repeat_summary") or {}
+    stale_repeat = sum(
+        1
+        for item in (repeat_summary.get("repeat_by_symbol") or [])
+        if isinstance(item, dict) and item.get("stale_repeat_flag")
+    )
     status = "ok"
     if parse_err > 0:
         status = "warn"
-    elif repeat > 0 or stale_forward:
+    elif repeat > 0 or stale_forward or tier1_gaps or peer_sync_forward_thin or stale_repeat > 0:
         status = "warn"
     detail = f"us_signal_rows={us_rows} parse_errors={parse_err}"
     if repeat > 0:
         detail += f" repeat_signals={repeat}"
     if stale_forward:
         detail += " forward_stale_cache=1"
+    if tier1_gaps:
+        detail += f" tier1_gaps={len(tier1_gaps)}"
+    if peer_sync_forward_thin:
+        detail += " peer_sync_forward_thin=1"
+    if stale_repeat > 0:
+        detail += f" stale_repeat_flags={stale_repeat}"
     return OpsSmokeCheck(name="observation_health", status=status, detail=detail)
 
 

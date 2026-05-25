@@ -71,6 +71,18 @@ def test_sample_quality_fresh_logs_reason() -> None:
     )
     assert sq["status"] == "empty"
     assert "too recent" in sq["reason"]
+    assert any("backtest-within-cache" in c for c in sq["next_commands"])
+
+
+def test_sample_quality_stale_cache_adds_exploratory_command() -> None:
+    sq = _sample_quality(
+        0,
+        skipped_reasons={"cache_stale_event_after_cache_end": 10},
+        signal_rows=10,
+    )
+    assert sq["status"] == "empty"
+    assert "cache end" in sq["reason"] or "after cache" in sq["reason"].lower()
+    assert any("backtest-within-cache" in c for c in sq["next_commands"])
 
 
 def test_peer_sync_forward_missing_log_graceful(tmp_path: Path) -> None:
