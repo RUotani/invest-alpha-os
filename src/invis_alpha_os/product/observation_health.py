@@ -277,6 +277,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             ps_p3 = hints.get("peer_sync_p3_progress") or {}
             if ps_p3.get("progress_label"):
                 lines.append(f"- peer_sync_p3_progress: {ps_p3.get('progress_label')}")
+        stale_top = hints.get("stale_skip_by_symbol") or []
+        if stale_top:
+            preview = ", ".join(
+                f"{item.get('symbol')}({item.get('count')})" for item in stale_top[:5]
+            )
+            lines.append(f"- stale_skip_symbols: {preview}")
         for action in hints.get("recommended_actions") or []:
             lines.append(f"- forward_p3_action: {action}")
     if report.tier1_missing:
@@ -426,6 +432,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         p3 = sq.get("p3_progress") or {}
         if p3.get("progress_label"):
             lines.append(f"- p3_progress: {p3.get('progress_label')}")
+        stale_syms = fwd.get("stale_skip_by_symbol") or []
+        if stale_syms:
+            preview = ", ".join(
+                f"{item.get('symbol')}({item.get('count')})" for item in stale_syms[:5]
+            )
+            lines.append(f"- stale_skip_symbols: {preview}")
     ps_fwd = report.peer_sync_forward
     if ps_fwd:
         ps_sq = ps_fwd.get("sample_quality") or {}

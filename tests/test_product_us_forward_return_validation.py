@@ -188,6 +188,37 @@ def test_hit_rate_buckets(obs_and_cache: tuple[Path, Path]) -> None:
     assert bucket["best"] is not None
 
 
+def test_stale_skip_by_symbol_list(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    assert isinstance(report.get("stale_skip_by_symbol"), list)
+
+
+def test_format_markdown_includes_stale_skip_symbols() -> None:
+    from invis_alpha_os.product.us_forward_return_validation import format_us_forward_return_markdown
+
+    md = format_us_forward_return_markdown(
+        {
+            "rows_matched": 3,
+            "rows_considered": 10,
+            "rows_skipped": 7,
+            "horizons": [5, 20],
+            "sample_quality": {
+                "status": "thin",
+                "reason": "thin",
+                "matched_rows": 3,
+                "interpretation": "x",
+                "needed_more_samples": 7,
+                "skip_pattern": "mixed",
+            },
+            "stale_skip_by_symbol": [{"symbol": "GLDM", "count": 4}],
+            "skipped_reasons": {},
+        }
+    )
+    assert "stale_skip_symbols" in md
+    assert "GLDM(4)" in md
+
+
 def test_sample_quality_thin_includes_needed_more(obs_and_cache: tuple[Path, Path]) -> None:
     obs_path, cache_dir = obs_and_cache
     report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)

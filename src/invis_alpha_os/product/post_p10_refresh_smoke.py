@@ -143,6 +143,7 @@ def build_post_refresh_hints_light(
         "peer_sync_p3_progress": ps_sq.get("p3_progress") or forward_p3_progress(ps_matched),
         "skip_pattern": skip_pattern,
         "stale_skip_count": stale_skips,
+        "stale_skip_by_symbol": list(forward.get("stale_skip_by_symbol") or [])[:6],
         "recommended_actions": recommended,
         "docs_163_hard_pass": tier1_ok and forward_ok,
         "observation_only": True,

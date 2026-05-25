@@ -9,12 +9,13 @@
 - E/F/G/H/D すべて実行済み
 - #259 portfolio 40% · thin forward next_commands
 
-## In flight
+## Done (#260–#261)
 
-- wave11: p3_progress · peer_sync_forward in post-refresh / observation-health
+- #260 p3_progress · peer_sync_forward diagnostics
+- wave12: stale_skip_by_symbol（#261 予定）
 
 ## Next (no approval)
 
-1. forward P3 usable（US 3/10 · peer 6/10）
-2. stale_cache by-symbol 診断（read-only）
-3. portfolio P2 weekly_trend growing
+1. forward P3 usable（US 3/10 · peer 6/10 · 週次蓄積）
+2. portfolio P2 weekly_trend growing
+3. peer-sync-forward usable（6→10）
