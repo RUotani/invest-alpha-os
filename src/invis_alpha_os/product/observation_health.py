@@ -180,11 +180,20 @@ def build_observation_health_report(
     if forward:
         sq = forward.get("sample_quality") or {}
         st = str(sq.get("status") or "")
-        if st in {"empty", "thin"}:
+        if st == "empty":
             next_commands.extend(forward_validation_next_commands())
             next_commands.append(
                 "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"
             )
+        elif st == "thin":
+            next_commands.extend(forward_validation_next_commands())
+            next_commands.append(
+                ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown"
+            )
+            if not post_refresh_hints.get("docs_163_hard_pass"):
+                next_commands.append(
+                    "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"
+                )
     elif us.get("status") == "missing":
         next_commands.append(
             "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"

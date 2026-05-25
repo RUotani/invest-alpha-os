@@ -13,14 +13,28 @@
 | B | log 74 lines |
 | C | portfolio **25%** |
 
-## 待ち（wave2）
+## 実行済み（wave2 · 2026-05-25）
 
-| ID | 内容 | 優先 |
-|---|---|:---:|
-| E | weekly `--write-observation-log` 追記 | 高 |
-| F | P10 tier-1 cache refresh（stale 解消） | 高 |
-| G | portfolio %（P1 後 40% 等） | 中 |
-| H | shadow + evidence ids（人間手動） | 中 |
-| D | Gmail 本番 | 低 |
+| ID | 結果 |
+|---|---|
+| E | YES · log 74→**94** · forward matched **3** (thin) |
+| F | YES · MSFT/NVDA/GOOGL/AAPL cache refresh OK |
+
+詳細: [approved_execution_report_wave2_ef_20260525.md](./approved_execution_report_wave2_ef_20260525.md)
+
+## 実行済み（wave2 完了 · 2026-05-25）
+
+| ID | 結果 |
+|---|---|
+| G | YES · **40%** P0+P1 |
+| H | YES · shadow 2 · resolved_links=2 |
+| D | YES · Gmail sent_ok |
+
+詳細: [approved_execution_report_wave2_ghd_20260525.md](./approved_execution_report_wave2_ghd_20260525.md)
+
+## 次回承認が必要な操作
+
+- weekly `--write-observation-log`
+- P10 live cache refresh
 
 詳細テンプレ: [approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)

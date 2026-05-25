@@ -20,6 +20,12 @@ def _patch_outputs(monkeypatch: pytest.MonkeyPatch, outputs: Path) -> None:
     monkeypatch.setattr(readiness_mod, "OUTPUTS_DIR", outputs)
 
 
+def test_portfolio_readiness_default_path_base_does_not_crash() -> None:
+    report = evaluate_portfolio_readiness()
+    assert "milestones" in report
+    assert report.get("state_percent_human_accepted") == 40
+
+
 def test_portfolio_readiness_loads_human_acceptance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = tmp_path / "config"
     cfg.mkdir()

@@ -211,7 +211,7 @@ def evaluate_portfolio_readiness(
         tier = "none"
 
     suggested = _SUGGESTED_PERCENT.get(tier)
-    example_shadow = path_base / "config" / "examples" / "shadow_portfolio_positions.example.jsonl"
+    example_shadow = root / "config" / "examples" / "shadow_portfolio_positions.example.jsonl"
     shadow_seed_hint: str | None = None
     if shadow_count == 0 and example_shadow.is_file():
         shadow_seed_hint = (
