@@ -391,6 +391,19 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         p1_hint = readiness.get("p1_linkage_hint")
         if p1_hint:
             lines.append(f"- p1_linkage_hint: {p1_hint}")
+        p2_hint = readiness.get("p2_weekly_hint")
+        if p2_hint:
+            lines.append(f"- p2_weekly_hint: {p2_hint}")
+        p3_prog = readiness.get("p3_forward_progress") or {}
+        if p3_prog.get("progress_label"):
+            lines.append(f"- portfolio_p3_forward: {p3_prog.get('progress_label')}")
+        wt = readiness.get("weekly_trend") or {}
+        if wt.get("status"):
+            lines.append(
+                f"- weekly_trend: {wt.get('status')} "
+                f"(latest={wt.get('latest_week_count', 0)} prior={wt.get('prior_week_count', 0)} "
+                f"trailing_7d={wt.get('trailing_7d_count', 0)})"
+            )
         nxt = readiness.get("next_milestone")
         if isinstance(nxt, dict):
             lines.append(

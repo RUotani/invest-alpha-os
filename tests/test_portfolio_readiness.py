@@ -9,15 +9,45 @@ import pytest
 
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
-from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readiness
+from invis_alpha_os.product.portfolio_readiness import (
+    evaluate_portfolio_readiness,
+    portfolio_p2_weekly_hint,
+)
 
 
 def _patch_outputs(monkeypatch: pytest.MonkeyPatch, outputs: Path) -> None:
     import invis_alpha_os.config.paths as config_paths
+    import invis_alpha_os.product.portfolio_observation_summary as portfolio_summary
     import invis_alpha_os.product.portfolio_readiness as readiness_mod
 
     monkeypatch.setattr(config_paths, "OUTPUTS_DIR", outputs)
     monkeypatch.setattr(readiness_mod, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(portfolio_summary, "OUTPUTS_DIR", outputs)
+
+
+def test_portfolio_p2_weekly_hint_supplemental_active() -> None:
+    hint = portfolio_p2_weekly_hint(
+        {
+            "status": "declining",
+            "p2_supplemental": "active",
+            "trailing_7d_count": 80,
+        }
+    )
+    assert hint is not None
+    assert "trailing_7d=80" in hint
+    assert "supplemental" in hint.lower()
+
+
+def test_portfolio_readiness_includes_p2_and_p3_hints(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    _patch_outputs(monkeypatch, outputs)
+    report = evaluate_portfolio_readiness(path_base=tmp_path, observation_path=obs)
+    assert "p2_weekly_hint" in report
+    assert report.get("p3_forward_progress") is None or isinstance(report.get("p3_forward_progress"), dict)
 
 
 def test_portfolio_readiness_default_path_base_does_not_crash() -> None:
