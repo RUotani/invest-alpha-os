@@ -8,9 +8,11 @@ from typing import Any
 from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.ops_smoke_report import build_ops_smoke_report
 from invis_alpha_os.product.ops_smoke_taxonomy import classify_ops_smoke_strict
+from invis_alpha_os.product.peer_sync_forward_validation import compute_peer_sync_forward_join
 from invis_alpha_os.product.us_forward_return_validation import (
     classify_forward_skip_pattern,
     compute_us_forward_returns,
+    forward_p3_progress,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 
@@ -109,11 +111,19 @@ def build_post_refresh_hints_light(
     except (FileNotFoundError, ValueError):
         forward = {}
 
+    peer_sync_forward: dict[str, Any] = {}
+    try:
+        peer_sync_forward = compute_peer_sync_forward_join(observation_path=obs)
+    except (FileNotFoundError, ValueError):
+        peer_sync_forward = {}
+
     sq = forward.get("sample_quality") or {}
     skipped = forward.get("skipped_reasons") or {}
     matched = int(forward.get("rows_matched") or 0)
     skip_pattern = str(sq.get("skip_pattern") or "")
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
+    ps_matched = int(peer_sync_forward.get("rows_matched") or 0)
+    ps_sq = peer_sync_forward.get("sample_quality") or {}
     tier1_ok = not tier1_missing
     forward_ok = matched > 0 and str(sq.get("status") or "") in {"thin", "usable"}
     recommended = forward_p3_recommended_actions(
@@ -127,6 +137,10 @@ def build_post_refresh_hints_light(
         "tier1_missing": tier1_missing,
         "forward_matched": matched,
         "forward_sample_quality": str(sq.get("status") or ""),
+        "forward_p3_progress": sq.get("p3_progress") or forward_p3_progress(matched),
+        "peer_sync_forward_matched": ps_matched,
+        "peer_sync_sample_quality": str(ps_sq.get("status") or ""),
+        "peer_sync_p3_progress": ps_sq.get("p3_progress") or forward_p3_progress(ps_matched),
         "skip_pattern": skip_pattern,
         "stale_skip_count": stale_skips,
         "recommended_actions": recommended,
@@ -173,8 +187,16 @@ def build_post_p10_refresh_smoke_summary(
     signal_rows = int(forward.get("rows_considered") or 0)
     skip_pattern = str(sq.get("skip_pattern") or classify_forward_skip_pattern(skipped, signal_rows=signal_rows))
 
+    peer_sync_forward: dict[str, Any] = {}
+    try:
+        peer_sync_forward = compute_peer_sync_forward_join(observation_path=obs)
+    except (FileNotFoundError, ValueError):
+        peer_sync_forward = {}
+
     ops = build_ops_smoke_report(path_base=root)
     tax = classify_ops_smoke_strict(ops)
+    ps_matched = int(peer_sync_forward.get("rows_matched") or 0)
+    ps_sq = peer_sync_forward.get("sample_quality") or {}
 
     checks: list[dict[str, Any]] = [
         {
@@ -191,6 +213,14 @@ def build_post_p10_refresh_smoke_summary(
             "id": "forward_not_empty",
             "status": "pass" if str(sq.get("status") or "") != "empty" else "warn",
             "detail": str(sq.get("reason") or ""),
+        },
+        {
+            "id": "peer_sync_forward_matched",
+            "status": "pass" if ps_matched >= 10 else ("warn" if ps_matched > 0 else "warn"),
+            "detail": (
+                f"matched={ps_matched} sample_quality={ps_sq.get('status')} "
+                f"progress={forward_p3_progress(ps_matched).get('progress_label')}"
+            ),
         },
         {
             "id": "stale_skip_low",
@@ -229,6 +259,11 @@ def build_post_p10_refresh_smoke_summary(
             "skip_pattern": skip_pattern,
             "skipped_reasons": skipped,
         },
+        "peer_sync_forward_validation": {
+            "rows_matched": ps_matched,
+            "sample_quality": ps_sq,
+            "skipped_reasons": peer_sync_forward.get("skipped_reasons") or {},
+        },
         "recommended_actions": recommended,
         "ops_smoke_taxonomy": tax,
         "docs_163_hard_pass": hard_pass,
@@ -255,6 +290,7 @@ def format_post_p10_refresh_smoke_markdown(report: dict[str, Any]) -> str:
             lines.append(f"| {c.get('id')} | {c.get('status')} | {c.get('detail')} |")
     fwd = report.get("forward_validation") or {}
     sq = fwd.get("sample_quality") or {}
+    p3 = sq.get("p3_progress") or {}
     lines.extend(
         [
             "",
@@ -264,6 +300,22 @@ def format_post_p10_refresh_smoke_markdown(report: dict[str, Any]) -> str:
             f"- skip_pattern: {fwd.get('skip_pattern')}",
         ]
     )
+    if p3.get("progress_label"):
+        lines.append(f"- p3_progress: {p3.get('progress_label')}")
+    ps_fwd = report.get("peer_sync_forward_validation") or {}
+    ps_sq = ps_fwd.get("sample_quality") or {}
+    if ps_fwd:
+        lines.extend(
+            [
+                "",
+                "## Peer sync forward",
+                f"- matched: {ps_fwd.get('rows_matched', 0)}",
+                f"- sample_quality: {ps_sq.get('status')}",
+            ]
+        )
+        ps_p3 = ps_sq.get("p3_progress") or {}
+        if ps_p3.get("progress_label"):
+            lines.append(f"- p3_progress: {ps_p3.get('progress_label')}")
     for action in report.get("recommended_actions") or []:
         lines.append(f"- recommended: {action}")
     lines.append("")

@@ -40,7 +40,7 @@ cd /path/to/invest-alpha-os
 .venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary
 .venv/bin/python -m invis_alpha_os.cli.main log peer-sync-summary
 
-# 4) 一括サマリ（#251+）
+# 4) 一括サマリ（#251+ · p3_progress / peer_sync_forward）
 .venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown
 ```
 

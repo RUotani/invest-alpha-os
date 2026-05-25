@@ -194,6 +194,8 @@ def test_sample_quality_thin_includes_needed_more(obs_and_cache: tuple[Path, Pat
     sq = report["sample_quality"]
     assert sq["status"] == "thin"
     assert sq["needed_more_samples"] == 9
+    assert sq["p3_progress"]["samples_needed_for_usable"] == 9
+    assert "1/10" in sq["p3_progress"]["progress_label"]
     assert sq["next_commands"]
 
 

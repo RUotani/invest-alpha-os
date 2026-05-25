@@ -11,7 +11,10 @@ from invis_alpha_os.product.post_p10_refresh_smoke import (
     format_post_p10_refresh_smoke_markdown,
     forward_p3_recommended_actions,
 )
-from invis_alpha_os.product.us_forward_return_validation import classify_forward_skip_pattern
+from invis_alpha_os.product.us_forward_return_validation import (
+    classify_forward_skip_pattern,
+    forward_p3_progress,
+)
 
 
 def test_classify_forward_skip_pattern_fresh_log() -> None:
@@ -22,6 +25,12 @@ def test_classify_forward_skip_pattern_fresh_log() -> None:
         )
         == "fresh_log"
     )
+
+
+def test_forward_p3_progress_label() -> None:
+    p = forward_p3_progress(6)
+    assert p["samples_needed_for_usable"] == 4
+    assert "6/10" in p["progress_label"]
 
 
 def test_forward_p3_recommended_actions_mixed() -> None:
