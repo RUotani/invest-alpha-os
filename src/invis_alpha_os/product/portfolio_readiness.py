@@ -219,6 +219,13 @@ def evaluate_portfolio_readiness(
             "outputs/shadow_portfolio/positions.jsonl (manual; see docs/165)"
         )
 
+    p1_linkage_hint: str | None = None
+    if shadow_count > 0 and with_links == 0:
+        p1_linkage_hint = (
+            "Set thesis_evidence_ids to observation_log row ids "
+            "(see docs/165; snapshot portfolio-observation-summary)"
+        )
+
     acceptance = _load_portfolio_human_acceptance(root)
     human_pct: int | None = None
     if acceptance is not None:
@@ -237,6 +244,7 @@ def evaluate_portfolio_readiness(
         "state_percent_human_accepted": human_pct,
         "human_acceptance_meta": acceptance,
         "shadow_seed_hint": shadow_seed_hint,
+        "p1_linkage_hint": p1_linkage_hint,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,

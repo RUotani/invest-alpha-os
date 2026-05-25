@@ -21,7 +21,8 @@ portfolio rubric **P1（linkage）** を進めるため、`outputs/shadow_portfo
 ```bash
 mkdir -p outputs/shadow_portfolio
 cp config/examples/shadow_portfolio_positions.example.jsonl outputs/shadow_portfolio/positions.jsonl
-# edit thesis_evidence_ids to match observation_log row ids
+# edit thesis_evidence_ids to match observation_log row ids, e.g.:
+#   "thesis_evidence_ids": ["<uuid-from-observation_log>"]
 ```
 
 3. 検証（read-only）:
