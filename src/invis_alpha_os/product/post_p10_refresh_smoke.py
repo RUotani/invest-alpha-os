@@ -61,7 +61,7 @@ def forward_p3_recommended_actions(
         if len(tier1_missing) > 5:
             preview += f", … +{len(tier1_missing) - 5}"
         actions.append(
-            f"Approval required: P10 tier-1 refresh for missing symbols ({preview}) — docs/162"
+            f"Gated: P10 tier-1 refresh for missing symbols ({preview}) — docs/162 (chat approval)"
         )
 
     pattern = (skip_pattern or "").strip().lower()
