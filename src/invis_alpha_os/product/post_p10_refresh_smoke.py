@@ -13,14 +13,9 @@ from invis_alpha_os.product.us_forward_return_validation import (
     classify_forward_skip_pattern,
     compute_us_forward_returns,
     forward_p3_progress,
+    observation_log_line_count,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
-
-
-def _observation_log_line_count(observation_path: Path) -> int:
-    if not observation_path.is_file():
-        return 0
-    return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 _DEFAULT_STALE_REFRESH_SYMBOLS: tuple[str, ...] = ("MSFT", "NVDA", "GOOGL", "AAPL")
 
@@ -170,6 +165,7 @@ def build_post_refresh_hints_light(
 
     return {
         "tier1_missing": tier1_missing,
+        "observation_log_lines": observation_log_line_count(obs),
         "forward_matched": matched,
         "forward_sample_quality": str(sq.get("status") or ""),
         "forward_p3_progress": sq.get("p3_progress") or forward_p3_progress(matched),
@@ -303,7 +299,7 @@ def build_post_p10_refresh_smoke_summary(
         "sample_quality": ps_sq,
         "skipped_reasons": peer_sync_forward.get("skipped_reasons") or {},
     }
-    log_lines = _observation_log_line_count(obs)
+    log_lines = observation_log_line_count(obs)
     return {
         "schema_version": 1,
         "checks": checks,

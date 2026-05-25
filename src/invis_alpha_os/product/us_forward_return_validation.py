@@ -30,6 +30,14 @@ DEFAULT_HORIZONS: tuple[int, ...] = (5, 20, 60)
 THIN_SAMPLE_THRESHOLD = 10
 
 
+def observation_log_line_count(observation_path: Path) -> int:
+    """Count non-empty lines in observation_log.jsonl (read-only)."""
+
+    if not observation_path.is_file():
+        return 0
+    return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
+
+
 def forward_p3_progress(matched_count: int, *, threshold: int = THIN_SAMPLE_THRESHOLD) -> dict[str, Any]:
     """Read-only progress toward sample_quality=usable (docs/163 / P3)."""
 

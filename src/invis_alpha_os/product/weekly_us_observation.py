@@ -451,7 +451,7 @@ def _build_research_checklist(
                 category="missing_cache",
                 symbol=sym,
                 reason="watchlist symbol has no US daily bars cache file",
-                next_action="schedule gated cache refresh when approved",
+                next_action="gated tier-1 cache refresh (chat approval; docs/162)",
             )
         )
     stale = int(by_status.get("stale", 0) or 0)
