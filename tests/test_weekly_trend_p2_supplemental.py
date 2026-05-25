@@ -51,6 +51,35 @@ def test_research_checklist_forward_fresh_log_category(tmp_path: Path) -> None:
     assert "forward_fresh_log" in categories
 
 
+def test_research_checklist_us_partial_and_peer_usable() -> None:
+    from invis_alpha_os.product.weekly_us_observation import _build_research_checklist
+
+    items = _build_research_checklist(
+        [],
+        {},
+        [],
+        signal_aging_days_max=None,
+        missing_cache_symbols=[],
+        forward_sample_quality={
+            "status": "thin",
+            "reason": "below threshold",
+            "matched_rows": 3,
+            "p3_progress": {"progress_label": "3/10 toward usable"},
+            "skip_pattern": "mixed",
+        },
+        peer_forward_sample_quality={
+            "status": "usable",
+            "reason": "sufficient",
+            "p3_progress": {"progress_label": "10/10 toward usable"},
+        },
+        quality_snapshot=None,
+        aged_signal_days=7,
+    )
+    categories = {item.get("category") for item in items}
+    assert "us_forward_partial" in categories
+    assert "peer_forward_usable" in categories
+
+
 def test_post_refresh_hints_light(tmp_path: Path) -> None:
     from invis_alpha_os.product.post_p10_refresh_smoke import build_post_refresh_hints_light
 
