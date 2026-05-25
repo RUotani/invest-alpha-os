@@ -30,6 +30,18 @@ DEFAULT_HORIZONS: tuple[int, ...] = (5, 20, 60)
 THIN_SAMPLE_THRESHOLD = 10
 
 
+def forward_p3_progress(matched_count: int, *, threshold: int = THIN_SAMPLE_THRESHOLD) -> dict[str, Any]:
+    """Read-only progress toward sample_quality=usable (docs/163 / P3)."""
+
+    needed = max(0, threshold - matched_count)
+    return {
+        "matched_rows": matched_count,
+        "thin_threshold": threshold,
+        "samples_needed_for_usable": needed,
+        "progress_label": f"{matched_count}/{threshold} toward usable",
+    }
+
+
 def classify_forward_skip_pattern(
     skipped_reasons: dict[str, int] | None,
     *,
@@ -172,6 +184,7 @@ def _sample_quality(
                 exploratory = True
     hints = forward_validation_next_commands(exploratory=exploratory)
     skip_pattern = classify_forward_skip_pattern(skipped_reasons, signal_rows=signal_rows)
+    p3_progress = forward_p3_progress(matched_count)
     if matched_count == 0:
         return {
             "status": "empty",
@@ -180,6 +193,7 @@ def _sample_quality(
             "interpretation": interpretation,
             "needed_more_samples": THIN_SAMPLE_THRESHOLD,
             "skip_pattern": skip_pattern,
+            "p3_progress": p3_progress,
             "next_commands": hints,
         }
     if matched_count < THIN_SAMPLE_THRESHOLD:
@@ -190,6 +204,7 @@ def _sample_quality(
             "interpretation": "Buckets are exploratory only; accumulate more US signal rows.",
             "needed_more_samples": THIN_SAMPLE_THRESHOLD - matched_count,
             "skip_pattern": skip_pattern,
+            "p3_progress": p3_progress,
             "next_commands": hints,
         }
     return {
@@ -199,6 +214,7 @@ def _sample_quality(
         "interpretation": "Review hit-rate buckets as observation-only diagnostics.",
         "needed_more_samples": 0,
         "skip_pattern": "none",
+        "p3_progress": p3_progress,
         "next_commands": hints,
     }
 

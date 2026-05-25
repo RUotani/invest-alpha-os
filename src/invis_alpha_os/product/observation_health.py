@@ -268,6 +268,15 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 f"- skip_pattern: {hints.get('skip_pattern') or '(n/a)'}",
             ]
         )
+        fwd_p3 = hints.get("forward_p3_progress") or {}
+        if fwd_p3.get("progress_label"):
+            lines.append(f"- forward_p3_progress: {fwd_p3.get('progress_label')}")
+        ps_m = hints.get("peer_sync_forward_matched")
+        if ps_m is not None:
+            lines.append(f"- peer_sync_forward_matched: {ps_m}")
+            ps_p3 = hints.get("peer_sync_p3_progress") or {}
+            if ps_p3.get("progress_label"):
+                lines.append(f"- peer_sync_p3_progress: {ps_p3.get('progress_label')}")
         for action in hints.get("recommended_actions") or []:
             lines.append(f"- forward_p3_action: {action}")
     if report.tier1_missing:
@@ -414,6 +423,27 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         skip_pat = sq.get("skip_pattern")
         if skip_pat and skip_pat != "none":
             lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
+        p3 = sq.get("p3_progress") or {}
+        if p3.get("progress_label"):
+            lines.append(f"- p3_progress: {p3.get('progress_label')}")
+    ps_fwd = report.peer_sync_forward
+    if ps_fwd:
+        ps_sq = ps_fwd.get("sample_quality") or {}
+        lines.extend(
+            [
+                "",
+                "## Peer sync forward validation",
+                f"- sample_quality: {ps_sq.get('status')} — {ps_sq.get('interpretation', '')}",
+                f"- matched rows: {ps_fwd.get('rows_matched', 0)}",
+            ]
+        )
+        ps_p3 = ps_sq.get("p3_progress") or {}
+        if ps_p3.get("progress_label"):
+            lines.append(f"- p3_progress: {ps_p3.get('progress_label')}")
+        ps_skipped = ps_fwd.get("skipped_reasons") or {}
+        if ps_skipped:
+            top = max(ps_skipped.items(), key=lambda kv: kv[1])
+            lines.append(f"- top skipped_reason: {top[0]} ({top[1]})")
     lines.extend(["", "## Next commands", ""])
     for cmd in report.next_commands:
         lines.append(f"- `{cmd}`")

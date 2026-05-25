@@ -58,4 +58,6 @@ def test_post_refresh_hints_light(tmp_path: Path) -> None:
     obs.write_text("", encoding="utf-8")
     hints = build_post_refresh_hints_light(path_base=tmp_path, observation_path=obs)
     assert "docs_163_hard_pass" in hints
+    assert "forward_p3_progress" in hints
+    assert "peer_sync_forward_matched" in hints
     assert hints["observation_only"] is True
