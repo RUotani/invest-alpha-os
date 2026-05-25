@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -341,6 +341,7 @@ def compute_us_forward_returns(
     obs_rows, pre_skipped = _iter_us_signal_rows(observation_path)
     matched: list[dict[str, Any]] = []
     skipped_reasons: dict[str, int] = defaultdict(int, pre_skipped)
+    stale_by_symbol: Counter[str] = Counter()
 
     for row in obs_rows:
         sym = row["symbol"]
@@ -366,6 +367,7 @@ def compute_us_forward_returns(
         if resolved is None:
             if stale and not backtest_within_cache:
                 skipped_reasons[stale] += 1
+                stale_by_symbol[sym] += 1
             else:
                 skipped_reasons["insufficient_future_bars"] += 1
             continue
@@ -426,6 +428,10 @@ def compute_us_forward_returns(
         "rows_matched": len(matched),
         "rows_skipped": sum(skipped_reasons.values()),
         "skipped_reasons": dict(sorted(skipped_reasons.items())),
+        "stale_skip_by_symbol": [
+            {"symbol": symbol, "count": count}
+            for symbol, count in stale_by_symbol.most_common(8)
+        ],
         "sample_quality": sample_quality,
         "quality_buckets": quality_buckets,
         "by_symbol": {
@@ -462,6 +468,13 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
     if sq.get("status") in {"empty", "thin"}:
         lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+    p3 = sq.get("p3_progress") or {}
+    if p3.get("progress_label"):
+        lines.append(f"- p3_progress: {p3.get('progress_label')}")
+    stale_syms = report.get("stale_skip_by_symbol") or []
+    if stale_syms:
+        preview = ", ".join(f"{item['symbol']}({item['count']})" for item in stale_syms[:6])
+        lines.append(f"- stale_skip_symbols (P10 refresh candidates): {preview}")
     lines.extend(
         [
         "",
