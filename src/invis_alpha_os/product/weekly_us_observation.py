@@ -68,6 +68,7 @@ def summarize_us_observation_log(
     missing_cache_symbols: list[str] | None = None,
     quality_snapshot: dict[str, Any] | None = None,
     forward_sample_quality: dict[str, Any] | None = None,
+    peer_forward_sample_quality: dict[str, Any] | None = None,
     aged_signal_days: int = 7,
 ) -> dict[str, Any]:
     """Summarize US cache signal rows already in observation_log.jsonl."""
@@ -80,6 +81,7 @@ def summarize_us_observation_log(
             signal_aging_days_max=None,
             missing_cache_symbols=missing_cache_symbols or [],
             forward_sample_quality=forward_sample_quality,
+            peer_forward_sample_quality=peer_forward_sample_quality,
             quality_snapshot=quality_snapshot,
             aged_signal_days=aged_signal_days,
         )
@@ -148,6 +150,7 @@ def summarize_us_observation_log(
         signal_aging_days_max=aging_max,
         missing_cache_symbols=missing_cache_symbols or [],
         forward_sample_quality=forward_sample_quality,
+        peer_forward_sample_quality=peer_forward_sample_quality,
         quality_snapshot=quality_snapshot,
         aged_signal_days=aged_signal_days,
     )
@@ -359,6 +362,7 @@ def build_enriched_us_observation_summary(
     manifest = build_us_watchlist_signals_manifest(path_base=root)
     quality = us_signal_quality_snapshot(path_base=root)
     forward_sq: dict[str, Any] | None = None
+    peer_sq: dict[str, Any] | None = None
     if observation_path.is_file():
         try:
             from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
@@ -370,13 +374,16 @@ def build_enriched_us_observation_summary(
                 path_base=root,
             )
             forward_sq = fwd.get("sample_quality")
+            peer_sq = (fwd.get("peer_sync_forward") or {}).get("sample_quality")
         except (FileNotFoundError, ValueError):
             forward_sq = None
+            peer_sq = None
     return summarize_us_observation_log(
         observation_path,
         missing_cache_symbols=list(manifest.get("missing_cache_symbols") or []),
         quality_snapshot=quality,
         forward_sample_quality=forward_sq,
+        peer_forward_sample_quality=peer_sq,
     )
 
 
@@ -403,6 +410,7 @@ def _build_research_checklist(
     signal_aging_days_max: int | None,
     missing_cache_symbols: list[str],
     forward_sample_quality: dict[str, Any] | None,
+    peer_forward_sample_quality: dict[str, Any] | None = None,
     quality_snapshot: dict[str, Any] | None,
     aged_signal_days: int,
 ) -> list[dict[str, str]]:
@@ -472,12 +480,48 @@ def _build_research_checklist(
                 )
             )
         else:
+            matched = int(fq.get("matched_rows") or 0)
+            p3 = fq.get("p3_progress") or {}
+            label = str(p3.get("progress_label") or "")
+            if fq.get("status") == "thin" and matched > 0 and label:
+                items.append(
+                    _checklist_item(
+                        category="us_forward_partial",
+                        symbol=None,
+                        reason=f"US forward {label} ({fq.get('reason')})",
+                        next_action="validate forward-p3-status; accumulate toward 10 matched",
+                    )
+                )
+            else:
+                items.append(
+                    _checklist_item(
+                        category="thin_forward_validation",
+                        symbol=None,
+                        reason=str(fq.get("reason") or "forward-return sample too small"),
+                        next_action="accumulate more observation_log rows before quality conclusions",
+                    )
+                )
+    pq = peer_forward_sample_quality or {}
+    if str(pq.get("status") or "") == "usable":
+        p3p = pq.get("p3_progress") or {}
+        items.append(
+            _checklist_item(
+                category="peer_forward_usable",
+                symbol=None,
+                reason=str(pq.get("reason") or "peer_sync forward sample sufficient"),
+                next_action="validate peer-sync-forward-returns --format markdown",
+            )
+        )
+    elif str(pq.get("status") or "") == "thin":
+        p3p = pq.get("p3_progress") or {}
+        label = str(p3p.get("progress_label") or "")
+        if label:
             items.append(
                 _checklist_item(
-                    category="thin_forward_validation",
+                    category="peer_forward_partial",
                     symbol=None,
-                    reason=str(fq.get("reason") or "forward-return sample too small"),
-                    next_action="accumulate more observation_log rows before quality conclusions",
+                    reason=f"peer_sync forward {label}",
+                    next_action="weekly --write-observation-log --with-peer-sync when approved",
                 )
             )
     if quality_snapshot:
