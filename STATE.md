@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-24
 
 ## 3行サマリー
-- `origin/main` @ `395c146`（#245 peer_sync_forward · #246 docs/160 リンク）。
+- `origin/main` @ `ca84b91`（#248 ops-smoke taxonomy · docs/161 hints）。
 - observation_log **58行**（US 48 + peer_sync 10 · `peer_sync_forward` 統合済）。
 - P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · 承認 `reports/2026-05-25/approval_requests_pending.md`）。
 
@@ -29,12 +29,12 @@
 ## §4. 最新main
 
 ```text
-origin/main: 395c146
+origin/main: ca84b91
 open PRs: 0
-tests: 1056 passed
+tests: 1058 passed
 observation_log: 58 lines (local outputs/)
 tier-1 missing: AMD (STOOQ_APIKEY blocker)
-ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale)
+ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale + tier1)
 ```
 
 ## §7. 次の推奨
@@ -45,6 +45,7 @@ ops-smoke --strict: exit 2 · taxonomy EXPECTED_BLOCKED (repeat + stale)
 
 ## §8. 履歴
 
+- 2026-05-25: #248 ops-smoke tier1/peer_sync/stale_repeat taxonomy · forward docs/161 hints
 - 2026-05-24: #245 observation-health peer_sync_forward · #246 docs/160 リンク（Cursor MERGE）
 - 2026-05-24: #243 ops-smoke strict stderr · observation repeat_summary JSON（Cursor 承認 A）
 - 2026-05-24: #241 ops-smoke taxonomy · evidence manifest · repeat summary（Cursor 承認 A → merge）
