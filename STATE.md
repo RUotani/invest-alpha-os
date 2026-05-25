@@ -3,48 +3,46 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `de767e2`（#250 weekly write stats · 承認 A/B/C 実行済）。
-- observation_log **74行** · tier-1 **AMD cache 済** · forward matched=0（fresh_log · skip_pattern 診断追加予定 #251）。
-- portfolio **25%** — `config/portfolio_observation_acceptance.yaml`（承認 C）。
+- `origin/main` @ `c08cffd`（#251 skip_pattern · peer_sync co-write · post-refresh-smoke）。
+- observation_log **74行** · tier-1 gap **0** · forward matched=0 · `skip_pattern=fresh_log` 想定内。
+- portfolio **25%** — `config/portfolio_observation_acceptance.yaml`。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 93% | weekly+peer_sync co-write · skip_pattern |
+| signals/ | 93% | peer_sync co-write · skip_pattern |
 | risk/ | 62% | veto-at-t join |
-| portfolio/ | 25% | human_accepted · config YAML |
-| data ingest | 68% | tier-1 0 missing |
-| reports/ui | 78% | post-refresh-smoke CLI · docs/163 |
+| portfolio/ | 25% | human_accepted YAML |
+| data ingest | 68% | AMD + US16 cached |
+| reports/ui | 78% | validate post-refresh-smoke |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
 
-- [x] P10 AMD refresh（2026-05-25）
-- [x] 週次 observation_log 書込（2026-05-25）
-- [x] portfolio % 25%（config 承認 C）
-- [ ] forward P3 usable（fresh_log 蓄積 · セッション経過）
-- [ ] portfolio P1+ shadow linkage
+- [x] P10 AMD · weekly write · portfolio 25%
+- [ ] forward P3 usable（セッション蓄積）
+- [ ] portfolio P1 shadow linkage
 
 ## §4. 最新main
 
 ```text
-origin/main: de767e2
-open PRs: 0 (wave2 pending)
-tests: 1062 passed (CI target)
-observation_log: 74 lines (local)
+origin/main: c08cffd
+open PRs: 0
+tests: 1062 passed
+observation_log: 74 lines
 tier-1 missing: (none)
-forward: matched=0 · skip_pattern=fresh_log (expected)
+forward: matched=0 · skip_pattern=fresh_log
 ```
 
 ## §7. 次の推奨
 
-1. `validate post-refresh-smoke`（#251 マージ後）
-2. `validate us-forward-returns --backtest-within-cache`（探索のみ）
-3. shadow positions 追加 → P1 評価
+1. `validate post-refresh-smoke --format markdown`
+2. 次回 weekly は `--write-observation-log --with-peer-sync`（peer_sync 同梱）
+3. `--backtest-within-cache` は探索のみ
 
 ## §8. 履歴
 
-- 2026-05-25: 承認 A/B/C 実行 · #250 merged
-- 2026-05-25: #248 ops-smoke taxonomy
-- 2026-05-24: #245–#246 observation-health / docs/160
+- 2026-05-25: #251 observation wave2 · #250 post-approval
+- 2026-05-25: 承認 A/B/C 実行
+- 2026-05-24: #245–#246 observation-health

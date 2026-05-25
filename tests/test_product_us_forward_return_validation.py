@@ -284,6 +284,27 @@ def test_markdown_includes_veto_section(tmp_path: Path, monkeypatch: pytest.Monk
     assert "joined" in md
 
 
+def test_forward_markdown_includes_skip_pattern() -> None:
+    report = {
+        "sample_quality": {
+            "status": "empty",
+            "reason": "too recent",
+            "interpretation": "wait",
+            "skip_pattern": "fresh_log",
+            "matched_rows": 0,
+            "next_commands": [],
+        },
+        "rows_matched": 0,
+        "rows_considered": 16,
+        "rows_skipped": 16,
+        "horizons": [5],
+        "skipped_reasons": {"insufficient_future_bars": 16},
+        "quality_buckets": {"global": {}},
+    }
+    md = format_us_forward_return_markdown(report)
+    assert "skip_pattern: fresh_log" in md
+
+
 def test_cli_invalid_horizons_exit_2() -> None:
     result = CliRunner().invoke(
         app,
