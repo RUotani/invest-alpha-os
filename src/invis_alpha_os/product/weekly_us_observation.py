@@ -810,6 +810,22 @@ def format_weekly_us_observation_markdown(
             )
             if sq.get("status") in {"empty", "thin"}:
                 lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+            p3 = sq.get("p3_progress") or {}
+            if p3.get("progress_label"):
+                lines.append(f"- p3_progress: {p3.get('progress_label')}")
+            skip_pat = sq.get("skip_pattern")
+            if skip_pat and skip_pat != "none":
+                lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
+            ps_fwd = fwd.get("peer_sync_forward") or {}
+            if ps_fwd:
+                ps_sq = ps_fwd.get("sample_quality") or {}
+                lines.append(
+                    f"- peer_sync_forward: matched={ps_fwd.get('rows_matched', 0)} "
+                    f"quality={ps_sq.get('status')}"
+                )
+                ps_p3 = ps_sq.get("p3_progress") or {}
+                if ps_p3.get("progress_label"):
+                    lines.append(f"- peer_sync_p3_progress: {ps_p3.get('progress_label')}")
             lines.extend(["", "### Suggested next commands"])
             for cmd in forward_validation_next_commands():
                 lines.append(f"- `{cmd}`")
