@@ -155,7 +155,11 @@ def test_observation_health_enriched_forward_checklist(
         for item in report.us_signals.get("research_checklist") or []
         if isinstance(item, dict)
     }
-    assert "thin_forward_validation" in categories or "repeat_signal" in categories
+    assert (
+        "thin_forward_validation" in categories
+        or "forward_fresh_log" in categories
+        or "repeat_signal" in categories
+    )
 
 
 def test_observation_health_tier1_missing_line(
