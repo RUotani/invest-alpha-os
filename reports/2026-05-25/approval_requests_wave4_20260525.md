@@ -16,22 +16,20 @@
 
 ---
 
-<<< コピペ返信（必要時） >>>
+<<< チャット返信のみ（ターミナル操作不要 · Agent が実行） >>>
 
 ## 承認 M — weekly（4回目）
 
 ```text
-承認 M: weekly --write-observation-log（4回目）
-- YES / NO
-- --with-peer-sync: YES / NO
+承認 M: YES
 ```
 
 ## 承認 N — portfolio %
 
 ```text
-承認 N: portfolio domain %
-- YES / NO
-- 確定値: 55% / 70% / 40%維持
+承認 N: YES · 確定値 55%
 ```
 
 <<< ここまで >>>
+
+運用: [longrun_autonomous_mode_contract_20260525.md](./longrun_autonomous_mode_contract_20260525.md)

@@ -127,6 +127,14 @@ def _observation_health_check(health: Any) -> OpsSmokeCheck:
         detail += " peer_sync_forward_thin=1"
     if stale_repeat > 0:
         detail += f" stale_repeat_flags={stale_repeat}"
+    if isinstance(fwd, dict):
+        us_p3 = (fwd.get("sample_quality") or {}).get("p3_progress") or {}
+        if us_p3.get("progress_label"):
+            detail += f" us_p3={us_p3.get('progress_label')}"
+    if isinstance(ps_fwd, dict):
+        peer_p3 = (ps_fwd.get("sample_quality") or {}).get("p3_progress") or {}
+        if peer_p3.get("progress_label"):
+            detail += f" peer_p3={peer_p3.get('progress_label')}"
     return OpsSmokeCheck(name="observation_health", status=status, detail=detail)
 
 
@@ -193,6 +201,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
         ".venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format json",
         ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate jp-peer-sync-readiness --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log evidence-manifest "
         "--task-id ops_smoke_YYYYMMDD --report-date YYYY-MM-DD --summary read-only preflight",
