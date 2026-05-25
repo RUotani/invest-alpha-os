@@ -14,6 +14,67 @@ from invis_alpha_os.product.us_forward_return_validation import (
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 
+_DEFAULT_STALE_REFRESH_SYMBOLS: tuple[str, ...] = ("MSFT", "NVDA", "GOOGL", "AAPL")
+
+
+def forward_p3_recommended_actions(
+    *,
+    skip_pattern: str,
+    tier1_missing: list[str],
+    stale_skips: int = 0,
+    forward_matched: int = 0,
+) -> list[str]:
+    """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
+
+    if forward_matched > 0:
+        return [
+            "Re-run validate us-forward-returns --format markdown to confirm sample_quality=usable",
+        ]
+
+    actions: list[str] = []
+    if tier1_missing:
+        preview = ", ".join(tier1_missing[:5])
+        if len(tier1_missing) > 5:
+            preview += f", … +{len(tier1_missing) - 5}"
+        actions.append(
+            f"Approval required: P10 tier-1 refresh for missing symbols ({preview}) — docs/162"
+        )
+
+    pattern = (skip_pattern or "").strip().lower()
+    if pattern == "fresh_log":
+        actions.extend(
+            [
+                "Approval E: weekly-us-observation --write-observation-log --with-peer-sync",
+                "Read-only: validate us-forward-returns --backtest-within-cache --format markdown",
+                "Accumulate ISO weeks; avoid drawing conclusions from matched=0",
+            ]
+        )
+    elif pattern == "stale_cache":
+        syms = ", ".join(_DEFAULT_STALE_REFRESH_SYMBOLS)
+        actions.extend(
+            [
+                f"Approval F: P10 cache refresh for stale tier-1 symbols (e.g. {syms})",
+                "Ensure observation notes include as_of= (docs/161)",
+                "Then: validate post-refresh-smoke --format markdown",
+            ]
+        )
+    elif pattern == "mixed":
+        actions.extend(
+            [
+                "Approval E + F: weekly log write and tier-1 cache refresh (stale + fresh_log mix)",
+                f"Stale skip count={stale_skips}; see docs/161 mixed pattern",
+                "Then: validate post-refresh-smoke and snapshot observation-health",
+            ]
+        )
+    elif pattern in {"other", "none", ""}:
+        actions.append(
+            "Run validate us-forward-returns --format markdown and snapshot observation-health"
+        )
+    else:
+        actions.append(f"See docs/161 for skip_pattern={skip_pattern}")
+
+    return actions
+
 
 def build_post_refresh_hints_light(
     *,
@@ -49,16 +110,26 @@ def build_post_refresh_hints_light(
         forward = {}
 
     sq = forward.get("sample_quality") or {}
+    skipped = forward.get("skipped_reasons") or {}
     matched = int(forward.get("rows_matched") or 0)
     skip_pattern = str(sq.get("skip_pattern") or "")
+    stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     tier1_ok = not tier1_missing
     forward_ok = matched > 0 and str(sq.get("status") or "") in {"thin", "usable"}
+    recommended = forward_p3_recommended_actions(
+        skip_pattern=skip_pattern,
+        tier1_missing=tier1_missing,
+        stale_skips=stale_skips,
+        forward_matched=matched,
+    )
 
     return {
         "tier1_missing": tier1_missing,
         "forward_matched": matched,
         "forward_sample_quality": str(sq.get("status") or ""),
         "skip_pattern": skip_pattern,
+        "stale_skip_count": stale_skips,
+        "recommended_actions": recommended,
         "docs_163_hard_pass": tier1_ok and forward_ok,
         "observation_only": True,
     }
@@ -134,10 +205,18 @@ def build_post_p10_refresh_smoke_summary(
             "detail": f"taxonomy={tax.get('taxonomy')} reasons={tax.get('reasons')}",
         },
     ]
+    matched_rows = int(forward.get("rows_matched") or 0)
+    stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     hard_pass = (
         not tier1_missing
-        and int(forward.get("rows_matched") or 0) > 0
+        and matched_rows > 0
         and str(sq.get("status") or "") in {"thin", "usable"}
+    )
+    recommended = forward_p3_recommended_actions(
+        skip_pattern=skip_pattern,
+        tier1_missing=tier1_missing,
+        stale_skips=stale_skips,
+        forward_matched=matched_rows,
     )
 
     return {
@@ -150,6 +229,7 @@ def build_post_p10_refresh_smoke_summary(
             "skip_pattern": skip_pattern,
             "skipped_reasons": skipped,
         },
+        "recommended_actions": recommended,
         "ops_smoke_taxonomy": tax,
         "docs_163_hard_pass": hard_pass,
         "observation_only": True,
@@ -184,5 +264,7 @@ def format_post_p10_refresh_smoke_markdown(report: dict[str, Any]) -> str:
             f"- skip_pattern: {fwd.get('skip_pattern')}",
         ]
     )
+    for action in report.get("recommended_actions") or []:
+        lines.append(f"- recommended: {action}")
     lines.append("")
     return "\n".join(lines)

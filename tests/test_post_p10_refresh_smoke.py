@@ -9,6 +9,7 @@ import pytest
 from invis_alpha_os.product.post_p10_refresh_smoke import (
     build_post_p10_refresh_smoke_summary,
     format_post_p10_refresh_smoke_markdown,
+    forward_p3_recommended_actions,
 )
 from invis_alpha_os.product.us_forward_return_validation import classify_forward_skip_pattern
 
@@ -21,6 +22,18 @@ def test_classify_forward_skip_pattern_fresh_log() -> None:
         )
         == "fresh_log"
     )
+
+
+def test_forward_p3_recommended_actions_mixed() -> None:
+    actions = forward_p3_recommended_actions(
+        skip_pattern="mixed",
+        tier1_missing=[],
+        stale_skips=16,
+        forward_matched=0,
+    )
+    joined = " ".join(actions)
+    assert "Approval E" in joined
+    assert "F" in joined or "cache refresh" in joined
 
 
 def test_classify_forward_skip_pattern_stale_cache() -> None:
@@ -58,3 +71,4 @@ def test_post_refresh_smoke_builds_checks(tmp_path: Path, monkeypatch: pytest.Mo
     assert isinstance(report.get("checks"), list)
     md = format_post_p10_refresh_smoke_markdown(report)
     assert "Post-P10 refresh smoke" in md
+    assert "recommended" in md or report.get("recommended_actions")
