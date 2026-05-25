@@ -186,13 +186,15 @@ def evaluate_portfolio_readiness(
     else:
         tier = "none"
 
+    suggested = _SUGGESTED_PERCENT.get(tier)
     return {
         "milestones": milestones,
         "accepted_tier": tier,
         "accepted_tier_label": _tier_label(tier),
         "next_milestone": next_milestone,
-        "suggested_percent": _SUGGESTED_PERCENT.get(tier),
+        "suggested_percent": suggested,
         "state_percent_locked": True,
+        "state_percent_human_accepted": None,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,

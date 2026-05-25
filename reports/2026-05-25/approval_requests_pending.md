@@ -1,9 +1,9 @@
-# 人間承認リクエスト（未回答）— 2026-05-25
+# 人間承認リクエスト — 2026-05-25
 
 ## 3行サマリー
-- 前回 `reports/2026-05-24/approval_requests_20260524.md` と同内容を **再掲**（未回答のため）。
-- **承認 A（P10 AMD）** が `STOOQ_APIKEY` 未設定で BLOCKED。YES まで live HTTP/cache write しない。
-- **承認 B/C/D** は任意。Agent は承認不要の read-only Product のみ継続。
+- **A/B/C すべて YES** — 実行済み（`approved_execution_report_20260525.md`）。
+- P10 AMD cache write 成功 · weekly log 74行 · portfolio **25%**（P0）。
+- 承認 D（Gmail）は未実行（本番 send 対象外）。
 
 ---
 
