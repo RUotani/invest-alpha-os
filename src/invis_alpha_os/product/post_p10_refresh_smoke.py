@@ -25,13 +25,35 @@ def forward_p3_recommended_actions(
     tier1_missing: list[str],
     stale_skips: int = 0,
     forward_matched: int = 0,
+    stale_skip_by_symbol: list[dict[str, Any]] | None = None,
+    peer_sync_matched: int = 0,
 ) -> list[str]:
     """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
 
-    if forward_matched > 0:
+    if forward_matched >= 10:
         return [
             "Re-run validate us-forward-returns --format markdown to confirm sample_quality=usable",
         ]
+    if forward_matched > 0:
+        needed = max(0, 10 - forward_matched)
+        actions = [
+            f"Forward P3: {forward_matched}/10 matched; ~{needed} more rows toward usable (weekly accumulation)",
+            ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
+            ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
+        ]
+        if peer_sync_matched > 0:
+            ps_needed = max(0, 10 - peer_sync_matched)
+            actions.append(
+                f"Peer-sync forward: {peer_sync_matched}/10 matched; ~{ps_needed} more toward usable"
+            )
+        if stale_skip_by_symbol:
+            preview = ", ".join(
+                f"{item.get('symbol')}({item.get('count')})" for item in stale_skip_by_symbol[:6]
+            )
+            actions.append(
+                f"Historical stale skips may persist in log: {preview} (docs/161; new writes use fresh cache)"
+            )
+        return actions
 
     actions: list[str] = []
     if tier1_missing:
@@ -131,6 +153,8 @@ def build_post_refresh_hints_light(
         tier1_missing=tier1_missing,
         stale_skips=stale_skips,
         forward_matched=matched,
+        stale_skip_by_symbol=list(forward.get("stale_skip_by_symbol") or []),
+        peer_sync_matched=ps_matched,
     )
 
     return {
@@ -248,6 +272,8 @@ def build_post_p10_refresh_smoke_summary(
         tier1_missing=tier1_missing,
         stale_skips=stale_skips,
         forward_matched=matched_rows,
+        stale_skip_by_symbol=list(forward.get("stale_skip_by_symbol") or []),
+        peer_sync_matched=ps_matched,
     )
 
     return {

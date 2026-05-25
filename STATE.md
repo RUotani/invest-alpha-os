@@ -3,41 +3,32 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `a8fa257`（#261 stale_skip_by_symbol）。
-- US **3/10** · peer **6/10** thin · portfolio **40%** P0+P1 · P2 declining（supplemental active）。
-- **承認待ち wave3**: I weekly · J P10 stale 銘柄 · K % · L Gmail。
+- `origin/main` @ `6e9ae31`（#262 P2 hints）· wave3 **I/J 実行済み**。
+- observation_log **114行** · US **3/10** · peer **8/10** thin。
+- 次承認: **M** weekly · **N** portfolio %。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 97% | wave3 I/J 待ち |
-| portfolio/ | 40% | P2 hint · P3 3/10 in readiness |
-| reports/ui | 88% | p2_weekly_hint in health |
-| data ingest | 75% | — |
+| signals/ | 98% | peer 8/10 · US 3/10 |
+| portfolio/ | 40% | P2 declining |
+| reports/ui | 89% | partial P3 recommended_actions |
+| data ingest | 78% | 8銘柄 refresh 済 |
 | operator/ | 82% | — |
 | risk/ | 62% | — |
-
-## §2. 残作業
-
-- [ ] 承認 I/J（P3 usable）
-- [ ] 承認 K（P2→55% / P3→70% は達成後）
 
 ## §4. 最新ローカル観測
 
 ```text
-origin/main: a8fa257
-observation_log: 94 lines
-us_forward: 3/10 thin · peer: 6/10 thin
-stale_skip_symbols: MSFT,NVDA,AAPL,AMZN,GOOGL,META,…
+origin/main: 6e9ae31 (local I/J applied)
+observation_log: 114 lines
+us_forward: 3/10 thin
+peer_sync_forward: 8/10 thin
+docs_163_hard_pass: True
 ```
-
-## §7. 次の推奨
-
-1. [approval_requests_wave3_20260525.md](../reports/2026-05-25/approval_requests_wave3_20260525.md) — I/J YES
-2. `validate post-refresh-smoke`
 
 ## §8. 履歴
 
-- 2026-05-25: #260–#261 · wave2 全実行
-- 2026-05-25: wave3 承認リクエスト掲出
+- 2026-05-25: wave3 I/J 実行
+- 2026-05-25: #260–#262

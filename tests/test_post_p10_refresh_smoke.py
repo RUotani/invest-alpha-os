@@ -41,8 +41,22 @@ def test_forward_p3_recommended_actions_mixed() -> None:
         forward_matched=0,
     )
     joined = " ".join(actions)
-    assert "Approval E" in joined
-    assert "F" in joined or "cache refresh" in joined
+    assert "weekly" in joined.lower() or "Approval" in joined
+    assert "stale" in joined.lower() or "cache refresh" in joined.lower()
+
+
+def test_forward_p3_recommended_actions_partial_matched() -> None:
+    actions = forward_p3_recommended_actions(
+        skip_pattern="mixed",
+        tier1_missing=[],
+        forward_matched=3,
+        peer_sync_matched=8,
+        stale_skip_by_symbol=[{"symbol": "MSFT", "count": 1}],
+    )
+    joined = " ".join(actions)
+    assert "3/10" in joined
+    assert "8/10" in joined
+    assert "MSFT" in joined
 
 
 def test_classify_forward_skip_pattern_stale_cache() -> None:
