@@ -30,6 +30,26 @@ DEFAULT_HORIZONS: tuple[int, ...] = (5, 20, 60)
 THIN_SAMPLE_THRESHOLD = 10
 
 
+def classify_forward_skip_pattern(
+    skipped_reasons: dict[str, int] | None,
+    *,
+    signal_rows: int = 0,
+) -> str:
+    """Classify dominant skip reason for docs/161 fresh-log vs stale-cache (read-only)."""
+
+    if not skipped_reasons or signal_rows <= 0:
+        return "none"
+    insuf = int(skipped_reasons.get("insufficient_future_bars") or 0)
+    stale = int(skipped_reasons.get("cache_stale_event_after_cache_end") or 0)
+    if insuf >= signal_rows and stale == 0:
+        return "fresh_log"
+    if stale >= max(1, signal_rows // 2):
+        return "stale_cache"
+    if insuf > 0 and stale > 0:
+        return "mixed"
+    return "other"
+
+
 def parse_positive_horizons(raw: str) -> tuple[int, ...]:
     """Parse comma-separated positive integer session horizons (fail-closed)."""
 
@@ -151,6 +171,7 @@ def _sample_quality(
                 )
                 exploratory = True
     hints = forward_validation_next_commands(exploratory=exploratory)
+    skip_pattern = classify_forward_skip_pattern(skipped_reasons, signal_rows=signal_rows)
     if matched_count == 0:
         return {
             "status": "empty",
@@ -158,6 +179,7 @@ def _sample_quality(
             "matched_rows": 0,
             "interpretation": interpretation,
             "needed_more_samples": THIN_SAMPLE_THRESHOLD,
+            "skip_pattern": skip_pattern,
             "next_commands": hints,
         }
     if matched_count < THIN_SAMPLE_THRESHOLD:
@@ -167,6 +189,7 @@ def _sample_quality(
             "matched_rows": matched_count,
             "interpretation": "Buckets are exploratory only; accumulate more US signal rows.",
             "needed_more_samples": THIN_SAMPLE_THRESHOLD - matched_count,
+            "skip_pattern": skip_pattern,
             "next_commands": hints,
         }
     return {
@@ -175,6 +198,7 @@ def _sample_quality(
         "matched_rows": matched_count,
         "interpretation": "Review hit-rate buckets as observation-only diagnostics.",
         "needed_more_samples": 0,
+        "skip_pattern": "none",
         "next_commands": hints,
     }
 

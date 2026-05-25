@@ -19,6 +19,19 @@ def _patch_outputs(monkeypatch: pytest.MonkeyPatch, outputs: Path) -> None:
     monkeypatch.setattr(readiness_mod, "OUTPUTS_DIR", outputs)
 
 
+def test_portfolio_readiness_loads_human_acceptance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "portfolio_observation_acceptance.yaml").write_text(
+        "human_accepted_percent: 25\naccepted_tier: P0\n",
+        encoding="utf-8",
+    )
+    _patch_outputs(monkeypatch, tmp_path / "outputs")
+    report = evaluate_portfolio_readiness(path_base=tmp_path)
+    assert report["state_percent_human_accepted"] == 25
+    assert report["state_percent_locked"] is False
+
+
 def test_portfolio_readiness_p0_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     outputs = tmp_path / "outputs"
     outputs.mkdir()

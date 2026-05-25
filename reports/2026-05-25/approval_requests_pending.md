@@ -3,7 +3,17 @@
 ## 3行サマリー
 - **A/B/C すべて YES** — 実行済み（`approved_execution_report_20260525.md`）。
 - P10 AMD cache write 成功 · weekly log 74行 · portfolio **25%**（P0）。
-- 承認 D（Gmail）は未実行（本番 send 対象外）。
+- 承認 D（Gmail）は未実行（本番 send 対象外 · 今回の YES 対象外）。
+
+## 実行記録
+
+| ID | 結果 |
+|---|---|
+| A | AMD cache write OK · tier1 gap cleared |
+| B | observation_log 74 lines |
+| C | STATE portfolio **25%** (P0) |
+
+詳細: [approved_execution_report_20260525.md](./approved_execution_report_20260525.md)
 
 ---
 

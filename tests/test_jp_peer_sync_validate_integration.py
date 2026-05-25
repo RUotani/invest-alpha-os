@@ -74,6 +74,15 @@ def test_sample_quality_fresh_logs_reason() -> None:
     assert any("backtest-within-cache" in c for c in sq["next_commands"])
 
 
+def test_sample_quality_includes_skip_pattern() -> None:
+    sq = _sample_quality(
+        0,
+        skipped_reasons={"insufficient_future_bars": 5},
+        signal_rows=5,
+    )
+    assert sq.get("skip_pattern") == "fresh_log"
+
+
 def test_sample_quality_stale_cache_adds_exploratory_command() -> None:
     sq = _sample_quality(
         0,

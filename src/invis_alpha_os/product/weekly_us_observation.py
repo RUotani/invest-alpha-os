@@ -531,6 +531,7 @@ class WeeklyUsObservationResult:
     manifest_path_written: str | None
     peer_sync: dict[str, Any] | None = None
     observation_write_stats: dict[str, Any] | None = None
+    peer_sync_write_stats: dict[str, Any] | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -599,10 +600,24 @@ def run_weekly_us_observation_cycle(
         )
 
     peer_sync_payload: dict[str, Any] | None = None
+    peer_sync_write_stats: dict[str, Any] | None = None
     if include_peer_sync:
         from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
 
         peer_sync_payload = build_peer_sync_cache_only_report(path_base=root).to_dict()
+        if write_observation_log and observation_service is not None:
+            from invis_alpha_os.observation.us_peer_sync_batch import (
+                log_peer_sync_snapshot_observations,
+                peer_sync_log_failed,
+            )
+
+            ps_result = log_peer_sync_snapshot_observations(
+                path_base=root,
+                service=observation_service,
+            )
+            if peer_sync_log_failed(ps_result):
+                raise ValueError(f"peer_sync observation batch failed: {ps_result}")
+            peer_sync_write_stats = dict(ps_result)
 
     if obs_summary is None:
         from invis_alpha_os.config.paths import OUTPUTS_DIR as _outputs
@@ -622,6 +637,7 @@ def run_weekly_us_observation_cycle(
         manifest_path_written=written,
         peer_sync=peer_sync_payload,
         observation_write_stats=write_stats,
+        peer_sync_write_stats=peer_sync_write_stats,
     )
 
 
@@ -697,6 +713,17 @@ def format_weekly_us_observation_markdown(
                 f"- logged: {ws.get('logged', 0)}",
                 f"- skipped: {ws.get('skipped', 0)}",
                 f"- manifest entries: {ws.get('entry_count', 0)}",
+            ]
+        )
+    if result.peer_sync_write_stats:
+        ps = result.peer_sync_write_stats
+        lines.extend(
+            [
+                "",
+                "## Peer sync log write (this run)",
+                f"- logged: {ps.get('logged', 0)}",
+                f"- skipped: {ps.get('skipped', 0)}",
+                f"- pairs evaluated: {ps.get('pair_count', 0)}",
             ]
         )
     if result.observation_log:
