@@ -294,3 +294,19 @@ def test_observation_health_post_refresh_hints_in_markdown(
     report = build_observation_health_report(path_base=tmp_path)
     md = format_observation_health_markdown(report)
     assert "Post-refresh hints" in md
+
+
+def test_observation_health_forward_p3_actions_in_markdown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invis_alpha_os.product.observation_health import format_observation_health_markdown
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    (outputs / "observation_log" / "observation_log.jsonl").write_text("", encoding="utf-8")
+    _patch_outputs_dir(monkeypatch, outputs)
+    report = build_observation_health_report(path_base=tmp_path)
+    md = format_observation_health_markdown(report)
+    hints = report.post_refresh_hints or {}
+    if hints.get("recommended_actions"):
+        assert "forward_p3_action" in md

@@ -1,59 +1,26 @@
-# 人間承認リクエスト — 2026-05-25
+# 人間承認リクエスト — 2026-05-25（最新）
 
 ## 3行サマリー
-- **A/B/C すべて YES** — 実行済み（`approved_execution_report_20260525.md`）。
-- P10 AMD cache write 成功 · weekly log 74行 · portfolio **25%**（P0）。
-- 承認 D（Gmail）は未実行（本番 send 対象外 · 今回の YES 対象外）。
+- **A/B/C 実行済み** → 次は **wave2（E/F/G/D + 手動 H）**。
+- forward: `skip_pattern=mixed` · `matched=0` → **E（週次書込）+ F（P10 refresh）** を推奨。
+- コピペ返信用の全文: **[approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)**
 
-## 実行記録
+## 実行済み（wave1）
 
 | ID | 結果 |
 |---|---|
-| A | AMD cache write OK · tier1 gap cleared |
-| B | observation_log 74 lines |
-| C | STATE portfolio **25%** (P0) |
+| A | AMD P10 OK |
+| B | log 74 lines |
+| C | portfolio **25%** |
 
-詳細: [approved_execution_report_20260525.md](./approved_execution_report_20260525.md)
+## 待ち（wave2）
 
----
+| ID | 内容 | 優先 |
+|---|---|:---:|
+| E | weekly `--write-observation-log` 追記 | 高 |
+| F | P10 tier-1 cache refresh（stale 解消） | 高 |
+| G | portfolio %（P1 後 40% 等） | 中 |
+| H | shadow + evidence ids（人間手動） | 中 |
+| D | Gmail 本番 | 低 |
 
-<<< ここからコピペして返信 >>>
-
-## 承認 A — P10 tier-1 AMD refresh（必須・現状 BLOCKED）
-
-```text
-承認 A: P10 AMD refresh
-- YES / NO
-- STOOQ_APIKEY: 設定済み（値は貼らない）
-- 対象: AMD のみ
-- 実行担当: 人間ターミナル / Cursor
-- approval ref: （任意）
-```
-
-## 承認 B — 週次 observation_log 書込（任意）
-
-```text
-承認 B: weekly --write-observation-log
-- YES / NO
-- 実行日: YYYY-MM-DD
-```
-
-## 承認 C — portfolio 進捗 %（任意）
-
-```text
-承認 C: portfolio domain %
-- 確定値: __% または 要確認維持
-```
-
-## 承認 D — Gmail 本番（任意）
-
-```text
-承認 D: Gmail send
-- YES / NO（dry-run のみ / 本番）
-```
-
-<<< ここまでコピペして返信 >>>
-
----
-
-詳細手順: [approval_requests_20260524.md](../2026-05-24/approval_requests_20260524.md)
+詳細テンプレ: [approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)

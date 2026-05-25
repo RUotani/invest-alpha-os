@@ -3,42 +3,42 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `96f13f8`（#256 P1 linkage hints · integration tests）。
-- observation_log **74行** · forward P3 未達（fresh_log）· tier-1 clear。
-- portfolio **25%** · P1: shadow + evidence ids（docs/165）。
+- `origin/main` @ `d7ee3f7`（#257 JP peer hints）。
+- forward P3 未達: `matched=0` · `skip_pattern=mixed`（stale 16 / fresh 48）。
+- **承認待ち wave2**: E weekly · F P10 refresh · G portfolio % · H shadow 手動。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 95% | forward_fresh_log · JP peer hints |
-| portfolio/ | 25% | p1_linkage_hint |
-| reports/ui | 83% | jp-peer-sync in next_commands |
-| data ingest | 68% | tier-1 clear |
+| signals/ | 95% | mixed skip · wave2 E/F 待ち |
+| portfolio/ | 25% | P1 手動（docs/165） |
+| reports/ui | 84% | forward_p3 recommended_actions（wave9） |
+| data ingest | 72% | tier-1 missing=0 |
 | risk/ | 62% | — |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
 
-- [ ] forward P3 usable
-- [ ] portfolio P1 shadow + evidence ids
+- [ ] 承認 E/F 実行（forward P3）
+- [ ] portfolio P1 shadow（手動 H）
+- [ ] 承認 G（% 40% 候補）
 
 ## §4. 最新main
 
 ```text
-origin/main: 96f13f8
-tests: 1070+ passed (CI)
+origin/main: d7ee3f7
 observation_log: 74 lines
-forward: matched=0 · skip_pattern=fresh_log
+post-refresh: tier1_ok · matched=0 · skip_pattern=mixed
 ```
 
 ## §7. 次の推奨
 
-1. docs/165 shadow linkage
-2. `validate jp-peer-sync-readiness`
-3. セッション経過後 forward 再評価
+1. [approval_requests_wave2_20260525.md](../reports/2026-05-25/approval_requests_wave2_20260525.md) に E/F YES
+2. 手動 H（shadow linkage）
+3. `validate post-refresh-smoke` 再実行
 
 ## §8. 履歴
 
-- 2026-05-25: #256 P1 hints · #255 post-refresh ops
-- 2026-05-25: #253–#254 · 承認 A/B/C
+- 2026-05-25: #255–#257 · wave1 A/B/C 実行
+- 2026-05-25: wave2 承認リクエスト掲出

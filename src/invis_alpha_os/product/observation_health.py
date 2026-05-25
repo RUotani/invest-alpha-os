@@ -259,6 +259,8 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 f"- skip_pattern: {hints.get('skip_pattern') or '(n/a)'}",
             ]
         )
+        for action in hints.get("recommended_actions") or []:
+            lines.append(f"- forward_p3_action: {action}")
     if report.tier1_missing:
         preview = ", ".join(report.tier1_missing[:8])
         if len(report.tier1_missing) > 8:
