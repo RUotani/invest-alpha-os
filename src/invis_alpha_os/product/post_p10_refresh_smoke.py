@@ -16,6 +16,12 @@ from invis_alpha_os.product.us_forward_return_validation import (
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 
+
+def _observation_log_line_count(observation_path: Path) -> int:
+    if not observation_path.is_file():
+        return 0
+    return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
+
 _DEFAULT_STALE_REFRESH_SYMBOLS: tuple[str, ...] = ("MSFT", "NVDA", "GOOGL", "AAPL")
 
 
@@ -297,10 +303,12 @@ def build_post_p10_refresh_smoke_summary(
         "sample_quality": ps_sq,
         "skipped_reasons": peer_sync_forward.get("skipped_reasons") or {},
     }
+    log_lines = _observation_log_line_count(obs)
     return {
         "schema_version": 1,
         "checks": checks,
         "tier1_missing": tier1_missing,
+        "observation_log_lines": log_lines,
         "skip_pattern": skip_pattern,
         "forward_validation": us_forward,
         "us_forward": us_forward,
@@ -321,6 +329,8 @@ def format_post_p10_refresh_smoke_markdown(report: dict[str, Any]) -> str:
         "Observation only — not buy/sell advice.",
         "",
         f"- docs_163_hard_pass: **{report.get('docs_163_hard_pass')}**",
+        f"- observation_log_lines: {report.get('observation_log_lines', 0)}",
+        f"- skip_pattern: {report.get('skip_pattern') or '(n/a)'}",
         "",
         "## Checks",
         "",

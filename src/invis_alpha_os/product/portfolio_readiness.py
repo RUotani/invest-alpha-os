@@ -191,6 +191,14 @@ def evaluate_portfolio_readiness(
             detail="insufficient weekly history in observation_log",
         )
 
+    peer_forward_matched = 0
+    peer_forward_usable = False
+    if forward:
+        ps_fwd = forward.get("peer_sync_forward") or {}
+        peer_forward_matched = int(ps_fwd.get("rows_matched") or 0)
+        ps_sq = ps_fwd.get("sample_quality") or {}
+        peer_forward_usable = str(ps_sq.get("status") or "") == "usable"
+
     sq_status = str((forward or {}).get("sample_quality", {}).get("status") or "")
     if sq_status == "usable":
         p3 = _milestone(
@@ -208,11 +216,20 @@ def evaluate_portfolio_readiness(
         )
     else:
         reason = str((forward.get("sample_quality") or {}).get("reason") or sq_status or "unknown")
+        skip_pat = str((forward.get("sample_quality") or {}).get("skip_pattern") or "")
+        detail = f"sample_quality={sq_status or 'empty'} ({reason})"
+        if skip_pat:
+            detail += f"; skip_pattern={skip_pat}"
+        if peer_forward_usable:
+            detail += (
+                f"; peer_sync_forward usable ({peer_forward_matched} matched, "
+                "US P3 milestone separate — docs/154)"
+            )
         p3 = _milestone(
             milestone_id="P3",
             passed=False,
             status="blocked",
-            detail=f"sample_quality={sq_status or 'empty'} ({reason})",
+            detail=detail,
         )
 
     milestones = [p0, p1, p2, p3]
@@ -248,19 +265,13 @@ def evaluate_portfolio_readiness(
 
     p2_weekly_hint = portfolio_p2_weekly_hint(weekly_trend)
     p3_forward_progress: dict[str, Any] | None = None
-    peer_forward_usable = False
-    peer_forward_matched = 0
     peer_forward_note: str | None = None
     if forward:
         sq = forward.get("sample_quality") or {}
         raw_p3 = sq.get("p3_progress")
         if isinstance(raw_p3, dict):
             p3_forward_progress = raw_p3
-        ps_fwd = forward.get("peer_sync_forward") or {}
-        peer_forward_matched = int(ps_fwd.get("rows_matched") or 0)
-        ps_sq = ps_fwd.get("sample_quality") or {}
-        if str(ps_sq.get("status") or "") == "usable":
-            peer_forward_usable = True
+        if peer_forward_usable:
             peer_forward_note = (
                 f"peer_sync_forward sample_quality=usable ({peer_forward_matched} matched); "
                 "US forward P3 milestone remains separate (docs/154)"

@@ -98,6 +98,7 @@ def test_post_refresh_smoke_builds_checks(tmp_path: Path, monkeypatch: pytest.Mo
     assert "us_forward" in report
     assert "peer_sync_forward" in report
     assert report["us_forward"]["rows_matched"] == report["forward_validation"]["rows_matched"]
+    assert report.get("observation_log_lines") == 0
     md = format_post_p10_refresh_smoke_markdown(report)
     assert "Post-P10 refresh smoke" in md
     assert "recommended" in md or report.get("recommended_actions")
