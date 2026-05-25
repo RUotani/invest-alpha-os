@@ -32,6 +32,18 @@ def test_portfolio_readiness_loads_human_acceptance(tmp_path: Path, monkeypatch:
     assert report["state_percent_locked"] is False
 
 
+def test_portfolio_readiness_shadow_seed_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    examples = tmp_path / "config" / "examples"
+    examples.mkdir(parents=True)
+    (examples / "shadow_portfolio_positions.example.jsonl").write_text(
+        '{"id":"s1","symbol":"MSFT","quantity":1.0,"thesis_evidence_ids":[]}\n',
+        encoding="utf-8",
+    )
+    _patch_outputs(monkeypatch, tmp_path / "outputs")
+    report = evaluate_portfolio_readiness(path_base=tmp_path)
+    assert report.get("shadow_seed_hint")
+
+
 def test_portfolio_readiness_p0_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     outputs = tmp_path / "outputs"
     outputs.mkdir()
