@@ -65,6 +65,7 @@ def test_observation_health_next_commands_deduped(
     cmds = report.next_commands
     assert len(cmds) == len(set(cmds))
     assert cmds.count(".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary") == 1
+    assert any("jp-peer-sync-readiness" in c for c in cmds)
 
 
 def test_peer_sync_status_explanation_known() -> None:

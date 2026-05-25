@@ -38,6 +38,7 @@ cd /path/to/invest-alpha-os
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --backtest-within-cache --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate peer-sync-forward-returns --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate jp-peer-sync-readiness --format markdown
+.venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main snapshot portfolio-observation-summary --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync --format markdown
