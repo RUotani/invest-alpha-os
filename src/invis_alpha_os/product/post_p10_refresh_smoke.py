@@ -68,7 +68,7 @@ def forward_p3_recommended_actions(
     if pattern == "fresh_log":
         actions.extend(
             [
-                "Approval E: weekly-us-observation --write-observation-log --with-peer-sync",
+                "Gated: weekly-us-observation --write-observation-log --with-peer-sync (chat approval)",
                 "Read-only: validate us-forward-returns --backtest-within-cache --format markdown",
                 "Accumulate ISO weeks; avoid drawing conclusions from matched=0",
             ]
@@ -77,7 +77,7 @@ def forward_p3_recommended_actions(
         syms = ", ".join(_DEFAULT_STALE_REFRESH_SYMBOLS)
         actions.extend(
             [
-                f"Approval F: P10 cache refresh for stale tier-1 symbols (e.g. {syms})",
+                f"Gated: P10 cache refresh for stale tier-1 symbols (e.g. {syms}) — docs/162",
                 "Ensure observation notes include as_of= (docs/161)",
                 "Then: validate post-refresh-smoke --format markdown",
             ]
@@ -85,7 +85,7 @@ def forward_p3_recommended_actions(
     elif pattern == "mixed":
         actions.extend(
             [
-                "Approval E + F: weekly log write and tier-1 cache refresh (stale + fresh_log mix)",
+                "Gated: weekly log write + tier-1 cache refresh (stale + fresh_log mix; chat approval)",
                 f"Stale skip count={stale_skips}; see docs/161 mixed pattern",
                 "Then: validate post-refresh-smoke and snapshot observation-health",
             ]

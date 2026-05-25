@@ -521,7 +521,7 @@ def _build_research_checklist(
                     category="peer_forward_partial",
                     symbol=None,
                     reason=f"peer_sync forward {label}",
-                    next_action="weekly --write-observation-log --with-peer-sync when approved",
+                    next_action="gated weekly --write-observation-log --with-peer-sync (chat approval)",
                 )
             )
     if quality_snapshot:

@@ -282,6 +282,7 @@ def evaluate_portfolio_readiness(
         human_pct is not None
         and suggested is not None
         and human_pct == suggested
+        and (human_tier_declared is None or human_tier_declared == tier)
     )
     return {
         "milestones": milestones,

@@ -34,11 +34,15 @@ def forward_p3_progress(matched_count: int, *, threshold: int = THIN_SAMPLE_THRE
     """Read-only progress toward sample_quality=usable (docs/163 / P3)."""
 
     needed = max(0, threshold - matched_count)
+    if matched_count >= threshold:
+        label = f"usable ({matched_count} matched)"
+    else:
+        label = f"{matched_count}/{threshold} toward usable"
     return {
         "matched_rows": matched_count,
         "thin_threshold": threshold,
         "samples_needed_for_usable": needed,
-        "progress_label": f"{matched_count}/{threshold} toward usable",
+        "progress_label": label,
     }
 
 
