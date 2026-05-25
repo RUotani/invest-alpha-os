@@ -42,10 +42,15 @@ def forward_p3_recommended_actions(
             ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
         ]
         if peer_sync_matched > 0:
-            ps_needed = max(0, 10 - peer_sync_matched)
-            actions.append(
-                f"Peer-sync forward: {peer_sync_matched}/10 matched; ~{ps_needed} more toward usable"
-            )
+            if peer_sync_matched >= 10:
+                actions.append(
+                    f"Peer-sync forward: usable ({peer_sync_matched} matched)"
+                )
+            else:
+                ps_needed = max(0, 10 - peer_sync_matched)
+                actions.append(
+                    f"Peer-sync forward: {peer_sync_matched}/10 matched; ~{ps_needed} more toward usable"
+                )
         if stale_skip_by_symbol:
             preview = ", ".join(
                 f"{item.get('symbol')}({item.get('count')})" for item in stale_skip_by_symbol[:6]
@@ -281,21 +286,26 @@ def build_post_p10_refresh_smoke_summary(
         peer_sync_matched=ps_matched,
     )
 
+    us_forward = {
+        "rows_matched": matched_rows,
+        "sample_quality": sq,
+        "skip_pattern": skip_pattern,
+        "skipped_reasons": skipped,
+    }
+    peer_sync_forward_out = {
+        "rows_matched": ps_matched,
+        "sample_quality": ps_sq,
+        "skipped_reasons": peer_sync_forward.get("skipped_reasons") or {},
+    }
     return {
         "schema_version": 1,
         "checks": checks,
         "tier1_missing": tier1_missing,
-        "forward_validation": {
-            "rows_matched": forward.get("rows_matched", 0),
-            "sample_quality": sq,
-            "skip_pattern": skip_pattern,
-            "skipped_reasons": skipped,
-        },
-        "peer_sync_forward_validation": {
-            "rows_matched": ps_matched,
-            "sample_quality": ps_sq,
-            "skipped_reasons": peer_sync_forward.get("skipped_reasons") or {},
-        },
+        "skip_pattern": skip_pattern,
+        "forward_validation": us_forward,
+        "us_forward": us_forward,
+        "peer_sync_forward_validation": peer_sync_forward_out,
+        "peer_sync_forward": peer_sync_forward_out,
         "recommended_actions": recommended,
         "ops_smoke_taxonomy": tax,
         "docs_163_hard_pass": hard_pass,

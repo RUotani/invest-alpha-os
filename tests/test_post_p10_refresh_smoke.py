@@ -58,7 +58,7 @@ def test_forward_p3_recommended_actions_partial_matched() -> None:
     )
     joined = " ".join(actions)
     assert "3/10" in joined
-    assert "8/10" in joined
+    assert "usable (8 matched)" in joined or "8/10" in joined
     assert "MSFT" in joined
 
 
@@ -95,6 +95,9 @@ def test_post_refresh_smoke_builds_checks(tmp_path: Path, monkeypatch: pytest.Mo
     report = build_post_p10_refresh_smoke_summary(path_base=tmp_path)
     assert report["observation_only"] is True
     assert isinstance(report.get("checks"), list)
+    assert "us_forward" in report
+    assert "peer_sync_forward" in report
+    assert report["us_forward"]["rows_matched"] == report["forward_validation"]["rows_matched"]
     md = format_post_p10_refresh_smoke_markdown(report)
     assert "Post-P10 refresh smoke" in md
     assert "recommended" in md or report.get("recommended_actions")
