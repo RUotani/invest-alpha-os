@@ -55,3 +55,13 @@ def test_forward_p3_status_with_signal_row(
     report = build_forward_p3_status_bundle(path_base=tmp_path, observation_path=obs)
     assert "p3_progress" in report["us_forward"]
     assert report["us_forward"]["rows_matched"] >= 0
+    assert report.get("observation_log_lines") == 1
+    assert isinstance(report.get("recommended_actions"), list)
+
+
+def test_forward_p3_status_markdown_includes_recommended_actions(tmp_path: Path) -> None:
+    obs = tmp_path / "obs.jsonl"
+    obs.write_text("", encoding="utf-8")
+    report = build_forward_p3_status_bundle(path_base=tmp_path, observation_path=obs)
+    md = format_forward_p3_status_markdown(report)
+    assert "Recommended actions" in md or report["us_forward"]["rows_matched"] == 0

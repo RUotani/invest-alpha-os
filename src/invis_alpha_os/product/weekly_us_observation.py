@@ -73,6 +73,11 @@ def summarize_us_observation_log(
 ) -> dict[str, Any]:
     """Summarize US cache signal rows already in observation_log.jsonl."""
 
+    total_log_lines = 0
+    if observation_path.is_file():
+        total_log_lines = sum(
+            1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip()
+        )
     if not observation_path.is_file():
         checklist = _build_research_checklist(
             [],
@@ -84,11 +89,13 @@ def summarize_us_observation_log(
             peer_forward_sample_quality=peer_forward_sample_quality,
             quality_snapshot=quality_snapshot,
             aged_signal_days=aged_signal_days,
+            observation_log_total_lines=total_log_lines,
         )
         return {
             "status": "missing",
             "path": str(observation_path),
             "us_signal_rows": 0,
+            "observation_log_total_lines": total_log_lines,
             "by_status": {},
             "symbols": [],
             "research_checklist": checklist,
@@ -153,10 +160,12 @@ def summarize_us_observation_log(
         peer_forward_sample_quality=peer_forward_sample_quality,
         quality_snapshot=quality_snapshot,
         aged_signal_days=aged_signal_days,
+        observation_log_total_lines=total_log_lines,
     )
     return {
         "status": "ok",
         "path": str(observation_path),
+        "observation_log_total_lines": total_log_lines,
         "us_signal_rows": len(rows),
         "by_status": by_status,
         "symbols": sorted({str(r["symbol"]) for r in rows if r.get("symbol")}),
@@ -413,6 +422,7 @@ def _build_research_checklist(
     peer_forward_sample_quality: dict[str, Any] | None = None,
     quality_snapshot: dict[str, Any] | None,
     aged_signal_days: int,
+    observation_log_total_lines: int = 0,
 ) -> list[dict[str, str]]:
     """Structured observation-only research items (no buy/sell wording)."""
 
@@ -484,11 +494,17 @@ def _build_research_checklist(
             p3 = fq.get("p3_progress") or {}
             label = str(p3.get("progress_label") or "")
             if fq.get("status") == "thin" and matched > 0 and label:
+                reason = f"US forward {label} ({fq.get('reason')})"
+                if observation_log_total_lines >= 50:
+                    reason += (
+                        f"; log_lines={observation_log_total_lines} "
+                        f"skip_pattern={fq.get('skip_pattern') or 'mixed'} (docs/161)"
+                    )
                 items.append(
                     _checklist_item(
                         category="us_forward_partial",
                         symbol=None,
-                        reason=f"US forward {label} ({fq.get('reason')})",
+                        reason=reason,
                         next_action="validate forward-p3-status; accumulate toward 10 matched",
                     )
                 )
@@ -814,6 +830,7 @@ def format_weekly_us_observation_markdown(
                 "",
                 "## Observation log",
                 f"- us_signal_rows: {o.get('us_signal_rows')}",
+                f"- observation_log_total_lines: {o.get('observation_log_total_lines', 0)}",
                 f"- by_status: {o.get('by_status')}",
                 f"- signal aging (days, avg/max): {o.get('signal_aging_days_avg')} / {o.get('signal_aging_days_max')}",
                 f"- repeat signal symbols: {', '.join(o.get('repeat_signal_symbols') or []) or '(none)'}",

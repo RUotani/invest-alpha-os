@@ -7,11 +7,20 @@ from typing import Any
 
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.peer_sync_forward_validation import compute_peer_sync_forward_join
+from invis_alpha_os.product.post_p10_refresh_smoke import forward_p3_recommended_actions
 from invis_alpha_os.product.us_forward_return_validation import (
     THIN_SAMPLE_THRESHOLD,
+    classify_forward_skip_pattern,
     compute_us_forward_returns,
     forward_p3_progress,
 )
+from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
+
+
+def _observation_log_line_count(observation_path: Path) -> int:
+    if not observation_path.is_file():
+        return 0
+    return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 
 def build_forward_p3_status_bundle(
@@ -50,11 +59,37 @@ def build_forward_p3_status_bundle(
     us_status = str(us_sq.get("status") or "")
     peer_usable = peer_status == "usable"
     us_usable = us_status == "usable"
+    skipped = us_report.get("skipped_reasons") or {}
+    skip_pattern = str(us_sq.get("skip_pattern") or "") or classify_forward_skip_pattern(
+        skipped, signal_rows=int(us_report.get("signal_rows") or 0)
+    )
+    stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
+    tier1_missing: list[str] = []
+    try:
+        expansion = build_us_universe_expansion_report(
+            path_base=root,
+            tier="1",
+            missing_only=True,
+        )
+        tier1_missing = list(expansion.get("tier_1_missing_refresh_order") or [])
+    except (FileNotFoundError, ValueError):
+        tier1_missing = []
+    recommended = forward_p3_recommended_actions(
+        skip_pattern=skip_pattern,
+        tier1_missing=tier1_missing,
+        stale_skips=stale_skips,
+        forward_matched=us_matched,
+        stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
+        peer_sync_matched=peer_matched,
+    )
+    log_lines = _observation_log_line_count(obs)
 
     return {
         "schema_version": 1,
         "thin_threshold": THIN_SAMPLE_THRESHOLD,
         "observation_path": str(obs),
+        "observation_log_lines": log_lines,
+        "recommended_actions": recommended,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -121,4 +156,12 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
     if stale:
         preview = ", ".join(f"{x.get('symbol')}({x.get('count')})" for x in stale[:6])
         lines.insert(10, f"- stale_skip_symbols: {preview}")
+    log_lines = report.get("observation_log_lines")
+    if log_lines is not None:
+        lines.insert(4, f"- observation_log_lines: {log_lines}")
+    actions = report.get("recommended_actions") or []
+    if actions:
+        lines.extend(["", "## Recommended actions (read-only)"])
+        for action in actions[:8]:
+            lines.append(f"- {action}")
     return "\n".join(lines)
