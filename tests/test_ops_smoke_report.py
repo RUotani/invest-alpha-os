@@ -166,6 +166,7 @@ def test_ops_smoke_markdown_links_weekly_one_pager(mini_us_cache: Path) -> None:
     md = format_ops_smoke_markdown(report)
     assert "docs/160_product_weekly_operator_one_pager.md" in md
     assert any("evidence-manifest" in cmd for cmd in report.next_commands)
+    assert any("post-refresh-smoke" in cmd for cmd in report.next_commands)
 
 
 def test_build_ops_smoke_report_ok(mini_us_cache: Path) -> None:

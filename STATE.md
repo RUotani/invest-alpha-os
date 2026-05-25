@@ -3,41 +3,42 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `8a5331e` → wave4 PR 待ち（P2 supplemental · post_refresh_hints · shadow seed docs）。
-- observation_log **74行** · forward matched=0 · skip_pattern 診断済。
-- portfolio **25%** · P1 は `docs/165` + `config/examples/shadow_portfolio_positions.example.jsonl`。
+- `origin/main` @ `8b7a34d`（#253–#254 · P2 supplemental · forward_fresh_log checklist）。
+- observation_log **74行** · forward P3 未達（fresh_log）· tier-1 clear。
+- portfolio **25%** · P1: `docs/165` shadow seed（手動）。
 
 ## §1. ドメイン別進捗
 
 | ドメイン | 進捗 | コメント |
 |---|---:|---|
-| signals/ | 94% | weekly_trend trailing_7d · calendar_week_caveat |
-| risk/ | 62% | veto-at-t join |
-| portfolio/ | 25% | shadow_seed_hint · P1 手動 seed |
-| data ingest | 68% | tier-1 0 missing |
-| reports/ui | 80% | observation-health post_refresh_hints |
+| signals/ | 95% | forward_fresh_log · weekly_trend supplemental |
+| portfolio/ | 25% | shadow_seed_hint |
+| reports/ui | 81% | post-refresh-smoke in ops next_commands |
+| data ingest | 68% | — |
+| risk/ | 62% | — |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業
 
 - [ ] forward P3 usable
-- [ ] portfolio P1 linkage（shadow 手動配置）
-- [ ] 次回 weekly write（承認後）
+- [ ] portfolio P1 shadow 配置
 
 ## §4. 最新main
 
 ```text
-origin/main: 8a5331e (pre wave4)
-tests: 1065 passed (local wave4)
+origin/main: 8b7a34d
+tests: 1067 passed (CI)
+observation_log: 74 lines
+forward: matched=0 · skip_pattern=fresh_log
 ```
 
 ## §7. 次の推奨
 
-1. shadow seed → `docs/165`
-2. `validate post-refresh-smoke`
-3. `snapshot observation-health` で post_refresh_hints 確認
+1. `docs/165` shadow seed → P1
+2. セッション経過後 `validate us-forward-returns`
+3. `validate post-refresh-smoke`
 
 ## §8. 履歴
 
-- 2026-05-25: #251–#252 observation wave2/3
-- 2026-05-25: 承認 A/B/C 実行
+- 2026-05-25: #254 forward_fresh_log · #253 P2/post_refresh/shadow
+- 2026-05-25: #251–#252 · 承認 A/B/C

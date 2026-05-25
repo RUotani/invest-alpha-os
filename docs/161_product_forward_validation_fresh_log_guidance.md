@@ -37,9 +37,16 @@ cache 内で forward 可能な最終位置へシフトする **read-only 探索*
 3. P10 tier-1 US cache refresh（**別承認** · live HTTP 禁止）
 4. refresh **後** read-only smoke: [docs/163](./163_product_forward_validation_post_refresh_smoke.md)（`matched > 0` 確認）
 
+## 診断フィールド（#251+）
+
+- `sample_quality.skip_pattern`: `fresh_log` | `stale_cache` | `mixed`
+- research checklist category: `forward_fresh_log` when `skip_pattern=fresh_log`
+- `snapshot observation-health` → `post_refresh_hints`（docs/163 軽量）
+
 ## 通常 CLI
 
 ```bash
 .venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format markdown
+.venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown
 ```
