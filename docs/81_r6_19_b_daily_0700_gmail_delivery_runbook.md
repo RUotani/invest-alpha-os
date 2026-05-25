@@ -3,6 +3,8 @@
 **Status**: operator copy-paste · **send requires explicit gates**  
 **Related**: [docs/80](./80_r6_19_a_gmail_delivery_and_display_names.md), [docs/89](./89_r6_19_d_gmail_oauth_token_bootstrap.md), [docs/90](./90_r6_19_f_launchd_0700_gmail_setup.md), [docs/91](./91_r6_19_e_japanese_gmail_report.md), [docs/118](./118_ops_i_gmail_no_attachment.md)
 
+> **Autonomous agents**: Gmail send is **out of scope** unless the user explicitly approves (same as `RULES.md` §1). Use `--dry-run` only. Superseded checklists: [docs/123](./123_ops_i6_gmail_dryrun_checklist.md), [docs/124](./124_ops_i7_v2_gmail_dryrun.md) (**DEPRECATED**).
+
 ---
 
 ## 目的

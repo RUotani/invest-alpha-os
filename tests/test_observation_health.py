@@ -21,9 +21,13 @@ from invis_alpha_os.signals.peer_sync import peer_sync_status_explanation
 def _patch_outputs_dir(monkeypatch: pytest.MonkeyPatch, outputs: Path) -> None:
     import invis_alpha_os.config.paths as config_paths
     import invis_alpha_os.product.observation_health as observation_health
+    import invis_alpha_os.product.portfolio_observation_summary as portfolio_summary
+    import invis_alpha_os.product.portfolio_readiness as portfolio_readiness
 
     monkeypatch.setattr(config_paths, "OUTPUTS_DIR", outputs)
     monkeypatch.setattr(observation_health, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(portfolio_summary, "OUTPUTS_DIR", outputs)
+    monkeypatch.setattr(portfolio_readiness, "OUTPUTS_DIR", outputs)
 
 
 def test_dedupe_next_commands() -> None:
@@ -119,6 +123,24 @@ def test_observation_health_markdown_repeat_signals(
     assert "repeat_signal_count" in md
     assert "Portfolio readiness" in md
     assert "research_checklist" in md.lower() or "Research checklist" in md
+
+
+def test_observation_health_markdown_p1_linkage_hint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invis_alpha_os.product.observation_health import format_observation_health_markdown
+
+    outputs = tmp_path / "outputs"
+    (outputs / "shadow_portfolio").mkdir(parents=True)
+    shadow = outputs / "shadow_portfolio" / "positions.jsonl"
+    shadow.write_text(
+        '{"id":"s1","symbol":"MSFT","quantity":1.0,"thesis_evidence_ids":[],"tags":[]}\n',
+        encoding="utf-8",
+    )
+    _patch_outputs_dir(monkeypatch, outputs)
+    report = build_observation_health_report(path_base=tmp_path)
+    md = format_observation_health_markdown(report)
+    assert "p1_linkage_hint" in md
 
 
 def test_observation_health_enriched_forward_checklist(

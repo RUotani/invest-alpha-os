@@ -341,6 +341,9 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         seed_hint = readiness.get("shadow_seed_hint")
         if seed_hint:
             lines.append(f"- shadow_seed_hint: {seed_hint}")
+        p1_hint = readiness.get("p1_linkage_hint")
+        if p1_hint:
+            lines.append(f"- p1_linkage_hint: {p1_hint}")
         nxt = readiness.get("next_milestone")
         if isinstance(nxt, dict):
             lines.append(
