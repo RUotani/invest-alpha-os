@@ -28,6 +28,7 @@ def test_portfolio_readiness_p0_only(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert report["accepted_tier_label"] == "P0 only (CLI ready)"
     assert report["suggested_percent"] == 25
     assert report["state_percent_locked"] is True
+    assert report.get("state_percent_human_accepted") is None
     p1 = next(m for m in report["milestones"] if m["id"] == "P1")
     assert p1["passed"] is False
     assert p1["label"] == "Observation linkage"

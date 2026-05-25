@@ -12,6 +12,7 @@ from invis_alpha_os.cli.main import app
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.product.weekly_us_observation import (
     build_us_watchlist_signals_manifest,
+    format_weekly_us_observation_markdown,
     run_weekly_us_observation_cycle,
     summarize_us_observation_log,
     us_cache_expansion_report,
@@ -99,6 +100,11 @@ def test_weekly_cycle_and_observation_log(mini_us_cache: Path) -> None:
     )
     assert result.batch_previews.get("status") == "ok"
     assert result.quality.get("signals_ok") == 1
+    assert result.observation_write_stats is not None
+    assert result.observation_write_stats.get("logged") == 1
+    md = format_weekly_us_observation_markdown(result, path_base=mini_us_cache)
+    assert "Observation log write (this run)" in md
+    assert "logged: 1" in md
     summary = summarize_us_observation_log(svc.observation_path)
     assert summary["us_signal_rows"] == 1
     assert summary["rows"][0]["symbol"] == "MSFT"

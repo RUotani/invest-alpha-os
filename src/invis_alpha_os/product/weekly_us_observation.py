@@ -530,6 +530,7 @@ class WeeklyUsObservationResult:
     observation_log: dict[str, Any] | None
     manifest_path_written: str | None
     peer_sync: dict[str, Any] | None = None
+    observation_write_stats: dict[str, Any] | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -577,6 +578,7 @@ def run_weekly_us_observation_cycle(
 
     quality = us_signal_quality_snapshot(path_base=root)
     obs_summary: dict[str, Any] | None = None
+    write_stats: dict[str, Any] | None = None
     if write_observation_log:
         if observation_service is None:
             raise ValueError("observation_service required when write_observation_log=True")
@@ -590,6 +592,7 @@ def run_weekly_us_observation_cycle(
         )
         if observation_batch_failed(obs_result):
             raise ValueError(f"observation batch failed: {obs_result}")
+        write_stats = dict(obs_result)
         obs_summary = build_enriched_us_observation_summary(
             observation_service.observation_path,
             path_base=root,
@@ -618,6 +621,7 @@ def run_weekly_us_observation_cycle(
         observation_log=obs_summary,
         manifest_path_written=written,
         peer_sync=peer_sync_payload,
+        observation_write_stats=write_stats,
     )
 
 
@@ -684,6 +688,17 @@ def format_weekly_us_observation_markdown(
         f"- signals ok: {q.get('signals_ok')}/{q.get('symbol_count')}",
         f"- veto triggered: {q.get('veto_triggered_count')}",
     ]
+    if result.observation_write_stats:
+        ws = result.observation_write_stats
+        lines.extend(
+            [
+                "",
+                "## Observation log write (this run)",
+                f"- logged: {ws.get('logged', 0)}",
+                f"- skipped: {ws.get('skipped', 0)}",
+                f"- manifest entries: {ws.get('entry_count', 0)}",
+            ]
+        )
     if result.observation_log:
         o = result.observation_log
         lines.extend(
