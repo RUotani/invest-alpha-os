@@ -441,6 +441,9 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         f"- matched rows: {sq.get('matched_rows', report.get('rows_matched'))}",
         f"- interpretation: {sq.get('interpretation', '')}",
     ]
+    skip_pat = sq.get("skip_pattern")
+    if skip_pat and skip_pat != "none":
+        lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
     if sq.get("status") in {"empty", "thin"}:
         lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
     lines.extend(

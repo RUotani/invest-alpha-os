@@ -42,7 +42,7 @@
 | --- | --- |
 | `--manifest-out` | バッチ manifest を `outputs/signals/` に保存（observation 書込に必須） |
 | `--write-observation-log` | `outputs/observation_log/observation_log.jsonl` に US signal 行を append |
-| `--with-peer-sync` | `config/peer_map.yaml` ベースの peer 乖離セクションをレポートに追加（opt-in） |
+| `--with-peer-sync` | peer 乖離レポート + **`--write-observation-log` 時は peer_sync 行も append**（#251） |
 | `--with-daily-report` | 任意: daily US opt-in セクションも生成 |
 
 ## 事後検証
@@ -55,13 +55,15 @@
 .venv/bin/python -m invis_alpha_os.cli.main snapshot portfolio-observation-summary --format markdown
 ```
 
-### peer_sync 行の optional append（明示 opt-in · outputs 書込）
+### peer_sync 行の append
+
+週次で `--write-observation-log --with-peer-sync` を使う場合、US signal に加え **peer_sync 行も同一 run で append** される（markdown に `Peer sync log write (this run)` を表示）。
+
+追加のみ必要なとき:
 
 ```bash
 .venv/bin/python -m invis_alpha_os.cli.main log peer-sync-snapshot
 ```
-
-`--write-observation-log` とは別コマンド。必要時のみ実行。
 
 ### sample_quality の見方
 
@@ -87,5 +89,5 @@
 | 症状 | 確認 |
 | --- | --- |
 | `observation batch failed` | manifest パス・cache ファイル存在 |
-| forward validation `empty` | observation_log 行数、`us_signal` note 形式 · [docs/161](./161_product_forward_validation_fresh_log_guidance.md)（直後ログは future bars 不足で正常） |
+| forward validation `empty` | `skip_pattern=fresh_log` · [docs/161](./161_product_forward_validation_fresh_log_guidance.md)（直後ログは future bars 不足で正常） |
 | peer_sync 全部 `missing_cache` | US cache 未配置 or peer_map が JP のみ |
