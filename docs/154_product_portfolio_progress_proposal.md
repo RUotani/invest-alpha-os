@@ -32,6 +32,10 @@
 
 **Do not auto-update STATE %** until operator confirms the rubric above.
 
+## Shadow seed (P1)
+
+See [docs/165](./165_product_shadow_portfolio_seed.md) and `config/examples/shadow_portfolio_positions.example.jsonl`.
+
 ## Read-only commands
 
 ```bash

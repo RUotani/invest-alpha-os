@@ -458,14 +458,28 @@ def _build_research_checklist(
         )
     fq = forward_sample_quality or {}
     if fq.get("status") in {"thin", "empty"}:
-        items.append(
-            _checklist_item(
-                category="thin_forward_validation",
-                symbol=None,
-                reason=str(fq.get("reason") or "forward-return sample too small"),
-                next_action="accumulate more observation_log rows before quality conclusions",
+        skip_pat = str(fq.get("skip_pattern") or "")
+        if skip_pat == "fresh_log":
+            items.append(
+                _checklist_item(
+                    category="forward_fresh_log",
+                    symbol=None,
+                    reason=str(fq.get("reason") or "events too recent for forward windows"),
+                    next_action=(
+                        "wait for sessions or use validate us-forward-returns "
+                        "--backtest-within-cache (exploratory only; docs/161)"
+                    ),
+                )
             )
-        )
+        else:
+            items.append(
+                _checklist_item(
+                    category="thin_forward_validation",
+                    symbol=None,
+                    reason=str(fq.get("reason") or "forward-return sample too small"),
+                    next_action="accumulate more observation_log rows before quality conclusions",
+                )
+            )
     if quality_snapshot:
         for row in quality_snapshot.get("rows") or []:
             if row.get("veto_triggered"):
