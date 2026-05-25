@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
 from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
@@ -39,6 +40,16 @@ _MILESTONE_META: dict[str, dict[str, str]] = {
         "operator_hint": "validate us-forward-returns sample_quality=usable (normal mode)",
     },
 }
+
+
+def _load_portfolio_human_acceptance(path_base: Path) -> dict[str, Any] | None:
+    candidate = path_base / "config" / "portfolio_observation_acceptance.yaml"
+    if not candidate.is_file():
+        return None
+    data = load_yaml(candidate)
+    if isinstance(data, dict) and data.get("human_accepted_percent") is not None:
+        return data
+    return None
 
 
 def _milestone(
@@ -187,14 +198,23 @@ def evaluate_portfolio_readiness(
         tier = "none"
 
     suggested = _SUGGESTED_PERCENT.get(tier)
+    acceptance = _load_portfolio_human_acceptance(root)
+    human_pct: int | None = None
+    if acceptance is not None:
+        raw = acceptance.get("human_accepted_percent")
+        if isinstance(raw, int):
+            human_pct = raw
+        elif isinstance(raw, str) and raw.isdigit():
+            human_pct = int(raw)
     return {
         "milestones": milestones,
         "accepted_tier": tier,
         "accepted_tier_label": _tier_label(tier),
         "next_milestone": next_milestone,
         "suggested_percent": suggested,
-        "state_percent_locked": True,
-        "state_percent_human_accepted": None,
+        "state_percent_locked": human_pct is None,
+        "state_percent_human_accepted": human_pct,
+        "human_acceptance_meta": acceptance,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,

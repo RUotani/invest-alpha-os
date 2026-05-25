@@ -162,6 +162,33 @@ def test_cli_weekly_with_peer_sync(mini_us_cache: Path, tmp_path: Path, monkeypa
     assert "pairs" in payload["peer_sync"]
 
 
+def test_weekly_write_includes_peer_sync_log(
+    mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.config.paths as config_paths
+
+    cfg = tmp_path / "config"
+    cfg.mkdir()
+    (cfg / "peer_map.yaml").write_text("peer_map:\n  MSFT:\n    - MSFT\n", encoding="utf-8")
+    monkeypatch.setattr(config_paths, "CONFIG_DIR", cfg)
+    manifest = mini_us_cache / "signals" / "weekly.json"
+    obs = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs.parent.mkdir(parents=True, exist_ok=True)
+    svc = ObservationService(observation_path=obs, outcome_path=mini_us_cache / "outcome.jsonl")
+    result = run_weekly_us_observation_cycle(
+        path_base=mini_us_cache,
+        manifest_out=manifest,
+        write_observation_log=True,
+        observation_service=svc,
+        include_peer_sync=True,
+    )
+    assert result.observation_write_stats is not None
+    assert result.peer_sync_write_stats is not None
+    assert result.peer_sync_write_stats.get("logged", 0) >= 1
+    text = obs.read_text(encoding="utf-8")
+    assert "us_peer_sync" in text
+
+
 def test_weekly_cycle_include_peer_sync(
     mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

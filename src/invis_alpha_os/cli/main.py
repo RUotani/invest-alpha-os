@@ -504,6 +504,8 @@ def weekly_us_observation_command(
         "quality": result.quality,
         "observation_log": result.observation_log,
         "peer_sync": result.peer_sync,
+        "observation_write_stats": result.observation_write_stats,
+        "peer_sync_write_stats": result.peer_sync_write_stats,
         "observation_only": True,
         "live_http": False,
     }
@@ -642,6 +644,28 @@ def validate_ops_smoke_command(
         raise typer.Exit(2)
     if strict and not report.all_ok:
         typer.echo(format_strict_taxonomy_stderr_line(report), err=True)
+        raise typer.Exit(2)
+
+
+@validate_app.command("post-refresh-smoke")
+def validate_post_refresh_smoke_command(
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only post-P10 refresh smoke aggregate (docs/163)."""
+
+    from invis_alpha_os.product.post_p10_refresh_smoke import (
+        build_post_p10_refresh_smoke_summary,
+        format_post_p10_refresh_smoke_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    report = build_post_p10_refresh_smoke_summary(path_base=ROOT_DIR)
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_post_p10_refresh_smoke_markdown(report))
+    else:
+        typer.echo("validate post-refresh-smoke: --format must be markdown or json", err=True)
         raise typer.Exit(2)
 
 

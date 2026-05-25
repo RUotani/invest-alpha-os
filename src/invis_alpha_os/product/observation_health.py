@@ -306,9 +306,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 "",
                 "## Portfolio readiness (docs/154)",
                 f"- accepted_tier: {readiness.get('accepted_tier')} — {readiness.get('accepted_tier_label', '')}",
-                f"- suggested_percent: {readiness.get('suggested_percent')} (STATE locked)",
+                f"- suggested_percent: {readiness.get('suggested_percent')} (rubric)",
             ]
         )
+        human_pct = readiness.get("state_percent_human_accepted")
+        if human_pct is not None:
+            lines.append(f"- human_accepted_percent: {human_pct}")
         nxt = readiness.get("next_milestone")
         if isinstance(nxt, dict):
             lines.append(
@@ -344,6 +347,9 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             lines.append(f"- top skipped_reason: {top[0]} ({top[1]})")
         if sq.get("needed_more_samples"):
             lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
+        skip_pat = sq.get("skip_pattern")
+        if skip_pat and skip_pat != "none":
+            lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
     lines.extend(["", "## Next commands", ""])
     for cmd in report.next_commands:
         lines.append(f"- `{cmd}`")
