@@ -1,19 +1,19 @@
 # 承認 — 最新
 
-## 実行済み（wave8）
+## 実行済み（wave9）
 
 | ID | 結果 |
 |---|---|
-| S | log **214** |
-| T | 9 symbols P10 OK |
+| U | log **234** |
+| V | P10 OK |
 
-[詳細](./approved_execution_report_wave8_st_20260525.md)
+[詳細](./approved_execution_report_wave9_uv_20260525.md)
 
-## 次回 gated（wave9）
+## 次回 gated（wave10）
 
 ```text
-承認 U: YES
-承認 V: YES
+承認 W: YES
+承認 X: YES
 ```
 
-（weekly 9回目 / P10）
+（weekly 10回目 / P10）

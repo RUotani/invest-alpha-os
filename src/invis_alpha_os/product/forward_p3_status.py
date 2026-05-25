@@ -13,14 +13,9 @@ from invis_alpha_os.product.us_forward_return_validation import (
     classify_forward_skip_pattern,
     compute_us_forward_returns,
     forward_p3_progress,
+    observation_log_line_count,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
-
-
-def _observation_log_line_count(observation_path: Path) -> int:
-    if not observation_path.is_file():
-        return 0
-    return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 
 def build_forward_p3_status_bundle(
@@ -82,7 +77,7 @@ def build_forward_p3_status_bundle(
         stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
         peer_sync_matched=peer_matched,
     )
-    log_lines = _observation_log_line_count(obs)
+    log_lines = observation_log_line_count(obs)
 
     return {
         "schema_version": 1,
