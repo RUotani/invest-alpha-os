@@ -259,31 +259,45 @@ def compute_repeat_signal_summary(
 def compute_us_signal_weekly_trend(rows: list[dict[str, Any]]) -> dict[str, Any]:
     """ISO-week US signal row counts for docs/154 P2 (read-only)."""
 
+    from datetime import timedelta
+
     week_counts: Counter[tuple[int, int]] = Counter()
+    trailing_7d_count = 0
+    today = date.today()
+    cutoff = today - timedelta(days=7)
     for row in rows:
         created = row.get("created_at")
         if isinstance(created, datetime):
             iso = created.isocalendar()
             week_counts[(iso.year, iso.week)] += 1
+            if created.date() >= cutoff:
+                trailing_7d_count += 1
             continue
         if isinstance(created, date):
             iso = created.isocalendar()
             week_counts[(iso.year, iso.week)] += 1
+            if created >= cutoff:
+                trailing_7d_count += 1
             continue
         text = str(created or "").strip()
         if not text:
             continue
+        row_date: date | None = None
         try:
             dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
             iso = dt.isocalendar()
             week_counts[(iso.year, iso.week)] += 1
+            row_date = dt.date()
         except ValueError:
             try:
                 d0 = date.fromisoformat(text[:10])
                 iso = d0.isocalendar()
                 week_counts[(iso.year, iso.week)] += 1
+                row_date = d0
             except ValueError:
                 continue
+        if row_date is not None and row_date >= cutoff:
+            trailing_7d_count += 1
 
     sorted_weeks = sorted(week_counts.keys())
     weekly_counts = {f"{y}-W{w:02d}": week_counts[(y, w)] for y, w in sorted_weeks}
@@ -295,6 +309,8 @@ def compute_us_signal_weekly_trend(rows: list[dict[str, Any]]) -> dict[str, Any]
         "prior_week_count": 0,
         "delta": 0,
         "status": "insufficient_history",
+        "trailing_7d_count": trailing_7d_count,
+        "calendar_week_caveat": None,
     }
     if len(sorted_weeks) < 2:
         if len(sorted_weeks) == 1:
@@ -313,6 +329,10 @@ def compute_us_signal_weekly_trend(rows: list[dict[str, Any]]) -> dict[str, Any]
         status = "flat"
     else:
         status = "declining"
+    caveat: str | None = None
+    if status == "declining" and prior_c >= max(8, latest_c * 2) and latest_c > 0:
+        caveat = "prior_week_bulk"
+    p2_supplemental = "active" if trailing_7d_count >= 4 else "quiet"
     return {
         "weekly_counts": weekly_counts,
         "latest_week": f"{latest[0]}-W{latest[1]:02d}",
@@ -321,6 +341,9 @@ def compute_us_signal_weekly_trend(rows: list[dict[str, Any]]) -> dict[str, Any]
         "prior_week_count": prior_c,
         "delta": delta,
         "status": status,
+        "trailing_7d_count": trailing_7d_count,
+        "calendar_week_caveat": caveat,
+        "p2_supplemental": p2_supplemental,
     }
 
 

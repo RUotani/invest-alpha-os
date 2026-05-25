@@ -136,6 +136,9 @@ def evaluate_portfolio_readiness(
         )
 
     trend_status = str(weekly_trend.get("status") or "insufficient_history")
+    trailing_7d = int(weekly_trend.get("trailing_7d_count") or 0)
+    p2_supplemental = str(weekly_trend.get("p2_supplemental") or "")
+    calendar_caveat = weekly_trend.get("calendar_week_caveat")
     if trend_status == "growing":
         p2 = _milestone(
             milestone_id="P2",
@@ -143,12 +146,22 @@ def evaluate_portfolio_readiness(
             status="passed",
             detail=f"weekly_trend={trend_status} delta={weekly_trend.get('delta')}",
         )
+    elif p2_supplemental == "active" and calendar_caveat == "prior_week_bulk":
+        p2 = _milestone(
+            milestone_id="P2",
+            passed=False,
+            status="blocked",
+            detail=(
+                f"calendar_week={trend_status} (prior bulk) but trailing_7d={trailing_7d} active; "
+                "accumulate more ISO weeks"
+            ),
+        )
     elif trend_status in {"flat", "declining"}:
         p2 = _milestone(
             milestone_id="P2",
             passed=False,
             status="blocked",
-            detail=f"weekly_trend={trend_status}; need week-over-week growth",
+            detail=f"weekly_trend={trend_status}; trailing_7d={trailing_7d}",
         )
     else:
         p2 = _milestone(
@@ -198,6 +211,14 @@ def evaluate_portfolio_readiness(
         tier = "none"
 
     suggested = _SUGGESTED_PERCENT.get(tier)
+    example_shadow = path_base / "config" / "examples" / "shadow_portfolio_positions.example.jsonl"
+    shadow_seed_hint: str | None = None
+    if shadow_count == 0 and example_shadow.is_file():
+        shadow_seed_hint = (
+            "Copy config/examples/shadow_portfolio_positions.example.jsonl to "
+            "outputs/shadow_portfolio/positions.jsonl (manual; see docs/165)"
+        )
+
     acceptance = _load_portfolio_human_acceptance(root)
     human_pct: int | None = None
     if acceptance is not None:
@@ -215,6 +236,7 @@ def evaluate_portfolio_readiness(
         "state_percent_locked": human_pct is None,
         "state_percent_human_accepted": human_pct,
         "human_acceptance_meta": acceptance,
+        "shadow_seed_hint": shadow_seed_hint,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,
