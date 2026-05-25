@@ -248,11 +248,23 @@ def evaluate_portfolio_readiness(
 
     p2_weekly_hint = portfolio_p2_weekly_hint(weekly_trend)
     p3_forward_progress: dict[str, Any] | None = None
+    peer_forward_usable = False
+    peer_forward_matched = 0
+    peer_forward_note: str | None = None
     if forward:
         sq = forward.get("sample_quality") or {}
         raw_p3 = sq.get("p3_progress")
         if isinstance(raw_p3, dict):
             p3_forward_progress = raw_p3
+        ps_fwd = forward.get("peer_sync_forward") or {}
+        peer_forward_matched = int(ps_fwd.get("rows_matched") or 0)
+        ps_sq = ps_fwd.get("sample_quality") or {}
+        if str(ps_sq.get("status") or "") == "usable":
+            peer_forward_usable = True
+            peer_forward_note = (
+                f"peer_sync_forward sample_quality=usable ({peer_forward_matched} matched); "
+                "US forward P3 milestone remains separate (docs/154)"
+            )
 
     acceptance = _load_portfolio_human_acceptance(root)
     human_pct: int | None = None
@@ -275,6 +287,9 @@ def evaluate_portfolio_readiness(
         "p1_linkage_hint": p1_linkage_hint,
         "p2_weekly_hint": p2_weekly_hint,
         "p3_forward_progress": p3_forward_progress,
+        "peer_forward_usable": peer_forward_usable,
+        "peer_forward_matched": peer_forward_matched,
+        "peer_forward_note": peer_forward_note,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,
