@@ -53,7 +53,8 @@ def test_portfolio_readiness_includes_p2_and_p3_hints(
 def test_portfolio_readiness_default_path_base_does_not_crash() -> None:
     report = evaluate_portfolio_readiness()
     assert "milestones" in report
-    assert report.get("state_percent_human_accepted") == 40
+    assert report.get("state_percent_human_accepted") == 55
+    assert report.get("human_accepted_tier") == "P0-P2"
 
 
 def test_portfolio_readiness_loads_human_acceptance(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

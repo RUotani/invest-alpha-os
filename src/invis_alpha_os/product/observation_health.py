@@ -385,6 +385,15 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         human_pct = readiness.get("state_percent_human_accepted")
         if human_pct is not None:
             lines.append(f"- human_accepted_percent: {human_pct}")
+        if readiness.get("human_accepted_tier"):
+            lines.append(f"- human_accepted_tier: {readiness.get('human_accepted_tier')}")
+        if readiness.get("state_percent_matches_rubric"):
+            lines.append("- state_percent_matches_rubric: true")
+        elif human_pct is not None:
+            lines.append(
+                f"- state_percent_matches_rubric: false "
+                f"(suggested={readiness.get('suggested_percent')})"
+            )
         seed_hint = readiness.get("shadow_seed_hint")
         if seed_hint:
             lines.append(f"- shadow_seed_hint: {seed_hint}")

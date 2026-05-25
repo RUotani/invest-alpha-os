@@ -3,29 +3,24 @@
 版: v0.1 / 最終更新: 2026-05-25
 
 ## 3行サマリー
-- `origin/main` @ `d3f8a26` · **承認 M 実行済み**（ローカル）。
-- log **134** · peer forward **usable 10/10** · US **3/10** · rubric **P0-P2**（P2 pass）。
-- 承認 N 任意（suggested **55%**）· 自律ロングラン継続中。
+- `origin/main` @ `893615e` · **N YES → portfolio 55% P0-P2**。
+- log **134** · peer **usable** · US **3/10** · P3 US blocked。
+- 自律ロングラン継続 · wave5 O/P 待ち。
 
 ## §1. ドメイン別進捗
 
-| ドメイン | 進捗 | コメント |
-|---|---:|---|
-| signals/ | 99% | peer P3 usable · US 3/10 |
-| portfolio/ | 40% human · **55% suggested** | P2 pass |
-| reports/ui | 92% | peer_forward_note |
-| operator/ | 82% | — |
+| ドメイン | 進捗 |
+|---|---:|
+| signals/ | 99% |
+| portfolio/ | **55%** |
+| reports/ui | 93% |
+| data/ | 78% |
 
-## §4. ローカル観測（M 後）
+## §4. ローカル
 
 ```text
-observation_log: 134 lines
-peer_sync_forward: usable 10/10
-us_forward: 3/10 thin
-portfolio rubric: P0-P2
+observation_log: 134
+us_forward: 3/10
+peer_sync_forward: usable
+human_accepted_percent: 55
 ```
-
-## §8. 履歴
-
-- 2026-05-25: wave4 M 実行
-- 2026-05-25: #265 forward-p3-status
