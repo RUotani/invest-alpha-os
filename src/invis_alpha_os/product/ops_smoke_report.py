@@ -182,6 +182,24 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
             detail=f"shadow_positions={portfolio.shadow_position_count}",
         )
     )
+    acceptance_path = root / "config" / "portfolio_observation_acceptance.yaml"
+    if acceptance_path.is_file():
+        from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readiness
+
+        readiness = evaluate_portfolio_readiness(path_base=root)
+        human_pct = readiness.get("state_percent_human_accepted")
+        rubric_tier = readiness.get("accepted_tier")
+        checks.append(
+            OpsSmokeCheck(
+                name="portfolio_human_acceptance",
+                status="ok",
+                detail=(
+                    f"human_percent={human_pct} human_tier={readiness.get('human_accepted_tier')} "
+                    f"rubric_tier={rubric_tier} "
+                    f"matches_rubric={readiness.get('state_percent_matches_rubric')}"
+                ),
+            )
+        )
 
     obs_path = OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
     health = build_observation_health_report(path_base=root, observation_path=obs_path)

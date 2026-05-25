@@ -268,12 +268,21 @@ def evaluate_portfolio_readiness(
 
     acceptance = _load_portfolio_human_acceptance(root)
     human_pct: int | None = None
+    human_tier_declared: str | None = None
     if acceptance is not None:
         raw = acceptance.get("human_accepted_percent")
         if isinstance(raw, int):
             human_pct = raw
         elif isinstance(raw, str) and raw.isdigit():
             human_pct = int(raw)
+        declared = acceptance.get("accepted_tier")
+        if declared is not None:
+            human_tier_declared = str(declared)
+    state_percent_matches_rubric = (
+        human_pct is not None
+        and suggested is not None
+        and human_pct == suggested
+    )
     return {
         "milestones": milestones,
         "accepted_tier": tier,
@@ -282,6 +291,8 @@ def evaluate_portfolio_readiness(
         "suggested_percent": suggested,
         "state_percent_locked": human_pct is None,
         "state_percent_human_accepted": human_pct,
+        "human_accepted_tier": human_tier_declared,
+        "state_percent_matches_rubric": state_percent_matches_rubric,
         "human_acceptance_meta": acceptance,
         "shadow_seed_hint": shadow_seed_hint,
         "p1_linkage_hint": p1_linkage_hint,
