@@ -1,40 +1,24 @@
-# 人間承認リクエスト — 2026-05-25（最新）
+# 人間承認リクエスト — 最新（2026-05-25）
 
 ## 3行サマリー
-- **A/B/C 実行済み** → 次は **wave2（E/F/G/D + 手動 H）**。
-- forward: `skip_pattern=mixed` · `matched=0` → **E（週次書込）+ F（P10 refresh）** を推奨。
-- コピペ返信用の全文: **[approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)**
+- **wave2 完了**（E/F/G/H/D）· 次は **wave3（I/J/K/L）**。
+- P3: US **3/10** · peer **6/10** — **I+J** 推奨。
+- コピペ全文: **[approval_requests_wave3_20260525.md](./approval_requests_wave3_20260525.md)**
 
-## 実行済み（wave1）
+## 待ち（wave3）
 
-| ID | 結果 |
-|---|---|
-| A | AMD P10 OK |
-| B | log 74 lines |
-| C | portfolio **25%** |
+| ID | 内容 | 優先 |
+|---|---|:---:|
+| I | weekly `--write-observation-log`（3回目） | 高 |
+| J | P10 refresh（stale 銘柄群） | 高 |
+| K | portfolio %（P2→55% / P3→70%） | 中 |
+| L | Gmail 再送 | 低 |
 
-## 実行済み（wave2 · 2026-05-25）
-
-| ID | 結果 |
-|---|---|
-| E | YES · log 74→**94** · forward matched **3** (thin) |
-| F | YES · MSFT/NVDA/GOOGL/AAPL cache refresh OK |
-
-詳細: [approved_execution_report_wave2_ef_20260525.md](./approved_execution_report_wave2_ef_20260525.md)
-
-## 実行済み（wave2 完了 · 2026-05-25）
+## 実行済み（wave2）
 
 | ID | 結果 |
 |---|---|
-| G | YES · **40%** P0+P1 |
-| H | YES · shadow 2 · resolved_links=2 |
-| D | YES · Gmail sent_ok |
+| E/F | log 94 · forward matched 3 |
+| G/H/D | 40% P0+P1 · shadow 2 · Gmail sent |
 
-詳細: [approved_execution_report_wave2_ghd_20260525.md](./approved_execution_report_wave2_ghd_20260525.md)
-
-## 次回承認が必要な操作
-
-- weekly `--write-observation-log`
-- P10 live cache refresh
-
-詳細テンプレ: [approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)
+詳細: [approval_requests_wave2_20260525.md](./approval_requests_wave2_20260525.md)

@@ -42,6 +42,26 @@ _MILESTONE_META: dict[str, dict[str, str]] = {
 }
 
 
+def portfolio_p2_weekly_hint(weekly_trend: dict[str, Any]) -> str | None:
+    """Read-only hint for P2 milestone when calendar week vs trailing_7d diverge."""
+
+    status = str(weekly_trend.get("status") or "")
+    supplemental = str(weekly_trend.get("p2_supplemental") or "")
+    trailing = int(weekly_trend.get("trailing_7d_count") or 0)
+    if status == "growing":
+        return None
+    if supplemental == "active" and trailing > 0:
+        return (
+            f"P2 supplemental: trailing_7d={trailing} active while calendar_week={status}; "
+            "accumulate more ISO weeks (docs/150)"
+        )
+    if status == "insufficient_history":
+        return "P2 blocked: insufficient ISO week history; approved weekly writes needed"
+    if status in {"declining", "flat"}:
+        return f"P2 blocked: weekly_trend={status} (latest vs prior ISO week)"
+    return None
+
+
 def _load_portfolio_human_acceptance(path_base: Path) -> dict[str, Any] | None:
     candidate = path_base / "config" / "portfolio_observation_acceptance.yaml"
     if not candidate.is_file():
@@ -226,6 +246,14 @@ def evaluate_portfolio_readiness(
             "(see docs/165; snapshot portfolio-observation-summary)"
         )
 
+    p2_weekly_hint = portfolio_p2_weekly_hint(weekly_trend)
+    p3_forward_progress: dict[str, Any] | None = None
+    if forward:
+        sq = forward.get("sample_quality") or {}
+        raw_p3 = sq.get("p3_progress")
+        if isinstance(raw_p3, dict):
+            p3_forward_progress = raw_p3
+
     acceptance = _load_portfolio_human_acceptance(root)
     human_pct: int | None = None
     if acceptance is not None:
@@ -245,6 +273,8 @@ def evaluate_portfolio_readiness(
         "human_acceptance_meta": acceptance,
         "shadow_seed_hint": shadow_seed_hint,
         "p1_linkage_hint": p1_linkage_hint,
+        "p2_weekly_hint": p2_weekly_hint,
+        "p3_forward_progress": p3_forward_progress,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,

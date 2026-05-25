@@ -11,11 +11,18 @@
 
 ## Done (#260–#261)
 
-- #260 p3_progress · peer_sync_forward diagnostics
-- wave12: stale_skip_by_symbol（#261 予定）
+- p3_progress · stale_skip_by_symbol
+
+## Pending approval (wave3)
+
+- I weekly · J P10 stale symbols · K portfolio % · L Gmail  
+- MD: [approval_requests_wave3_20260525.md](./approval_requests_wave3_20260525.md)
+
+## In flight
+
+- wave13: portfolio P2 weekly hints in readiness / observation-health
 
 ## Next (no approval)
 
-1. forward P3 usable（US 3/10 · peer 6/10 · 週次蓄積）
-2. portfolio P2 weekly_trend growing
-3. peer-sync-forward usable（6→10）
+1. forward P3 usable（承認 I/J 後）
+2. peer-sync-forward 6→10
