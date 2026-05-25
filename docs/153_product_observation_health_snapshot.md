@@ -16,9 +16,11 @@ Aggregates:
 - US signal rows (`us_signals`)
 - **`repeat_summary`** (top-level JSON; also under `us_signals.repeat_summary`)
 - peer_sync rows (`peer_sync`)
+- **peer_sync forward join** (`peer_sync_forward`; docs/158 — when `peer_sync_rows` > 0)
 - portfolio linkage counts
 - forward validation `sample_quality` (when signal rows exist)
 - log integrity (JSON parse errors, unclassified notes)
+- `repeat_summary` stale_repeat_flag in markdown repeat lines
 
 ## When to use
 
@@ -29,3 +31,4 @@ Aggregates:
 
 - [docs/150](./150_product_observation_log_weekly_runbook.md)
 - [docs/152](./152_product_ops_smoke_report_20260524.md)
+- [docs/158](./158_product_peer_sync_forward_validation_join.md)

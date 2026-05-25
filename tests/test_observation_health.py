@@ -8,10 +8,12 @@ from pathlib import Path
 import pytest
 
 from invis_alpha_os.observation.service import ObservationService
+from invis_alpha_os.observation.us_peer_sync_note import build_us_peer_sync_observation_note
 from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
 from invis_alpha_os.product.observation_health import (
     _dedupe_next_commands,
     build_observation_health_report,
+    format_observation_health_markdown,
 )
 from invis_alpha_os.signals.peer_sync import peer_sync_status_explanation
 
@@ -169,6 +171,68 @@ def test_observation_health_tier1_missing_line(
     if report.tier1_missing:
         assert "tier-1 cache gaps" in md
         assert report.tier1_missing[0] in md
+
+
+def test_observation_health_includes_peer_sync_forward(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+    from invis_alpha_os.data.us_daily_bars_cache import save_us_daily_bars_cache
+    from invis_alpha_os.signals.momentum import load_bars_json_file
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    _patch_outputs_dir(monkeypatch, outputs)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+
+    repo = Path(__file__).resolve().parents[1]
+    bars = load_bars_json_file(repo / "tests" / "fixtures" / "us_daily_bars" / "MSFT.json")
+    event_date = bars[-21]["date"][:10]
+    save_us_daily_bars_cache(
+        "MSFT",
+        [dict(b) for b in bars],
+        asset_class="us_equity",
+        source="local_fixture",
+        fetched_at="2026-05-24T12:00:00+00:00",
+        generated_at="2026-05-24T12:00:05+00:00",
+    )
+
+    note = build_us_peer_sync_observation_note(
+        {
+            "anchor_symbol": "MSFT",
+            "peer_symbol": "GOOGL",
+            "status": "diverged_peer_outperform",
+            "return_spread": -0.04,
+        }
+    )
+    obs.write_text(
+        json.dumps(
+            {
+                "id": "ps-1",
+                "created_at": f"{event_date}T09:00:00+00:00",
+                "symbol": "MSFT",
+                "note": note,
+                "evidence_ids": [],
+                "tags": [],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
+    assert report.peer_sync_forward is not None
+    assert report.peer_sync_forward["rows_matched"] == 1
+    assert report.peer_sync_forward["peer_sync_at_t"]["status"] == "joined"
+
+    md = format_observation_health_markdown(report)
+    assert "Peer sync forward" in md
+    assert "rows_matched: 1" in md
+
+    payload = report.to_dict()
+    assert payload["peer_sync_forward"]["rows_matched"] == 1
 
 
 def test_cli_snapshot_observation_health(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
