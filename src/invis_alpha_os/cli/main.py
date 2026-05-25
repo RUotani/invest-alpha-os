@@ -669,6 +669,28 @@ def validate_post_refresh_smoke_command(
         raise typer.Exit(2)
 
 
+@validate_app.command("forward-p3-status")
+def validate_forward_p3_status_command(
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only US + peer_sync forward progress toward P3 usable (no HTTP)."""
+
+    from invis_alpha_os.product.forward_p3_status import (
+        build_forward_p3_status_bundle,
+        format_forward_p3_status_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    report = build_forward_p3_status_bundle(path_base=ROOT_DIR)
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_forward_p3_status_markdown(report))
+    else:
+        typer.echo("validate forward-p3-status: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+
+
 @validate_app.command("peer-sync-forward-returns")
 def validate_peer_sync_forward_returns_command(
     observation_log: Optional[str] = typer.Option(

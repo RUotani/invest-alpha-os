@@ -167,6 +167,7 @@ def test_ops_smoke_markdown_links_weekly_one_pager(mini_us_cache: Path) -> None:
     assert "docs/160_product_weekly_operator_one_pager.md" in md
     assert any("evidence-manifest" in cmd for cmd in report.next_commands)
     assert any("post-refresh-smoke" in cmd for cmd in report.next_commands)
+    assert any("forward-p3-status" in cmd for cmd in report.next_commands)
     assert any("jp-peer-sync-readiness" in cmd for cmd in report.next_commands)
 
 

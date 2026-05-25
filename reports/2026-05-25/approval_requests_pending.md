@@ -1,5 +1,8 @@
 # 人間承認リクエスト — 最新（2026-05-25）
 
+**ロングラン**: 承認は**このチャットへの返信のみ**。ターミナル・PC操作は不要（Agent 実行）。  
+→ [longrun_autonomous_mode_contract_20260525.md](./longrun_autonomous_mode_contract_20260525.md)
+
 ## 実行済み（wave3 · 2026-05-25）
 
 | ID | 結果 |
