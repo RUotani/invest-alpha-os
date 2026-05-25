@@ -1,9 +1,11 @@
 # 人間承認リクエスト — wave3（2026-05-25）
 
 ## 3行サマリー
-- wave2（E/F/G/H/D）実行済み · main `a8fa257` · US **3/10** thin · peer **6/10** thin。
-- **I/J** で P3 usable（10 matched）に近づける · **K** は milestone 達成後の % 更新。
-- stale 銘柄（read-only 診断）: MSFT, NVDA, AAPL, AMZN, GOOGL, META ほか。
+- **I/J 実行済み（2026-05-25 YES）** · log **114** · peer **8/10** · US **3/10**。
+- stale_skips=16 は履歴行に残存 · 新規行は fresh cache 参照。
+- 次: wave4 **M/N** — [approval_requests_wave4_20260525.md](./approval_requests_wave4_20260525.md)
+
+実行記録: [approved_execution_report_wave3_ij_20260525.md](./approved_execution_report_wave3_ij_20260525.md)
 
 ## スナップショット（承認前 · read-only）
 

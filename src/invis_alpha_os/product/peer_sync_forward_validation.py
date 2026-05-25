@@ -257,6 +257,9 @@ def format_peer_sync_forward_markdown(report: dict[str, Any]) -> str:
     ]
     if ps.get("statuses_in_log"):
         lines.append(f"- statuses in log: {ps.get('statuses_in_log')}")
+    p3 = sq.get("p3_progress") or {}
+    if p3.get("progress_label"):
+        lines.append(f"- p3_progress: {p3.get('progress_label')}")
     lines.extend(["", "## By peer_sync_status", ""])
     by_st = report.get("by_peer_sync_status") or {}
     if not by_st:
