@@ -40,6 +40,22 @@ def test_taxonomy_expected_blocked_repeat_and_stale() -> None:
     assert "forward_stale_cache" in tax["reasons"]
 
 
+def test_taxonomy_expected_blocked_tier1_and_peer_sync_thin() -> None:
+    tax = classify_ops_smoke_strict(
+        _report(
+            OpsSmokeCheck(
+                "observation_health",
+                "warn",
+                "us_signal_rows=48 parse_errors=0 tier1_gaps=1 peer_sync_forward_thin=1 stale_repeat_flags=2",
+            )
+        )
+    )
+    assert tax["taxonomy"] == "EXPECTED_BLOCKED"
+    assert "tier1_cache_gaps" in tax["reasons"]
+    assert "peer_sync_forward_thin" in tax["reasons"]
+    assert "stale_repeat_flags" in tax["reasons"]
+
+
 def test_taxonomy_regression_on_fail() -> None:
     tax = classify_ops_smoke_strict(
         _report(OpsSmokeCheck("watchlist_manifest", "fail", "entries=0 missing_cache=0"))

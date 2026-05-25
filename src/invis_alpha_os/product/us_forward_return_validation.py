@@ -105,14 +105,21 @@ def _build_quality_buckets(
     return {"global": global_buckets, "by_signal_label": by_label}
 
 
-def forward_validation_next_commands() -> list[str]:
+def forward_validation_next_commands(*, exploratory: bool = False) -> list[str]:
     """Read-only CLI hints after observation_log append (no defaults changed)."""
 
-    return [
+    cmds = [
         ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",
     ]
+    if exploratory:
+        cmds.insert(
+            1,
+            ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns "
+            "--backtest-within-cache --format markdown  # docs/161 exploratory only",
+        )
+    return cmds
 
 
 def _sample_quality(
@@ -121,7 +128,7 @@ def _sample_quality(
     skipped_reasons: dict[str, int] | None = None,
     signal_rows: int = 0,
 ) -> dict[str, Any]:
-    hints = forward_validation_next_commands()
+    exploratory = False
     if matched_count == 0:
         reason = "no observation rows matched to cache forward windows"
         interpretation = "Do not draw signal-quality conclusions from forward returns yet."
@@ -132,14 +139,19 @@ def _sample_quality(
                 reason = "observation log dates are after cache end"
                 interpretation = (
                     "Cache ends before observation timestamps. Refresh US cache (P10 tier-1) "
-                    "or re-run with --backtest-within-cache for exploratory in-cache joins only."
+                    "or re-run with --backtest-within-cache for exploratory in-cache joins only "
+                    "(docs/161)."
                 )
+                exploratory = True
             elif insuf >= signal_rows:
                 reason = "observation events are too recent for forward windows"
                 interpretation = (
                     "Rows were logged but cache has no future sessions yet. "
-                    "Re-run after trading sessions pass or accumulate historical rows."
+                    "Re-run after trading sessions pass or accumulate historical rows (docs/161)."
                 )
+                exploratory = True
+    hints = forward_validation_next_commands(exploratory=exploratory)
+    if matched_count == 0:
         return {
             "status": "empty",
             "reason": reason,

@@ -67,6 +67,10 @@ def mini_us_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         fetched_at="2026-05-24T12:00:00+00:00",
         generated_at="2026-05-24T12:00:05+00:00",
     )
+    monkeypatch.setattr(
+        "invis_alpha_os.product.observation_health.build_us_universe_expansion_report",
+        lambda **_kw: {"tier_1_missing_refresh_order": []},
+    )
     return tmp_path
 
 

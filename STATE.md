@@ -5,7 +5,7 @@
 ## 3行サマリー
 - `origin/main` @ `395c146`（#245 peer_sync_forward · #246 docs/160 リンク）。
 - observation_log **58行**（US 48 + peer_sync 10 · `peer_sync_forward` 統合済）。
-- P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · 承認リクエスト `reports/2026-05-24/approval_requests_20260524.md`）。
+- P10 AMD refresh: **ブロック中**（`STOOQ_APIKEY` 未設定 · 承認 `reports/2026-05-25/approval_requests_pending.md`）。
 
 ## §1. ドメイン別進捗
 
@@ -15,7 +15,7 @@
 | risk/ | 62% | veto-at-t join |
 | portfolio/ | [要確認]% | readiness evaluator · % 人間承認待ち |
 | data ingest | 64% | tier-1 **AMD** gap（Stooq API key 要） |
-| reports/ui | 74% | docs/160 リンク · peer_sync_forward · stale_repeat markdown |
+| reports/ui | 76% | ops-smoke tier1/peer_sync/stale_repeat taxonomy · docs/161 hints |
 | operator/ | 80% | 凍結 |
 
 ## §2. 残作業

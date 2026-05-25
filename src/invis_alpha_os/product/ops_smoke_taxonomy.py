@@ -17,7 +17,16 @@ class _OpsSmokeReportLike(Protocol):
     @property
     def all_ok(self) -> bool: ...
 
-EXPECTED_WARN_REASONS = frozenset({"repeat_signals", "forward_stale_cache", "missing_cache_symbols"})
+EXPECTED_WARN_REASONS = frozenset(
+    {
+        "repeat_signals",
+        "forward_stale_cache",
+        "missing_cache_symbols",
+        "tier1_cache_gaps",
+        "peer_sync_forward_thin",
+        "stale_repeat_flags",
+    }
+)
 REGRESSION_REASONS = frozenset({"json_parse_errors", "signal_quality_fail", "zero_manifest_entries"})
 
 
@@ -30,6 +39,16 @@ def _warn_reasons_from_check(check: _OpsSmokeCheckLike) -> list[str]:
                 reasons.append("repeat_signals")
         if "forward_stale_cache=1" in check.detail:
             reasons.append("forward_stale_cache")
+        if "tier1_gaps=" in check.detail:
+            part = check.detail.split("tier1_gaps=", 1)[-1].split()[0]
+            if part.isdigit() and int(part) > 0:
+                reasons.append("tier1_cache_gaps")
+        if "peer_sync_forward_thin=1" in check.detail:
+            reasons.append("peer_sync_forward_thin")
+        if "stale_repeat_flags=" in check.detail:
+            part = check.detail.split("stale_repeat_flags=", 1)[-1].split()[0]
+            if part.isdigit() and int(part) > 0:
+                reasons.append("stale_repeat_flags")
         if "parse_errors=" in check.detail:
             part = check.detail.split("parse_errors=", 1)[-1].split()[0]
             if part.isdigit() and int(part) > 0:
