@@ -1,19 +1,21 @@
 # 承認 — 最新
 
-## 実行済み（wave9）
+契約: [cursor_operating_contract_wave10_20260525.md](./cursor_operating_contract_wave10_20260525.md)
+
+## 実行済み（wave10）
 
 | ID | 結果 |
 |---|---|
-| U | log **234** |
-| V | P10 OK |
+| W | log **254** · US **3/10** |
+| X | P10 OK |
 
-[詳細](./approved_execution_report_wave9_uv_20260525.md)
+[詳細](./approved_execution_report_wave10_wx_20260525.md)
 
-## 次回 gated（wave10）
+## 次回 gated（wave11）
 
 ```text
-承認 W: YES
-承認 X: YES
+承認 Y: YES
+承認 Z: YES
 ```
 
-（weekly 10回目 / P10）
+最優先: US forward **3/10 → 10/10** · Ops 禁止

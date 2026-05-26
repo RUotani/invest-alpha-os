@@ -336,6 +336,94 @@ def _load_bars_for_symbol(symbol: str, *, cache_dir: Path | None) -> tuple[list[
     return try_load_cached_us_daily_bars(symbol)
 
 
+def classify_us_signal_row_forward_outcome(
+    row: dict[str, Any],
+    *,
+    cache_dir: Path | None = None,
+    horizons: tuple[int, ...] = DEFAULT_HORIZONS,
+    reference_date: date | None = None,
+    backtest_within_cache: bool = False,
+) -> str:
+    """Per-row forward resolution outcome (read-only; aligns with compute_us_forward_returns)."""
+
+    sym = row["symbol"]
+    event: date = row["event_date"]
+    if reference_date is not None and event > reference_date:
+        return "event_after_reference"
+    loaded = _load_bars_for_symbol(sym, cache_dir=cache_dir)
+    if loaded is None:
+        return "price_data_missing"
+    bars, _src = loaded
+    if event_bar_index(bars, event) is None:
+        return "event_date_outside_cache"
+    stale = cache_stale_skip_reason(event, bars)
+    resolved = resolve_forward_horizons(
+        bars,
+        event,
+        horizons,
+        backtest_within_cache=backtest_within_cache,
+    )
+    if resolved is None:
+        if stale and not backtest_within_cache:
+            return stale
+        return "insufficient_future_bars"
+    return "matched"
+
+
+def compute_us_forward_resolution_breakdown(
+    *,
+    observation_path: Path,
+    cache_dir: Path | None = None,
+    path_base: Path | None = None,
+    horizons: tuple[int, ...] = DEFAULT_HORIZONS,
+    reference_date: date | None = None,
+    backtest_within_cache: bool = False,
+) -> dict[str, Any]:
+    """Count per-row forward outcomes toward P3 usable (docs/161; read-only)."""
+
+    from invis_alpha_os.config.paths import ROOT_DIR
+
+    root = path_base or ROOT_DIR
+    obs_rows, pre_skipped = _iter_us_signal_rows(observation_path)
+    outcomes: dict[str, int] = defaultdict(int)
+    for key, value in pre_skipped.items():
+        outcomes[key] = int(value)
+    for row in obs_rows:
+        outcome = classify_us_signal_row_forward_outcome(
+            row,
+            cache_dir=cache_dir,
+            horizons=horizons,
+            reference_date=reference_date,
+            backtest_within_cache=backtest_within_cache,
+        )
+        outcomes[outcome] += 1
+
+    matched = int(outcomes.get("matched") or 0)
+    stale = int(outcomes.get("cache_stale_event_after_cache_end") or 0)
+    insuf = int(outcomes.get("insufficient_future_bars") or 0)
+    signal_rows = len(obs_rows)
+    skip_reasons = {k: v for k, v in outcomes.items() if k != "matched"}
+    skip_pattern = classify_forward_skip_pattern(skip_reasons, signal_rows=signal_rows)
+
+    return {
+        "schema_version": 1,
+        "path_base": str(root),
+        "observation_path": str(observation_path),
+        "rows_considered": signal_rows,
+        "matched_rows": matched,
+        "outcomes": dict(sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))),
+        "samples_needed_for_usable": max(0, THIN_SAMPLE_THRESHOLD - matched),
+        "p3_progress": forward_p3_progress(matched),
+        "skip_pattern": skip_pattern,
+        "path_to_usable_note": (
+            f"Need {max(0, THIN_SAMPLE_THRESHOLD - matched)} more matched rows; "
+            f"stale_skips={stale} insufficient_future={insuf} (docs/161)"
+        ),
+        "observation_only": True,
+        "backtest_within_cache": backtest_within_cache,
+    }
+
+
 def compute_us_forward_returns(
     *,
     observation_path: Path,
