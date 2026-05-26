@@ -404,6 +404,12 @@ def compute_us_forward_resolution_breakdown(
     signal_rows = len(obs_rows)
     skip_reasons = {k: v for k, v in outcomes.items() if k != "matched"}
     skip_pattern = classify_forward_skip_pattern(skip_reasons, signal_rows=signal_rows)
+    us_resolution_attempts = sum(
+        int(v) for k, v in outcomes.items() if k not in {"not_us_signal_row"}
+    )
+    insuf_share: float | None = None
+    if us_resolution_attempts > 0:
+        insuf_share = round(insuf / us_resolution_attempts, 4)
 
     payload: dict[str, Any] = {
         "schema_version": 1,
@@ -420,9 +426,13 @@ def compute_us_forward_resolution_breakdown(
         "samples_needed_for_usable": max(0, THIN_SAMPLE_THRESHOLD - matched),
         "p3_progress": forward_p3_progress(matched),
         "skip_pattern": skip_pattern,
+        "us_resolution_attempts": us_resolution_attempts,
+        "insufficient_future_share": insuf_share,
         "path_to_usable_note": (
             f"Need {max(0, THIN_SAMPLE_THRESHOLD - matched)} more matched rows; "
-            f"stale_skips={stale} insufficient_future={insuf} (docs/161)"
+            f"stale_skips={stale} insufficient_future={insuf}"
+            + (f" (share={insuf_share:.0%} of US resolutions)" if insuf_share is not None else "")
+            + " (docs/161)"
         ),
         "observation_only": True,
         "backtest_within_cache": backtest_within_cache,
