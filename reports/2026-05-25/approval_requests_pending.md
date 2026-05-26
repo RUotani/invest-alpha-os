@@ -1,19 +1,19 @@
 # 承認 — 最新
 
-## 実行済み（wave16）
+## 実行済み（wave17）
 
 | ID | 結果 |
 |---|---|
-| AI | log **374** · matched **3/10** |
-| AJ | P10 OK |
+| AK | log **394** · matched **3/10** |
+| AL | P10 OK |
 
-[詳細](./approved_execution_report_wave16_ai_aj_20260525.md) · [tracker](./us_forward_wave_tracker_20260525.md)
+[詳細](./approved_execution_report_wave17_ak_al_20260525.md) · [tracker](./us_forward_wave_tracker_20260525.md)
 
-## 次回 gated（wave17）
+## 次回 gated（wave18）
 
 ```text
-承認 AK: YES
-承認 AL: YES
+承認 AM: YES
+承認 AN: YES
 ```
 
 PR #274: GitHub 復旧後 merge
