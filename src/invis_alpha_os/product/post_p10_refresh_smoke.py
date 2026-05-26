@@ -69,7 +69,7 @@ def forward_p3_recommended_actions(
             if insuf > max(stale, 1) * 5:
                 actions.append(
                     "Dominant skip: insufficient_future_bars — fresh weekly rows need time in cache; "
-                    "validate forward-p3-status breakdown after each wave (docs/161)"
+                    "validate p3-path-to-usable or forward-p3-status after each wave (docs/161)"
                 )
         if insufficient_future_share is not None and insufficient_future_share >= 0.9:
             actions.append(
@@ -89,7 +89,7 @@ def forward_p3_recommended_actions(
             actions.append(str(gate["next_action"]))
         elif gate.get("status") == "ready":
             actions.append(
-                "L1 ready: validate forward-p3-status p3_weekly_write_plan.write_now_count > 0"
+                "L1 ready: validate p3-path-to-usable path_b write_now_count or forward-p3-status plan"
             )
         return actions
 
