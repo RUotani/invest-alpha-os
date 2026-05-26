@@ -596,6 +596,35 @@ def planned_writes_from_batch_previews(batch_previews: dict[str, Any]) -> list[d
     return out
 
 
+def default_watchlist_cache_planned_writes(*, path_base: Path | None = None) -> tuple[list[dict[str, str]], int]:
+    """Planned as_of writes from on-disk tier watchlist caches (read-only)."""
+
+    from invis_alpha_os.config.paths import ROOT_DIR
+    from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
+    from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
+
+    root = path_base or ROOT_DIR
+    cache_dir = root / "outputs" / "market_data" / "us_daily_bars"
+    planned: list[dict[str, str]] = []
+    missing_cache = 0
+    for sym in load_us_watchlist_tickers():
+        cache_path = cache_dir / f"{sym}.json"
+        if not cache_path.is_file():
+            missing_cache += 1
+            continue
+        loaded = load_us_daily_bars_json_file(cache_path, expect_symbol=sym)
+        if loaded is None:
+            missing_cache += 1
+            continue
+        bars, _meta = loaded
+        dates = bar_dates(bars)
+        if not dates:
+            missing_cache += 1
+            continue
+        planned.append({"symbol": sym, "last_date": dates[-1].isoformat()})
+    return planned, missing_cache
+
+
 def build_duplicate_week_write_preflight(
     *,
     observation_path: Path,
@@ -624,27 +653,7 @@ def build_duplicate_week_write_preflight(
     planned = list(planned_writes or [])
 
     if not planned:
-        from invis_alpha_os.config.paths import ROOT_DIR
-        from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
-        from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
-
-        root = path_base or ROOT_DIR
-        cache_dir = root / "outputs" / "market_data" / "us_daily_bars"
-        for sym in load_us_watchlist_tickers():
-            cache_path = cache_dir / f"{sym}.json"
-            if not cache_path.is_file():
-                missing_cache += 1
-                continue
-            loaded = load_us_daily_bars_json_file(cache_path, expect_symbol=sym)
-            if loaded is None:
-                missing_cache += 1
-                continue
-            bars, _meta = loaded
-            dates = bar_dates(bars)
-            if not dates:
-                missing_cache += 1
-                continue
-            planned.append({"symbol": sym, "last_date": dates[-1].isoformat()})
+        planned, missing_cache = default_watchlist_cache_planned_writes(path_base=path_base)
 
     for item in planned:
         sym = str(item.get("symbol") or "").strip().upper()

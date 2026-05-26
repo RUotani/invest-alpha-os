@@ -642,6 +642,7 @@ def run_weekly_us_observation_cycle(
     write_observation_log: bool = False,
     observation_service: ObservationService | None = None,
     include_peer_sync: bool = False,
+    skip_duplicate_iso_week: bool = False,
 ) -> WeeklyUsObservationResult:
     """Run cache-only US signal batch + optional observation_log append."""
 
@@ -691,6 +692,7 @@ def run_weekly_us_observation_cycle(
             path_base=root,
             service=observation_service,
             quality_snapshot=quality,
+            skip_duplicate_iso_week=skip_duplicate_iso_week,
         )
         if observation_batch_failed(obs_result):
             raise ValueError(f"observation batch failed: {obs_result}")
@@ -841,6 +843,12 @@ def format_weekly_us_observation_markdown(
                 f"- manifest entries: {ws.get('entry_count', 0)}",
             ]
         )
+        dup_skip = int(ws.get("skipped_duplicate_iso_week") or 0)
+        if dup_skip:
+            lines.append(f"- skipped_duplicate_iso_week: {dup_skip}")
+            syms = ws.get("skipped_duplicate_symbols") or []
+            if syms:
+                lines.append(f"- skipped_duplicate_symbols: {', '.join(str(s) for s in syms[:12])}")
     if result.peer_sync_write_stats:
         ps = result.peer_sync_write_stats
         lines.extend(

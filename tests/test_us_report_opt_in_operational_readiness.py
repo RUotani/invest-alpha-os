@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import click
 import pytest
 from typer.main import get_command
 from typer.testing import CliRunner
@@ -39,8 +38,7 @@ def test_daily_command_registers_manifest_opt_in_long_option() -> None:
     assert daily_cmd is not None
     opts: list[str] = []
     for param in daily_cmd.params:
-        if isinstance(param, click.Option):
-            opts.extend(param.opts)
+        opts.extend(getattr(param, "opts", []) or [])
     assert "--us-signals-dry-run-manifest" in opts
 
 
