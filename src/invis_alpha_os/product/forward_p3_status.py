@@ -176,7 +176,8 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
                 f"- {bd.get('path_to_usable_note', '')}",
             ]
         )
-        for key, count in list((bd.get("outcomes") or {}).items())[:10]:
+        outcome_items = bd.get("us_signal_outcomes") or bd.get("outcomes") or {}
+        for key, count in list(outcome_items.items())[:10]:
             lines.append(f"- {key}: {count}")
         bt = bd.get("backtest_within_cache_matched")
         if bt is not None:

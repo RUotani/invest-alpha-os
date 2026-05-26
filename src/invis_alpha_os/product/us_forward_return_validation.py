@@ -412,6 +412,11 @@ def compute_us_forward_resolution_breakdown(
         "rows_considered": signal_rows,
         "matched_rows": matched,
         "outcomes": dict(sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))),
+        "us_signal_outcomes": {
+            k: v
+            for k, v in sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))
+            if k != "not_us_signal_row"
+        },
         "samples_needed_for_usable": max(0, THIN_SAMPLE_THRESHOLD - matched),
         "p3_progress": forward_p3_progress(matched),
         "skip_pattern": skip_pattern,
