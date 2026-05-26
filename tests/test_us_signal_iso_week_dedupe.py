@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -14,8 +15,11 @@ from invis_alpha_os.observation.us_signals_batch import (
 )
 from invis_alpha_os.product.us_signal_iso_week_dedupe import (
     build_p3_weekly_write_plan,
+    estimate_p3_iso_week_rollover,
     evaluate_p3_l1_write_gate,
+    iso_week_key,
     load_existing_symbol_iso_week_keys,
+    next_iso_week_start,
 )
 
 REPO = Path(__file__).resolve().parents[1]
@@ -95,3 +99,21 @@ def test_evaluate_p3_l1_write_gate_blocked_duplicate() -> None:
     assert gate["status"] == "blocked_duplicate_iso_week"
     assert gate["l1_recommended"] is False
     assert "will_be_matchable_after_date" in gate["next_action"]
+
+
+def test_next_iso_week_start() -> None:
+    # 2024-04-10 is Wednesday ISO week 15
+    nxt = next_iso_week_start(date(2024, 4, 10))
+    assert nxt.isoformat() == "2024-04-15"
+    assert iso_week_key(nxt) != iso_week_key(date(2024, 4, 10))
+
+
+def test_estimate_p3_iso_week_rollover() -> None:
+    rollover = estimate_p3_iso_week_rollover(
+        skip_duplicate=[{"symbol": "MSFT", "last_date": "2024-04-10"}],
+        reference_date=date(2024, 4, 10),
+    )
+    assert rollover["status"] == "waiting_for_iso_week_rollover"
+    assert rollover["earliest_next_iso_week_start"] == "2024-04-15"
+    assert rollover["days_until_earliest_rollover"] == 5
+    assert rollover["projected_write_now_symbols_at_rollover"] == 1

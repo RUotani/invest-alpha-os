@@ -680,6 +680,13 @@ def build_duplicate_week_write_preflight(
         else:
             new_week_writes += 1
 
+    skip_items = [
+        {"symbol": w["symbol"], "last_date": w["event_date"]} for w in warnings
+    ]
+    from invis_alpha_os.product.us_signal_iso_week_dedupe import estimate_p3_iso_week_rollover
+
+    rollover = estimate_p3_iso_week_rollover(skip_duplicate=skip_items)
+
     return {
         "schema_version": 1,
         "status": "ok",
@@ -689,6 +696,7 @@ def build_duplicate_week_write_preflight(
         "would_new_symbol_week_count": new_week_writes,
         "missing_cache_symbols": missing_cache,
         "warnings": warnings[:25],
+        "iso_week_rollover": rollover,
         "recommendation": (
             "Skip re-logging symbols whose ISO week already exists in observation_log; "
             "prefer one row per symbol per ISO week for P3 forward validation."
@@ -757,6 +765,16 @@ def format_duplicate_week_preflight_markdown(preflight: dict[str, Any]) -> str:
         lines.append(
             f"- {warn.get('symbol')} {warn.get('iso_year')}-W{int(warn.get('iso_week', 0)):02d}: "
             f"{warn.get('existing_rows_in_log')} existing rows (event={warn.get('event_date')})"
+        )
+    rollover = preflight.get("iso_week_rollover") or {}
+    if rollover.get("earliest_next_iso_week_start"):
+        lines.extend(
+            [
+                "",
+                f"- earliest_next_iso_week_start: {rollover.get('earliest_next_iso_week_start')}",
+                f"- days_until_earliest_rollover: {rollover.get('days_until_earliest_rollover')}",
+                f"- l1_unblock_hint: {rollover.get('l1_unblock_hint', '')}",
+            ]
         )
     return "\n".join(lines)
 

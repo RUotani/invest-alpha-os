@@ -314,13 +314,6 @@ def build_post_p10_refresh_smoke_summary(
             "detail": f"taxonomy={tax.get('taxonomy')} reasons={tax.get('reasons')}",
         },
     ]
-    matched_rows = int(forward.get("rows_matched") or 0)
-    stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
-    hard_pass = (
-        not tier1_missing
-        and matched_rows > 0
-        and str(sq.get("status") or "") in {"thin", "usable"}
-    )
     from invis_alpha_os.product.us_signal_iso_week_dedupe import (
         build_p3_l1_write_gate_for_observation,
     )
@@ -329,6 +322,25 @@ def build_post_p10_refresh_smoke_summary(
         observation_path=obs,
         stall_diagnosis=forward.get("p3_stall_diagnosis"),
         path_base=root,
+    )
+    if l1_gate:
+        rollover = l1_gate.get("iso_week_rollover") or {}
+        checks.append(
+            {
+                "id": "p3_l1_write_gate",
+                "status": "pass" if l1_gate.get("l1_recommended") else "expected_blocked",
+                "detail": (
+                    f"status={l1_gate.get('status')} write_now={l1_gate.get('write_now_count', 0)} "
+                    f"rollover_days={rollover.get('days_until_earliest_rollover')}"
+                ),
+            }
+        )
+    matched_rows = int(forward.get("rows_matched") or 0)
+    stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
+    hard_pass = (
+        not tier1_missing
+        and matched_rows > 0
+        and str(sq.get("status") or "") in {"thin", "usable"}
     )
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
