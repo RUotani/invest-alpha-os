@@ -105,6 +105,8 @@ def test_weekly_cycle_and_observation_log(mini_us_cache: Path) -> None:
     md = format_weekly_us_observation_markdown(result, path_base=mini_us_cache)
     assert "Observation log write (this run)" in md
     assert "logged: 1" in md
+    assert "## US forward resolution breakdown" in md
+    assert "insufficient_future" in md
     summary = summarize_us_observation_log(svc.observation_path)
     assert summary["us_signal_rows"] == 1
     assert summary["rows"][0]["symbol"] == "MSFT"
