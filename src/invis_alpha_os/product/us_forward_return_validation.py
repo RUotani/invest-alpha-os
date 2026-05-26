@@ -405,7 +405,7 @@ def compute_us_forward_resolution_breakdown(
     skip_reasons = {k: v for k, v in outcomes.items() if k != "matched"}
     skip_pattern = classify_forward_skip_pattern(skip_reasons, signal_rows=signal_rows)
 
-    return {
+    payload: dict[str, Any] = {
         "schema_version": 1,
         "path_base": str(root),
         "observation_path": str(observation_path),
@@ -422,6 +422,23 @@ def compute_us_forward_resolution_breakdown(
         "observation_only": True,
         "backtest_within_cache": backtest_within_cache,
     }
+    if not backtest_within_cache:
+        try:
+            exploratory = compute_us_forward_resolution_breakdown(
+                observation_path=observation_path,
+                cache_dir=cache_dir,
+                path_base=root,
+                horizons=horizons,
+                reference_date=reference_date,
+                backtest_within_cache=True,
+            )
+            payload["backtest_within_cache_matched"] = int(exploratory.get("matched_rows") or 0)
+            payload["backtest_exploratory_note"] = (
+                "Exploratory upper bound only — not P3 milestone (docs/161 opt-in backtest)"
+            )
+        except (FileNotFoundError, ValueError):
+            payload["backtest_within_cache_matched"] = None
+    return payload
 
 
 def compute_us_forward_returns(

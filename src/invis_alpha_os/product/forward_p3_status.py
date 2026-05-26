@@ -178,6 +178,12 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         )
         for key, count in list((bd.get("outcomes") or {}).items())[:10]:
             lines.append(f"- {key}: {count}")
+        bt = bd.get("backtest_within_cache_matched")
+        if bt is not None:
+            lines.append(f"- backtest_within_cache_matched (exploratory): {bt}")
+            note = bd.get("backtest_exploratory_note")
+            if note:
+                lines.append(f"- {note}")
     actions = report.get("recommended_actions") or []
     if actions:
         lines.extend(["", "## Recommended actions (read-only)"])

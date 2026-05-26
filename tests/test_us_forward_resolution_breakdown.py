@@ -56,6 +56,7 @@ def test_classify_row_matched_with_fixture(
     )
     assert report["rows_considered"] >= 1
     assert report["outcomes"].get("matched", 0) >= 0
+    assert "backtest_within_cache_matched" in report
 
 
 def test_classify_outcome_insufficient_future(tmp_path: Path) -> None:
