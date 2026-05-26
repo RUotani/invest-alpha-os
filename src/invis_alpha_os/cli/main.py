@@ -706,6 +706,39 @@ def validate_forward_p3_status_command(
         raise typer.Exit(2)
 
 
+@validate_app.command("p3-path-to-usable")
+def validate_p3_path_to_usable_command(
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+    horizon_rows: int = typer.Option(
+        50,
+        "--horizon-rows",
+        help="Max horizon timeline_rows in export (default 50; min 16).",
+    ),
+) -> None:
+    """Read-only P3 path A/B summary + horizon timeline (lighter than forward-p3-status)."""
+
+    from invis_alpha_os.product.p3_path_to_usable import (
+        build_p3_path_to_usable_bundle,
+        format_p3_path_to_usable_bundle_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    if horizon_rows < 1:
+        typer.echo("validate p3-path-to-usable: --horizon-rows must be >= 1", err=True)
+        raise typer.Exit(2)
+    report = build_p3_path_to_usable_bundle(
+        path_base=ROOT_DIR,
+        horizon_timeline_max_rows=horizon_rows,
+    )
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_p3_path_to_usable_bundle_markdown(report))
+    else:
+        typer.echo("validate p3-path-to-usable: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+
+
 @validate_app.command("peer-sync-forward-returns")
 def validate_peer_sync_forward_returns_command(
     observation_log: Optional[str] = typer.Option(

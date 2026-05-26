@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 
 
 def build_p3_path_to_usable(
@@ -82,7 +85,7 @@ def build_p3_path_to_usable(
             "Wait for cache horizon on existing log rows; re-run validate forward-p3-status weekly"
         )
     if not next_steps:
-        next_steps.append("validate forward-p3-status --format markdown")
+        next_steps.append("validate p3-path-to-usable --format markdown")
 
     return {
         "schema_version": 1,
@@ -150,3 +153,101 @@ def format_p3_path_to_usable_markdown(path: dict[str, Any]) -> str:
         for step in steps:
             lines.append(f"- {step}")
     return "\n".join(lines)
+
+
+def _slim_weekly_write_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
+    plan = plan or {}
+    l1 = plan.get("l1_gate") or {}
+    rollover = plan.get("iso_week_rollover") or l1.get("iso_week_rollover") or {}
+    return {
+        "write_now_count": plan.get("write_now_count", 0),
+        "skip_duplicate_count": plan.get("skip_duplicate_count", 0),
+        "l1_status": l1.get("status"),
+        "l1_recommended": l1.get("l1_recommended"),
+        "days_until_earliest_rollover": rollover.get("days_until_earliest_rollover"),
+        "earliest_next_iso_week_start": rollover.get("earliest_next_iso_week_start"),
+    }
+
+
+def build_p3_path_to_usable_bundle(
+    *,
+    path_base: Path | None = None,
+    observation_path: Path | None = None,
+    cache_dir: Path | None = None,
+    horizon_timeline_max_rows: int = 50,
+) -> dict[str, Any]:
+    """Focused read-only bundle: path + expanded horizon timeline (no full P3 aggregate)."""
+
+    from invis_alpha_os.product.forward_p3_status import build_forward_p3_status_bundle
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    root = path_base or ROOT_DIR
+    obs = observation_path or (OUTPUTS_DIR / "observation_log" / "observation_log.jsonl")
+    cache = cache_dir or (OUTPUTS_DIR / "market_data" / "us_daily_bars")
+    export_limit = max(16, int(horizon_timeline_max_rows))
+
+    full = build_forward_p3_status_bundle(
+        path_base=root,
+        observation_path=obs,
+        cache_dir=cache,
+    )
+    path = dict(full.get("p3_path_to_usable") or {})
+    us_forward = full.get("us_forward") or {}
+    us_matched = int(us_forward.get("rows_matched") or 0)
+    if not path:
+        from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+
+        path = build_p3_path_to_usable(
+            matched_normal=us_matched,
+            thin_threshold=THIN_SAMPLE_THRESHOLD,
+            p3_us_forward_summary=full.get("p3_us_forward_summary"),
+            p3_weekly_write_plan=full.get("p3_weekly_write_plan"),
+            p3_horizon_timeline=full.get("p3_horizon_timeline"),
+            stall_diagnosis=full.get("p3_stall_diagnosis"),
+        )
+    timeline = dict(full.get("p3_horizon_timeline") or {})
+    existing_rows = len(timeline.get("timeline_rows") or [])
+    if export_limit > existing_rows:
+        try:
+            stall = compute_us_forward_p3_stall_diagnosis(
+                observation_path=obs,
+                cache_dir=cache,
+                horizon_timeline_max_rows=export_limit,
+            )
+            timeline = dict(stall.get("p3_horizon_timeline") or timeline)
+        except (FileNotFoundError, ValueError):
+            pass
+
+    return {
+        "schema_version": 1,
+        "observation_only": True,
+        "p3_path_to_usable": path,
+        "p3_horizon_timeline": timeline,
+        "p3_weekly_write_plan_summary": _slim_weekly_write_plan(
+            full.get("p3_weekly_write_plan")
+        ),
+        "us_forward_matched_normal": int(
+            us_forward.get("rows_matched") or path.get("matched_normal") or 0
+        ),
+        "us_forward_sample_quality": us_forward.get("sample_quality"),
+        "horizon_timeline_max_rows": export_limit,
+        "related_commands": [
+            ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
+            ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
+        ],
+    }
+
+
+def format_p3_path_to_usable_bundle_markdown(bundle: dict[str, Any]) -> str:
+    path = bundle.get("p3_path_to_usable") or {}
+    parts = [format_p3_path_to_usable_markdown(path)]
+    timeline = bundle.get("p3_horizon_timeline") or {}
+    if timeline:
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            format_p3_horizon_match_timeline_markdown,
+        )
+
+        parts.extend(["", format_p3_horizon_match_timeline_markdown(timeline)])
+    return "\n".join(parts)
