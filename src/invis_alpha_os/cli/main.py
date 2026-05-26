@@ -449,6 +449,11 @@ def weekly_us_observation_command(
         "--with-peer-sync",
         help="Include cache-only peer_sync section from config/peer_map.yaml.",
     ),
+    skip_duplicate_iso_week: bool = typer.Option(
+        False,
+        "--skip-duplicate-iso-week",
+        help="When writing observation_log, skip symbols whose ISO week already exists (P3; opt-in).",
+    ),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
     """P4: US cache-only weekly cycle — manifest, quality, optional observation_log + daily."""
@@ -459,6 +464,12 @@ def weekly_us_observation_command(
         raise typer.Exit(2)
     if write_observation_log and dry_run:
         typer.echo("weekly-us-observation: --write-observation-log conflicts with --dry-run", err=True)
+        raise typer.Exit(2)
+    if skip_duplicate_iso_week and not write_observation_log:
+        typer.echo(
+            "weekly-us-observation: --skip-duplicate-iso-week requires --write-observation-log",
+            err=True,
+        )
         raise typer.Exit(2)
     if with_daily_report and dry_run:
         typer.echo("weekly-us-observation: --with-daily-report conflicts with --dry-run", err=True)
@@ -473,6 +484,7 @@ def weekly_us_observation_command(
             write_observation_log=write_observation_log,
             observation_service=_obs_service() if write_observation_log else None,
             include_peer_sync=with_peer_sync,
+            skip_duplicate_iso_week=skip_duplicate_iso_week,
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)

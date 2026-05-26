@@ -21,6 +21,7 @@ def log_us_signals_batch_observations(
     path_base: Path,
     service: ObservationService,
     quality_snapshot: dict[str, Any] | None = None,
+    skip_duplicate_iso_week: bool = False,
 ) -> dict[str, Any]:
     """Append one observation_log row per manifest entry (read-only signal preview)."""
 
@@ -33,6 +34,7 @@ def log_us_signals_batch_observations(
             "entry_count": result.get("entry_count", 0),
             "logged": 0,
             "skipped": 0,
+            "skipped_duplicate_iso_week": 0,
             "observation_only": True,
             "live_http": False,
         }
@@ -44,14 +46,37 @@ def log_us_signals_batch_observations(
             sym = row.get("symbol")
             if sym:
                 veto_by_symbol[str(sym).strip().upper()] = row
+    existing_iso_weeks: set[tuple[str, int, int]] = set()
+    if skip_duplicate_iso_week:
+        from invis_alpha_os.product.us_signal_iso_week_dedupe import (
+            is_duplicate_iso_week_key,
+            load_existing_symbol_iso_week_keys,
+            preview_iso_week_key,
+        )
+
+        existing_iso_weeks = load_existing_symbol_iso_week_keys(service.observation_path)
     logged = 0
     skipped = 0
+    skipped_duplicate_iso_week = 0
+    skipped_duplicate_symbols: list[str] = []
     for preview in previews:
         sym = preview.get("symbol") or preview.get("expect_symbol")
         if not sym:
             skipped += 1
             continue
         sym_u = str(sym).strip().upper()
+        if skip_duplicate_iso_week:
+            from invis_alpha_os.product.us_signal_iso_week_dedupe import (
+                is_duplicate_iso_week_key,
+                preview_iso_week_key,
+            )
+
+            week_key = preview_iso_week_key(preview)
+            if week_key is not None and is_duplicate_iso_week_key(week_key, existing_iso_weeks):
+                skipped_duplicate_iso_week += 1
+                if sym_u not in skipped_duplicate_symbols:
+                    skipped_duplicate_symbols.append(sym_u)
+                continue
         veto_row = veto_by_symbol.get(sym_u)
         veto_triggered: bool | None = None
         veto_rules: list[str] | None = None
@@ -65,11 +90,20 @@ def log_us_signals_batch_observations(
         )
         service.log_observation(sym_u, note)
         logged += 1
+        if skip_duplicate_iso_week:
+            from invis_alpha_os.product.us_signal_iso_week_dedupe import preview_iso_week_key
+
+            week_key = preview_iso_week_key(preview)
+            if week_key is not None:
+                existing_iso_weeks.add(week_key)
     return {
         "manifest_status": manifest_status,
         "entry_count": result.get("entry_count", 0),
         "logged": logged,
         "skipped": skipped,
+        "skipped_duplicate_iso_week": skipped_duplicate_iso_week,
+        "skipped_duplicate_symbols": skipped_duplicate_symbols[:16],
+        "skip_duplicate_iso_week": skip_duplicate_iso_week,
         "observation_only": True,
         "live_http": False,
     }
@@ -82,4 +116,9 @@ def observation_batch_failed(result: dict[str, Any]) -> bool:
         return True
     entry_count = int(result.get("entry_count") or 0)
     logged = int(result.get("logged") or 0)
-    return entry_count > 0 and logged == 0
+    if entry_count > 0 and logged == 0:
+        dup_skipped = int(result.get("skipped_duplicate_iso_week") or 0)
+        if dup_skipped >= entry_count:
+            return False
+        return True
+    return False

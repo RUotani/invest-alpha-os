@@ -110,16 +110,27 @@ def build_forward_p3_status_bundle(
     )
 
     p3_us_forward_summary: dict[str, Any] = {}
+    p3_weekly_write_plan: dict[str, Any] = {}
     if p3_stall_diagnosis:
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
             build_p3_us_forward_portfolio_summary,
+            default_watchlist_cache_planned_writes,
         )
+        from invis_alpha_os.product.us_signal_iso_week_dedupe import build_p3_weekly_write_plan
 
         p3_us_forward_summary = build_p3_us_forward_portfolio_summary(
             stall_diagnosis=p3_stall_diagnosis,
             us_matched=us_matched,
             thin_threshold=THIN_SAMPLE_THRESHOLD,
         )
+        try:
+            planned, _missing = default_watchlist_cache_planned_writes(path_base=root)
+            p3_weekly_write_plan = build_p3_weekly_write_plan(
+                observation_path=obs,
+                planned_writes=planned,
+            )
+        except (FileNotFoundError, ValueError):
+            p3_weekly_write_plan = {}
 
     return {
         "schema_version": 1,
@@ -130,6 +141,7 @@ def build_forward_p3_status_bundle(
         "us_forward_resolution_breakdown": resolution_breakdown,
         "p3_stall_diagnosis": p3_stall_diagnosis,
         "p3_us_forward_summary": p3_us_forward_summary,
+        "p3_weekly_write_plan": p3_weekly_write_plan,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -240,6 +252,23 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         )
 
         lines.extend(["", format_p3_us_forward_portfolio_summary_markdown(summary)])
+    plan = report.get("p3_weekly_write_plan") or {}
+    if plan.get("write_now_count") is not None:
+        lines.extend(
+            [
+                "",
+                "## P3 weekly write plan (read-only)",
+                f"- write_now_count: {plan.get('write_now_count', 0)}",
+                f"- skip_duplicate_count: {plan.get('skip_duplicate_count', 0)}",
+                f"- l1_hint: {plan.get('l1_hint', '')}",
+            ]
+        )
+        write_now = plan.get("write_now") or []
+        if write_now:
+            preview = ", ".join(
+                f"{x.get('symbol')}({x.get('last_date')})" for x in write_now[:8]
+            )
+            lines.append(f"- write_now: {preview}")
     stall = report.get("p3_stall_diagnosis") or {}
     if stall.get("why_matched_stuck"):
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import format_p3_stall_diagnosis_markdown

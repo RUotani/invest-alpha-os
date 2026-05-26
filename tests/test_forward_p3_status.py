@@ -106,3 +106,7 @@ def test_forward_p3_status_includes_stall_diagnosis(
     assert summary.get("matched_normal") is not None
     assert "p3_buckets" in summary
     assert "## P3 US forward portfolio summary" in md
+    plan = report.get("p3_weekly_write_plan") or {}
+    if plan:
+        assert "write_now_count" in plan
+        assert "## P3 weekly write plan" in md
