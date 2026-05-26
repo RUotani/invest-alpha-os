@@ -139,6 +139,21 @@ def build_forward_p3_status_bundle(
         l1_write_gate=l1_gate or None,
     )
 
+    p3_path_to_usable: dict[str, Any] = {}
+    if p3_stall_diagnosis or p3_us_forward_summary:
+        from invis_alpha_os.product.p3_path_to_usable import build_p3_path_to_usable
+
+        p3_path_to_usable = build_p3_path_to_usable(
+            matched_normal=us_matched,
+            thin_threshold=THIN_SAMPLE_THRESHOLD,
+            p3_us_forward_summary=p3_us_forward_summary,
+            p3_weekly_write_plan=p3_weekly_write_plan,
+            p3_horizon_timeline=p3_stall_diagnosis.get("p3_horizon_timeline") or {},
+            stall_diagnosis=p3_stall_diagnosis,
+        )
+        for step in p3_path_to_usable.get("next_steps") or []:
+            recommended = list(dict.fromkeys([*recommended, str(step)]))
+
     return {
         "schema_version": 1,
         "thin_threshold": THIN_SAMPLE_THRESHOLD,
@@ -150,6 +165,7 @@ def build_forward_p3_status_bundle(
         "p3_us_forward_summary": p3_us_forward_summary,
         "p3_weekly_write_plan": p3_weekly_write_plan,
         "p3_horizon_timeline": p3_stall_diagnosis.get("p3_horizon_timeline") or {},
+        "p3_path_to_usable": p3_path_to_usable,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -253,6 +269,11 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
             note = bd.get("backtest_exploratory_note")
             if note:
                 lines.append(f"- {note}")
+    path_usable = report.get("p3_path_to_usable") or {}
+    if path_usable.get("headline"):
+        from invis_alpha_os.product.p3_path_to_usable import format_p3_path_to_usable_markdown
+
+        lines.extend(["", format_p3_path_to_usable_markdown(path_usable)])
     summary = report.get("p3_us_forward_summary") or {}
     if summary:
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (

@@ -124,12 +124,50 @@ def evaluate_portfolio_readiness(
             forward = None
 
     p3_l1_write_gate: dict[str, Any] | None = None
+    p3_path_to_usable: dict[str, Any] | None = None
     if forward:
+        stall_fwd = forward.get("p3_stall_diagnosis") or {}
         p3_l1_write_gate = build_p3_l1_write_gate_for_observation(
             observation_path=obs,
-            stall_diagnosis=forward.get("p3_stall_diagnosis"),
+            stall_diagnosis=stall_fwd,
             path_base=root,
         )
+        if stall_fwd:
+            from invis_alpha_os.product.p3_path_to_usable import build_p3_path_to_usable
+            from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+                build_p3_us_forward_portfolio_summary,
+                default_watchlist_cache_planned_writes,
+            )
+            from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+            from invis_alpha_os.product.us_signal_iso_week_dedupe import build_p3_weekly_write_plan
+
+            us_matched = int(forward.get("rows_matched") or 0)
+            summary = build_p3_us_forward_portfolio_summary(
+                stall_diagnosis=stall_fwd,
+                us_matched=us_matched,
+                thin_threshold=THIN_SAMPLE_THRESHOLD,
+            )
+            write_plan: dict[str, Any] = {}
+            try:
+                planned, _missing = default_watchlist_cache_planned_writes(path_base=root)
+                will_match = int(
+                    (stall_fwd.get("p3_bucket_counts") or {}).get("will_be_matchable_after_date", 0)
+                )
+                write_plan = build_p3_weekly_write_plan(
+                    observation_path=obs,
+                    planned_writes=planned,
+                    will_be_matchable_after_date_rows=will_match,
+                )
+            except (FileNotFoundError, ValueError):
+                write_plan = {}
+            p3_path_to_usable = build_p3_path_to_usable(
+                matched_normal=us_matched,
+                thin_threshold=THIN_SAMPLE_THRESHOLD,
+                p3_us_forward_summary=summary,
+                p3_weekly_write_plan=write_plan,
+                p3_horizon_timeline=stall_fwd.get("p3_horizon_timeline") or {},
+                stall_diagnosis=stall_fwd,
+            )
 
     shadow_count = portfolio.shadow_position_count
     with_evidence = portfolio.positions_with_evidence_ids
@@ -246,6 +284,8 @@ def evaluate_portfolio_readiness(
                     f"; iso_rollover_in_days={rollover.get('days_until_earliest_rollover')} "
                     f"earliest={rollover.get('earliest_next_iso_week_start')}"
                 )
+        if p3_path_to_usable and p3_path_to_usable.get("dominant_path"):
+            detail += f"; p3_path={p3_path_to_usable['dominant_path']}"
         p3 = _milestone(
             milestone_id="P3",
             passed=False,
@@ -346,6 +386,7 @@ def evaluate_portfolio_readiness(
         "p3_forward_progress": p3_forward_progress,
         "p3_us_forward_summary": p3_us_forward_summary,
         "p3_l1_write_gate": p3_l1_write_gate,
+        "p3_path_to_usable": p3_path_to_usable,
         "peer_forward_usable": peer_forward_usable,
         "peer_forward_matched": peer_forward_matched,
         "peer_forward_note": peer_forward_note,

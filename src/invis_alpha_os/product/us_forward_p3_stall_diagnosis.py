@@ -321,6 +321,9 @@ def build_p3_horizon_match_timeline(
         return matched_normal + flip
 
     min_s = min(sessions_list) if sessions_list else None
+    hist: Counter[str] = Counter()
+    for s in sessions_list:
+        hist[_sessions_bin(s)] += 1
     timeline_rows: list[dict[str, Any]] = []
     for d in pending[:max_rows]:
         timeline_rows.append(
@@ -358,6 +361,7 @@ def build_p3_horizon_match_timeline(
             else None
         ),
         "headline": headline,
+        "sessions_until_histogram": dict(sorted(hist.items())),
         "timeline_rows": timeline_rows,
         "note": (
             "Rows already in observation_log — they mature when US daily cache extends; "

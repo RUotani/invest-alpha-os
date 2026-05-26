@@ -417,6 +417,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             lines.append(f"- p3_stall: {p3_sum['why_matched_stuck_headline']}")
         if p3_sum.get("horizon_timeline_headline"):
             lines.append(f"- p3_horizon: {p3_sum['horizon_timeline_headline']}")
+        p3_path = readiness.get("p3_path_to_usable") or {}
+        if p3_path.get("dominant_path"):
+            lines.append(
+                f"- p3_path_to_usable: {p3_path.get('dominant_path')} "
+                f"need={p3_path.get('samples_needed_for_usable', 0)}"
+            )
         l1_gate = readiness.get("p3_l1_write_gate") or {}
         if l1_gate.get("status"):
             lines.append(
