@@ -497,6 +497,7 @@ def compute_us_forward_p3_stall_diagnosis(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     reference_date: date | None = None,
     row_sample_limit: int = 24,
+    horizon_timeline_max_rows: int = 16,
 ) -> dict[str, Any]:
     """Classify why normal-mode matched stays below P3 usable (read-only)."""
 
@@ -648,6 +649,7 @@ def compute_us_forward_p3_stall_diagnosis(
         row_details=row_details,
         matched_normal=matched,
         thin_threshold=THIN_SAMPLE_THRESHOLD,
+        max_rows=max(1, int(horizon_timeline_max_rows)),
     )
     dedupe_counterfactual = _dedupe_counterfactual(
         obs_rows,

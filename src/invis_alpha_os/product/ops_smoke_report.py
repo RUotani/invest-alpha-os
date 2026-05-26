@@ -220,6 +220,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         ".venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format json",
         ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate jp-peer-sync-readiness --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log evidence-manifest "
         "--task-id ops_smoke_YYYYMMDD --report-date YYYY-MM-DD --summary read-only preflight",

@@ -181,6 +181,7 @@ def forward_validation_next_commands(*, exploratory: bool = False) -> list[str]:
 
     cmds = [
         ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",
