@@ -71,14 +71,6 @@ def build_forward_p3_status_bundle(
         tier1_missing = list(expansion.get("tier_1_missing_refresh_order") or [])
     except (FileNotFoundError, ValueError):
         tier1_missing = []
-    recommended = forward_p3_recommended_actions(
-        skip_pattern=skip_pattern,
-        tier1_missing=tier1_missing,
-        stale_skips=stale_skips,
-        forward_matched=us_matched,
-        stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
-        peer_sync_matched=peer_matched,
-    )
     log_lines = observation_log_line_count(obs)
     resolution_breakdown: dict[str, Any] = {}
     try:
@@ -89,6 +81,15 @@ def build_forward_p3_status_bundle(
         )
     except (FileNotFoundError, ValueError):
         resolution_breakdown = {}
+    recommended = forward_p3_recommended_actions(
+        skip_pattern=skip_pattern,
+        tier1_missing=tier1_missing,
+        stale_skips=stale_skips,
+        forward_matched=us_matched,
+        stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
+        peer_sync_matched=peer_matched,
+        resolution_outcomes=resolution_breakdown.get("outcomes"),
+    )
 
     return {
         "schema_version": 1,

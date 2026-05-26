@@ -28,6 +28,7 @@ def forward_p3_recommended_actions(
     forward_matched: int = 0,
     stale_skip_by_symbol: list[dict[str, Any]] | None = None,
     peer_sync_matched: int = 0,
+    resolution_outcomes: dict[str, int] | None = None,
 ) -> list[str]:
     """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
 
@@ -59,6 +60,14 @@ def forward_p3_recommended_actions(
             actions.append(
                 f"Historical stale skips may persist in log: {preview} (docs/161; new writes use fresh cache)"
             )
+        if resolution_outcomes:
+            insuf = int(resolution_outcomes.get("insufficient_future_bars") or 0)
+            stale = int(resolution_outcomes.get("cache_stale_event_after_cache_end") or 0)
+            if insuf > max(stale, 1) * 5:
+                actions.append(
+                    "Dominant skip: insufficient_future_bars — fresh weekly rows need time in cache; "
+                    "validate forward-p3-status breakdown after each wave (docs/161)"
+                )
         return actions
 
     actions: list[str] = []

@@ -48,6 +48,21 @@ def test_forward_p3_recommended_actions_mixed() -> None:
     assert "stale" in joined.lower() or "cache refresh" in joined.lower()
 
 
+def test_forward_p3_recommended_actions_insufficient_future_dominant() -> None:
+    actions = forward_p3_recommended_actions(
+        skip_pattern="mixed",
+        tier1_missing=[],
+        forward_matched=3,
+        resolution_outcomes={
+            "insufficient_future_bars": 200,
+            "cache_stale_event_after_cache_end": 10,
+            "matched": 3,
+        },
+    )
+    joined = " ".join(actions)
+    assert "insufficient_future_bars" in joined
+
+
 def test_forward_p3_recommended_actions_partial_matched() -> None:
     actions = forward_p3_recommended_actions(
         skip_pattern="mixed",
