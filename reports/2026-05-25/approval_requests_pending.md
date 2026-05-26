@@ -1,19 +1,17 @@
-# 承認 — 最新
+# 承認 — 最新（バッチ方式 · 2026-05-26）
 
-## 実行済み（wave20）
+| バッチ | 状態 |
+| --- | --- |
+| **L1** 回数=2 · 期限=2026-06-15 | **消費済み** · [L1](../2026-05-26/approved_execution_L1_batch_20260526.md) |
+| **L2** dry-run+send-test-1回 | **消費済み** · [L2](../2026-05-26/approved_execution_L2_gmail_20260526.md) |
 
-| ID | 結果 |
-|---|---|
-| AQ | log **454** · matched **3/10** |
-| AR | P10 OK |
-
-[詳細](./approved_execution_report_wave20_aq_ar_20260525.md) · [tracker](./us_forward_wave_tracker_20260525.md)
-
-## 次回 gated（wave21）
+## 待ち（任意）
 
 ```text
-承認 AS: YES
-承認 AT: YES
+承認 L3: YES · tier=P0-P2 · percent=55
+承認 L1: YES · 回数=2 · 期限=2026-06-30
 ```
 
-PR #274: GitHub 復旧後 merge
+## Agent 自律
+
+product PR · read-only validate · pytest · merge（オプション B）· Gmail dry-run のみ

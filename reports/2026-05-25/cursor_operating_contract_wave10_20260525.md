@@ -9,10 +9,10 @@
 最優先: US forward **3/10 → 10/10 usable**（`validate us-forward-returns` normal mode）。
 `operator/` 増築・Ops PR は禁止（DEFERRED_OPS_FREEZE）。
 
-人間承認はチャットのみ（形式統一）:
-  承認 W: YES
-  承認 X: YES
-ターミナル作業（weekly / P10 / pytest / gh）は Agent が実行。人間 PC 操作不要。
+人間承認はバッチのみ（L1/L2/L3 · wave ごと AQ/AR 廃止）:
+  承認 L1: YES · 回数=N · 期限=YYYY-MM-DD
+  承認 L2: YES · 範囲=dry-run+send-test-1回
+ターミナルは Agent。L1 未承認時は gated せず product/read-only。
 
 merge: オプション B（protocol §2）— CI SUCCESS + CLEAN + ローカル pytest 後 squash merge。
 ```
