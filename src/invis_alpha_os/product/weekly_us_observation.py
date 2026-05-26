@@ -537,7 +537,10 @@ def _build_research_checklist(
                     category="peer_forward_partial",
                     symbol=None,
                     reason=f"peer_sync forward {label}",
-                    next_action="gated weekly --write-observation-log --with-peer-sync (chat approval)",
+                    next_action=(
+                        "gated weekly --write-observation-log --with-peer-sync "
+                        "(L1 batch approval; see approval_requests_pending.md)"
+                    ),
                 )
             )
     if quality_snapshot:
@@ -849,8 +852,12 @@ def format_weekly_us_observation_markdown(
                     lines.append(f"- {item}")
 
     root = path_base or ROOT_DIR
-    obs_path = root / "outputs" / "observation_log" / "observation_log.jsonl"
-    if obs_path.is_file() and (result.observation_log or {}).get("us_signal_rows", 0) > 0:
+    obs_candidates = (
+        root / "outputs" / "observation_log" / "observation_log.jsonl",
+        root / "observation_log" / "observation_log.jsonl",
+    )
+    obs_path = next((p for p in obs_candidates if p.is_file()), None)
+    if obs_path is not None and (result.observation_log or {}).get("us_signal_rows", 0) > 0:
         try:
             from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
 
@@ -877,6 +884,33 @@ def format_weekly_us_observation_markdown(
             skip_pat = sq.get("skip_pattern")
             if skip_pat and skip_pat != "none":
                 lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
+            try:
+                from invis_alpha_os.product.us_forward_return_validation import (
+                    compute_us_forward_resolution_breakdown,
+                )
+
+                bd = compute_us_forward_resolution_breakdown(
+                    observation_path=obs_path,
+                    path_base=root,
+                )
+                lines.extend(
+                    [
+                        "",
+                        "## US forward resolution breakdown",
+                        f"- {bd.get('path_to_usable_note', '')}",
+                    ]
+                )
+                insuf_share = bd.get("insufficient_future_share")
+                if insuf_share is not None:
+                    lines.append(f"- insufficient_future_share: {insuf_share}")
+                bt = bd.get("backtest_within_cache_matched")
+                if bt is not None:
+                    lines.append(
+                        f"- backtest_within_cache_matched (exploratory): {bt} "
+                        f"— {bd.get('backtest_exploratory_note', 'docs/161')}"
+                    )
+            except (FileNotFoundError, ValueError):
+                pass
             ps_fwd = fwd.get("peer_sync_forward") or {}
             if ps_fwd:
                 ps_sq = ps_fwd.get("sample_quality") or {}
