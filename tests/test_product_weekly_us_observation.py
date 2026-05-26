@@ -133,6 +133,9 @@ def test_weekly_dry_run_reads_existing_observation_log(mini_us_cache: Path) -> N
     assert result.duplicate_week_preflight.get("would_duplicate_count", 0) >= 1
     md = format_weekly_us_observation_markdown(result, path_base=mini_us_cache)
     assert "Duplicate ISO-week write preflight" in md
+    if result.p3_path_preflight:
+        assert "## P3 path preflight" in md
+        assert result.p3_path_preflight.get("dominant_path")
 
 
 def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:

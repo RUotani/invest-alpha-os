@@ -98,6 +98,7 @@ def test_observation_health_thin_forward_adds_post_refresh_smoke(
 
     report = build_observation_health_report(path_base=tmp_path, observation_path=obs)
     assert any("post-refresh-smoke" in c for c in report.next_commands)
+    assert any("p3-horizon-timeline" in c and "horizon-rows 100" in c for c in report.next_commands)
     assert not any(
         c.startswith("weekly-us-observation --write-observation-log") for c in report.next_commands
     )
