@@ -463,6 +463,72 @@ def test_markdown_includes_p3_stall_and_next_actions(obs_and_cache: tuple[Path, 
     assert "normal matched" in md.lower() or "normal_matched" in md
 
 
+def test_duplicate_week_write_preflight_warns_same_iso_week(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        build_duplicate_week_write_preflight,
+    )
+
+    outputs = tmp_path / "outputs"
+    obs_path = outputs / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    bars = load_bars_json_file(FIX_MSFT)
+    event_date = bars[-21]["date"][:10]
+    usc.save_us_daily_bars_cache("MSFT", [dict(b) for b in bars], source="local_fixture")
+    note = "us_cache_signal observation_only status=ok momentum_label=neutral not buy/sell advice"
+    line = {
+        "id": "a",
+        "created_at": f"{event_date}T09:00:00+00:00",
+        "symbol": "MSFT",
+        "note": note,
+        "evidence_ids": [],
+        "tags": [],
+    }
+    obs_path.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    preflight = build_duplicate_week_write_preflight(
+        observation_path=obs_path,
+        planned_writes=[{"symbol": "MSFT", "last_date": event_date}],
+    )
+    assert preflight["would_duplicate_count"] == 1
+    assert preflight["would_new_symbol_week_count"] == 0
+    assert preflight["warnings"][0]["symbol"] == "MSFT"
+
+
+def test_duplicate_week_preflight_missing_log(tmp_path: Path) -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        build_duplicate_week_write_preflight,
+    )
+
+    preflight = build_duplicate_week_write_preflight(
+        observation_path=tmp_path / "missing.jsonl",
+        planned_writes=[{"symbol": "MSFT", "last_date": "2024-04-10"}],
+    )
+    assert preflight["status"] == "missing_log"
+    assert preflight["would_duplicate_count"] == 0
+
+
+def test_p3_us_forward_portfolio_summary_from_stall(obs_and_cache: tuple[Path, Path]) -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        build_p3_us_forward_portfolio_summary,
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    obs_path, cache_dir = obs_and_cache
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5, 20)
+    )
+    summary = build_p3_us_forward_portfolio_summary(
+        stall_diagnosis=stall, us_matched=int(stall.get("matched_normal") or 0)
+    )
+    assert summary["samples_needed_for_usable"] >= 0
+    assert "p3_buckets" in summary
+    assert summary["p3_buckets"]["matchable_now"] >= 0
+
+
 def test_dedupe_counterfactual_suppresses_duplicate_week(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import invis_alpha_os.data.us_daily_bars_cache as usc
 

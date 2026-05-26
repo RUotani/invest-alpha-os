@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import date
+from pathlib import Path
 from statistics import median
 from typing import Any
 
@@ -579,6 +580,206 @@ def compute_us_forward_p3_stall_diagnosis(
         "next_actions": next_actions,
         "observation_only": True,
     }
+
+
+def planned_writes_from_batch_previews(batch_previews: dict[str, Any]) -> list[dict[str, str]]:
+    """Extract symbol + cache as_of (last_date) from weekly batch preview payload."""
+
+    out: list[dict[str, str]] = []
+    for preview in batch_previews.get("previews") or []:
+        if not isinstance(preview, dict):
+            continue
+        sym = preview.get("symbol")
+        last_date = preview.get("last_date")
+        if sym and last_date:
+            out.append({"symbol": str(sym), "last_date": str(last_date)})
+    return out
+
+
+def build_duplicate_week_write_preflight(
+    *,
+    observation_path: Path,
+    planned_writes: list[dict[str, str]] | None = None,
+    path_base: Path | None = None,
+) -> dict[str, Any]:
+    """Read-only: planned cache-as_of writes that would duplicate an existing symbol+ISO week."""
+
+    if not observation_path.is_file():
+        return {
+            "schema_version": 1,
+            "status": "missing_log",
+            "observation_path": str(observation_path),
+            "would_duplicate_count": 0,
+            "would_new_symbol_week_count": 0,
+            "warnings": [],
+            "observation_only": True,
+        }
+
+    obs_rows, _ = _iter_us_signal_rows(observation_path)
+    groups = _symbol_week_groups(obs_rows)
+
+    warnings: list[dict[str, Any]] = []
+    new_week_writes = 0
+    missing_cache = 0
+    planned = list(planned_writes or [])
+
+    if not planned:
+        from invis_alpha_os.config.paths import ROOT_DIR
+        from invis_alpha_os.config.us_watchlist import load_us_watchlist_tickers
+        from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_json_file
+
+        root = path_base or ROOT_DIR
+        cache_dir = root / "outputs" / "market_data" / "us_daily_bars"
+        for sym in load_us_watchlist_tickers():
+            cache_path = cache_dir / f"{sym}.json"
+            if not cache_path.is_file():
+                missing_cache += 1
+                continue
+            loaded = load_us_daily_bars_json_file(cache_path, expect_symbol=sym)
+            if loaded is None:
+                missing_cache += 1
+                continue
+            bars, _meta = loaded
+            dates = bar_dates(bars)
+            if not dates:
+                missing_cache += 1
+                continue
+            planned.append({"symbol": sym, "last_date": dates[-1].isoformat()})
+
+    for item in planned:
+        sym = str(item.get("symbol") or "").strip().upper()
+        raw = item.get("event_date") or item.get("last_date")
+        if not sym or not raw:
+            continue
+        try:
+            evt = date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            continue
+        key = (sym, *_iso_week_key(evt))
+        existing = groups.get(key, [])
+        if existing:
+            warnings.append(
+                {
+                    "symbol": sym,
+                    "iso_year": key[1],
+                    "iso_week": key[2],
+                    "event_date": evt.isoformat(),
+                    "existing_rows_in_log": len(existing),
+                    "p3_effect": "duplicate_same_week_rows (ineffective for P3)",
+                }
+            )
+        else:
+            new_week_writes += 1
+
+    return {
+        "schema_version": 1,
+        "status": "ok",
+        "observation_path": str(observation_path),
+        "planned_symbol_count": len(planned),
+        "would_duplicate_count": len(warnings),
+        "would_new_symbol_week_count": new_week_writes,
+        "missing_cache_symbols": missing_cache,
+        "warnings": warnings[:25],
+        "recommendation": (
+            "Skip re-logging symbols whose ISO week already exists in observation_log; "
+            "prefer one row per symbol per ISO week for P3 forward validation."
+        ),
+        "observation_only": True,
+    }
+
+
+def build_p3_us_forward_portfolio_summary(
+    *,
+    stall_diagnosis: dict[str, Any],
+    us_matched: int,
+    thin_threshold: int = THIN_SAMPLE_THRESHOLD,
+) -> dict[str, Any]:
+    """Compact machine-readable block for forward-p3-status / portfolio readiness."""
+
+    buckets = stall_diagnosis.get("p3_bucket_counts") or {}
+    hm = stall_diagnosis.get("horizon_maturity") or {}
+    dc = stall_diagnosis.get("dedupe_counterfactual") or {}
+    matched = int(stall_diagnosis.get("matched_normal", us_matched))
+    needed = stall_diagnosis.get("samples_needed_for_usable")
+    if needed is None:
+        needed = max(0, thin_threshold - matched)
+    p3_prog = stall_diagnosis.get("p3_progress") or forward_p3_progress(matched)
+    return {
+        "schema_version": 1,
+        "matched_normal": matched,
+        "thin_threshold": thin_threshold,
+        "samples_needed_for_usable": needed,
+        "p3_progress_label": p3_prog.get("progress_label"),
+        "p3_buckets": {
+            "matchable_now": buckets.get(BUCKET_MATCHABLE_NOW, 0),
+            "will_be_matchable_after_date": buckets.get(BUCKET_WILL_MATCH_AFTER_DATE, 0),
+            "needs_new_cache_after_date": buckets.get(BUCKET_NEEDS_NEW_CACHE, 0),
+            "dead_rows_or_duplicate_rows": buckets.get(BUCKET_DEAD_OR_DUPLICATE, 0),
+        },
+        "user_category_counts": dict(stall_diagnosis.get("user_category_counts") or {}),
+        "why_matched_stuck_headline": (stall_diagnosis.get("why_matched_stuck") or {}).get(
+            "headline"
+        ),
+        "horizon_maturity": {
+            "will_be_matchable_after_date_rows": hm.get("will_be_matchable_after_date_rows"),
+            "median_sessions_until": hm.get("median_sessions_until"),
+            "l1_batch_recommended": (hm.get("l1_gate") or {}).get("run_l1_when"),
+        },
+        "dedupe_counterfactual": {
+            "matched_first_per_week_only": dc.get("matched_first_per_week_only"),
+            "duplicate_rows_suppressed": dc.get("duplicate_rows_suppressed"),
+            "unique_symbol_weeks": dc.get("unique_symbol_weeks"),
+            "will_be_matchable_first_per_week": dc.get("will_be_matchable_first_per_week"),
+            "samples_needed_counterfactual": dc.get("samples_needed_counterfactual"),
+        },
+        "observation_only": True,
+    }
+
+
+def format_duplicate_week_preflight_markdown(preflight: dict[str, Any]) -> str:
+    lines = [
+        "## Duplicate ISO-week write preflight (read-only)",
+        "",
+        f"- would_duplicate_count: {preflight.get('would_duplicate_count', 0)}",
+        f"- would_new_symbol_week_count: {preflight.get('would_new_symbol_week_count', 0)}",
+        f"- recommendation: {preflight.get('recommendation', '')}",
+    ]
+    for warn in preflight.get("warnings") or []:
+        lines.append(
+            f"- {warn.get('symbol')} {warn.get('iso_year')}-W{int(warn.get('iso_week', 0)):02d}: "
+            f"{warn.get('existing_rows_in_log')} existing rows (event={warn.get('event_date')})"
+        )
+    return "\n".join(lines)
+
+
+def format_p3_us_forward_portfolio_summary_markdown(summary: dict[str, Any]) -> str:
+    lines = [
+        "## P3 US forward portfolio summary",
+        "",
+        f"- matched_normal: {summary.get('matched_normal', 0)} / thin_threshold: {summary.get('thin_threshold', 10)}",
+        f"- samples_needed_for_usable: {summary.get('samples_needed_for_usable', 0)}",
+        f"- p3_progress: {summary.get('p3_progress_label', '')}",
+    ]
+    if summary.get("why_matched_stuck_headline"):
+        lines.append(f"- stall: {summary['why_matched_stuck_headline']}")
+    buckets = summary.get("p3_buckets") or {}
+    if buckets:
+        lines.append("")
+        lines.append("### P3 buckets")
+        for key, count in buckets.items():
+            lines.append(f"- {key}: {count}")
+    dc = summary.get("dedupe_counterfactual") or {}
+    if dc:
+        lines.extend(
+            [
+                "",
+                "### Dedupe counterfactual",
+                f"- matched_first_per_week_only: {dc.get('matched_first_per_week_only', 0)}",
+                f"- duplicate_rows_suppressed: {dc.get('duplicate_rows_suppressed', 0)}",
+                f"- will_be_matchable_first_per_week: {dc.get('will_be_matchable_first_per_week', 0)}",
+            ]
+        )
+    return "\n".join(lines)
 
 
 def format_p3_stall_diagnosis_markdown(diagnosis: dict[str, Any]) -> str:

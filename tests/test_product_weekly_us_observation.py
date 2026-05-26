@@ -129,6 +129,10 @@ def test_weekly_dry_run_reads_existing_observation_log(mini_us_cache: Path) -> N
     assert result.observation_log is not None
     assert result.observation_log.get("us_signal_rows") == 1
     assert "weekly_trend" in result.observation_log
+    assert result.duplicate_week_preflight is not None
+    assert result.duplicate_week_preflight.get("would_duplicate_count", 0) >= 1
+    md = format_weekly_us_observation_markdown(result, path_base=mini_us_cache)
+    assert "Duplicate ISO-week write preflight" in md
 
 
 def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:

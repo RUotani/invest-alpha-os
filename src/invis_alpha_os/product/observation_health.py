@@ -406,6 +406,21 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         p3_prog = readiness.get("p3_forward_progress") or {}
         if p3_prog.get("progress_label"):
             lines.append(f"- portfolio_p3_forward: {p3_prog.get('progress_label')}")
+        p3_sum = readiness.get("p3_us_forward_summary") or {}
+        if p3_sum.get("samples_needed_for_usable") is not None:
+            lines.append(
+                f"- p3_us_forward: matched={p3_sum.get('matched_normal', 0)} "
+                f"need={p3_sum.get('samples_needed_for_usable')} "
+                f"({p3_sum.get('p3_progress_label', '')})"
+            )
+        if p3_sum.get("why_matched_stuck_headline"):
+            lines.append(f"- p3_stall: {p3_sum['why_matched_stuck_headline']}")
+        dc = p3_sum.get("dedupe_counterfactual") or {}
+        if dc.get("duplicate_rows_suppressed"):
+            lines.append(
+                f"- p3_dedupe: first_per_week_matched={dc.get('matched_first_per_week_only', 0)} "
+                f"dup_rows_suppressed={dc.get('duplicate_rows_suppressed', 0)}"
+            )
         if readiness.get("peer_forward_note"):
             lines.append(f"- peer_forward_note: {readiness.get('peer_forward_note')}")
         wt = readiness.get("weekly_trend") or {}

@@ -269,12 +269,25 @@ def evaluate_portfolio_readiness(
 
     p2_weekly_hint = portfolio_p2_weekly_hint(weekly_trend)
     p3_forward_progress: dict[str, Any] | None = None
+    p3_us_forward_summary: dict[str, Any] | None = None
     peer_forward_note: str | None = None
     if forward:
         sq = forward.get("sample_quality") or {}
         raw_p3 = sq.get("p3_progress")
         if isinstance(raw_p3, dict):
             p3_forward_progress = raw_p3
+        stall = forward.get("p3_stall_diagnosis") or {}
+        if stall:
+            from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+                build_p3_us_forward_portfolio_summary,
+            )
+            from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+
+            p3_us_forward_summary = build_p3_us_forward_portfolio_summary(
+                stall_diagnosis=stall,
+                us_matched=int(forward.get("rows_matched") or 0),
+                thin_threshold=THIN_SAMPLE_THRESHOLD,
+            )
         if peer_forward_usable:
             peer_forward_note = (
                 f"peer_sync_forward sample_quality=usable ({peer_forward_matched} matched); "
@@ -314,6 +327,7 @@ def evaluate_portfolio_readiness(
         "p1_linkage_hint": p1_linkage_hint,
         "p2_weekly_hint": p2_weekly_hint,
         "p3_forward_progress": p3_forward_progress,
+        "p3_us_forward_summary": p3_us_forward_summary,
         "peer_forward_usable": peer_forward_usable,
         "peer_forward_matched": peer_forward_matched,
         "peer_forward_note": peer_forward_note,

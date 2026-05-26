@@ -109,6 +109,18 @@ def build_forward_p3_status_bundle(
         event_date_source_as_of_share=event_sources.get("event_date_source_as_of_share"),
     )
 
+    p3_us_forward_summary: dict[str, Any] = {}
+    if p3_stall_diagnosis:
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            build_p3_us_forward_portfolio_summary,
+        )
+
+        p3_us_forward_summary = build_p3_us_forward_portfolio_summary(
+            stall_diagnosis=p3_stall_diagnosis,
+            us_matched=us_matched,
+            thin_threshold=THIN_SAMPLE_THRESHOLD,
+        )
+
     return {
         "schema_version": 1,
         "thin_threshold": THIN_SAMPLE_THRESHOLD,
@@ -117,6 +129,7 @@ def build_forward_p3_status_bundle(
         "recommended_actions": recommended,
         "us_forward_resolution_breakdown": resolution_breakdown,
         "p3_stall_diagnosis": p3_stall_diagnosis,
+        "p3_us_forward_summary": p3_us_forward_summary,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -220,6 +233,13 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
             note = bd.get("backtest_exploratory_note")
             if note:
                 lines.append(f"- {note}")
+    summary = report.get("p3_us_forward_summary") or {}
+    if summary:
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            format_p3_us_forward_portfolio_summary_markdown,
+        )
+
+        lines.extend(["", format_p3_us_forward_portfolio_summary_markdown(summary)])
     stall = report.get("p3_stall_diagnosis") or {}
     if stall.get("why_matched_stuck"):
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import format_p3_stall_diagnosis_markdown

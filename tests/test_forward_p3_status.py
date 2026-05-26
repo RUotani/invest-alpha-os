@@ -102,3 +102,7 @@ def test_forward_p3_status_includes_stall_diagnosis(
     assert "## P3 stall diagnosis" in md
     assert "### P3 buckets" in md
     assert stall.get("why_matched_stuck", {}).get("headline")
+    summary = report.get("p3_us_forward_summary") or {}
+    assert summary.get("matched_normal") is not None
+    assert "p3_buckets" in summary
+    assert "## P3 US forward portfolio summary" in md
