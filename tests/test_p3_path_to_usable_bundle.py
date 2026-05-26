@@ -30,6 +30,8 @@ def test_build_p3_path_to_usable_bundle_empty_log(tmp_path: Path) -> None:
     path = bundle.get("p3_path_to_usable") or {}
     assert "dominant_path" in path
     assert bundle["horizon_timeline_max_rows"] == 32
+    assert bundle.get("us_forward_rows_matched") is not None
+    assert bundle.get("us_forward_matched_normal") is not None
     md = format_p3_path_to_usable_bundle_markdown(bundle)
     assert "## P3 path to usable" in md
 
