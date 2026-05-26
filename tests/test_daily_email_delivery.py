@@ -12,11 +12,14 @@ from typer.testing import CliRunner
 from invis_alpha_os.cli.main import app
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.gmail_delivery import (
+    GmailDeliveryError,
     GmailSendBlockedError,
     build_mime_message,
+    classify_gmail_failure,
     credentials_configured,
     encode_message_raw,
     ensure_gmail_credentials,
+    resolve_gmail_sender,
     send_gmail_message,
     validate_gmail_send_gates,
 )
@@ -247,6 +250,114 @@ def test_ensure_gmail_credentials_missing_credentials_file(
     monkeypatch.setenv("GMAIL_TOKEN_FILE", str(tmp_path / "token.json"))
     with pytest.raises(GmailSendBlockedError, match="GMAIL_CREDENTIALS_FILE"):
         ensure_gmail_credentials(allow_interactive_oauth=False)
+
+
+def test_resolve_gmail_sender_fallback_self_email(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GMAIL_REPORT_FROM", raising=False)
+    monkeypatch.setenv("GMAIL_SELF_EMAIL", "self@example.com")
+    assert resolve_gmail_sender(dry_run=False, recipient="other@example.com") == "self@example.com"
+    assert resolve_gmail_sender(dry_run=True, recipient="") == "me"
+
+
+def test_classify_gmail_failure_http_error() -> None:
+    class HttpError(Exception):
+        pass
+
+    assert classify_gmail_failure(HttpError("403")) == "gmail_api_error"
+
+
+def test_daily_email_send_http_error_exit2(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle_http"
+    bundle.mkdir()
+    (bundle / "operator_summary.md").write_text("x", encoding="utf-8")
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("CONFIRM_GMAIL_SEND", "YES")
+    monkeypatch.setenv("GMAIL_REPORT_TO", "self@example.com")
+    monkeypatch.setenv("GMAIL_SELF_EMAIL", "self@example.com")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(tmp_path / "token.json"))
+    monkeypatch.setenv("GMAIL_ALLOW_INTERACTIVE_OAUTH", "YES")
+
+    class HttpError(Exception):
+        pass
+
+    def fake_send(*_a: object, **_k: object) -> dict[str, str]:
+        raise HttpError("api failure")
+
+    monkeypatch.setattr("invis_alpha_os.cli.main.send_gmail_message", fake_send)
+    r = runner.invoke(app, ["daily-email", "--bundle-dir", str(bundle), "--send"])
+    assert r.exit_code == 2
+    assert "gmail_failure_reason=gmail_api_error" in r.stderr
+
+
+def test_daily_email_send_non_interactive_oauth_required(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle = tmp_path / "bundle_oauth"
+    bundle.mkdir()
+    (bundle / "operator_summary.md").write_text("x", encoding="utf-8")
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    monkeypatch.setenv("CONFIRM_GMAIL_SEND", "YES")
+    monkeypatch.setenv("GMAIL_REPORT_TO", "self@example.com")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(tmp_path / "missing_token.json"))
+    monkeypatch.delenv("GMAIL_ALLOW_INTERACTIVE_OAUTH", raising=False)
+
+    oauth_ran = {"n": 0}
+
+    class MockFlow:
+        @staticmethod
+        def from_client_secrets_file(*_a: object, **_k: object) -> object:
+            oauth_ran["n"] += 1
+            raise AssertionError("interactive OAuth must not run")
+
+    from google.oauth2.credentials import Credentials
+
+    monkeypatch.setattr(
+        Credentials,
+        "from_authorized_user_file",
+        lambda *_a, **_k: (_ for _ in ()).throw(ValueError("no token")),
+    )
+    monkeypatch.setattr("google_auth_oauthlib.flow.InstalledAppFlow", MockFlow)
+
+    r = runner.invoke(app, ["daily-email", "--bundle-dir", str(bundle), "--send"])
+    assert r.exit_code == 2
+    assert "gmail_failure_reason=gmail_oauth_required" in r.stderr
+    assert oauth_ran["n"] == 0
+
+
+def test_ensure_gmail_credentials_refresh_failure_raises_delivery_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cred = tmp_path / "gmail_credentials.json"
+    cred.write_text("{}", encoding="utf-8")
+    token = tmp_path / "gmail_token.json"
+    token.write_text('{"token": "old"}', encoding="utf-8")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(cred))
+    monkeypatch.setenv("GMAIL_TOKEN_FILE", str(token))
+
+    mock_creds = type(
+        "Creds",
+        (),
+        {"valid": False, "expired": True, "refresh_token": "rt"},
+    )()
+
+    def fail_refresh(_req: object) -> None:
+        raise RuntimeError("refresh denied")
+
+    mock_creds.refresh = fail_refresh  # type: ignore[method-assign]
+
+    from google.oauth2.credentials import Credentials
+
+    monkeypatch.setattr(Credentials, "from_authorized_user_file", lambda *_a, **_k: mock_creds)
+
+    with pytest.raises(GmailDeliveryError) as exc:
+        ensure_gmail_credentials(allow_interactive_oauth=False)
+    assert exc.value.reason == "gmail_auth_refresh_failed"
 
 
 def test_send_gmail_message_uses_ensure_credentials(
