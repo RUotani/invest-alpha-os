@@ -463,6 +463,47 @@ def test_markdown_includes_p3_stall_and_next_actions(obs_and_cache: tuple[Path, 
     assert "normal matched" in md.lower() or "normal_matched" in md
 
 
+def test_dedupe_counterfactual_suppresses_duplicate_week(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    cache_dir = tmp_path / "us_daily_bars"
+    outputs = tmp_path / "outputs"
+    obs_path = outputs / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    bars = load_bars_json_file(FIX_MSFT)
+    event_date = bars[-21]["date"][:10]
+    usc.save_us_daily_bars_cache("MSFT", [dict(b) for b in bars], source="local_fixture")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "MSFT.json").write_text(
+        usc.us_daily_bars_cache_path("MSFT").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    note = "us_cache_signal observation_only status=ok momentum_label=neutral not buy/sell advice"
+    line = {
+        "id": "a",
+        "created_at": f"{event_date}T09:00:00+00:00",
+        "symbol": "MSFT",
+        "note": note,
+        "evidence_ids": [],
+        "tags": [],
+    }
+    obs_path.write_text(
+        json.dumps(line) + "\n" + json.dumps({**line, "id": "b"}) + "\n",
+        encoding="utf-8",
+    )
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5, 20)
+    )
+    dc = stall.get("dedupe_counterfactual") or {}
+    assert dc.get("duplicate_rows_suppressed") == 1
+    assert dc.get("unique_symbol_weeks") == 1
+    assert dc.get("multi_log_week_groups") == 1
+
+
 def test_horizon_maturity_estimate_sessions(obs_and_cache: tuple[Path, Path]) -> None:
     from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
         compute_us_forward_p3_stall_diagnosis,
@@ -501,6 +542,7 @@ def test_horizon_maturity_estimate_sessions(obs_and_cache: tuple[Path, Path]) ->
         compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir, horizons=(60,))
     )
     assert "### Horizon maturity estimate" in md
+    assert "### Dedupe counterfactual" in md
 
 
 def test_resolution_breakdown_embeds_stall_diagnosis(obs_and_cache: tuple[Path, Path]) -> None:
