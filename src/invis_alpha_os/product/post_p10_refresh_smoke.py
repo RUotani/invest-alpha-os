@@ -29,6 +29,7 @@ def forward_p3_recommended_actions(
     stale_skip_by_symbol: list[dict[str, Any]] | None = None,
     peer_sync_matched: int = 0,
     resolution_outcomes: dict[str, int] | None = None,
+    insufficient_future_share: float | None = None,
 ) -> list[str]:
     """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
 
@@ -68,6 +69,11 @@ def forward_p3_recommended_actions(
                     "Dominant skip: insufficient_future_bars — fresh weekly rows need time in cache; "
                     "validate forward-p3-status breakdown after each wave (docs/161)"
                 )
+        if insufficient_future_share is not None and insufficient_future_share >= 0.9:
+            actions.append(
+                f"insufficient_future_share={insufficient_future_share:.0%}: calendar time dominates; "
+                "extra P10 batches alone unlikely to reach 10/10 matched (docs/161)"
+            )
         return actions
 
     actions: list[str] = []

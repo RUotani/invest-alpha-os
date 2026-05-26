@@ -89,6 +89,7 @@ def build_forward_p3_status_bundle(
         stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
         peer_sync_matched=peer_matched,
         resolution_outcomes=resolution_breakdown.get("outcomes"),
+        insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
     )
 
     return {
