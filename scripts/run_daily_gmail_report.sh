@@ -155,7 +155,16 @@ fi
 echo "--- daily-email --dry-run (pre-send) ---"
 "${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --dry-run --main-commit "${MAIN_SHA}"
 
-if "${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --send --main-commit "${MAIN_SHA}"; then
+SEND_LOG="$(mktemp)"
+trap 'rm -f "${SEND_LOG}"' EXIT
+set +e
+"${PYTHON}" -m invis_alpha_os.cli.main daily-email --bundle-dir "${BUNDLE_DIR}" --send --main-commit "${MAIN_SHA}" \
+  >"${SEND_LOG}" 2>&1
+SEND_RC=$?
+set -e
+cat "${SEND_LOG}"
+
+if [[ "${SEND_RC}" -eq 0 ]]; then
   "${PYTHON}" -c "
 import json, pathlib, datetime
 sent = pathlib.Path('${SENT_MARKER}')
@@ -173,5 +182,32 @@ status.write_text(json.dumps({
   exit 0
 fi
 
-echo "ERROR: daily-email --send failed"
-exit 1
+FAIL_REASON="$(grep -o 'gmail_failure_reason=[^[:space:]]*' "${SEND_LOG}" | tail -1 | sed 's/^gmail_failure_reason=//')"
+if [[ -z "${FAIL_REASON}" ]]; then
+  FAIL_REASON="gmail_send_failed"
+fi
+
+"${PYTHON}" -c "
+import json, pathlib, datetime
+status = pathlib.Path('${STATUS_FILE}')
+status.write_text(json.dumps({
+  'date': '${RUN_DATE}',
+  'status': 'send_failed',
+  'mode': 'send',
+  'reason': '${FAIL_REASON}',
+  'exit_code': ${SEND_RC},
+  'bundle_dir': '${BUNDLE_DIR}',
+  'completed_at': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+}, indent=2), encoding='utf-8')
+"
+
+case "${FAIL_REASON}" in
+  gmail_oauth_required|gmail_auth_refresh_failed|gmail_dependency_missing)
+    echo "NEXT: manual OAuth smoke required (see docs/89); do not run --send from launchd until token valid"
+    ;;
+  *)
+    echo "NEXT: inspect sanitized run_0700.log and rerun daily-email --dry-run"
+    ;;
+esac
+echo "ERROR: daily-email --send failed (reason=${FAIL_REASON}, exit=${SEND_RC})"
+exit "${SEND_RC}"

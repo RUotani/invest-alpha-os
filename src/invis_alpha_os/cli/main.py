@@ -152,10 +152,13 @@ from invis_alpha_os.discovery.us_universe_scanner import (
 )
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.gmail_delivery import (
+    GmailDeliveryError,
     GmailSendBlockedError,
     build_mime_message,
+    classify_gmail_failure,
     credentials_configured,
     encode_message_raw,
+    resolve_gmail_sender,
     send_gmail_message,
     validate_gmail_send_gates,
     write_email_previews,
@@ -1013,15 +1016,23 @@ def daily_email(
         raise typer.Exit(2)
 
     draft = build_daily_email_from_bundle(bundle, main_commit=main_commit)
-    sender = os.environ.get("GMAIL_REPORT_FROM", "me").strip() or "me"
     recipient = os.environ.get("GMAIL_REPORT_TO", "").strip()
+    sender = resolve_gmail_sender(dry_run=dry_run, recipient=recipient)
     email_out = bundle / "email"
     to_list = [recipient] if recipient else ["recipient@example.com"]
     if dry_run:
         to_list = [recipient or "dry-run@local"]
 
+    if not dry_run and not sender:
+        typer.echo(
+            "daily-email: gmail_failure_reason=gmail_sender_unconfigured "
+            "(set GMAIL_REPORT_FROM or GMAIL_SELF_EMAIL)",
+            err=True,
+        )
+        raise typer.Exit(2)
+
     message = build_mime_message(
-        sender=sender,
+        sender=sender or "me",
         to=to_list,
         subject=draft.subject,
         text_body=draft.text_body,
@@ -1043,18 +1054,28 @@ def daily_email(
     if not recipient:
         typer.echo("daily-email: GMAIL_REPORT_TO is required for --send", err=True)
         raise typer.Exit(2)
+    allow_interactive_oauth = os.environ.get("GMAIL_ALLOW_INTERACTIVE_OAUTH", "").strip() == "YES"
     try:
         validate_gmail_send_gates(recipient=recipient)
     except GmailSendBlockedError as e:
-        typer.echo(f"daily-email: {e}", err=True)
+        reason = classify_gmail_failure(e)
+        typer.echo(f"daily-email: gmail_failure_reason={reason}", err=True)
         raise typer.Exit(2) from e
     if not credentials_configured():
-        typer.echo("daily-email: Gmail credentials file not configured (GMAIL_CREDENTIALS_FILE)", err=True)
+        typer.echo("daily-email: gmail_failure_reason=gmail_oauth_required", err=True)
         raise typer.Exit(2)
     try:
-        result = send_gmail_message(raw)
-    except GmailSendBlockedError as e:
-        typer.echo(f"daily-email: {e}", err=True)
+        result = send_gmail_message(
+            raw,
+            allow_interactive_oauth=allow_interactive_oauth,
+        )
+    except (GmailSendBlockedError, GmailDeliveryError) as e:
+        reason = classify_gmail_failure(e)
+        typer.echo(f"daily-email: gmail_failure_reason={reason}", err=True)
+        raise typer.Exit(2) from e
+    except Exception as e:
+        reason = classify_gmail_failure(e)
+        typer.echo(f"daily-email: gmail_failure_reason={reason}", err=True)
         raise typer.Exit(2) from e
     msg_id = result.get("id", "") if isinstance(result, dict) else ""
     typer.echo(f"daily-email: sent message id={msg_id!r}")

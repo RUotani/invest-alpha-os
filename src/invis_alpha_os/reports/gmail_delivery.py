@@ -18,6 +18,67 @@ class GmailSendBlockedError(RuntimeError):
     """Send aborted by safety gate."""
 
 
+class GmailDeliveryError(RuntimeError):
+    """Gmail send/bootstrap failed with a machine-readable reason (no secrets in output)."""
+
+    def __init__(self, reason: str, *, detail: str | None = None) -> None:
+        self.reason = reason
+        safe_detail = (detail or reason).strip()
+        super().__init__(safe_detail)
+
+
+def classify_gmail_failure(exc: BaseException) -> str:
+    """Map exceptions to stable failure reason codes (never includes token/credential bodies)."""
+
+    if isinstance(exc, GmailDeliveryError):
+        return exc.reason
+    if isinstance(exc, GmailSendBlockedError):
+        msg = str(exc).lower()
+        if "packages not installed" in msg:
+            return "gmail_dependency_missing"
+        if "interactive oauth not allowed" in msg:
+            return "gmail_oauth_required"
+        if "token" in msg and ("missing" in msg or "invalid" in msg):
+            return "gmail_oauth_required"
+        if "credentials_file" in msg or "gmail_credentials_file" in msg:
+            return "gmail_oauth_required"
+        if "confirm_gmail_send" in msg:
+            return "gmail_send_gate_confirm"
+        if "allowlist" in msg or "gmail_self_email" in msg:
+            return "gmail_send_gate_recipient"
+        return "gmail_send_blocked"
+    exc_name = type(exc).__name__
+    if exc_name == "HttpError":
+        return "gmail_api_error"
+    if exc_name in {"RefreshError", "GoogleAuthError"}:
+        return "gmail_auth_refresh_failed"
+    mod = type(exc).__module__
+    if mod.startswith("google.auth") or mod.startswith("google.oauth2"):
+        return "gmail_auth_refresh_failed"
+    if mod.startswith("googleapiclient"):
+        return "gmail_api_error"
+    if isinstance(exc, ImportError):
+        return "gmail_dependency_missing"
+    return "gmail_send_failed"
+
+
+def resolve_gmail_sender(*, dry_run: bool, recipient: str) -> str:
+    """Resolve RFC822 From for send mode; dry-run may use placeholder ``me``."""
+
+    explicit = os.environ.get("GMAIL_REPORT_FROM", "").strip()
+    if explicit:
+        return explicit
+    if dry_run:
+        return "me"
+    for key in ("GMAIL_SELF_EMAIL", "GMAIL_REPORT_TO"):
+        candidate = os.environ.get(key, "").strip()
+        if candidate and _EMAIL_RE.match(candidate):
+            return candidate
+    if recipient and _EMAIL_RE.match(recipient):
+        return recipient
+    return ""
+
+
 def build_mime_message(
     *,
     sender: str,
@@ -130,7 +191,13 @@ def ensure_gmail_credentials(*, allow_interactive_oauth: bool = True) -> Any:
         return creds
 
     if creds is not None and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            raise GmailDeliveryError(
+                "gmail_auth_refresh_failed",
+                detail="Gmail OAuth refresh failed",
+            ) from e
         _save_gmail_token(creds, token_path)
         return creds
 
@@ -143,24 +210,38 @@ def ensure_gmail_credentials(*, allow_interactive_oauth: bool = True) -> Any:
     return creds
 
 
-def send_gmail_message(raw_message: str, *, user_id: str = "me") -> dict[str, Any]:
+def send_gmail_message(
+    raw_message: str,
+    *,
+    user_id: str = "me",
+    allow_interactive_oauth: bool = True,
+) -> dict[str, Any]:
     """Call Gmail API users.messages.send (requires optional google packages)."""
 
     try:
         from googleapiclient.discovery import build
     except ImportError as e:
-        raise GmailSendBlockedError(
-            "Gmail API packages not installed. Install google-api-python-client and google-auth-oauthlib for send mode."
+        raise GmailDeliveryError(
+            "gmail_dependency_missing",
+            detail="Gmail API packages not installed",
         ) from e
 
-    creds = ensure_gmail_credentials()
-    service = build("gmail", "v1", credentials=creds, cache_discovery=False)
-    return (
-        service.users()
-        .messages()
-        .send(userId=user_id, body={"raw": raw_message})
-        .execute()
-    )
+    try:
+        creds = ensure_gmail_credentials(allow_interactive_oauth=allow_interactive_oauth)
+        service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+        return (
+            service.users()
+            .messages()
+            .send(userId=user_id, body={"raw": raw_message})
+            .execute()
+        )
+    except GmailDeliveryError:
+        raise
+    except GmailSendBlockedError as e:
+        raise GmailDeliveryError(classify_gmail_failure(e), detail=str(e)) from e
+    except Exception as e:
+        reason = classify_gmail_failure(e)
+        raise GmailDeliveryError(reason, detail="Gmail API send failed") from e
 
 
 def _extract_body_text(message: EmailMessage) -> str:
