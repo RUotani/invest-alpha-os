@@ -632,6 +632,7 @@ class WeeklyUsObservationResult:
     peer_sync: dict[str, Any] | None = None
     observation_write_stats: dict[str, Any] | None = None
     peer_sync_write_stats: dict[str, Any] | None = None
+    duplicate_week_preflight: dict[str, Any] | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -729,6 +730,24 @@ def run_weekly_us_observation_cycle(
                 path_base=root,
             )
 
+    duplicate_week_preflight: dict[str, Any] | None = None
+    obs_candidates = (
+        root / "outputs" / "observation_log" / "observation_log.jsonl",
+        root / "observation_log" / "observation_log.jsonl",
+    )
+    obs_for_preflight = next((p for p in obs_candidates if p.is_file()), None)
+    if obs_for_preflight is not None and batch.get("status") == "ok":
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            build_duplicate_week_write_preflight,
+            planned_writes_from_batch_previews,
+        )
+
+        duplicate_week_preflight = build_duplicate_week_write_preflight(
+            observation_path=obs_for_preflight,
+            planned_writes=planned_writes_from_batch_previews(batch),
+            path_base=root,
+        )
+
     return WeeklyUsObservationResult(
         manifest=manifest,
         batch_previews=batch,
@@ -738,6 +757,7 @@ def run_weekly_us_observation_cycle(
         peer_sync=peer_sync_payload,
         observation_write_stats=write_stats,
         peer_sync_write_stats=peer_sync_write_stats,
+        duplicate_week_preflight=duplicate_week_preflight,
     )
 
 
@@ -804,6 +824,12 @@ def format_weekly_us_observation_markdown(
         f"- signals ok: {q.get('signals_ok')}/{q.get('symbol_count')}",
         f"- veto triggered: {q.get('veto_triggered_count')}",
     ]
+    if result.duplicate_week_preflight:
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            format_duplicate_week_preflight_markdown,
+        )
+
+        lines.extend(["", format_duplicate_week_preflight_markdown(result.duplicate_week_preflight)])
     if result.observation_write_stats:
         ws = result.observation_write_stats
         lines.extend(
