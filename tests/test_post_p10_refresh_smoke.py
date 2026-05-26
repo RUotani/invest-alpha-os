@@ -61,6 +61,7 @@ def test_forward_p3_recommended_actions_insufficient_future_dominant() -> None:
     )
     joined = " ".join(actions)
     assert "insufficient_future_bars" in joined
+    assert "p3-path-to-usable" in joined
 
 
 def test_forward_p3_recommended_actions_partial_matched() -> None:
