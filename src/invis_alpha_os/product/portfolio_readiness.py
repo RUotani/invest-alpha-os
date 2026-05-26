@@ -225,6 +225,10 @@ def evaluate_portfolio_readiness(
                 f"; peer_sync_forward usable ({peer_forward_matched} matched, "
                 "US P3 milestone separate — docs/154)"
             )
+        stall = forward.get("p3_stall_diagnosis") or {}
+        why = stall.get("why_matched_stuck") or {}
+        if why.get("headline"):
+            detail += f"; {why['headline']}"
         p3 = _milestone(
             milestone_id="P3",
             passed=False,
@@ -313,6 +317,7 @@ def evaluate_portfolio_readiness(
         "peer_forward_usable": peer_forward_usable,
         "peer_forward_matched": peer_forward_matched,
         "peer_forward_note": peer_forward_note,
+        "p3_stall_diagnosis": forward.get("p3_stall_diagnosis") if forward else None,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
         "observation_only": True,

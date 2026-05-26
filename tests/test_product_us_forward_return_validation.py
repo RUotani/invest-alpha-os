@@ -345,3 +345,133 @@ def test_cli_invalid_horizons_exit_2() -> None:
     )
     assert result.exit_code == 2
     assert "positive" in (result.stderr or result.stdout).lower()
+
+
+def test_p3_stall_diagnosis_thin_fixed_at_one_match(obs_and_cache: tuple[Path, Path]) -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    obs_path, cache_dir = obs_and_cache
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5, 20)
+    )
+    assert stall["matched_normal"] == 1
+    assert stall["samples_needed_for_usable"] == 9
+    assert stall["why_matched_stuck"]["normal_matched"] == 1
+    assert "matchable_now" in stall["p3_bucket_counts"]
+
+
+def test_p3_stall_insufficient_future_classification(
+    tmp_path: Path, obs_and_cache: tuple[Path, Path]
+) -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        CATEGORY_INSUFFICIENT_FUTURE,
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    obs_path, cache_dir = obs_and_cache
+    bars = load_bars_json_file(FIX_MSFT)
+    last_date = bars[-1]["date"][:10]
+    obs_path.write_text(
+        obs_path.read_text(encoding="utf-8").strip()
+        + "\n"
+        + json.dumps(
+            {
+                "id": "fresh",
+                "created_at": f"{last_date}T09:00:00+00:00",
+                "symbol": "MSFT",
+                "note": (
+                    "us_cache_signal observation_only status=ok momentum_label=uptrend "
+                    "not buy/sell advice"
+                ),
+                "evidence_ids": [],
+                "tags": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(60,)
+    )
+    assert stall["user_category_counts"].get(CATEGORY_INSUFFICIENT_FUTURE, 0) >= 1
+    assert stall["p3_bucket_counts"].get("will_be_matchable_after_date", 0) >= 1
+
+
+def test_p3_stall_duplicate_same_week(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import invis_alpha_os.data.us_daily_bars_cache as usc
+
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        CATEGORY_DUPLICATE_WEEK,
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    cache_dir = tmp_path / "us_daily_bars"
+    outputs = tmp_path / "outputs"
+    obs_path = outputs / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(usc, "OUTPUTS_DIR", outputs)
+    bars = load_bars_json_file(FIX_MSFT)
+    event_date = bars[-21]["date"][:10]
+    usc.save_us_daily_bars_cache("MSFT", [dict(b) for b in bars], source="local_fixture")
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    (cache_dir / "MSFT.json").write_text(
+        usc.us_daily_bars_cache_path("MSFT").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    note = "us_cache_signal observation_only status=ok momentum_label=neutral not buy/sell advice"
+    line = {
+        "id": "a",
+        "created_at": f"{event_date}T09:00:00+00:00",
+        "symbol": "MSFT",
+        "note": note,
+        "evidence_ids": [],
+        "tags": [],
+    }
+    line2 = {**line, "id": "b", "created_at": f"{event_date}T10:00:00+00:00"}
+    obs_path.write_text(
+        json.dumps(line) + "\n" + json.dumps(line2) + "\n", encoding="utf-8"
+    )
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5, 20)
+    )
+    assert stall["user_category_counts"].get(CATEGORY_DUPLICATE_WEEK, 0) >= 1
+    assert stall["p3_bucket_counts"].get("dead_rows_or_duplicate_rows", 0) >= 1
+
+
+def test_backtest_high_normal_milestone_thin(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(5, 20)
+    )
+    stall = report.get("p3_stall_diagnosis") or {}
+    assert report["sample_quality"]["status"] == "thin"
+    assert report["rows_matched"] == 1
+    why = stall.get("why_matched_stuck") or {}
+    assert why.get("normal_matched") == 1
+    assert int(why.get("backtest_within_cache_matched") or 0) >= 1
+    assert "backtest" in (why.get("gap_explained_by") or "").lower()
+
+
+def test_markdown_includes_p3_stall_and_next_actions(obs_and_cache: tuple[Path, Path]) -> None:
+    obs_path, cache_dir = obs_and_cache
+    report = compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir)
+    md = format_us_forward_return_markdown(report)
+    assert "## P3 stall diagnosis" in md
+    assert "matchable_now" in md
+    assert "Next actions" in md
+    assert "normal matched" in md.lower() or "normal_matched" in md
+
+
+def test_resolution_breakdown_embeds_stall_diagnosis(obs_and_cache: tuple[Path, Path]) -> None:
+    from invis_alpha_os.product.us_forward_return_validation import (
+        compute_us_forward_resolution_breakdown,
+    )
+
+    obs_path, cache_dir = obs_and_cache
+    bd = compute_us_forward_resolution_breakdown(
+        observation_path=obs_path, cache_dir=cache_dir
+    )
+    stall = bd.get("p3_stall_diagnosis") or {}
+    assert stall.get("p3_bucket_counts")
+    assert stall.get("user_category_counts")

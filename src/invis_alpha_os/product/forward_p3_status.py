@@ -81,6 +81,21 @@ def build_forward_p3_status_bundle(
         )
     except (FileNotFoundError, ValueError):
         resolution_breakdown = {}
+    p3_stall_diagnosis: dict[str, Any] = {}
+    if resolution_breakdown.get("p3_stall_diagnosis"):
+        p3_stall_diagnosis = resolution_breakdown["p3_stall_diagnosis"]
+    else:
+        try:
+            from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+                compute_us_forward_p3_stall_diagnosis,
+            )
+
+            p3_stall_diagnosis = compute_us_forward_p3_stall_diagnosis(
+                observation_path=obs,
+                cache_dir=cache,
+            )
+        except (FileNotFoundError, ValueError):
+            p3_stall_diagnosis = {}
     event_sources = resolution_breakdown.get("event_date_sources") or {}
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
@@ -101,6 +116,7 @@ def build_forward_p3_status_bundle(
         "observation_log_lines": log_lines,
         "recommended_actions": recommended,
         "us_forward_resolution_breakdown": resolution_breakdown,
+        "p3_stall_diagnosis": p3_stall_diagnosis,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -204,9 +220,16 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
             note = bd.get("backtest_exploratory_note")
             if note:
                 lines.append(f"- {note}")
+    stall = report.get("p3_stall_diagnosis") or {}
+    if stall.get("why_matched_stuck"):
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import format_p3_stall_diagnosis_markdown
+
+        lines.extend(["", format_p3_stall_diagnosis_markdown(stall)])
     actions = report.get("recommended_actions") or []
-    if actions:
+    stall_actions = stall.get("next_actions") or []
+    merged_actions = list(dict.fromkeys([*actions, *stall_actions]))
+    if merged_actions:
         lines.extend(["", "## Recommended actions (read-only)"])
-        for action in actions[:8]:
+        for action in merged_actions[:12]:
             lines.append(f"- {action}")
     return "\n".join(lines)

@@ -406,6 +406,7 @@ def compute_us_forward_resolution_breakdown(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     reference_date: date | None = None,
     backtest_within_cache: bool = False,
+    include_stall_diagnosis: bool = True,
 ) -> dict[str, Any]:
     """Count per-row forward outcomes toward P3 usable (docs/161; read-only)."""
 
@@ -477,6 +478,7 @@ def compute_us_forward_resolution_breakdown(
                 horizons=horizons,
                 reference_date=reference_date,
                 backtest_within_cache=True,
+                include_stall_diagnosis=False,
             )
             payload["backtest_within_cache_matched"] = int(exploratory.get("matched_rows") or 0)
             payload["backtest_exploratory_note"] = (
@@ -484,6 +486,20 @@ def compute_us_forward_resolution_breakdown(
             )
         except (FileNotFoundError, ValueError):
             payload["backtest_within_cache_matched"] = None
+        if include_stall_diagnosis:
+            try:
+                from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+                    compute_us_forward_p3_stall_diagnosis,
+                )
+
+                payload["p3_stall_diagnosis"] = compute_us_forward_p3_stall_diagnosis(
+                    observation_path=observation_path,
+                    cache_dir=cache_dir,
+                    horizons=horizons,
+                    reference_date=reference_date,
+                )
+            except (FileNotFoundError, ValueError):
+                payload["p3_stall_diagnosis"] = None
     return payload
 
 
@@ -579,6 +595,22 @@ def compute_us_forward_returns(
         backtest_within_cache=backtest_within_cache,
     )
 
+    p3_stall_diagnosis: dict[str, Any] | None = None
+    if not backtest_within_cache:
+        try:
+            from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+                compute_us_forward_p3_stall_diagnosis,
+            )
+
+            p3_stall_diagnosis = compute_us_forward_p3_stall_diagnosis(
+                observation_path=observation_path,
+                cache_dir=cache_dir,
+                horizons=horizons,
+                reference_date=reference_date,
+            )
+        except (FileNotFoundError, ValueError):
+            p3_stall_diagnosis = None
+
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now().astimezone().isoformat(),
@@ -609,6 +641,7 @@ def compute_us_forward_returns(
         "veto_at_t": _veto_at_t_report(obs_rows, matched),
         "by_veto_status": _build_by_veto_status(matched, horizons, thin_sample=thin),
         "peer_sync_forward": peer_sync_forward,
+        "p3_stall_diagnosis": p3_stall_diagnosis,
         "observation_only": True,
         "not_investment_advice": True,
         "live_http": False,
@@ -707,5 +740,10 @@ def format_us_forward_return_markdown(report: dict[str, Any]) -> str:
         lines.append("### By peer_sync_status (matched rows)")
         for key, block in sorted(by_ps.items()):
             lines.append(f"- {key}: count={block.get('count')}")
+    stall = report.get("p3_stall_diagnosis")
+    if stall:
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import format_p3_stall_diagnosis_markdown
+
+        lines.extend(["", format_p3_stall_diagnosis_markdown(stall)])
     lines.append("")
     return "\n".join(lines)
