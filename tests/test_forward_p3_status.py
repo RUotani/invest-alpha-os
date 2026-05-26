@@ -100,4 +100,5 @@ def test_forward_p3_status_includes_stall_diagnosis(
     assert stall.get("p3_bucket_counts")
     md = format_forward_p3_status_markdown(report)
     assert "## P3 stall diagnosis" in md
-    assert "will_be_matchable_after_date" in md or "matchable_now" in md
+    assert "### P3 buckets" in md
+    assert stall.get("why_matched_stuck", {}).get("headline")
