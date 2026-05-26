@@ -282,6 +282,21 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
                 lines.append(f"- l1_blocked_reason: {gate.get('blocked_reason')}")
             if gate.get("next_action"):
                 lines.append(f"- l1_next_action: {gate.get('next_action')}")
+            rollover = gate.get("iso_week_rollover") or plan.get("iso_week_rollover") or {}
+            if rollover.get("earliest_next_iso_week_start"):
+                lines.extend(
+                    [
+                        "",
+                        "### ISO week rollover estimate",
+                        f"- earliest_next_iso_week_start: {rollover.get('earliest_next_iso_week_start')}",
+                        f"- days_until_earliest_rollover: {rollover.get('days_until_earliest_rollover')}",
+                        f"- projected_write_now_symbols_at_rollover: "
+                        f"{rollover.get('projected_write_now_symbols_at_rollover', 0)}",
+                    ]
+                )
+                hint = rollover.get("l1_unblock_hint")
+                if hint:
+                    lines.append(f"- l1_unblock_hint: {hint}")
         write_now = plan.get("write_now") or []
         if write_now:
             preview = ", ".join(

@@ -424,6 +424,13 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             )
         if l1_gate.get("next_action"):
             lines.append(f"- p3_l1_next: {l1_gate['next_action']}")
+        rollover = l1_gate.get("iso_week_rollover") or {}
+        if rollover.get("days_until_earliest_rollover") is not None:
+            lines.append(
+                f"- p3_iso_rollover: earliest={rollover.get('earliest_next_iso_week_start')} "
+                f"days={rollover.get('days_until_earliest_rollover')} "
+                f"projected_write_now={rollover.get('projected_write_now_symbols_at_rollover', 0)}"
+            )
         dc = p3_sum.get("dedupe_counterfactual") or {}
         if dc.get("duplicate_rows_suppressed"):
             lines.append(

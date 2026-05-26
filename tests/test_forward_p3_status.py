@@ -112,3 +112,9 @@ def test_forward_p3_status_includes_stall_diagnosis(
         assert "## P3 weekly write plan" in md
         assert (plan.get("l1_gate") or {}).get("status")
         assert "l1_status" in md or "l1_recommended" in md
+        if plan.get("skip_duplicate_count", 0) > 0 and plan.get("write_now_count", 0) == 0:
+            assert plan.get("iso_week_rollover", {}).get("status") in {
+                "waiting_for_iso_week_rollover",
+                "not_applicable",
+                "unknown",
+            }

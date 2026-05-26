@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +52,79 @@ def is_duplicate_iso_week_key(
     existing_keys: set[tuple[str, int, int]],
 ) -> bool:
     return key in existing_keys
+
+
+def next_iso_week_start(from_date: date) -> date:
+    """First calendar date that falls in the ISO week after ``from_date``."""
+
+    current = iso_week_key(from_date)
+    probe = from_date + timedelta(days=1)
+    while iso_week_key(probe) == current:
+        probe += timedelta(days=1)
+    return probe
+
+
+def estimate_p3_iso_week_rollover(
+    *,
+    skip_duplicate: list[dict[str, str]],
+    reference_date: date | None = None,
+) -> dict[str, Any]:
+    """Read-only: when L1 may unblock if cache as_of advances to a new ISO week."""
+
+    ref = reference_date or date.today()
+    if not skip_duplicate:
+        return {
+            "schema_version": 1,
+            "status": "not_applicable",
+            "observation_only": True,
+        }
+
+    per_symbol: list[dict[str, Any]] = []
+    earliest: date | None = None
+    for item in skip_duplicate:
+        sym = str(item.get("symbol") or "").strip().upper()
+        raw = item.get("last_date")
+        evt = parse_iso_date(raw)
+        if not sym or evt is None:
+            continue
+        nxt = next_iso_week_start(evt)
+        days = max(0, (nxt - ref).days)
+        per_symbol.append(
+            {
+                "symbol": sym,
+                "cache_as_of": evt.isoformat(),
+                "current_iso_week": f"{iso_week_key(evt)[0]}-W{iso_week_key(evt)[1]:02d}",
+                "next_iso_week_starts": nxt.isoformat(),
+                "days_until_next_iso_week": days,
+            }
+        )
+        if earliest is None or nxt < earliest:
+            earliest = nxt
+
+    if earliest is None:
+        return {
+            "schema_version": 1,
+            "status": "unknown",
+            "observation_only": True,
+        }
+
+    days_until = max(0, (earliest - ref).days)
+    iso = earliest.isocalendar()
+    return {
+        "schema_version": 1,
+        "status": "waiting_for_iso_week_rollover",
+        "reference_date": ref.isoformat(),
+        "earliest_next_iso_week_start": earliest.isoformat(),
+        "earliest_next_iso_week": f"{iso[0]}-W{iso[1]:02d}",
+        "days_until_earliest_rollover": days_until,
+        "projected_write_now_symbols_at_rollover": len(per_symbol),
+        "per_symbol_sample": per_symbol[:12],
+        "l1_unblock_hint": (
+            f"Re-check write_now_count after {earliest.isoformat()} "
+            f"(ISO week {iso[0]}-W{iso[1]:02d}) or after P10 extends cache into a new week"
+        ),
+        "observation_only": True,
+    }
 
 
 def evaluate_p3_l1_write_gate(
@@ -130,6 +203,19 @@ def build_p3_weekly_write_plan(
         skip_duplicate_count=len(skip_duplicate),
         will_be_matchable_after_date_rows=will_be_matchable_after_date_rows,
     )
+    rollover = estimate_p3_iso_week_rollover(skip_duplicate=skip_duplicate)
+    if rollover.get("l1_unblock_hint") and not l1_gate.get("l1_recommended"):
+        l1_gate = {
+            **l1_gate,
+            "iso_week_rollover": {
+                "earliest_next_iso_week_start": rollover.get("earliest_next_iso_week_start"),
+                "days_until_earliest_rollover": rollover.get("days_until_earliest_rollover"),
+                "projected_write_now_symbols_at_rollover": rollover.get(
+                    "projected_write_now_symbols_at_rollover"
+                ),
+            },
+            "next_action": f"{l1_gate.get('next_action', '')}; {rollover['l1_unblock_hint']}",
+        }
     return {
         "schema_version": 1,
         "observation_path": str(observation_path),
@@ -138,6 +224,7 @@ def build_p3_weekly_write_plan(
         "write_now": write_now[:25],
         "skip_duplicate": skip_duplicate[:25],
         "l1_gate": l1_gate,
+        "iso_week_rollover": rollover,
         "l1_hint": (
             "Use weekly --skip-duplicate-iso-week with --write-observation-log "
             "to log write_now symbols only (P3 effective rows)."
