@@ -294,20 +294,96 @@ def _horizon_maturity_estimate(
     }
 
 
-def _duplicate_week_keys(rows: list[dict[str, Any]]) -> set[int]:
-    """Mark row indices (0-based in rows list) that are duplicate same-week per symbol."""
-
+def _symbol_week_groups(rows: list[dict[str, Any]]) -> dict[tuple[str, int, int], list[int]]:
     groups: dict[tuple[str, int, int], list[int]] = defaultdict(list)
     for i, row in enumerate(rows):
         key = (row["symbol"], *_iso_week_key(row["event_date"]))
         groups[key].append(i)
+    return groups
+
+
+def _duplicate_week_keys(rows: list[dict[str, Any]]) -> set[int]:
+    """Mark row indices (0-based in rows list) that are duplicate same-week per symbol."""
+
     dup_indices: set[int] = set()
-    for indices in groups.values():
+    for indices in _symbol_week_groups(rows).values():
         if len(indices) <= 1:
             continue
         for j in indices[1:]:
             dup_indices.add(j)
     return dup_indices
+
+
+def _first_per_week_indices(rows: list[dict[str, Any]]) -> set[int]:
+    """Earliest row index per (symbol, ISO week) — counterfactual dedupe set."""
+
+    return {indices[0] for indices in _symbol_week_groups(rows).values() if indices}
+
+
+def _dedupe_counterfactual(
+    obs_rows: list[dict[str, Any]],
+    *,
+    cache_dir: Any,
+    horizons: tuple[int, ...],
+    reference_date: date | None,
+    matched_with_duplicate_policy: int,
+) -> dict[str, Any]:
+    """Read-only: P3 counts if only first row per symbol+ISO week is considered."""
+
+    groups = _symbol_week_groups(obs_rows)
+    first = _first_per_week_indices(obs_rows)
+    cf_buckets: Counter[str] = Counter()
+    cf_cats: Counter[str] = Counter()
+    cf_matched = 0
+    cf_will_match = 0
+    for i, row in enumerate(obs_rows):
+        if i not in first:
+            continue
+        detail = _classify_single_row(
+            row,
+            cache_dir=cache_dir,
+            horizons=horizons,
+            reference_date=reference_date,
+            is_duplicate=False,
+        )
+        cf_buckets[detail["p3_bucket"]] += 1
+        cf_cats[detail["user_category"]] += 1
+        if detail["outcome"] == "matched":
+            cf_matched += 1
+        if detail["p3_bucket"] == BUCKET_WILL_MATCH_AFTER_DATE:
+            cf_will_match += 1
+
+    multi_groups = [(k, len(v)) for k, v in groups.items() if len(v) > 1]
+    multi_groups.sort(key=lambda item: (-item[1], item[0][0], item[0][1], item[0][2]))
+    top_dupes = [
+        {
+            "symbol": sym,
+            "iso_year": yr,
+            "iso_week": wk,
+            "row_count": count,
+            "extras_suppressed": count - 1,
+        }
+        for (sym, yr, wk), count in multi_groups[:10]
+    ]
+
+    suppressed = len(obs_rows) - len(first)
+    return {
+        "unique_symbol_weeks": len(first),
+        "duplicate_rows_suppressed": suppressed,
+        "multi_log_week_groups": len(multi_groups),
+        "matched_with_current_policy": matched_with_duplicate_policy,
+        "matched_first_per_week_only": cf_matched,
+        "matched_delta_if_counted_first_only": cf_matched - matched_with_duplicate_policy,
+        "will_be_matchable_first_per_week": cf_will_match,
+        "samples_needed_counterfactual": max(0, THIN_SAMPLE_THRESHOLD - cf_matched),
+        "p3_bucket_counts_first_per_week": dict(sorted(cf_buckets.items(), key=lambda x: (-x[1], x[0]))),
+        "user_category_counts_first_per_week": dict(sorted(cf_cats.items(), key=lambda x: (-x[1], x[0]))),
+        "top_duplicate_week_groups": top_dupes,
+        "note": (
+            "Counterfactual only — does not delete observation_log lines. "
+            "Use to see P3 path if weekly write logs once per symbol per ISO week."
+        ),
+    }
 
 
 def compute_us_forward_p3_stall_diagnosis(
@@ -442,7 +518,11 @@ def compute_us_forward_p3_stall_diagnosis(
         )
     if dup > 0:
         next_actions.append(
-            "Reduce duplicate_same_week_rows: one US signal log per symbol per ISO week"
+            "Reduce duplicate_same_week_rows: one US signal log per symbol per ISO week "
+            "(see dedupe_counterfactual — re-logging same week does not increase matched)"
+        )
+        next_actions.append(
+            "Defer L1 until will_be_matchable_first_per_week rises; duplicates inflate row count only"
         )
     if backtest_matched >= THIN_SAMPLE_THRESHOLD and matched < THIN_SAMPLE_THRESHOLD:
         next_actions.append(
@@ -460,6 +540,17 @@ def compute_us_forward_p3_stall_diagnosis(
     horizon_maturity = _horizon_maturity_estimate(
         row_details, horizons=horizons, matched=matched
     )
+    dedupe_counterfactual = _dedupe_counterfactual(
+        obs_rows,
+        cache_dir=cache_dir,
+        horizons=horizons,
+        reference_date=reference_date,
+        matched_with_duplicate_policy=matched,
+    )
+    if dedupe_counterfactual.get("matched_first_per_week_only", 0) != matched:
+        why_stuck["counterfactual_matched_first_per_week"] = dedupe_counterfactual[
+            "matched_first_per_week_only"
+        ]
 
     return {
         "schema_version": 1,
@@ -472,6 +563,7 @@ def compute_us_forward_p3_stall_diagnosis(
         "p3_bucket_counts": dict(sorted(bucket_counts.items(), key=lambda x: (-x[1], x[0]))),
         "why_matched_stuck": why_stuck,
         "horizon_maturity": horizon_maturity,
+        "dedupe_counterfactual": dedupe_counterfactual,
         "weekly_write_effectiveness": {
             "effective_rows": weekly_effective_yes,
             "ineffective_rows": weekly_effective_no,
@@ -542,6 +634,29 @@ def format_p3_stall_diagnosis_markdown(diagnosis: dict[str, Any]) -> str:
                     f"- current_will_match_rows: {gate.get('current_will_match_rows', 0)}",
                 ]
             )
+    dc = diagnosis.get("dedupe_counterfactual") or {}
+    if dc:
+        lines.extend(
+            [
+                "",
+                "### Dedupe counterfactual (first row per symbol+ISO week)",
+                f"- unique_symbol_weeks: {dc.get('unique_symbol_weeks', 0)}",
+                f"- duplicate_rows_suppressed: {dc.get('duplicate_rows_suppressed', 0)}",
+                f"- matched_first_per_week_only: {dc.get('matched_first_per_week_only', 0)}",
+                f"- will_be_matchable_first_per_week: {dc.get('will_be_matchable_first_per_week', 0)}",
+                f"- samples_needed_counterfactual: {dc.get('samples_needed_counterfactual', 0)}",
+                f"- note: {dc.get('note', '')}",
+            ]
+        )
+        top = dc.get("top_duplicate_week_groups") or []
+        if top:
+            lines.append("")
+            lines.append("Top duplicate week groups (symbol, ISO week, rows):")
+            for item in top[:6]:
+                lines.append(
+                    f"- {item.get('symbol')} {item.get('iso_year')}-W{item.get('iso_week'):02d}: "
+                    f"{item.get('row_count')} rows ({item.get('extras_suppressed')} extras)"
+                )
     lines.extend(["", "### Next actions (read-only)"])
     for action in diagnosis.get("next_actions") or []:
         lines.append(f"- {action}")
