@@ -118,3 +118,6 @@ def test_forward_p3_status_includes_stall_diagnosis(
                 "not_applicable",
                 "unknown",
             }
+    timeline = report.get("p3_horizon_timeline") or {}
+    if timeline.get("headline"):
+        assert "## P3 horizon match timeline" in md
