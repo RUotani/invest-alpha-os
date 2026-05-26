@@ -81,6 +81,7 @@ def build_forward_p3_status_bundle(
         )
     except (FileNotFoundError, ValueError):
         resolution_breakdown = {}
+    event_sources = resolution_breakdown.get("event_date_sources") or {}
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
@@ -90,6 +91,7 @@ def build_forward_p3_status_bundle(
         peer_sync_matched=peer_matched,
         resolution_outcomes=resolution_breakdown.get("outcomes"),
         insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
+        event_date_source_as_of_share=event_sources.get("event_date_source_as_of_share"),
     )
 
     return {
@@ -155,7 +157,14 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
             "",
             "## Next commands",
             "",
-            "- `.venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown`",
+        ]
+    )
+    from invis_alpha_os.product.us_forward_return_validation import forward_validation_next_commands
+
+    for cmd in forward_validation_next_commands():
+        lines.append(f"- `{cmd}`")
+    lines.extend(
+        [
             "- `.venv/bin/python -m invis_alpha_os.cli.main validate peer-sync-forward-returns --format markdown`",
             "- `.venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown`",
             "",
@@ -180,6 +189,12 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         share = bd.get("insufficient_future_share")
         if share is not None:
             lines.append(f"- insufficient_future_share: {share}")
+        eds = bd.get("event_date_sources") or {}
+        if eds.get("us_signal_rows"):
+            lines.append(f"- event_date_sources: {eds.get('event_date_source_note', '')}")
+            as_of_share = eds.get("event_date_source_as_of_share")
+            if as_of_share is not None:
+                lines.append(f"- event_date_source_as_of_share: {as_of_share}")
         outcome_items = bd.get("us_signal_outcomes") or bd.get("outcomes") or {}
         for key, count in list(outcome_items.items())[:10]:
             lines.append(f"- {key}: {count}")

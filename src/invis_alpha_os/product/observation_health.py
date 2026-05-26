@@ -456,6 +456,27 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         p3 = sq.get("p3_progress") or {}
         if p3.get("progress_label"):
             lines.append(f"- p3_progress: {p3.get('progress_label')}")
+        try:
+            from invis_alpha_os.product.us_forward_return_validation import (
+                compute_us_forward_resolution_breakdown,
+            )
+
+            obs_path = Path(report.observation_path)
+            if not obs_path.is_file():
+                candidate = OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+                if candidate.is_file():
+                    obs_path = candidate
+            bd = compute_us_forward_resolution_breakdown(
+                observation_path=obs_path,
+                path_base=ROOT_DIR,
+            )
+            eds = bd.get("event_date_sources") or {}
+            if eds.get("event_date_source_note"):
+                lines.append(f"- event_date_sources: {eds.get('event_date_source_note')}")
+            if bd.get("insufficient_future_share") is not None:
+                lines.append(f"- insufficient_future_share: {bd.get('insufficient_future_share')}")
+        except (FileNotFoundError, ValueError, OSError):
+            pass
         stale_syms = fwd.get("stale_skip_by_symbol") or []
         if stale_syms:
             preview = ", ".join(

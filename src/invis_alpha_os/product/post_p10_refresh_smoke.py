@@ -30,6 +30,7 @@ def forward_p3_recommended_actions(
     peer_sync_matched: int = 0,
     resolution_outcomes: dict[str, int] | None = None,
     insufficient_future_share: float | None = None,
+    event_date_source_as_of_share: float | None = None,
 ) -> list[str]:
     """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
 
@@ -73,6 +74,14 @@ def forward_p3_recommended_actions(
             actions.append(
                 f"insufficient_future_share={insufficient_future_share:.0%}: calendar time dominates; "
                 "extra P10 batches alone unlikely to reach 10/10 matched (docs/161)"
+            )
+        if (
+            event_date_source_as_of_share is not None
+            and event_date_source_as_of_share < 0.5
+        ):
+            actions.append(
+                f"event_date_source_as_of_share={event_date_source_as_of_share:.0%}: "
+                "many rows use created_at; new weekly writes with as_of= mature over calendar time (docs/161)"
             )
         return actions
 

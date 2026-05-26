@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from invis_alpha_os.observation.us_signal_note import build_us_signal_observatio
 from invis_alpha_os.product.us_forward_return_validation import (
     classify_us_signal_row_forward_outcome,
     compute_us_forward_resolution_breakdown,
+    summarize_us_signal_event_date_sources,
 )
 
 
@@ -57,6 +59,23 @@ def test_classify_row_matched_with_fixture(
     assert report["rows_considered"] >= 1
     assert report["outcomes"].get("matched", 0) >= 0
     assert "backtest_within_cache_matched" in report
+    eds = report.get("event_date_sources") or {}
+    assert eds.get("event_date_source_as_of", 0) >= 1
+    assert eds.get("event_date_source_as_of_share") == 1.0
+
+
+def test_event_date_source_created_at_without_as_of(tmp_path: Path) -> None:
+    obs = tmp_path / "obs.jsonl"
+    line = {
+        "symbol": "MSFT",
+        "note": "us_cache_signal observation_only status=ok momentum_label=neutral",
+        "created_at": "2024-04-10T00:00:00+00:00",
+    }
+    obs.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    summary = summarize_us_signal_event_date_sources(obs)
+    assert summary["event_date_source_created_at"] == 1
+    assert summary["event_date_source_as_of"] == 0
+    assert summary["event_date_source_as_of_share"] == 0.0
 
 
 def test_classify_outcome_insufficient_future(tmp_path: Path) -> None:
