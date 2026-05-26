@@ -91,19 +91,22 @@ gh pr merge <N> --squash --delete-branch
 
 ---
 
-## 5. Human approval gates（merge 以外）
+## 5. Human approval gates（merge 以外 · バッチ 2026-05-26）
 
-```text
-live HTTP / cache write / Gmail → 人間明示承認
-portfolio [要確認]% → 人間
-RULES.md 改定 → 人間
-```
+| ID | 内容 |
+| --- | --- |
+| L1 | weekly write + P10（回数・期限付き） |
+| L2 | Gmail dry-run + send-test 1回 |
+| L3 | portfolio %（ティア変更時） |
+
+wave ごと2文字IDは廃止。詳細: `reports/2026-05-26/approval_minimization_proposal_20260526.md`
 
 ---
 
 ## 6. 承認履歴
 
 - 2026-05-24: **オプション B** — ユーザー承認。ChatGPT MERGE + CI green + CLEAN で Agent merge 可。
+- 2026-05-26: **L1/L2/L3 バッチ承認** — wave ごと承認廃止。
 
 ---
 
