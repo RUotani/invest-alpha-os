@@ -463,6 +463,46 @@ def test_markdown_includes_p3_stall_and_next_actions(obs_and_cache: tuple[Path, 
     assert "normal matched" in md.lower() or "normal_matched" in md
 
 
+def test_horizon_maturity_estimate_sessions(obs_and_cache: tuple[Path, Path]) -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        compute_us_forward_p3_stall_diagnosis,
+    )
+
+    obs_path, cache_dir = obs_and_cache
+    bars = load_bars_json_file(FIX_MSFT)
+    last_date = bars[-1]["date"][:10]
+    obs_path.write_text(
+        obs_path.read_text(encoding="utf-8").strip()
+        + "\n"
+        + json.dumps(
+            {
+                "id": "tail",
+                "created_at": f"{last_date}T09:00:00+00:00",
+                "symbol": "MSFT",
+                "note": (
+                    "us_cache_signal observation_only status=ok momentum_label=uptrend "
+                    "not buy/sell advice"
+                ),
+                "evidence_ids": [],
+                "tags": [],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    stall = compute_us_forward_p3_stall_diagnosis(
+        observation_path=obs_path, cache_dir=cache_dir, horizons=(60,)
+    )
+    hm = stall.get("horizon_maturity") or {}
+    assert "sessions_until_histogram" in hm
+    assert "l1_gate" in hm
+    assert hm["l1_gate"]["frequency"] == "monthly 1-2 times"
+    md = format_us_forward_return_markdown(
+        compute_us_forward_returns(observation_path=obs_path, cache_dir=cache_dir, horizons=(60,))
+    )
+    assert "### Horizon maturity estimate" in md
+
+
 def test_resolution_breakdown_embeds_stall_diagnosis(obs_and_cache: tuple[Path, Path]) -> None:
     from invis_alpha_os.product.us_forward_return_validation import (
         compute_us_forward_resolution_breakdown,

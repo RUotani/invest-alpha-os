@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import date
+from statistics import median
 from typing import Any
 
 from invis_alpha_os.product.forward_event_resolution import (
@@ -218,6 +219,81 @@ def _classify_single_row(
     }
 
 
+def _sessions_bin(sessions: int) -> str:
+    if sessions <= 5:
+        return "1-5"
+    if sessions <= 20:
+        return "6-20"
+    if sessions <= 60:
+        return "21-60"
+    return "61+"
+
+
+def _horizon_maturity_estimate(
+    row_details: list[dict[str, Any]],
+    *,
+    horizons: tuple[int, ...],
+    matched: int,
+) -> dict[str, Any]:
+    """Trading-session estimate for rows that can mature into normal matched (read-only)."""
+
+    max_h = max(int(h) for h in horizons) if horizons else 60
+    pending: list[dict[str, Any]] = [
+        d
+        for d in row_details
+        if not d.get("is_duplicate_same_week")
+        and d.get("p3_bucket") == BUCKET_WILL_MATCH_AFTER_DATE
+        and isinstance(d.get("sessions_until_matchable"), int)
+        and int(d["sessions_until_matchable"]) > 0
+    ]
+    sessions_list = [int(d["sessions_until_matchable"]) for d in pending]
+    hist: Counter[str] = Counter()
+    for s in sessions_list:
+        hist[_sessions_bin(s)] += 1
+
+    flip_if_sessions: dict[str, int] = {}
+    for milestone in (5, 20, max_h):
+        flip_if_sessions[str(milestone)] = sum(
+            1 for s in sessions_list if s <= milestone
+        )
+
+    dup_rows = sum(1 for d in row_details if d.get("is_duplicate_same_week"))
+    unique_weekly_candidates = len(pending)
+
+    return {
+        "max_horizon_sessions": max_h,
+        "will_be_matchable_after_date_rows": len(pending),
+        "duplicate_same_week_rows": dup_rows,
+        "sessions_until_histogram": dict(sorted(hist.items())),
+        "min_sessions_until": min(sessions_list) if sessions_list else None,
+        "median_sessions_until": int(median(sessions_list)) if sessions_list else None,
+        "p90_sessions_until": (
+            int(sorted(sessions_list)[int(0.9 * (len(sessions_list) - 1))])
+            if len(sessions_list) >= 2
+            else (sessions_list[0] if sessions_list else None)
+        ),
+        "projected_normal_matched_if_cache_extends_sessions": flip_if_sessions,
+        "note": (
+            "Uses US daily bars as trading sessions; dates after cache_end are session counts only "
+            "(not calendar holidays)"
+        ),
+        "l1_gate": {
+            "frequency": "monthly 1-2 times",
+            "run_l1_when": (
+                "will_be_matchable_after_date_rows increases vs prior forward-p3-status JSON "
+                "OR median_sessions_until decreases"
+            ),
+            "skip_l1_when": (
+                "only duplicate_same_week_rows grows (same ISO week re-logs); "
+                f"current duplicate_rows={dup_rows}"
+            ),
+            "current_will_match_rows": len(pending),
+            "current_matched_normal": matched,
+            "unique_horizon_candidates": unique_weekly_candidates,
+        },
+    }
+
+
 def _duplicate_week_keys(rows: list[dict[str, Any]]) -> set[int]:
     """Mark row indices (0-based in rows list) that are duplicate same-week per symbol."""
 
@@ -381,6 +457,10 @@ def compute_us_forward_p3_stall_diagnosis(
             "p3_bucket": dict(block["p3_bucket"]),
         }
 
+    horizon_maturity = _horizon_maturity_estimate(
+        row_details, horizons=horizons, matched=matched
+    )
+
     return {
         "schema_version": 1,
         "observation_path": str(obs_path),
@@ -391,6 +471,7 @@ def compute_us_forward_p3_stall_diagnosis(
         "user_category_counts": dict(sorted(user_cat_counts.items(), key=lambda x: (-x[1], x[0]))),
         "p3_bucket_counts": dict(sorted(bucket_counts.items(), key=lambda x: (-x[1], x[0]))),
         "why_matched_stuck": why_stuck,
+        "horizon_maturity": horizon_maturity,
         "weekly_write_effectiveness": {
             "effective_rows": weekly_effective_yes,
             "ineffective_rows": weekly_effective_no,
@@ -433,10 +514,35 @@ def format_p3_stall_diagnosis_markdown(diagnosis: dict[str, Any]) -> str:
             f"- effective_rows: {wk.get('effective_rows', 0)}",
             f"- ineffective_rows: {wk.get('ineffective_rows', 0)}",
             f"- note: {wk.get('note', '')}",
-            "",
-            "### Next actions (read-only)",
         ]
     )
+    hm = diagnosis.get("horizon_maturity") or {}
+    if hm:
+        lines.extend(
+            [
+                "",
+                "### Horizon maturity estimate (trading sessions)",
+                f"- will_be_matchable_after_date_rows: {hm.get('will_be_matchable_after_date_rows', 0)}",
+                f"- duplicate_same_week_rows: {hm.get('duplicate_same_week_rows', 0)}",
+                f"- median_sessions_until: {hm.get('median_sessions_until')}",
+                f"- sessions_until_histogram: {hm.get('sessions_until_histogram', {})}",
+                f"- projected_normal_matched_if_cache_extends_sessions: "
+                f"{hm.get('projected_normal_matched_if_cache_extends_sessions', {})}",
+                f"- note: {hm.get('note', '')}",
+            ]
+        )
+        gate = hm.get("l1_gate") or {}
+        if gate:
+            lines.extend(
+                [
+                    "",
+                    "### L1 batch gate (monthly 1-2x)",
+                    f"- run_l1_when: {gate.get('run_l1_when', '')}",
+                    f"- skip_l1_when: {gate.get('skip_l1_when', '')}",
+                    f"- current_will_match_rows: {gate.get('current_will_match_rows', 0)}",
+                ]
+            )
+    lines.extend(["", "### Next actions (read-only)"])
     for action in diagnosis.get("next_actions") or []:
         lines.append(f"- {action}")
     sym_block = diagnosis.get("by_symbol") or {}
