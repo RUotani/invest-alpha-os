@@ -240,6 +240,12 @@ def evaluate_portfolio_readiness(
             detail += f"; {why['headline']}"
         if p3_l1_write_gate and not p3_l1_write_gate.get("l1_recommended"):
             detail += f"; l1_status={p3_l1_write_gate.get('status')}"
+            rollover = p3_l1_write_gate.get("iso_week_rollover") or {}
+            if rollover.get("days_until_earliest_rollover") is not None:
+                detail += (
+                    f"; iso_rollover_in_days={rollover.get('days_until_earliest_rollover')} "
+                    f"earliest={rollover.get('earliest_next_iso_week_start')}"
+                )
         p3 = _milestone(
             milestone_id="P3",
             passed=False,
