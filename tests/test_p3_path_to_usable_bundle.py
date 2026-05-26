@@ -53,7 +53,7 @@ def test_cli_p3_path_to_usable_json(tmp_path: Path, monkeypatch) -> None:
     )
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
-    assert payload.get("p3_path_to_usable")
+    assert "dominant_path" in (payload.get("p3_path_to_usable") or {})
     assert payload.get("horizon_timeline_max_rows") == 20
 
 

@@ -194,6 +194,19 @@ def build_p3_path_to_usable_bundle(
         cache_dir=cache,
     )
     path = dict(full.get("p3_path_to_usable") or {})
+    us_forward = full.get("us_forward") or {}
+    us_matched = int(us_forward.get("rows_matched") or 0)
+    if not path:
+        from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+
+        path = build_p3_path_to_usable(
+            matched_normal=us_matched,
+            thin_threshold=THIN_SAMPLE_THRESHOLD,
+            p3_us_forward_summary=full.get("p3_us_forward_summary"),
+            p3_weekly_write_plan=full.get("p3_weekly_write_plan"),
+            p3_horizon_timeline=full.get("p3_horizon_timeline"),
+            stall_diagnosis=full.get("p3_stall_diagnosis"),
+        )
     timeline = dict(full.get("p3_horizon_timeline") or {})
     existing_rows = len(timeline.get("timeline_rows") or [])
     if export_limit > existing_rows:
@@ -207,7 +220,6 @@ def build_p3_path_to_usable_bundle(
         except (FileNotFoundError, ValueError):
             pass
 
-    us_forward = full.get("us_forward") or {}
     return {
         "schema_version": 1,
         "observation_only": True,
