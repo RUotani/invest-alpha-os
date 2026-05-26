@@ -12,6 +12,7 @@ Normal-mode `matched` toward P3 usable (threshold 10). Observation only.
 | 15 | AG/AH | 354 | 3 | 288 | 93.4% |
 | 16 | AI/AJ | 374 | **3** | **304** | **93.8%** |
 | 17 | AK/AL | 394 | **3** | **320** | **94.1%** |
+| 18 | AM/AN | 414 | **3** | **336** | **94.4%** |
 
 **Note**: matched (normal) flat since wave6; backtest rises with log depth — not a milestone.
 
