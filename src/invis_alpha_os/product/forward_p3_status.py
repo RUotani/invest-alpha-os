@@ -11,6 +11,7 @@ from invis_alpha_os.product.post_p10_refresh_smoke import forward_p3_recommended
 from invis_alpha_os.product.us_forward_return_validation import (
     THIN_SAMPLE_THRESHOLD,
     classify_forward_skip_pattern,
+    compute_us_forward_resolution_breakdown,
     compute_us_forward_returns,
     forward_p3_progress,
     observation_log_line_count,
@@ -55,8 +56,9 @@ def build_forward_p3_status_bundle(
     peer_usable = peer_status == "usable"
     us_usable = us_status == "usable"
     skipped = us_report.get("skipped_reasons") or {}
+    signal_rows = int(us_report.get("rows_considered") or 0)
     skip_pattern = str(us_sq.get("skip_pattern") or "") or classify_forward_skip_pattern(
-        skipped, signal_rows=int(us_report.get("signal_rows") or 0)
+        skipped, signal_rows=signal_rows
     )
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     tier1_missing: list[str] = []
@@ -69,6 +71,16 @@ def build_forward_p3_status_bundle(
         tier1_missing = list(expansion.get("tier_1_missing_refresh_order") or [])
     except (FileNotFoundError, ValueError):
         tier1_missing = []
+    log_lines = observation_log_line_count(obs)
+    resolution_breakdown: dict[str, Any] = {}
+    try:
+        resolution_breakdown = compute_us_forward_resolution_breakdown(
+            observation_path=obs,
+            cache_dir=cache,
+            path_base=root,
+        )
+    except (FileNotFoundError, ValueError):
+        resolution_breakdown = {}
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
@@ -76,8 +88,9 @@ def build_forward_p3_status_bundle(
         forward_matched=us_matched,
         stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
         peer_sync_matched=peer_matched,
+        resolution_outcomes=resolution_breakdown.get("outcomes"),
+        insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
     )
-    log_lines = observation_log_line_count(obs)
 
     return {
         "schema_version": 1,
@@ -85,6 +98,7 @@ def build_forward_p3_status_bundle(
         "observation_path": str(obs),
         "observation_log_lines": log_lines,
         "recommended_actions": recommended,
+        "us_forward_resolution_breakdown": resolution_breakdown,
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -154,6 +168,27 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
     log_lines = report.get("observation_log_lines")
     if log_lines is not None:
         lines.insert(4, f"- observation_log_lines: {log_lines}")
+    bd = report.get("us_forward_resolution_breakdown") or {}
+    if bd.get("outcomes"):
+        lines.extend(
+            [
+                "",
+                "## US forward resolution breakdown",
+                f"- {bd.get('path_to_usable_note', '')}",
+            ]
+        )
+        share = bd.get("insufficient_future_share")
+        if share is not None:
+            lines.append(f"- insufficient_future_share: {share}")
+        outcome_items = bd.get("us_signal_outcomes") or bd.get("outcomes") or {}
+        for key, count in list(outcome_items.items())[:10]:
+            lines.append(f"- {key}: {count}")
+        bt = bd.get("backtest_within_cache_matched")
+        if bt is not None:
+            lines.append(f"- backtest_within_cache_matched (exploratory): {bt}")
+            note = bd.get("backtest_exploratory_note")
+            if note:
+                lines.append(f"- {note}")
     actions = report.get("recommended_actions") or []
     if actions:
         lines.extend(["", "## Recommended actions (read-only)"])
