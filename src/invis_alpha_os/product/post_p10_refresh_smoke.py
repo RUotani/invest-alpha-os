@@ -31,6 +31,7 @@ def forward_p3_recommended_actions(
     resolution_outcomes: dict[str, int] | None = None,
     insufficient_future_share: float | None = None,
     event_date_source_as_of_share: float | None = None,
+    l1_write_gate: dict[str, Any] | None = None,
 ) -> list[str]:
     """Read-only next steps toward forward P3 (docs/161/163; no live HTTP)."""
 
@@ -82,6 +83,13 @@ def forward_p3_recommended_actions(
             actions.append(
                 f"event_date_source_as_of_share={event_date_source_as_of_share:.0%}: "
                 "many rows use created_at; new weekly writes with as_of= mature over calendar time (docs/161)"
+            )
+        gate = l1_write_gate or {}
+        if gate.get("next_action"):
+            actions.append(str(gate["next_action"]))
+        elif gate.get("status") == "ready":
+            actions.append(
+                "L1 ready: validate forward-p3-status p3_weekly_write_plan.write_now_count > 0"
             )
         return actions
 
@@ -178,6 +186,15 @@ def build_post_refresh_hints_light(
     ps_sq = peer_sync_forward.get("sample_quality") or {}
     tier1_ok = not tier1_missing
     forward_ok = matched > 0 and str(sq.get("status") or "") in {"thin", "usable"}
+    from invis_alpha_os.product.us_signal_iso_week_dedupe import (
+        build_p3_l1_write_gate_for_observation,
+    )
+
+    l1_gate = build_p3_l1_write_gate_for_observation(
+        observation_path=obs,
+        stall_diagnosis=forward.get("p3_stall_diagnosis"),
+        path_base=root,
+    )
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
@@ -185,6 +202,7 @@ def build_post_refresh_hints_light(
         forward_matched=matched,
         stale_skip_by_symbol=list(forward.get("stale_skip_by_symbol") or []),
         peer_sync_matched=ps_matched,
+        l1_write_gate=l1_gate,
     )
 
     return {
@@ -303,6 +321,15 @@ def build_post_p10_refresh_smoke_summary(
         and matched_rows > 0
         and str(sq.get("status") or "") in {"thin", "usable"}
     )
+    from invis_alpha_os.product.us_signal_iso_week_dedupe import (
+        build_p3_l1_write_gate_for_observation,
+    )
+
+    l1_gate = build_p3_l1_write_gate_for_observation(
+        observation_path=obs,
+        stall_diagnosis=forward.get("p3_stall_diagnosis"),
+        path_base=root,
+    )
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
@@ -310,6 +337,7 @@ def build_post_p10_refresh_smoke_summary(
         forward_matched=matched_rows,
         stale_skip_by_symbol=list(forward.get("stale_skip_by_symbol") or []),
         peer_sync_matched=ps_matched,
+        l1_write_gate=l1_gate,
     )
 
     us_forward = {

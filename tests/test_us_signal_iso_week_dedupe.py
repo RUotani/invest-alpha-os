@@ -14,6 +14,7 @@ from invis_alpha_os.observation.us_signals_batch import (
 )
 from invis_alpha_os.product.us_signal_iso_week_dedupe import (
     build_p3_weekly_write_plan,
+    evaluate_p3_l1_write_gate,
     load_existing_symbol_iso_week_keys,
 )
 
@@ -73,3 +74,24 @@ def test_build_p3_weekly_write_plan_splits(tmp_path: Path) -> None:
 
 def test_load_existing_symbol_iso_week_keys_empty(tmp_path: Path) -> None:
     assert load_existing_symbol_iso_week_keys(tmp_path / "missing.jsonl") == set()
+
+
+def test_evaluate_p3_l1_write_gate_ready() -> None:
+    gate = evaluate_p3_l1_write_gate(
+        write_now_count=3,
+        skip_duplicate_count=5,
+        will_be_matchable_after_date_rows=2,
+    )
+    assert gate["status"] == "ready"
+    assert gate["l1_recommended"] is True
+
+
+def test_evaluate_p3_l1_write_gate_blocked_duplicate() -> None:
+    gate = evaluate_p3_l1_write_gate(
+        write_now_count=0,
+        skip_duplicate_count=16,
+        will_be_matchable_after_date_rows=8,
+    )
+    assert gate["status"] == "blocked_duplicate_iso_week"
+    assert gate["l1_recommended"] is False
+    assert "will_be_matchable_after_date" in gate["next_action"]

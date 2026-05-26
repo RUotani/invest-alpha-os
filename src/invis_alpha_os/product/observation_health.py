@@ -415,6 +415,15 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             )
         if p3_sum.get("why_matched_stuck_headline"):
             lines.append(f"- p3_stall: {p3_sum['why_matched_stuck_headline']}")
+        l1_gate = readiness.get("p3_l1_write_gate") or {}
+        if l1_gate.get("status"):
+            lines.append(
+                f"- p3_l1_gate: status={l1_gate.get('status')} "
+                f"recommended={l1_gate.get('l1_recommended')} "
+                f"write_now={l1_gate.get('write_now_count', 0)}"
+            )
+        if l1_gate.get("next_action"):
+            lines.append(f"- p3_l1_next: {l1_gate['next_action']}")
         dc = p3_sum.get("dedupe_counterfactual") or {}
         if dc.get("duplicate_rows_suppressed"):
             lines.append(

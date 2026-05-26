@@ -97,18 +97,6 @@ def build_forward_p3_status_bundle(
         except (FileNotFoundError, ValueError):
             p3_stall_diagnosis = {}
     event_sources = resolution_breakdown.get("event_date_sources") or {}
-    recommended = forward_p3_recommended_actions(
-        skip_pattern=skip_pattern,
-        tier1_missing=tier1_missing,
-        stale_skips=stale_skips,
-        forward_matched=us_matched,
-        stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
-        peer_sync_matched=peer_matched,
-        resolution_outcomes=resolution_breakdown.get("outcomes"),
-        insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
-        event_date_source_as_of_share=event_sources.get("event_date_source_as_of_share"),
-    )
-
     p3_us_forward_summary: dict[str, Any] = {}
     p3_weekly_write_plan: dict[str, Any] = {}
     if p3_stall_diagnosis:
@@ -125,12 +113,31 @@ def build_forward_p3_status_bundle(
         )
         try:
             planned, _missing = default_watchlist_cache_planned_writes(path_base=root)
+            will_match = int(
+                (p3_stall_diagnosis.get("p3_bucket_counts") or {}).get(
+                    "will_be_matchable_after_date", 0
+                )
+            )
             p3_weekly_write_plan = build_p3_weekly_write_plan(
                 observation_path=obs,
                 planned_writes=planned,
+                will_be_matchable_after_date_rows=will_match,
             )
         except (FileNotFoundError, ValueError):
             p3_weekly_write_plan = {}
+    l1_gate = (p3_weekly_write_plan.get("l1_gate") or {}) if p3_weekly_write_plan else {}
+    recommended = forward_p3_recommended_actions(
+        skip_pattern=skip_pattern,
+        tier1_missing=tier1_missing,
+        stale_skips=stale_skips,
+        forward_matched=us_matched,
+        stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
+        peer_sync_matched=peer_matched,
+        resolution_outcomes=resolution_breakdown.get("outcomes"),
+        insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
+        event_date_source_as_of_share=event_sources.get("event_date_source_as_of_share"),
+        l1_write_gate=l1_gate or None,
+    )
 
     return {
         "schema_version": 1,
@@ -263,6 +270,18 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
                 f"- l1_hint: {plan.get('l1_hint', '')}",
             ]
         )
+        gate = plan.get("l1_gate") or {}
+        if gate:
+            lines.extend(
+                [
+                    f"- l1_status: {gate.get('status', '')}",
+                    f"- l1_recommended: {gate.get('l1_recommended')}",
+                ]
+            )
+            if gate.get("blocked_reason"):
+                lines.append(f"- l1_blocked_reason: {gate.get('blocked_reason')}")
+            if gate.get("next_action"):
+                lines.append(f"- l1_next_action: {gate.get('next_action')}")
         write_now = plan.get("write_now") or []
         if write_now:
             preview = ", ".join(
