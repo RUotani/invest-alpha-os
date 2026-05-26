@@ -110,3 +110,5 @@ def test_forward_p3_status_includes_stall_diagnosis(
     if plan:
         assert "write_now_count" in plan
         assert "## P3 weekly write plan" in md
+        assert (plan.get("l1_gate") or {}).get("status")
+        assert "l1_status" in md or "l1_recommended" in md

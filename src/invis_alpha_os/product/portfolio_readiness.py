@@ -9,6 +9,7 @@ from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
 from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
+from invis_alpha_os.product.us_signal_iso_week_dedupe import build_p3_l1_write_gate_for_observation
 from invis_alpha_os.product.weekly_us_observation import (
     compute_us_signal_weekly_trend,
     summarize_us_observation_log,
@@ -122,6 +123,14 @@ def evaluate_portfolio_readiness(
         except (FileNotFoundError, ValueError):
             forward = None
 
+    p3_l1_write_gate: dict[str, Any] | None = None
+    if forward:
+        p3_l1_write_gate = build_p3_l1_write_gate_for_observation(
+            observation_path=obs,
+            stall_diagnosis=forward.get("p3_stall_diagnosis"),
+            path_base=root,
+        )
+
     shadow_count = portfolio.shadow_position_count
     with_evidence = portfolio.positions_with_evidence_ids
     with_links = portfolio.positions_with_resolved_links
@@ -229,6 +238,8 @@ def evaluate_portfolio_readiness(
         why = stall.get("why_matched_stuck") or {}
         if why.get("headline"):
             detail += f"; {why['headline']}"
+        if p3_l1_write_gate and not p3_l1_write_gate.get("l1_recommended"):
+            detail += f"; l1_status={p3_l1_write_gate.get('status')}"
         p3 = _milestone(
             milestone_id="P3",
             passed=False,
@@ -328,6 +339,7 @@ def evaluate_portfolio_readiness(
         "p2_weekly_hint": p2_weekly_hint,
         "p3_forward_progress": p3_forward_progress,
         "p3_us_forward_summary": p3_us_forward_summary,
+        "p3_l1_write_gate": p3_l1_write_gate,
         "peer_forward_usable": peer_forward_usable,
         "peer_forward_matched": peer_forward_matched,
         "peer_forward_note": peer_forward_note,
