@@ -415,6 +415,8 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
             )
         if p3_sum.get("why_matched_stuck_headline"):
             lines.append(f"- p3_stall: {p3_sum['why_matched_stuck_headline']}")
+        if p3_sum.get("horizon_timeline_headline"):
+            lines.append(f"- p3_horizon: {p3_sum['horizon_timeline_headline']}")
         l1_gate = readiness.get("p3_l1_write_gate") or {}
         if l1_gate.get("status"):
             lines.append(

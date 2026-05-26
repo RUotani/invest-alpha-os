@@ -149,6 +149,7 @@ def build_forward_p3_status_bundle(
         "p3_stall_diagnosis": p3_stall_diagnosis,
         "p3_us_forward_summary": p3_us_forward_summary,
         "p3_weekly_write_plan": p3_weekly_write_plan,
+        "p3_horizon_timeline": p3_stall_diagnosis.get("p3_horizon_timeline") or {},
         "us_forward": {
             "rows_matched": us_matched,
             "sample_quality_status": str(us_sq.get("status") or ""),
@@ -303,6 +304,13 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
                 f"{x.get('symbol')}({x.get('last_date')})" for x in write_now[:8]
             )
             lines.append(f"- write_now: {preview}")
+    timeline = report.get("p3_horizon_timeline") or {}
+    if timeline.get("headline"):
+        from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+            format_p3_horizon_match_timeline_markdown,
+        )
+
+        lines.extend(["", format_p3_horizon_match_timeline_markdown(timeline)])
     stall = report.get("p3_stall_diagnosis") or {}
     if stall.get("why_matched_stuck"):
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import format_p3_stall_diagnosis_markdown

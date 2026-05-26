@@ -295,6 +295,105 @@ def _horizon_maturity_estimate(
     }
 
 
+def build_p3_horizon_match_timeline(
+    *,
+    row_details: list[dict[str, Any]],
+    matched_normal: int,
+    thin_threshold: int = THIN_SAMPLE_THRESHOLD,
+    max_rows: int = 16,
+) -> dict[str, Any]:
+    """Read-only: rows in log that can mature to normal matched via cache horizon (docs/161)."""
+
+    pending = [
+        d
+        for d in row_details
+        if not d.get("is_duplicate_same_week")
+        and d.get("p3_bucket") == BUCKET_WILL_MATCH_AFTER_DATE
+        and isinstance(d.get("sessions_until_matchable"), int)
+        and int(d["sessions_until_matchable"]) > 0
+    ]
+    pending.sort(key=lambda d: int(d["sessions_until_matchable"]))
+    sessions_list = [int(d["sessions_until_matchable"]) for d in pending]
+    needed = max(0, thin_threshold - matched_normal)
+
+    def cumulative_matched_at(max_sessions: int) -> int:
+        flip = sum(1 for s in sessions_list if s <= max_sessions)
+        return matched_normal + flip
+
+    min_s = min(sessions_list) if sessions_list else None
+    timeline_rows: list[dict[str, Any]] = []
+    for d in pending[:max_rows]:
+        timeline_rows.append(
+            {
+                "symbol": d.get("symbol"),
+                "event_date": d.get("event_date"),
+                "sessions_until_matchable": d.get("sessions_until_matchable"),
+                "matchable_after_hint": d.get("matchable_after_hint"),
+                "cache_last_date": d.get("cache_last_date"),
+                "weekly_write_effective": d.get("weekly_write_effective"),
+            }
+        )
+
+    headline = (
+        f"{len(pending)} log row(s) await cache horizon (normal matched={matched_normal}/{thin_threshold})"
+    )
+    if min_s is not None:
+        headline += (
+            f"; +{cumulative_matched_at(min_s) - matched_normal} at min_sessions={min_s} "
+            f"(projected total {cumulative_matched_at(min_s)})"
+        )
+
+    return {
+        "schema_version": 1,
+        "matched_normal": matched_normal,
+        "thin_threshold": thin_threshold,
+        "samples_needed_for_usable": needed,
+        "pending_horizon_rows": len(pending),
+        "min_sessions_until": min_s,
+        "median_sessions_until": int(median(sessions_list)) if sessions_list else None,
+        "projected_matched_at_min_sessions": cumulative_matched_at(min_s) if min_s is not None else None,
+        "projected_matched_at_median_sessions": (
+            cumulative_matched_at(int(median(sessions_list)))
+            if sessions_list
+            else None
+        ),
+        "headline": headline,
+        "timeline_rows": timeline_rows,
+        "note": (
+            "Rows already in observation_log — they mature when US daily cache extends; "
+            "weekly L1 does not add these rows. ISO-week rollover unlocks new write_now rows separately."
+        ),
+        "observation_only": True,
+    }
+
+
+def format_p3_horizon_match_timeline_markdown(timeline: dict[str, Any]) -> str:
+    lines = [
+        "## P3 horizon match timeline (read-only)",
+        "",
+        f"- {timeline.get('headline', '')}",
+        f"- samples_needed_for_usable: {timeline.get('samples_needed_for_usable', 0)}",
+        f"- note: {timeline.get('note', '')}",
+    ]
+    if timeline.get("min_sessions_until") is not None:
+        lines.append(f"- min_sessions_until: {timeline['min_sessions_until']}")
+    if timeline.get("projected_matched_at_min_sessions") is not None:
+        lines.append(
+            f"- projected_matched_at_min_sessions: {timeline['projected_matched_at_min_sessions']}"
+        )
+    rows = timeline.get("timeline_rows") or []
+    if rows:
+        lines.append("")
+        lines.append("### Soonest horizon rows")
+        for row in rows[:12]:
+            lines.append(
+                f"- {row.get('symbol')} event={row.get('event_date')} "
+                f"sessions_until={row.get('sessions_until_matchable')} "
+                f"after={row.get('matchable_after_hint') or row.get('cache_last_date')}"
+            )
+    return "\n".join(lines)
+
+
 def _symbol_week_groups(rows: list[dict[str, Any]]) -> dict[tuple[str, int, int], list[int]]:
     groups: dict[tuple[str, int, int], list[int]] = defaultdict(list)
     for i, row in enumerate(rows):
@@ -541,6 +640,11 @@ def compute_us_forward_p3_stall_diagnosis(
     horizon_maturity = _horizon_maturity_estimate(
         row_details, horizons=horizons, matched=matched
     )
+    p3_horizon_timeline = build_p3_horizon_match_timeline(
+        row_details=row_details,
+        matched_normal=matched,
+        thin_threshold=THIN_SAMPLE_THRESHOLD,
+    )
     dedupe_counterfactual = _dedupe_counterfactual(
         obs_rows,
         cache_dir=cache_dir,
@@ -564,6 +668,7 @@ def compute_us_forward_p3_stall_diagnosis(
         "p3_bucket_counts": dict(sorted(bucket_counts.items(), key=lambda x: (-x[1], x[0]))),
         "why_matched_stuck": why_stuck,
         "horizon_maturity": horizon_maturity,
+        "p3_horizon_timeline": p3_horizon_timeline,
         "dedupe_counterfactual": dedupe_counterfactual,
         "weekly_write_effectiveness": {
             "effective_rows": weekly_effective_yes,
@@ -742,6 +847,9 @@ def build_p3_us_forward_portfolio_summary(
             "median_sessions_until": hm.get("median_sessions_until"),
             "l1_batch_recommended": (hm.get("l1_gate") or {}).get("run_l1_when"),
         },
+        "horizon_timeline_headline": (stall_diagnosis.get("p3_horizon_timeline") or {}).get(
+            "headline"
+        ),
         "dedupe_counterfactual": {
             "matched_first_per_week_only": dc.get("matched_first_per_week_only"),
             "duplicate_rows_suppressed": dc.get("duplicate_rows_suppressed"),

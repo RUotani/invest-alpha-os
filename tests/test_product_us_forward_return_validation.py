@@ -360,6 +360,19 @@ def test_p3_stall_diagnosis_thin_fixed_at_one_match(obs_and_cache: tuple[Path, P
     assert stall["samples_needed_for_usable"] == 9
     assert stall["why_matched_stuck"]["normal_matched"] == 1
     assert "matchable_now" in stall["p3_bucket_counts"]
+    timeline = stall.get("p3_horizon_timeline") or {}
+    assert timeline.get("pending_horizon_rows") is not None
+    assert timeline.get("headline")
+
+
+def test_build_p3_horizon_match_timeline_empty() -> None:
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        build_p3_horizon_match_timeline,
+    )
+
+    timeline = build_p3_horizon_match_timeline(row_details=[], matched_normal=1)
+    assert timeline["pending_horizon_rows"] == 0
+    assert timeline["samples_needed_for_usable"] == 9
 
 
 def test_p3_stall_insufficient_future_classification(
