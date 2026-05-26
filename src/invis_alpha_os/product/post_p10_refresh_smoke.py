@@ -179,7 +179,15 @@ def build_post_refresh_hints_light(
 
     sq = forward.get("sample_quality") or {}
     skipped = forward.get("skipped_reasons") or {}
-    matched = int(forward.get("rows_matched") or 0)
+    from invis_alpha_os.product.us_forward_return_validation import (
+        us_forward_matched_normal_for_p3,
+    )
+
+    matched_raw = int(forward.get("rows_matched") or 0)
+    matched = us_forward_matched_normal_for_p3(
+        rows_matched=matched_raw,
+        stall_diagnosis=forward.get("p3_stall_diagnosis"),
+    )
     skip_pattern = str(sq.get("skip_pattern") or "")
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     ps_matched = int(peer_sync_forward.get("rows_matched") or 0)
@@ -209,6 +217,7 @@ def build_post_refresh_hints_light(
         "tier1_missing": tier1_missing,
         "observation_log_lines": observation_log_line_count(obs),
         "forward_matched": matched,
+        "forward_rows_matched_all": matched_raw,
         "forward_sample_quality": str(sq.get("status") or ""),
         "forward_p3_progress": sq.get("p3_progress") or forward_p3_progress(matched),
         "peer_sync_forward_matched": ps_matched,
@@ -335,7 +344,15 @@ def build_post_p10_refresh_smoke_summary(
                 ),
             }
         )
+    from invis_alpha_os.product.us_forward_return_validation import (
+        us_forward_matched_normal_for_p3,
+    )
+
     matched_rows = int(forward.get("rows_matched") or 0)
+    matched_normal = us_forward_matched_normal_for_p3(
+        rows_matched=matched_rows,
+        stall_diagnosis=forward.get("p3_stall_diagnosis"),
+    )
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     hard_pass = (
         not tier1_missing
@@ -346,7 +363,7 @@ def build_post_p10_refresh_smoke_summary(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
         stale_skips=stale_skips,
-        forward_matched=matched_rows,
+        forward_matched=matched_normal,
         stale_skip_by_symbol=list(forward.get("stale_skip_by_symbol") or []),
         peer_sync_matched=ps_matched,
         l1_write_gate=l1_gate,
@@ -354,6 +371,7 @@ def build_post_p10_refresh_smoke_summary(
 
     us_forward = {
         "rows_matched": matched_rows,
+        "matched_normal": matched_normal,
         "sample_quality": sq,
         "skip_pattern": skip_pattern,
         "skipped_reasons": skipped,
