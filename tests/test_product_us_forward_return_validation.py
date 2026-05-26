@@ -363,6 +363,9 @@ def test_p3_stall_diagnosis_thin_fixed_at_one_match(obs_and_cache: tuple[Path, P
     timeline = stall.get("p3_horizon_timeline") or {}
     assert timeline.get("pending_horizon_rows") is not None
     assert timeline.get("headline")
+    assert stall.get("p3_horizon_timeline", {}).get("sessions_until_histogram") is not None or (
+        stall.get("p3_horizon_timeline", {}).get("pending_horizon_rows", 0) == 0
+    )
 
 
 def test_build_p3_horizon_match_timeline_empty() -> None:

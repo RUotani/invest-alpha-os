@@ -121,3 +121,6 @@ def test_forward_p3_status_includes_stall_diagnosis(
     timeline = report.get("p3_horizon_timeline") or {}
     if timeline.get("headline"):
         assert "## P3 horizon match timeline" in md
+    path_usable = report.get("p3_path_to_usable") or {}
+    if path_usable.get("headline"):
+        assert "## P3 path to usable" in md
