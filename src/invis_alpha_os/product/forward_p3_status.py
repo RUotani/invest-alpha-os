@@ -15,6 +15,7 @@ from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     forward_p3_progress,
     observation_log_line_count,
+    us_forward_matched_normal_for_p3,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 
@@ -139,12 +140,18 @@ def build_forward_p3_status_bundle(
         l1_write_gate=l1_gate or None,
     )
 
+    matched_normal = us_forward_matched_normal_for_p3(
+        rows_matched=us_matched,
+        stall_diagnosis=p3_stall_diagnosis or None,
+        p3_summary=p3_us_forward_summary or None,
+    )
+
     p3_path_to_usable: dict[str, Any] = {}
     if p3_stall_diagnosis or p3_us_forward_summary:
         from invis_alpha_os.product.p3_path_to_usable import build_p3_path_to_usable
 
         p3_path_to_usable = build_p3_path_to_usable(
-            matched_normal=us_matched,
+            matched_normal=matched_normal,
             thin_threshold=THIN_SAMPLE_THRESHOLD,
             p3_us_forward_summary=p3_us_forward_summary,
             p3_weekly_write_plan=p3_weekly_write_plan,
@@ -168,6 +175,7 @@ def build_forward_p3_status_bundle(
         "p3_path_to_usable": p3_path_to_usable,
         "us_forward": {
             "rows_matched": us_matched,
+            "matched_normal": matched_normal,
             "sample_quality_status": str(us_sq.get("status") or ""),
             "skip_pattern": str(us_sq.get("skip_pattern") or ""),
             "p3_progress": us_sq.get("p3_progress") or forward_p3_progress(us_matched),
@@ -204,7 +212,8 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         f"- thin_threshold: {report.get('thin_threshold', 10)}",
         "",
         "## US forward",
-        f"- matched: {us.get('rows_matched', 0)}",
+        f"- matched (all rows): {us.get('rows_matched', 0)}",
+        f"- matched_normal (P3): {us.get('matched_normal', us.get('rows_matched', 0))}",
         f"- sample_quality: {us.get('sample_quality_status', '')}",
         f"- skip_pattern: {us.get('skip_pattern') or '(n/a)'}",
         f"- p3_progress: {us_p3.get('progress_label', '')}",

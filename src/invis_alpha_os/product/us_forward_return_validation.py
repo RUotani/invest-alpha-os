@@ -30,6 +30,21 @@ DEFAULT_HORIZONS: tuple[int, ...] = (5, 20, 60)
 THIN_SAMPLE_THRESHOLD = 10
 
 
+def us_forward_matched_normal_for_p3(
+    *,
+    rows_matched: int,
+    stall_diagnosis: dict[str, Any] | None = None,
+    p3_summary: dict[str, Any] | None = None,
+) -> int:
+    """P3 usable milestone count (excludes duplicate same-ISO-week rows when stall data exists)."""
+
+    if p3_summary is not None and p3_summary.get("matched_normal") is not None:
+        return int(p3_summary["matched_normal"])
+    if stall_diagnosis is not None and stall_diagnosis.get("matched_normal") is not None:
+        return int(stall_diagnosis["matched_normal"])
+    return int(rows_matched)
+
+
 def observation_log_line_count(observation_path: Path) -> int:
     """Count non-empty lines in observation_log.jsonl (read-only)."""
 
@@ -182,6 +197,7 @@ def forward_validation_next_commands(*, exploratory: bool = False) -> list[str]:
     cmds = [
         ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
+        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-horizon-timeline --format json",
         ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",

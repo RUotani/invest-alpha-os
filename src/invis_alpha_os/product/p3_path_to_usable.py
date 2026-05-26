@@ -196,11 +196,28 @@ def build_p3_path_to_usable_bundle(
     path = dict(full.get("p3_path_to_usable") or {})
     us_forward = full.get("us_forward") or {}
     us_matched = int(us_forward.get("rows_matched") or 0)
-    if not path:
-        from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+    from invis_alpha_os.product.us_forward_return_validation import (
+        THIN_SAMPLE_THRESHOLD,
+        us_forward_matched_normal_for_p3,
+    )
 
+    matched_normal = us_forward_matched_normal_for_p3(
+        rows_matched=us_matched,
+        stall_diagnosis=full.get("p3_stall_diagnosis"),
+        p3_summary=full.get("p3_us_forward_summary"),
+    )
+    if not path:
         path = build_p3_path_to_usable(
-            matched_normal=us_matched,
+            matched_normal=matched_normal,
+            thin_threshold=THIN_SAMPLE_THRESHOLD,
+            p3_us_forward_summary=full.get("p3_us_forward_summary"),
+            p3_weekly_write_plan=full.get("p3_weekly_write_plan"),
+            p3_horizon_timeline=full.get("p3_horizon_timeline"),
+            stall_diagnosis=full.get("p3_stall_diagnosis"),
+        )
+    elif int(path.get("matched_normal") or 0) != matched_normal:
+        path = build_p3_path_to_usable(
+            matched_normal=matched_normal,
             thin_threshold=THIN_SAMPLE_THRESHOLD,
             p3_us_forward_summary=full.get("p3_us_forward_summary"),
             p3_weekly_write_plan=full.get("p3_weekly_write_plan"),
@@ -228,9 +245,8 @@ def build_p3_path_to_usable_bundle(
         "p3_weekly_write_plan_summary": _slim_weekly_write_plan(
             full.get("p3_weekly_write_plan")
         ),
-        "us_forward_matched_normal": int(
-            us_forward.get("rows_matched") or path.get("matched_normal") or 0
-        ),
+        "us_forward_rows_matched": us_matched,
+        "us_forward_matched_normal": matched_normal,
         "us_forward_sample_quality": us_forward.get("sample_quality"),
         "horizon_timeline_max_rows": export_limit,
         "related_commands": [
@@ -238,6 +254,54 @@ def build_p3_path_to_usable_bundle(
             ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
         ],
     }
+
+
+def build_p3_horizon_timeline_export(
+    *,
+    path_base: Path | None = None,
+    observation_path: Path | None = None,
+    cache_dir: Path | None = None,
+    horizon_timeline_max_rows: int = 100,
+) -> dict[str, Any]:
+    """JSON-oriented export of horizon timeline rows (read-only)."""
+
+    bundle = build_p3_path_to_usable_bundle(
+        path_base=path_base,
+        observation_path=observation_path,
+        cache_dir=cache_dir,
+        horizon_timeline_max_rows=horizon_timeline_max_rows,
+    )
+    timeline = dict(bundle.get("p3_horizon_timeline") or {})
+    path = bundle.get("p3_path_to_usable") or {}
+    return {
+        "schema_version": 1,
+        "observation_only": True,
+        "matched_normal": bundle.get("us_forward_matched_normal"),
+        "rows_matched_all": bundle.get("us_forward_rows_matched"),
+        "thin_threshold": path.get("thin_threshold"),
+        "samples_needed_for_usable": path.get("samples_needed_for_usable"),
+        "horizon_timeline_max_rows": bundle.get("horizon_timeline_max_rows"),
+        "timeline_row_count": len(timeline.get("timeline_rows") or []),
+        "p3_horizon_timeline": timeline,
+    }
+
+
+def format_p3_horizon_timeline_export_markdown(export: dict[str, Any]) -> str:
+    timeline = export.get("p3_horizon_timeline") or {}
+    if not timeline:
+        return "## P3 horizon timeline export (read-only)\n\n- (no timeline data)"
+    from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
+        format_p3_horizon_match_timeline_markdown,
+    )
+
+    header = [
+        "## P3 horizon timeline export (read-only)",
+        "",
+        f"- matched_normal: {export.get('matched_normal')}",
+        f"- rows_matched_all: {export.get('rows_matched_all')}",
+        f"- timeline_row_count: {export.get('timeline_row_count', 0)}",
+    ]
+    return "\n".join(header) + "\n" + format_p3_horizon_match_timeline_markdown(timeline)
 
 
 def format_p3_path_to_usable_bundle_markdown(bundle: dict[str, Any]) -> str:

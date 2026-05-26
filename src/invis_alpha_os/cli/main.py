@@ -706,6 +706,39 @@ def validate_forward_p3_status_command(
         raise typer.Exit(2)
 
 
+@validate_app.command("p3-horizon-timeline")
+def validate_p3_horizon_timeline_command(
+    fmt: str = typer.Option("json", "--format", help="json or markdown."),
+    horizon_rows: int = typer.Option(
+        100,
+        "--horizon-rows",
+        help="Max timeline_rows in export (default 100; min 16).",
+    ),
+) -> None:
+    """Read-only JSON export of P3 horizon timeline_rows (cache maturation path)."""
+
+    from invis_alpha_os.product.p3_path_to_usable import (
+        build_p3_horizon_timeline_export,
+        format_p3_horizon_timeline_export_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    if horizon_rows < 1:
+        typer.echo("validate p3-horizon-timeline: --horizon-rows must be >= 1", err=True)
+        raise typer.Exit(2)
+    report = build_p3_horizon_timeline_export(
+        path_base=ROOT_DIR,
+        horizon_timeline_max_rows=horizon_rows,
+    )
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_p3_horizon_timeline_export_markdown(report))
+    else:
+        typer.echo("validate p3-horizon-timeline: --format must be json or markdown", err=True)
+        raise typer.Exit(2)
+
+
 @validate_app.command("p3-path-to-usable")
 def validate_p3_path_to_usable_command(
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),

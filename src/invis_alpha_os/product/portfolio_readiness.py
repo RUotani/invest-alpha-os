@@ -138,7 +138,10 @@ def evaluate_portfolio_readiness(
                 build_p3_us_forward_portfolio_summary,
                 default_watchlist_cache_planned_writes,
             )
-            from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+            from invis_alpha_os.product.us_forward_return_validation import (
+                THIN_SAMPLE_THRESHOLD,
+                us_forward_matched_normal_for_p3,
+            )
             from invis_alpha_os.product.us_signal_iso_week_dedupe import build_p3_weekly_write_plan
 
             us_matched = int(forward.get("rows_matched") or 0)
@@ -146,6 +149,11 @@ def evaluate_portfolio_readiness(
                 stall_diagnosis=stall_fwd,
                 us_matched=us_matched,
                 thin_threshold=THIN_SAMPLE_THRESHOLD,
+            )
+            matched_normal = us_forward_matched_normal_for_p3(
+                rows_matched=us_matched,
+                stall_diagnosis=stall_fwd,
+                p3_summary=summary,
             )
             write_plan: dict[str, Any] = {}
             try:
@@ -161,7 +169,7 @@ def evaluate_portfolio_readiness(
             except (FileNotFoundError, ValueError):
                 write_plan = {}
             p3_path_to_usable = build_p3_path_to_usable(
-                matched_normal=us_matched,
+                matched_normal=matched_normal,
                 thin_threshold=THIN_SAMPLE_THRESHOLD,
                 p3_us_forward_summary=summary,
                 p3_weekly_write_plan=write_plan,
