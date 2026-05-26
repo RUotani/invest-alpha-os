@@ -149,10 +149,38 @@ def _build_quality_buckets(
     return {"global": global_buckets, "by_signal_label": by_label}
 
 
+def summarize_us_signal_event_date_sources(
+    observation_path: Path,
+) -> dict[str, Any]:
+    """Count how US signal rows resolve event dates (as_of vs created_at; read-only)."""
+
+    rows, _pre_skipped = _iter_us_signal_rows(observation_path)
+    counts: dict[str, int] = defaultdict(int)
+    for row in rows:
+        src = str(row.get("event_date_source") or "missing")
+        counts[src] += 1
+    total = len(rows)
+    as_of_n = int(counts.get("as_of", 0))
+    created_n = int(counts.get("created_at", 0))
+    as_of_share: float | None = round(as_of_n / total, 4) if total else None
+    return {
+        "us_signal_rows": total,
+        "event_date_source_as_of": as_of_n,
+        "event_date_source_created_at": created_n,
+        "event_date_source_as_of_share": as_of_share,
+        "event_date_source_note": (
+            f"as_of={as_of_n}/{total} created_at-only={created_n} (docs/161; weekly writes add as_of=)"
+            if total
+            else "no US signal rows"
+        ),
+    }
+
+
 def forward_validation_next_commands(*, exploratory: bool = False) -> list[str]:
     """Read-only CLI hints after observation_log append (no defaults changed)."""
 
     cmds = [
+        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",
@@ -411,11 +439,14 @@ def compute_us_forward_resolution_breakdown(
     if us_resolution_attempts > 0:
         insuf_share = round(insuf / us_resolution_attempts, 4)
 
+    event_date_sources = summarize_us_signal_event_date_sources(observation_path)
+
     payload: dict[str, Any] = {
         "schema_version": 1,
         "path_base": str(root),
         "observation_path": str(observation_path),
         "rows_considered": signal_rows,
+        "event_date_sources": event_date_sources,
         "matched_rows": matched,
         "outcomes": dict(sorted(outcomes.items(), key=lambda item: (-item[1], item[0]))),
         "us_signal_outcomes": {

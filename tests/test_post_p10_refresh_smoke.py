@@ -77,6 +77,19 @@ def test_forward_p3_recommended_actions_partial_matched() -> None:
     assert "MSFT" in joined
 
 
+def test_forward_p3_recommended_actions_low_as_of_share() -> None:
+    actions = forward_p3_recommended_actions(
+        skip_pattern="mixed",
+        tier1_missing=[],
+        forward_matched=3,
+        insufficient_future_share=0.95,
+        event_date_source_as_of_share=0.2,
+    )
+    joined = " ".join(actions)
+    assert "event_date_source_as_of_share" in joined
+    assert "created_at" in joined
+
+
 def test_classify_forward_skip_pattern_stale_cache() -> None:
     assert (
         classify_forward_skip_pattern(
