@@ -7,6 +7,12 @@ from datetime import datetime, timezone
 from html import escape
 import re
 
+from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import (
+    compute_candidate_quant_metrics,
+    fmt_num,
+    fmt_pct,
+)
+
 _TABLE_ROW_RE = re.compile(
     r"^\|\s*(?P<rank>\d+)\s*\|\s*(?P<symbol>[^|]+)\|\s*(?P<name>[^|]+)\|\s*(?P<market>[^|]+)\|\s*(?P<kind>[^|]+)\|\s*(?P<reason>[^|]+)\|\s*$"
 )
@@ -117,6 +123,29 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
     if not candidates:
         lines.extend(["- no candidates in copy body", ""])
     for c in candidates:
+        qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
+        momentum_q: list[str] = []
+        counter_q: list[str] = []
+        if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct > 0:
+            momentum_q.append("close above 25D MA")
+        if qm.dist_ma_75_pct is not None and qm.dist_ma_75_pct > 0:
+            momentum_q.append("close above 75D MA")
+        if qm.ret_20d_pct is not None and qm.ret_20d_pct > 0:
+            momentum_q.append("20D return positive")
+        if qm.ret_60d_pct is not None and qm.ret_60d_pct > 0:
+            momentum_q.append("60D return positive")
+        if qm.volume_ratio_20d is not None and qm.volume_ratio_20d >= 1.5:
+            momentum_q.append("volume ratio above 1.5x")
+        if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct < 0:
+            counter_q.append("close below 25D MA")
+        if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct > 0.12:
+            counter_q.append("distance vs 25D MA > +12% (pullback risk)")
+        if qm.ret_60d_pct is not None and qm.ret_60d_pct < 0:
+            counter_q.append("60D return negative")
+        if qm.freshness_label.startswith("stale"):
+            counter_q.append(qm.freshness_label)
+        if qm.missing_reason:
+            counter_q.append(qm.missing_reason)
         lines.extend(
             [
                 "",
@@ -126,17 +155,27 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
                 f"- Short reason: {c.short_reason}",
                 "",
                 "#### Moving Average Context",
-                "- 25D MA: not available in cache",
-                "- 75D MA: not available in cache",
-                "- 200D MA: not available in cache",
-                "- Interpretation: insufficient bars or MA metrics unavailable in cache snapshot",
+                f"- 25D MA: {fmt_num(qm.ma_25)} (dist {fmt_pct(qm.dist_ma_25_pct)})",
+                f"- 75D MA: {fmt_num(qm.ma_75)} (dist {fmt_pct(qm.dist_ma_75_pct)})",
+                f"- 200D MA: {fmt_num(qm.ma_200)} (dist {fmt_pct(qm.dist_ma_200_pct)})",
+                "- Interpretation: MA context is cache-only and should be validated with freshness label",
+                "",
+                "#### Quant Snapshot",
+                f"- Latest Close: {fmt_num(qm.latest_close)}",
+                f"- Latest Bar Date: {qm.latest_bar_date or 'not available in cache'}",
+                f"- Data Freshness: {qm.freshness_label}",
+                f"- Returns: 5D {fmt_pct(qm.ret_5d_pct)}, 20D {fmt_pct(qm.ret_20d_pct)}, 60D {fmt_pct(qm.ret_60d_pct)}",
+                f"- 52W Range: high {fmt_num(qm.high_52w)} ({fmt_pct(qm.dist_52w_high_pct)} from high), low {fmt_num(qm.low_52w)} ({fmt_pct(qm.dist_52w_low_pct)} from low)",
+                f"- Volume: latest {fmt_num(qm.latest_volume, 0)}, 20D avg {fmt_num(qm.avg_volume_20d, 0)}, ratio {fmt_num(qm.volume_ratio_20d)}x",
                 "",
                 "#### Momentum Rationale",
                 f"- {c.short_reason}",
+                f"- quant support: {', '.join(momentum_q) if momentum_q else 'not available in cache'}",
                 "- trend persistence to be validated with next cache refresh",
                 "",
                 "#### Counter Evidence",
                 f"- {c.counter_evidence}",
+                f"- quant risk: {', '.join(counter_q[:2]) if counter_q else 'not available in cache'}",
                 "- insufficient bars may hide trend deterioration risk",
                 "",
                 "#### Next Checks",
@@ -144,10 +183,11 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
                 "- validate latest bar freshness before deep-dive",
                 "",
                 "#### Sources",
-                "- market data source: existing bars cache (cache-only)",
+                f"- market data source: {qm.source}",
                 "- signal source: weekly candidate brief score + momentum labels",
                 f"- report date: {report_date}",
                 f"- generated at: {generated_at}",
+                f"- missing data reason: {qm.missing_reason or 'none'}",
             ]
         )
     lines.extend(
@@ -178,6 +218,7 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
     if not candidates:
         parts.append("<p>no candidates in copy body</p>")
     for c in candidates:
+        qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         parts.extend(
             [
                 "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:10px 0;'>",
@@ -185,7 +226,9 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
                 f"<p style='margin:0 0 8px;'><strong>Market:</strong> {escape(c.market)} / <strong>Type:</strong> {escape(c.kind)}</p>",
                 f"<p style='margin:0 0 8px;'><strong>Short reason:</strong> {escape(c.short_reason)}</p>",
                 "<h4 style='margin:8px 0 4px;'>Moving Average Context</h4>",
-                "<ul style='margin:0 0 8px 18px;padding:0;'><li>25D MA: not available in cache</li><li>75D MA: not available in cache</li><li>200D MA: not available in cache</li><li>Interpretation: insufficient bars or MA metrics unavailable in cache snapshot</li></ul>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>25D MA: {escape(fmt_num(qm.ma_25))} (dist {escape(fmt_pct(qm.dist_ma_25_pct))})</li><li>75D MA: {escape(fmt_num(qm.ma_75))} (dist {escape(fmt_pct(qm.dist_ma_75_pct))})</li><li>200D MA: {escape(fmt_num(qm.ma_200))} (dist {escape(fmt_pct(qm.dist_ma_200_pct))})</li><li>Interpretation: MA context is cache-only and should be validated with freshness label</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>Quant Snapshot</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>Latest Close: {escape(fmt_num(qm.latest_close))}</li><li>Latest Bar Date: {escape(qm.latest_bar_date or 'not available in cache')}</li><li>Data Freshness: {escape(qm.freshness_label)}</li><li>Returns: 5D {escape(fmt_pct(qm.ret_5d_pct))}, 20D {escape(fmt_pct(qm.ret_20d_pct))}, 60D {escape(fmt_pct(qm.ret_60d_pct))}</li><li>52W Range: high {escape(fmt_num(qm.high_52w))} ({escape(fmt_pct(qm.dist_52w_high_pct))} from high), low {escape(fmt_num(qm.low_52w))} ({escape(fmt_pct(qm.dist_52w_low_pct))} from low)</li><li>Volume: latest {escape(fmt_num(qm.latest_volume, 0))}, 20D avg {escape(fmt_num(qm.avg_volume_20d, 0))}, ratio {escape(fmt_num(qm.volume_ratio_20d))}x</li></ul>",
                 "<h4 style='margin:8px 0 4px;'>Momentum Rationale</h4>",
                 f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.short_reason)}</li><li>trend persistence to be validated with next cache refresh</li></ul>",
                 "<h4 style='margin:8px 0 4px;'>Counter Evidence</h4>",
@@ -193,7 +236,7 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
                 "<h4 style='margin:8px 0 4px;'>Next Checks</h4>",
                 f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.next_checks)}</li><li>validate latest bar freshness before deep-dive</li></ul>",
                 "<h4 style='margin:8px 0 4px;'>Sources</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>market data source: existing bars cache (cache-only)</li><li>signal source: weekly candidate brief score + momentum labels</li><li>report date: {escape(report_date)}</li><li>generated at: {escape(generated_at)}</li></ul>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>market data source: {escape(qm.source)}</li><li>signal source: weekly candidate brief score + momentum labels</li><li>report date: {escape(report_date)}</li><li>generated at: {escape(generated_at)}</li><li>missing data reason: {escape(qm.missing_reason or 'none')}</li></ul>",
                 "</div>",
             ]
         )

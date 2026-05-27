@@ -50,11 +50,13 @@ def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
     assert len(draft.html_body) > 1200
     assert "TEST EMAIL" in draft.html_body
     assert "Moving Average Context" in draft.text_body
+    assert "Quant Snapshot" in draft.text_body
     assert "Momentum Rationale" in draft.text_body
     assert "Counter Evidence" in draft.text_body
     assert "Sources" in draft.text_body
     assert "Next Checks" in draft.text_body
     assert "Moving Average Context" in draft.html_body
+    assert "Quant Snapshot" in draft.html_body
     assert "Momentum Rationale" in draft.html_body
     assert "Counter Evidence" in draft.html_body
     assert "Sources" in draft.html_body
@@ -100,6 +102,7 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     assert "TEST EMAIL" in html
     assert "7203" in txt
     assert "Moving Average Context" in txt
+    assert "Quant Snapshot" in txt
     assert "Counter Evidence" in txt
 
 
