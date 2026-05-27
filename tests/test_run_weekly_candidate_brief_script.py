@@ -29,3 +29,4 @@ def test_weekly_script_generates_markdown_and_copy_outputs() -> None:
     assert "--format copy" in text
     assert "weekly_candidate_brief_v0_1.md" in text
     assert "weekly_candidate_brief_copy.md" in text
+    assert "weekly-candidate-brief-email" in text

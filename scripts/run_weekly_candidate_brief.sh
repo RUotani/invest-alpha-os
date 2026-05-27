@@ -39,6 +39,12 @@ export CONFIRM_US_LIVE_HTTP=
   --report-date "${REPORT_DATE}" \
   --out "${COPY_MD}"
 
+"${PYTHON}" -m invis_alpha_os.cli.main weekly-candidate-brief-email \
+  --report-date "${REPORT_DATE}" \
+  --report-dir "${REPORT_DIR}" \
+  --copy-file "${COPY_MD}" \
+  --full-md "${FULL_MD}"
+
 "${PYTHON}" -c "
 import datetime, json, pathlib
 status = pathlib.Path('${STATUS_FILE}')

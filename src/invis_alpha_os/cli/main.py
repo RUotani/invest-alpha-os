@@ -155,6 +155,7 @@ from invis_alpha_os.discovery.us_universe_scanner import (
     scan_us_universe,
 )
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
+from invis_alpha_os.reports.weekly_candidate_brief_email import build_weekly_candidate_brief_email_draft
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
     GmailSendBlockedError,
@@ -658,6 +659,70 @@ def weekly_candidate_brief_command(
         else:
             typer.echo(status)
     typer.echo(body)
+
+
+@app.command("weekly-candidate-brief-email")
+def weekly_candidate_brief_email_command(
+    report_date: Optional[str] = typer.Option(
+        None,
+        "--report-date",
+        help="ISO date label (default: today JST).",
+    ),
+    report_dir: Optional[str] = typer.Option(
+        None,
+        "--report-dir",
+        help="Report directory (default: reports/YYYY-MM-DD).",
+    ),
+    copy_file: Optional[str] = typer.Option(
+        None,
+        "--copy-file",
+        help="Copy-only markdown path (default: report_dir/weekly_candidate_brief_copy.md).",
+    ),
+    full_md: Optional[str] = typer.Option(
+        None,
+        "--full-md",
+        help="Optional full markdown path to attach (preview only).",
+    ),
+) -> None:
+    """Write Gmail previews for Weekly Candidate Brief (dry-run only; never sends)."""
+
+    run_date = report_date or today_jst_iso()
+    base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
+    copy_path = Path(copy_file) if copy_file else base / "weekly_candidate_brief_copy.md"
+    if not copy_path.is_file():
+        typer.echo(f"weekly-candidate-brief-email: copy file not found: {copy_path}", err=True)
+        raise typer.Exit(2)
+
+    copy_body = copy_path.read_text(encoding="utf-8")
+    draft = build_weekly_candidate_brief_email_draft(report_date=run_date, copy_body=copy_body)
+
+    attachments: list[tuple[str, bytes, str]] | None = None
+    full_path = Path(full_md) if full_md else base / "weekly_candidate_brief_v0_1.md"
+    if full_path.is_file():
+        attachments = [
+            (full_path.name, full_path.read_bytes(), "text/markdown"),
+        ]
+
+    email_out = base / "email"
+    message = build_mime_message(
+        sender="dry-run@local",
+        to=["dry-run@local"],
+        subject=draft.subject,
+        text_body=draft.text_body,
+        html_body=draft.html_body,
+        attachments=attachments,
+    )
+    preview_paths = write_email_previews(email_out, message=message)
+    raw = encode_message_raw(message)
+    (email_out / "email_raw.b64url.txt").write_text(raw, encoding="utf-8")
+
+    typer.echo(f"weekly-candidate-brief-email: subject={draft.subject!r}")
+    for key, path in preview_paths.items():
+        typer.echo(f"weekly-candidate-brief-email: {key}={path}")
+    if full_path.is_file():
+        typer.echo(f"weekly-candidate-brief-email: attachment_candidate={full_path}")
+    typer.echo("weekly-candidate-brief-email: dry-run only (no Gmail API call)")
+    raise typer.Exit(0)
 
 
 @validate_app.command("us-forward-returns")
