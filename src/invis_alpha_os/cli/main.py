@@ -537,6 +537,45 @@ def weekly_us_observation_command(
         typer.echo(format_weekly_us_observation_markdown(result, path_base=ROOT_DIR))
 
 
+@app.command("weekly-observation-report-v1")
+def weekly_observation_report_v1_command(
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Optional path to write markdown (e.g. reports/YYYY-MM-DD/sample_weekly_observation_report_v1.md).",
+    ),
+    report_date: Optional[str] = typer.Option(
+        None,
+        "--report-date",
+        help="ISO date label for the report header (default: today).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Weekly Observation Report v1 — single read-only page for human MERGE/STOP judgment."""
+
+    from invis_alpha_os.product.weekly_observation_report_v1 import (
+        build_weekly_observation_report_v1,
+        format_weekly_observation_report_v1_json,
+        format_weekly_observation_report_v1_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in {"markdown", "json"}:
+        typer.echo("weekly-observation-report-v1: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    report = build_weekly_observation_report_v1(path_base=ROOT_DIR, report_date=report_date)
+    if fmt_norm == "json":
+        body = format_weekly_observation_report_v1_json(report)
+    else:
+        body = format_weekly_observation_report_v1_markdown(report, path_base=ROOT_DIR)
+    if out:
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(body if body.endswith("\n") else body + "\n", encoding="utf-8")
+        typer.echo(f"weekly observation report v1 written: {out_path}")
+    typer.echo(body)
+
+
 @validate_app.command("us-forward-returns")
 def validate_us_forward_returns_command(
     observation_log: Optional[str] = typer.Option(
