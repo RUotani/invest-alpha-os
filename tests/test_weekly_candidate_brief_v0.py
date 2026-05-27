@@ -14,10 +14,13 @@ from invis_alpha_os.product.weekly_candidate_brief_v0 import (
     CandidateCard,
     UnifiedCandidate,
     build_counter_evidence,
+    build_reason_human,
+    candidate_group,
     build_weekly_candidate_brief_v0,
     format_weekly_candidate_brief_v0_json,
     format_weekly_candidate_brief_v0_markdown,
     is_pullback_candidate,
+    select_diversified_top_picks,
 )
 
 runner = CliRunner()
@@ -105,6 +108,157 @@ def test_format_json_schema() -> None:
     payload = json.loads(format_weekly_candidate_brief_v0_json(brief))
     assert payload["schema_version"] == "weekly_candidate_brief.v0.1"
     assert payload["sections"]["top_picks"] == []
+
+
+def _candidate_jp(
+    *,
+    code: str = "7011",
+    themes: tuple[str, ...] = ("energy",),
+    labels: tuple[str, ...] = ("rapid_mover_20d", "near_high"),
+    categories: tuple[str, ...] = ("rapid_mover", "near_high_quality_trend"),
+    discovery_score: int = 10,
+) -> UnifiedCandidate:
+    return UnifiedCandidate(
+        market="jp",
+        instrument_id=code,
+        display_name=code,
+        discovery_score=discovery_score,
+        latest_date="2026-05-01",
+        close=100.0,
+        return_5d=0.01,
+        return_20d=0.12,
+        return_60d=0.15,
+        labels=labels,
+        categories=categories,
+        data_quality="ok",
+        reason="surfaced: near_high, rapid_mover_20d",
+        themes=themes,
+        volume_status="normal",
+    )
+
+
+def _candidate_us_equity(
+    *,
+    symbol: str = "MSFT",
+    themes: tuple[str, ...] = ("us_equity",),
+    labels: tuple[str, ...] = ("rapid_mover_20d", "near_high"),
+    categories: tuple[str, ...] = ("rapid_mover", "near_high_quality_trend"),
+    discovery_score: int = 7,
+    volume_spike: bool = False,
+) -> UnifiedCandidate:
+    final_labels = labels + (("volume_spike",) if volume_spike else ())
+    return UnifiedCandidate(
+        market="us",
+        instrument_id=symbol,
+        display_name=symbol,
+        discovery_score=discovery_score,
+        latest_date="2026-05-01",
+        close=100.0,
+        return_5d=-0.01,
+        return_20d=0.08,
+        return_60d=0.14,
+        labels=final_labels,
+        categories=categories,
+        data_quality="ok",
+        reason="surfaced: near_high, rapid_mover_20d",
+        themes=themes,
+        volume_status="normal",
+    )
+
+
+def _candidate_etf_proxy(
+    *,
+    symbol: str = "SPY",
+    themes: tuple[str, ...] = ("us_etf",),
+    labels: tuple[str, ...] = ("rapid_mover_20d",),
+    categories: tuple[str, ...] = ("rapid_mover",),
+    discovery_score: int = 6,
+) -> UnifiedCandidate:
+    return UnifiedCandidate(
+        market="us",
+        instrument_id=symbol,
+        display_name=symbol,
+        discovery_score=discovery_score,
+        latest_date="2026-05-01",
+        close=100.0,
+        return_5d=0.0,
+        return_20d=0.05,
+        return_60d=0.09,
+        labels=labels,
+        categories=categories,
+        data_quality="ok",
+        reason="surfaced: rapid_mover_20d",
+        themes=themes,
+        volume_status="normal",
+    )
+
+
+def test_select_diversified_top_picks_mixes_jp_us_etf_proxy() -> None:
+    jp = _candidate_jp(discovery_score=10, themes=("energy",))
+    us_eq = _candidate_us_equity(symbol="MSFT", discovery_score=7, themes=("us_equity",))
+    etf = _candidate_etf_proxy(symbol="SPY", discovery_score=6, themes=("us_etf",))
+
+    # Fill remaining slots with arbitrary candidates; all_ranked order matters.
+    extra_jp = _candidate_jp(code="7012", themes=("ai_infra",), discovery_score=9)
+    extra_us = _candidate_us_equity(symbol="NVDA", discovery_score=8, themes=("us_equity",))
+
+    all_ranked = [jp, extra_jp, us_eq, extra_us, etf]
+    top, coverage_note = select_diversified_top_picks(
+        jp_ranked=[jp, extra_jp],
+        us_ranked=[us_eq, extra_us, etf],
+        all_ranked=all_ranked,
+    )
+
+    assert coverage_note is None
+    assert len(top) == 5
+    groups = {candidate_group(card.candidate) for card in top}
+    assert "jp" in groups
+    assert "us_equity" in groups
+    assert "etf_proxy" in groups
+
+
+def test_reason_is_human_friendly_no_internal_tokens() -> None:
+    jp = _candidate_jp(labels=("near_high", "rapid_mover_20d"))
+    us_eq = _candidate_us_equity(labels=("near_high", "rapid_mover_20d"))
+    etf = _candidate_etf_proxy(labels=("rapid_mover_20d",))
+
+    r1 = build_reason_human(jp, "top_pick")
+    r2 = build_reason_human(us_eq, "top_pick")
+    r3 = build_reason_human(etf, "top_pick")
+
+    for r in (r1, r2, r3):
+        lower = r.lower()
+        assert "surfaced" not in lower
+        assert "rapid_mover" not in lower
+        assert "near_high" not in lower
+        assert "overheat_caution" not in lower
+
+
+def test_next_checks_diversity_among_top_picks() -> None:
+    jp = _candidate_jp(discovery_score=10, themes=("energy",))
+    us_eq = _candidate_us_equity(symbol="MSFT", discovery_score=7, themes=("us_equity",))
+    etf = _candidate_etf_proxy(symbol="TLT", discovery_score=6, themes=("us_etf",))
+    extra_jp = _candidate_jp(code="7012", themes=("ai_infra",), discovery_score=9)
+    extra_us = _candidate_us_equity(symbol="NVDA", discovery_score=8, themes=("us_equity",), volume_spike=True)
+
+    all_ranked = [jp, extra_jp, us_eq, extra_us, etf]
+    top, _cn = select_diversified_top_picks(
+        jp_ranked=[jp, extra_jp],
+        us_ranked=[us_eq, extra_us, etf],
+        all_ranked=all_ranked,
+    )
+
+    # Diversity proxy: first entry should not be identical across all.
+    first_items = {card.next_checks[0] for card in top}
+    assert len(first_items) >= 2
+
+
+def test_counter_evidence_candidate_specific_non_empty() -> None:
+    # volume_spike-only candidate should get a volume-related counter line
+    us_spike = _candidate_us_equity(volume_spike=True, discovery_score=7)
+    ev = build_counter_evidence(us_spike)
+    assert len(ev) >= 1
+    assert any("出来高" in line for line in ev)
 
 
 @pytest.fixture

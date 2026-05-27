@@ -49,7 +49,13 @@ PULLBACK_R20_MIN = 0.0
 PULLBACK_R5_MAX = -0.02
 PULLBACK_R5_MIN = -0.12
 
-MACRO_PROXY_SYMBOLS: tuple[str, ...] = ("SPY", "TLT", "GLDM", "SLV")
+# ETF proxy candidates (US observation-only). These are used both for:
+# - macro environment overview
+# - Top5 diversification coverage constraints
+ETF_PROXY_SYMBOLS: tuple[str, ...] = ("SPY", "QQQ", "TLT", "TMF", "GLDM", "SLV")
+
+# Backward-compatible alias (used by macro summary builder).
+MACRO_PROXY_SYMBOLS: tuple[str, ...] = ETF_PROXY_SYMBOLS
 
 BRIEF_DISCLAIMER_JA = (
     "観測のみ — 売買推奨・自動売買・注文は行いません。"
@@ -74,6 +80,8 @@ class UnifiedCandidate:
     reason: str
     themes: tuple[str, ...] = ()
     volume_status: str | None = None
+    volume_ratio_25d: float | None = None
+    high_distance_pct: float | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +108,7 @@ class WeeklyCandidateBriefV0:
     insufficient_list: list[CandidateCard] = field(default_factory=list)
     theme_highlights: list[CandidateCard] = field(default_factory=list)
     appendix_lines: tuple[str, ...] = ()
+    coverage_note: str | None = None
     discovery_merge: dict[str, Any] = field(default_factory=dict)
 
 
@@ -125,6 +134,8 @@ def _from_common(row: dict[str, Any], *, themes: tuple[str, ...] = ()) -> Unifie
         reason=str(row.get("reason") or ""),
         themes=themes,
         volume_status=row.get("volume_status"),
+        volume_ratio_25d=row.get("volume_ratio_25d"),
+        high_distance_pct=row.get("high_distance_pct"),
     )
 
 
@@ -216,54 +227,363 @@ def is_avoid_candidate(c: UnifiedCandidate) -> bool:
     return False
 
 
+CandidateGroup = Literal["jp", "us_equity", "etf_proxy", "other_us"]
+
+
+def candidate_group(c: UnifiedCandidate) -> CandidateGroup:
+    if c.market == MARKET_JP:
+        return "jp"
+    if c.market == MARKET_US:
+        if c.instrument_id in ETF_PROXY_SYMBOLS or "us_etf" in c.themes:
+            return "etf_proxy"
+        if "us_equity" in c.themes:
+            return "us_equity"
+        return "other_us"
+    return "other_us"
+
+
+def select_diversified_top_picks(
+    *,
+    jp_ranked: Sequence[UnifiedCandidate],
+    us_ranked: Sequence[UnifiedCandidate],
+    all_ranked: Sequence[UnifiedCandidate],
+) -> tuple[list[CandidateCard], str | None]:
+    """Select Top-N with JP / US equity / ETF proxy coverage constraints.
+
+    Coverage rule:
+    - If candidates exist, Top5 should include at least one JP, one US equity, and one ETF proxy.
+    - If a group is empty, emit coverage_note for the missing reason (score-based exclusion is NOT assumed).
+    """
+
+    # all_ranked is already sorted by discovery_score (descending) by _sort_key upstream.
+    by_group: dict[CandidateGroup, list[UnifiedCandidate]] = {
+        "jp": [],
+        "us_equity": [],
+        "etf_proxy": [],
+        "other_us": [],
+    }
+    for c in all_ranked:
+        by_group[candidate_group(c)].append(c)
+
+    desired_groups: tuple[CandidateGroup, ...] = ("jp", "us_equity", "etf_proxy")
+    available = {g: len(by_group[g]) > 0 for g in desired_groups}
+
+    selected: list[UnifiedCandidate] = []
+    selected_ids: set[str] = set()
+
+    def _take_best(g: CandidateGroup) -> None:
+        if not by_group[g]:
+            return
+        c0 = by_group[g][0]
+        key = f"{c0.market}:{c0.instrument_id}"
+        if key in selected_ids:
+            return
+        selected.append(c0)
+        selected_ids.add(key)
+
+    # First, force coverage by taking the best from each available group.
+    for g in desired_groups:
+        _take_best(g)
+
+    # Then fill remaining slots with best candidates overall.
+    for c in all_ranked:
+        if len(selected) >= TOP_PICK_COUNT:
+            break
+        key = f"{c.market}:{c.instrument_id}"
+        if key in selected_ids:
+            continue
+        selected.append(c)
+        selected_ids.add(key)
+
+    missing: list[str] = []
+    for g in desired_groups:
+        if not available[g]:
+            if g == "jp":
+                missing.append("JP candidates were unavailable due to insufficient JP cache quality")
+            elif g == "us_equity":
+                missing.append("US equity candidates were unavailable due to insufficient data quality")
+            elif g == "etf_proxy":
+                missing.append("ETF proxy candidates were unavailable due to insufficient data quality")
+
+    coverage_note: str | None = None
+    if missing:
+        coverage_note = "coverage_note: " + " / ".join(missing)
+
+    cards = [_make_card(c, "top_pick") for c in selected[:TOP_PICK_COUNT]]
+    return cards, coverage_note
+
+
 def build_counter_evidence(c: UnifiedCandidate) -> tuple[str, ...]:
     out: list[str] = []
+
     if "overheated_caution" in c.categories or "overheat_caution" in c.labels:
         out.append(
-            f"過熱ラベル: 20日 {format_pct(c.return_20d)} / 60日 {format_pct(c.return_60d)} — "
-            "短期の急伸後は調整リスクが高い。"
+            "短期の過熱サイン: "
+            f"20日 {format_pct(c.return_20d)} / 60日 {format_pct(c.return_60d)}。"
+            " 急伸後の調整局面を警戒する。"
         )
+
+    if "volume_spike" in c.labels:
+        vr = c.volume_ratio_25d
+        vr_s = f"{vr:.2f}x" if isinstance(vr, (int, float)) else "—"
+        out.append(
+            f"出来高スパイクの持続性が鍵: 25日平均との差比 {vr_s}。"
+            " イベント一過性の可能性もあるため確認する。"
+        )
+
+    if "near_high" in c.labels:
+        hd = c.high_distance_pct
+        out.append(
+            "高値近辺の反応: "
+            f"高値からの距離 {format_pct(hd)}。"
+            " セクター要因の上乗せだけなら反落リスクもある。"
+        )
+
     if "low_liquidity_caution" in c.labels:
-        out.append("流動性注意: 出来高・スプレッドを確認し、観測スコアだけで深掘りしない。")
-    if c.return_5d is not None and c.return_5d < PULLBACK_R5_MIN:
-        out.append(f"直近5日が {format_pct(c.return_5d)} と弱く、トレンド崩れの可能性がある。")
+        out.append(
+            "流動性注意: "
+            "板の薄さ/スプレッドの拡大で短期の値動きが歪む可能性。"
+        )
+
     if "insufficient_data" in c.categories:
-        out.append("データ不足: キャッシュ履歴が短いか欠損。ラベル・リターンを信用しない。")
+        out.append(
+            "データ不足: キャッシュ履歴が短い/欠損の可能性。"
+            " ラベル由来の推論は過信しない。"
+        )
+
+    # Even when we only have pure momentum labels, keep the counter evidence
+    # candidate-specific by referencing the observed return magnitude.
+    if "rapid_mover_20d" in c.labels and len(out) < 2:
+        out.append(
+            "急伸局面の反転リスク: "
+            f"20日 {format_pct(c.return_20d)} の強さに対し、利益確定/需要一服の確認が必要。"
+        )
+    if "rapid_mover_5d" in c.labels and len(out) < 2:
+        out.append(
+            "短期の勢いの持続性: "
+            f"5日 {format_pct(c.return_5d)} が弱まると、上昇の見かけが剥落する可能性。"
+        )
+
     if not out:
-        out.append("モメンタムは一方向。マクロ・決算・セクター相対で無効化条件を確認する。")
+        out.append(
+            "観測スコアだけでは因果が不明。"
+            " 決算・需給・マクロで無効化条件を確認する。"
+        )
+
+    # Ensure at least one line; keep it short and candidate-specific.
     return tuple(out[:2])
 
 
 def build_next_checks(c: UnifiedCandidate) -> tuple[str, ...]:
+    def _dedupe(seq: Sequence[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for s in seq:
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
     checks: list[str] = []
-    if c.market == MARKET_JP:
-        checks.extend(
-            [
+
+    if candidate_group(c) == "etf_proxy":
+        if c.instrument_id in ("TLT", "TMF"):
+            checks = [
+                "金利・カーブ（実質金利 proxy）と株式リスクの同時変化",
+                "インフレ指標と期待金利の整合",
+                "SPY/QQQ との相関が崩れていないか",
+            ]
+        elif c.instrument_id in ("GLDM", "SLV"):
+            checks = [
+                "実質金利とドル（DXY proxy）との連動確認",
+                "需給/供給ニュース（供給制約・在庫の変化）",
+                "リスクオン/オフの指数 proxy との整合",
+            ]
+        else:  # SPY/QQQ (default)
+            checks = [
+                "指数内の広がり（breadth）とセクター回転の有無",
+                "金利感応度とバリュエーション観点",
+                "個別株の弱さが目立たないか（バンド内確認）",
+            ]
+    elif c.market == MARKET_US:
+        # US equity deep-dive入口を、銘柄（またはテーマ）で変える
+        ticker = c.instrument_id
+        checks = [
+            {
+                "NVDA": "AI/半導体系の設備投資（capex）と需給サイクル",
+                "MSFT": "クラウド/ソフトウェア需要とガイダンスの更新",
+                "AAPL": "iPhone/サービス収益構造と為替感応度",
+                "AMZN": "クラウド/広告の成長率とコスト構造",
+                "GOOGL": "広告・クラウド投資の持続性と規制/競争要因",
+                "META": "広告市況の回復度合いとユーザー指標の変化",
+                "TSLA": "EV需要のトレンドと値付け/粗利の耐性",
+            }.get(ticker, "直近ニュースとセクター相対（同業比較）"),
+            {
+                "NVDA": "半導体価格/リードタイムの変化（NAND/DRAM指標など）",
+                "MSFT": "ストック/サブスクの解約率・成長率の確認",
+                "AAPL": "製品ミックスとコストの期ズレ有無",
+                "AMZN": "クラウドの営業利益率と回復タイミング",
+                "GOOGL": "広告単価と検索/動画の伸びの整合",
+                "META": "広告単価とエンゲージメントの変化",
+                "TSLA": "需要/供給（納車・在庫）の整合",
+            }.get(ticker, "バリュエーションとガイダンスの整合"),
+            "流動性・スプレッド確認（特にボラ上昇時）",
+        ]
+    else:
+        # JP themes deep-dive入口
+        themes = set(c.themes or [])
+        if "energy" in themes or "automotive_wire" in themes:
+            checks = [
+                "銅価格・電力/素材コストの動きと業績への波及",
+                "受注残/利益率の変化（粗利の耐性）",
+                "競合比較（同業の上方修正の有無）",
+            ]
+        elif "ai_infra" in themes or "semiconductors" in themes or "memory" in themes:
+            checks = [
+                "NAND/DRAMなどメモリ/半導体市況（需給・価格）",
+                "データセンター投資サイクルと設備投資の持続性",
+                "設備投資の競争環境（顧客/取引先の反応）",
+            ]
+        elif "factory_automation" in themes or "industrials" in themes:
+            checks = [
+                "設備投資サイクルと受注指標（回復のタイミング）",
+                "コスト構造（原材料/為替）の説明が一貫しているか",
+                "競合比較（利益率の相対）",
+            ]
+        elif "communications" in themes or "cables" in themes or "digital" in themes:
+            checks = [
+                "通信/ネットワーク投資と需給（発注の質）",
+                "部材価格と価格転嫁の進捗",
+                "同セクターでの相対強さ（指数内）",
+            ]
+        else:
+            checks = [
                 "直近の開示・ニュースとセクター背景",
                 "決算・バリュエーション（テーマ持続性）",
                 "既存保有・ウォッチリストとの重複",
             ]
-        )
-    else:
-        checks.extend(
-            [
-                "直近の決算・ガイダンスとセクター相対",
-                "流動性・スプレッド（特に ETF / プロキシ）",
-                "指数・金利プロキシ（SPY/TLT）との整合",
-            ]
-        )
+
+    # Label-driven extra checks should actually appear in the final 3 items.
+    # Since the base list already has 3 slots, we replace the last slot when extras exist.
+    extras: list[str] = []
     if "volume_spike" in c.labels:
-        checks.append("出来高スパイクの持続性（イベント駆動かどうか）")
+        extras.append("出来高スパイクが再現するか（イベント一過性か）")
     elif is_pullback_candidate(c):
-        checks.append("押し目: 60日トレンド維持のまま5日調整か、反転シグナルか")
-    return tuple(checks[:3])
+        extras.append("押し目検証: 60日トレンド維持のまま5日調整か反転か")
+
+    if "overheated_caution" in c.categories or "overheat_caution" in c.labels:
+        extras.append("急伸後の調整局面か: 反落の前兆（出来高減/高値推移）")
+
+    base = checks
+    if extras:
+        checks = base[:2] + extras
+    else:
+        checks = base
+
+    return tuple(_dedupe(checks)[:3])
+
+
+def build_reason_human(c: UnifiedCandidate, brief_type: CandidateBriefType) -> str:
+    """Convert internal discovery labels into human-friendly one-line reasons."""
+
+    # Type-aware prefix (still human-readable; no trading recommendation wording).
+    prefix_by_type: dict[CandidateBriefType, str] = {
+        "top_pick": "注目理由",
+        "rapid_mover": "急騰の観測理由",
+        "pullback": "押し目の観測理由",
+        "theme": "テーマの観測理由",
+        "avoid": "回避の観測理由",
+        "insufficient": "要注意（データ不足）",
+    }
+
+    overheat = "overheated_caution" in c.categories or "overheat_caution" in c.labels
+    liq = "low_liquidity_caution" in c.labels
+
+    theme_phrase: str | None = None
+    if c.themes:
+        theme_map = {
+            "energy": "電力・エネルギーインフラ",
+            "automotive_wire": "自動車向け電装/配線",
+            "ai_infra": "AIインフラ/データセンター",
+            "semiconductors": "半導体（需給サイクル）",
+            "memory": "メモリ（NAND/DRAM）",
+            "factory_automation": "工場自動化（設備投資）",
+            "industrials": "産業設備・受注サイクル",
+            "communications": "通信インフラ",
+            "cables": "ケーブル/配線材料",
+            "digital": "デジタル投資（成長ドライバー）",
+        }
+        for t in c.themes:
+            if t in theme_map:
+                theme_phrase = theme_map[t]
+                break
+
+    horizon_parts: list[str] = []
+    if "rapid_mover_20d" in c.labels:
+        horizon_parts.append("20日モメンタムが強い")
+    if "rapid_mover_5d" in c.labels:
+        horizon_parts.append("短期でも勢いがある")
+    if "near_high" in c.labels:
+        horizon_parts.append("52週高値近辺での反応")
+    if "volume_spike" in c.labels:
+        horizon_parts.append("出来高スパイクを伴う")
+
+    # ETF proxy reasons (macro context for human deep-dive).
+    if candidate_group(c) == "etf_proxy":
+        sym = c.instrument_id
+        if sym in ("TLT", "TMF"):
+            base = "長期金利（長債）proxyとして、金利環境の変化が観測されている"
+        elif sym in ("GLDM", "SLV"):
+            base = "金属proxyとして、実質金利やドル要因への反応が観測されている"
+        else:  # SPY/QQQ
+            base = "株式指数proxyとして、リスク姿勢（指数モメンタム）の変化が観測されている"
+
+        pct20 = format_pct(c.return_20d)
+        pct60 = format_pct(c.return_60d)
+        caution = " 短期の過熱サインがあるため急伸後の調整も先に確認。" if overheat else ""
+        return f"{base}（20日 {pct20} / 60日 {pct60}）。{caution}".replace("。。", "。")
+
+    # Pullback type: explicitly describe the shape using pullback gate conditions.
+    if brief_type == "pullback" and is_pullback_candidate(c):
+        pct5 = format_pct(c.return_5d)
+        return (
+            f"60日トレンドを維持しつつ、5日で小さく調整（直近 5日 {pct5}）。"
+            + ("過熱が強い場合は調整が長引く可能性を確認。" if overheat else "")
+        )
+
+    # Avoid type: keep it caution-focused.
+    if brief_type == "avoid":
+        parts: list[str] = []
+        if overheat:
+            parts.append(f"過熱（20日 {format_pct(c.return_20d)} / 60日 {format_pct(c.return_60d)}）")
+        if liq:
+            parts.append("流動性注意")
+        if not parts:
+            parts.append("無効化条件の検証が先")
+        return " / ".join(parts) + "（深掘り前に反証軸を確認）。"
+
+    # Default human reason (JP / US equity)
+    if not horizon_parts:
+        horizon_parts = ["価格モメンタムと出来高の観測からスクリーニングされた"]
+
+    # Add a human theme hook if available.
+    if theme_phrase:
+        horizon_parts.append(f"テーマ背景: {theme_phrase}")
+
+    if overheat:
+        horizon_parts.append("短期過熱のため、急伸後の無効化条件も先に確認")
+    if liq:
+        horizon_parts.append("流動性には注意（深掘り時に板/出来高を確認）")
+
+    reason = "・".join(horizon_parts)
+    return f"{prefix_by_type[brief_type]}: {reason}。"
 
 
 def _make_card(c: UnifiedCandidate, brief_type: CandidateBriefType) -> CandidateCard:
     return CandidateCard(
         brief_type=brief_type,
         candidate=c,
-        reason=c.reason,
+        reason=build_reason_human(c, brief_type),
         counter_evidence=build_counter_evidence(c),
         next_checks=build_next_checks(c),
     )
@@ -339,7 +659,11 @@ def build_weekly_candidate_brief_v0(
     all_ranked = sorted(jp_ranked + us_ranked, key=_sort_key)
     all_insuf = jp_insuf + us_insuf
 
-    top_picks = [_make_card(c, "top_pick") for c in all_ranked[:TOP_PICK_COUNT]]
+    top_picks, coverage_note = select_diversified_top_picks(
+        jp_ranked=jp_ranked,
+        us_ranked=us_ranked,
+        all_ranked=all_ranked,
+    )
 
     rapid_src = [c for c in all_ranked if "rapid_mover" in c.categories]
     pullback_src = [c for c in all_ranked if is_pullback_candidate(c)]
@@ -378,6 +702,7 @@ def build_weekly_candidate_brief_v0(
         insufficient_list=insufficient_list,
         theme_highlights=theme_highlights,
         appendix_lines=appendix,
+        coverage_note=coverage_note,
         discovery_merge=discovery_merge,
     )
 
@@ -440,6 +765,9 @@ def format_weekly_candidate_brief_v0_markdown(brief: WeeklyCandidateBriefV0) -> 
         "",
     ]
     lines.extend(_format_cards_section("今週の候補 Top 5（横断）", brief.top_picks))
+    if brief.coverage_note:
+        lines.append("- " + brief.coverage_note)
+        lines.append("")
     lines.extend(_format_cards_section("急騰候補 Top 3", brief.rapid_movers))
     lines.extend(_format_cards_section("押し目候補 Top 3", brief.pullbacks))
     lines.extend(_format_cards_section("過熱・避ける候補 Top 3", brief.avoid_list))
