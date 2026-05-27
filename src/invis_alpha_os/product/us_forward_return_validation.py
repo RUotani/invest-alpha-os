@@ -53,6 +53,20 @@ def observation_log_line_count(observation_path: Path) -> int:
     return sum(1 for line in observation_path.read_text(encoding="utf-8").splitlines() if line.strip())
 
 
+def forward_p3_sample_quality_status(
+    matched_normal: int,
+    *,
+    threshold: int = THIN_SAMPLE_THRESHOLD,
+) -> str:
+    """P3 milestone quality from deduped matched_normal (not raw rows_matched)."""
+
+    if matched_normal <= 0:
+        return "empty"
+    if matched_normal < threshold:
+        return "thin"
+    return "usable"
+
+
 def forward_p3_progress(matched_count: int, *, threshold: int = THIN_SAMPLE_THRESHOLD) -> dict[str, Any]:
     """Read-only progress toward sample_quality=usable (docs/163 / P3)."""
 

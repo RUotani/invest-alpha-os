@@ -55,6 +55,8 @@ def test_forward_p3_status_with_signal_row(
     report = build_forward_p3_status_bundle(path_base=tmp_path, observation_path=obs)
     assert "p3_progress" in report["us_forward"]
     assert report["us_forward"]["rows_matched"] >= 0
+    assert "p3_sample_quality_status" in report["us_forward"]
+    assert "all_rows_sample_quality_status" in report["us_forward"]
     assert report.get("observation_log_lines") == 1
     assert isinstance(report.get("recommended_actions"), list)
 
