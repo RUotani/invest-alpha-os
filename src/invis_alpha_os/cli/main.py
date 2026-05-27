@@ -156,6 +156,11 @@ from invis_alpha_os.discovery.us_universe_scanner import (
 )
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.weekly_candidate_brief_email import build_weekly_candidate_brief_email_draft
+from invis_alpha_os.reports.chatgpt_context_archive import (
+    sync_to_reports_repo,
+    write_context_pack_outputs,
+)
+from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_context_pack
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
     GmailSendBlockedError,
@@ -785,6 +790,70 @@ def weekly_candidate_brief_email_command(
     msg_id = result.get("id", "") if isinstance(result, dict) else ""
     masked_to = recipient.split("@")[0][:2] + "***@" + recipient.split("@", 1)[1] if "@" in recipient else "***"
     typer.echo(f"weekly-candidate-brief-email: sent test message id={msg_id!r} to={masked_to}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-chatgpt-context")
+def weekly_candidate_brief_chatgpt_context_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    report_dir: Optional[str] = typer.Option(None, "--report-dir", help="Report directory (default: reports/YYYY-MM-DD)."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    fmt: str = typer.Option("both", "--format", help="markdown/json/both"),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in ("markdown", "json", "both"):
+        typer.echo("weekly-candidate-brief-chatgpt-context: --format must be markdown/json/both", err=True)
+        raise typer.Exit(2)
+    try:
+        pack = build_chatgpt_context_pack(report_date=run_date, report_dir=base)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as e:
+        typer.echo(f"weekly-candidate-brief-chatgpt-context: {e}", err=True)
+        raise typer.Exit(2) from e
+
+    md_text = pack.markdown_text if fmt_norm in ("markdown", "both") else "# Context Pack\n\n- markdown出力は無効です。\n"
+    js_payload = pack.json_payload if fmt_norm in ("json", "both") else {"report_date": run_date, "disabled": True}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=md_text,
+        json_payload=js_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-chatgpt-context: {key}={p}")
+
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-chatgpt-context: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        try:
+            sync_paths = sync_to_reports_repo(
+                reports_repo_path=Path(reports_repo_path),
+                repo_root=ROOT_DIR,
+                report_date=run_date,
+                markdown_text=md_text,
+                json_payload=js_payload,
+            )
+        except (ValueError, FileNotFoundError) as e:
+            typer.echo(f"weekly-candidate-brief-chatgpt-context: {e}", err=True)
+            raise typer.Exit(2) from e
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-chatgpt-context: {key}={p}")
     raise typer.Exit(0)
 
 
