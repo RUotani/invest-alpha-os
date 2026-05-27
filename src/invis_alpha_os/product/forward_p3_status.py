@@ -14,6 +14,7 @@ from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_resolution_breakdown,
     compute_us_forward_returns,
     forward_p3_progress,
+    forward_p3_sample_quality_status,
     observation_log_line_count,
     us_forward_matched_normal_for_p3,
 )
@@ -53,9 +54,7 @@ def build_forward_p3_status_bundle(
     us_sq = us_report.get("sample_quality") or {}
     peer_sq = peer_report.get("sample_quality") or {}
     peer_status = str(peer_sq.get("status") or "")
-    us_status = str(us_sq.get("status") or "")
     peer_usable = peer_status == "usable"
-    us_usable = us_status == "usable"
     skipped = us_report.get("skipped_reasons") or {}
     signal_rows = int(us_report.get("rows_considered") or 0)
     skip_pattern = str(us_sq.get("skip_pattern") or "") or classify_forward_skip_pattern(
@@ -127,23 +126,24 @@ def build_forward_p3_status_bundle(
         except (FileNotFoundError, ValueError):
             p3_weekly_write_plan = {}
     l1_gate = (p3_weekly_write_plan.get("l1_gate") or {}) if p3_weekly_write_plan else {}
+    matched_normal = us_forward_matched_normal_for_p3(
+        rows_matched=us_matched,
+        stall_diagnosis=p3_stall_diagnosis or None,
+        p3_summary=p3_us_forward_summary or None,
+    )
+    p3_progress = forward_p3_progress(matched_normal)
+    p3_sample_quality = forward_p3_sample_quality_status(matched_normal)
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
         tier1_missing=tier1_missing,
         stale_skips=stale_skips,
-        forward_matched=us_matched,
+        forward_matched=matched_normal,
         stale_skip_by_symbol=list(us_report.get("stale_skip_by_symbol") or []),
         peer_sync_matched=peer_matched,
         resolution_outcomes=resolution_breakdown.get("outcomes"),
         insufficient_future_share=resolution_breakdown.get("insufficient_future_share"),
         event_date_source_as_of_share=event_sources.get("event_date_source_as_of_share"),
         l1_write_gate=l1_gate or None,
-    )
-
-    matched_normal = us_forward_matched_normal_for_p3(
-        rows_matched=us_matched,
-        stall_diagnosis=p3_stall_diagnosis or None,
-        p3_summary=p3_us_forward_summary or None,
     )
 
     p3_path_to_usable: dict[str, Any] = {}
@@ -176,9 +176,15 @@ def build_forward_p3_status_bundle(
         "us_forward": {
             "rows_matched": us_matched,
             "matched_normal": matched_normal,
-            "sample_quality_status": str(us_sq.get("status") or ""),
+            "all_rows_sample_quality_status": str(us_sq.get("status") or ""),
+            "all_rows_sample_quality_note": (
+                "raw join count (all matched rows); not the P3 milestone axis — "
+                "use p3_sample_quality / matched_normal"
+            ),
+            "p3_sample_quality_status": p3_sample_quality,
             "skip_pattern": str(us_sq.get("skip_pattern") or ""),
-            "p3_progress": us_sq.get("p3_progress") or forward_p3_progress(us_matched),
+            "p3_progress": p3_progress,
+            "samples_needed_for_usable": int(p3_progress.get("samples_needed_for_usable") or 0),
             "stale_skip_by_symbol": list(us_report.get("stale_skip_by_symbol") or [])[:8],
         },
         "peer_sync_forward": {
@@ -187,11 +193,11 @@ def build_forward_p3_status_bundle(
             "p3_progress": peer_sq.get("p3_progress") or forward_p3_progress(peer_matched),
             "p3_usable": peer_usable,
         },
-        "us_p3_usable": us_usable,
+        "us_p3_usable": matched_normal >= THIN_SAMPLE_THRESHOLD,
         "peer_p3_usable": peer_usable,
         "milestone_note": (
             "peer_sync_forward P3 track: usable"
-            if peer_usable and not us_usable
+            if peer_usable and matched_normal < THIN_SAMPLE_THRESHOLD
             else None
         ),
         "observation_only": True,
@@ -212,11 +218,16 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
         f"- thin_threshold: {report.get('thin_threshold', 10)}",
         "",
         "## US forward",
-        f"- matched (all rows): {us.get('rows_matched', 0)}",
+        f"- rows_matched (all): {us.get('rows_matched', 0)}",
         f"- matched_normal (P3): {us.get('matched_normal', us.get('rows_matched', 0))}",
-        f"- sample_quality: {us.get('sample_quality_status', '')}",
+        (
+            f"- all_rows_sample_quality: {us.get('all_rows_sample_quality_status', '')} "
+            f"({us.get('all_rows_sample_quality_note', 'raw join count; not P3 milestone')})"
+        ),
+        f"- p3_sample_quality: {us.get('p3_sample_quality_status', '')}",
         f"- skip_pattern: {us.get('skip_pattern') or '(n/a)'}",
         f"- p3_progress: {us_p3.get('progress_label', '')}",
+        f"- samples_needed_for_usable: {us.get('samples_needed_for_usable', us_p3.get('samples_needed_for_usable', 0))}",
         "",
         "## Peer sync forward",
         f"- matched: {peer.get('rows_matched', 0)}",
