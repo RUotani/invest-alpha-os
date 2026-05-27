@@ -576,6 +576,83 @@ def weekly_observation_report_v1_command(
     typer.echo(body)
 
 
+@app.command("weekly-candidate-brief")
+def weekly_candidate_brief_command(
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Optional path to write markdown (e.g. reports/YYYY-MM-DD/weekly_candidate_brief_v0.md).",
+    ),
+    report_date: Optional[str] = typer.Option(
+        None,
+        "--report-date",
+        help="ISO date label for the report header (default: today JST).",
+    ),
+    fmt: str = typer.Option(
+        "markdown",
+        "--format",
+        help="Output format: markdown or json.",
+    ),
+    scan_limit: int = typer.Option(
+        0,
+        "--scan-limit",
+        help="Max ranked rows per market from discovery (0 = all ranked).",
+    ),
+    jp_universe_file: Optional[str] = typer.Option(
+        None,
+        "--jp-universe-file",
+        help="Optional JP universe YAML (default: local jquants cache symbols).",
+    ),
+    us_universe_file: Optional[str] = typer.Option(
+        None,
+        "--us-universe-file",
+        help="Optional US universe YAML (default: config/us_watchlist.yaml).",
+    ),
+) -> None:
+    """Weekly Candidate Brief v0.1 — cross-market discovery for human deep-dive candidates."""
+
+    from invis_alpha_os.product.weekly_candidate_brief_v0 import (
+        build_weekly_candidate_brief_v0,
+        format_weekly_candidate_brief_v0_json,
+        format_weekly_candidate_brief_v0_markdown,
+    )
+
+    fmt_norm = fmt.strip().lower()
+    if fmt_norm not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    jp_path = Path(jp_universe_file) if jp_universe_file else None
+    us_path = Path(us_universe_file) if us_universe_file else None
+    if jp_path is not None and not jp_path.is_file():
+        typer.echo(f"weekly-candidate-brief: jp universe file not found: {jp_path}", err=True)
+        raise typer.Exit(2)
+    if us_path is not None and not us_path.is_file():
+        typer.echo(f"weekly-candidate-brief: us universe file not found: {us_path}", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    try:
+        brief = build_weekly_candidate_brief_v0(
+            report_date=run_date,
+            jp_universe_file=jp_path,
+            us_universe_file=us_path,
+            scan_limit=scan_limit,
+            path_base=ROOT_DIR,
+        )
+    except ValueError as e:
+        typer.echo(f"weekly-candidate-brief: {e}", err=True)
+        raise typer.Exit(2) from e
+    if fmt_norm == "json":
+        body = format_weekly_candidate_brief_v0_json(brief)
+    else:
+        body = format_weekly_candidate_brief_v0_markdown(brief)
+    if out:
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(body if body.endswith("\n") else body + "\n", encoding="utf-8")
+        typer.echo(f"weekly candidate brief written: {out_path}")
+    typer.echo(body)
+
+
 @validate_app.command("us-forward-returns")
 def validate_us_forward_returns_command(
     observation_log: Optional[str] = typer.Option(
