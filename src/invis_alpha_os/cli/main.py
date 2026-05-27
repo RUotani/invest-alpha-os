@@ -527,6 +527,7 @@ def weekly_us_observation_command(
         "peer_sync_write_stats": result.peer_sync_write_stats,
         "duplicate_week_preflight": result.duplicate_week_preflight,
         "p3_path_preflight": result.p3_path_preflight,
+        "portfolio_exposure_line": result.portfolio_exposure_line,
         "observation_only": True,
         "live_http": False,
     }

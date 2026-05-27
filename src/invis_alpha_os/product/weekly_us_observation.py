@@ -646,6 +646,7 @@ class WeeklyUsObservationResult:
     peer_sync_write_stats: dict[str, Any] | None = None
     duplicate_week_preflight: dict[str, Any] | None = None
     p3_path_preflight: dict[str, Any] | None = None
+    portfolio_exposure_line: str | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -747,6 +748,7 @@ def run_weekly_us_observation_cycle(
 
     duplicate_week_preflight: dict[str, Any] | None = None
     p3_path_preflight: dict[str, Any] | None = None
+    portfolio_exposure_line: str | None = None
     obs_candidates = (
         root / "outputs" / "observation_log" / "observation_log.jsonl",
         root / "observation_log" / "observation_log.jsonl",
@@ -770,6 +772,25 @@ def run_weekly_us_observation_cycle(
             observation_path=obs_for_preflight,
         )
 
+    from invis_alpha_os.config.paths import OUTPUTS_DIR as _outputs_dir
+    from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+        build_portfolio_exposure_by_signal_veto,
+        format_portfolio_exposure_weekly_one_liner,
+    )
+
+    shadow_file = _outputs_dir / "shadow_portfolio" / "positions.jsonl"
+    if not shadow_file.is_file():
+        shadow_file = root / "outputs" / "shadow_portfolio" / "positions.jsonl"
+    obs_for_exposure = obs_for_preflight or next((p for p in obs_candidates if p.is_file()), None)
+    if shadow_file.is_file() and obs_for_exposure is not None:
+        exposure = build_portfolio_exposure_by_signal_veto(
+            path_base=root,
+            shadow_path=shadow_file,
+            observation_path=obs_for_exposure,
+        )
+        if int(exposure.get("shadow_position_count") or 0) > 0:
+            portfolio_exposure_line = format_portfolio_exposure_weekly_one_liner(exposure)
+
     return WeeklyUsObservationResult(
         manifest=manifest,
         batch_previews=batch,
@@ -781,6 +802,7 @@ def run_weekly_us_observation_cycle(
         peer_sync_write_stats=peer_sync_write_stats,
         duplicate_week_preflight=duplicate_week_preflight,
         p3_path_preflight=p3_path_preflight,
+        portfolio_exposure_line=portfolio_exposure_line,
     )
 
 
@@ -847,6 +869,8 @@ def format_weekly_us_observation_markdown(
         f"- signals ok: {q.get('signals_ok')}/{q.get('symbol_count')}",
         f"- veto triggered: {q.get('veto_triggered_count')}",
     ]
+    if result.portfolio_exposure_line:
+        lines.append(result.portfolio_exposure_line)
     if result.duplicate_week_preflight:
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
             format_duplicate_week_preflight_markdown,
