@@ -647,6 +647,7 @@ class WeeklyUsObservationResult:
     duplicate_week_preflight: dict[str, Any] | None = None
     p3_path_preflight: dict[str, Any] | None = None
     portfolio_exposure_line: str | None = None
+    p3_path_line: str | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -771,6 +772,10 @@ def run_weekly_us_observation_cycle(
             path_base=root,
             observation_path=obs_for_preflight,
         )
+        if p3_path_preflight:
+            from invis_alpha_os.product.p3_path_to_usable import format_p3_path_weekly_one_liner
+
+            p3_path_line = format_p3_path_weekly_one_liner(p3_path_preflight)
 
     from invis_alpha_os.config.paths import OUTPUTS_DIR as _outputs_dir
     from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
@@ -803,6 +808,7 @@ def run_weekly_us_observation_cycle(
         duplicate_week_preflight=duplicate_week_preflight,
         p3_path_preflight=p3_path_preflight,
         portfolio_exposure_line=portfolio_exposure_line,
+        p3_path_line=p3_path_line,
     )
 
 
@@ -871,6 +877,8 @@ def format_weekly_us_observation_markdown(
     ]
     if result.portfolio_exposure_line:
         lines.append(result.portfolio_exposure_line)
+    if result.p3_path_line:
+        lines.append(result.p3_path_line)
     if result.duplicate_week_preflight:
         from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
             format_duplicate_week_preflight_markdown,

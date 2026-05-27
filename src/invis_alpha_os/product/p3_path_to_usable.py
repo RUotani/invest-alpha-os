@@ -373,6 +373,26 @@ def build_weekly_p3_path_preflight(
     }
 
 
+def format_p3_path_weekly_one_liner(preflight: dict[str, Any]) -> str:
+    """Single markdown bullet for weekly dry-run (P3 milestone axis only)."""
+
+    if not preflight:
+        return ""
+    from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
+
+    matched = preflight.get("matched_normal")
+    needed = preflight.get("samples_needed_for_usable", 0)
+    dominant = preflight.get("dominant_path", "")
+    write_now = preflight.get("write_now_count", 0)
+    rows_all = preflight.get("rows_matched_all")
+    extra = f" rows_matched_all={rows_all}" if rows_all is not None else ""
+    return (
+        f"- p3_path: matched_normal={matched}/{THIN_SAMPLE_THRESHOLD} thin "
+        f"need={needed}; dominant={dominant}; write_now={write_now}{extra} · "
+        "detail: validate p3-path-to-usable --format markdown"
+    )
+
+
 def format_weekly_p3_path_preflight_markdown(preflight: dict[str, Any]) -> str:
     lines = [
         "## P3 path preflight (read-only)",

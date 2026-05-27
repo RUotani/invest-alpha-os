@@ -528,6 +528,7 @@ def weekly_us_observation_command(
         "duplicate_week_preflight": result.duplicate_week_preflight,
         "p3_path_preflight": result.p3_path_preflight,
         "portfolio_exposure_line": result.portfolio_exposure_line,
+        "p3_path_line": result.p3_path_line,
         "observation_only": True,
         "live_http": False,
     }

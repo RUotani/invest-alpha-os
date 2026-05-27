@@ -8,6 +8,23 @@ from invis_alpha_os.product.p3_path_to_usable import (
 )
 
 
+def test_format_p3_path_weekly_one_liner() -> None:
+    from invis_alpha_os.product.p3_path_to_usable import format_p3_path_weekly_one_liner
+
+    line = format_p3_path_weekly_one_liner(
+        {
+            "matched_normal": 1,
+            "samples_needed_for_usable": 9,
+            "dominant_path": "iso_week_rollover_then_l1",
+            "write_now_count": 0,
+            "rows_matched_all": 20,
+        }
+    )
+    assert line.startswith("- p3_path:")
+    assert "matched_normal=1/10" in line
+    assert "rows_matched_all=20" in line
+
+
 def test_build_p3_path_to_usable_iso_week_blocked() -> None:
     path = build_p3_path_to_usable(
         matched_normal=1,
