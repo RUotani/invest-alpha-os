@@ -34,6 +34,8 @@ class ObservationHealthReport:
     post_refresh_hints: dict[str, Any]
     next_commands: list[str]
     risk_veto_summary: dict[str, Any] | None = None
+    portfolio_exposure: dict[str, Any] | None = None
+    report_usefulness_hints: list[str] | None = None
     observation_only: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -49,6 +51,8 @@ class ObservationHealthReport:
             "post_refresh_hints": self.post_refresh_hints,
             "next_commands": self.next_commands,
             "risk_veto_summary": self.risk_veto_summary,
+            "portfolio_exposure": self.portfolio_exposure,
+            "report_usefulness_hints": self.report_usefulness_hints,
             "observation_only": self.observation_only,
         }
         repeat_summary = self.us_signals.get("repeat_summary")
@@ -137,6 +141,16 @@ def build_observation_health_report(
     )
 
     risk_veto_summary = summarize_risk_veto_observation_log(obs)
+
+    from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+        build_observation_report_usefulness_hints,
+        build_portfolio_exposure_by_signal_veto,
+    )
+
+    portfolio_exposure = build_portfolio_exposure_by_signal_veto(
+        path_base=root,
+        observation_path=obs,
+    )
 
     from invis_alpha_os.product.post_p10_refresh_smoke import build_post_refresh_hints_light
 
@@ -247,6 +261,16 @@ def build_observation_health_report(
         except ValueError:
             return str(p)
 
+    p3_needed: int | None = None
+    readiness_block = portfolio.get("readiness") or {}
+    p3_sum_block = readiness_block.get("p3_us_forward_summary") or {}
+    if p3_sum_block.get("samples_needed_for_usable") is not None:
+        p3_needed = int(p3_sum_block["samples_needed_for_usable"])
+    report_usefulness_hints = build_observation_report_usefulness_hints(
+        shadow_position_count=int(portfolio.get("shadow_position_count") or 0),
+        p3_samples_needed=p3_needed,
+    )
+
     return ObservationHealthReport(
         observation_path=_rel(obs),
         us_signals=us,
@@ -259,6 +283,8 @@ def build_observation_health_report(
         post_refresh_hints=post_refresh_hints,
         next_commands=_dedupe_next_commands(next_commands),
         risk_veto_summary=risk_veto_summary,
+        portfolio_exposure=portfolio_exposure,
+        report_usefulness_hints=report_usefulness_hints,
     )
 
 
@@ -365,6 +391,19 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
         )
 
         lines.extend(["", format_risk_veto_observation_summary_markdown(report.risk_veto_summary)])
+    if report.portfolio_exposure:
+        from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+            format_portfolio_exposure_by_signal_veto_markdown,
+        )
+
+        lines.extend(
+            ["", format_portfolio_exposure_by_signal_veto_markdown(report.portfolio_exposure)]
+        )
+    hints = report.report_usefulness_hints or []
+    if hints:
+        lines.extend(["", "## Report usefulness (read-only hints)", ""])
+        for hint in hints:
+            lines.append(f"- {hint}")
     lines.extend(
         [
         "",

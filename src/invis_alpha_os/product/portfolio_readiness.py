@@ -379,6 +379,15 @@ def evaluate_portfolio_readiness(
         and human_pct == suggested
         and (human_tier_declared is None or human_tier_declared == tier)
     )
+    from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+        build_portfolio_exposure_by_signal_veto,
+    )
+
+    portfolio_exposure = build_portfolio_exposure_by_signal_veto(
+        path_base=root,
+        observation_path=obs,
+        shadow_path=shadow_path,
+    )
     return {
         "milestones": milestones,
         "accepted_tier": tier,
@@ -403,6 +412,7 @@ def evaluate_portfolio_readiness(
         "p3_stall_diagnosis": forward.get("p3_stall_diagnosis") if forward else None,
         "blockers": blockers,
         "weekly_trend": weekly_trend,
+        "portfolio_exposure_by_signal_veto": portfolio_exposure,
         "observation_only": True,
     }
 
