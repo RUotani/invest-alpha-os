@@ -162,7 +162,9 @@ from invis_alpha_os.reports.chatgpt_context_archive import (
 )
 from invis_alpha_os.reports.chatgpt_context_quality import build_context_pack_quality_audit
 from invis_alpha_os.reports.chatgpt_decision_feedback import build_decision_feedback_template
+from invis_alpha_os.reports.chatgpt_context_enrichment import build_context_enrichment
 from invis_alpha_os.reports.chatgpt_forward_validation_seed import build_forward_validation_seed
+from invis_alpha_os.reports.chatgpt_forward_validation import build_validation_seed, evaluate_validation_seeds
 from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_context_pack
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
@@ -967,6 +969,124 @@ def weekly_candidate_brief_chatgpt_audit_command(
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-chatgpt-audit: {key}={p}")
     raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-chatgpt-enrich")
+def weekly_candidate_brief_chatgpt_enrich_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    context_json: Optional[str] = typer.Option(
+        None, "--context-json", help="Path to chatgpt_invest_context_pack.json (default: outputs/chatgpt_context/latest)."
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    json_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
+    try:
+        context_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        typer.echo(f"weekly-candidate-brief-chatgpt-enrich: {e}", err=True)
+        raise typer.Exit(2) from e
+    if not isinstance(context_payload, dict):
+        typer.echo("weekly-candidate-brief-chatgpt-enrich: context json must be object", err=True)
+        raise typer.Exit(2)
+
+    enrichment = build_context_enrichment(report_date=run_date, context_json_payload=context_payload)
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text="# ChatGPT投資対話用Context Pack\n",
+        json_payload=context_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+        trap_analysis_markdown=enrichment.markdown_text,
+        trap_analysis_json_payload=enrichment.json_payload,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-chatgpt-enrich: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-chatgpt-enrich: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text="# ChatGPT投資対話用Context Pack\n",
+            json_payload=context_payload,
+            trap_analysis_markdown=enrichment.markdown_text,
+            trap_analysis_json_payload=enrichment.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-chatgpt-enrich: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-validation-seed")
+def weekly_candidate_brief_validation_seed_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    context_json: Optional[str] = typer.Option(
+        None, "--context-json", help="Path to chatgpt_invest_context_pack.json (default: outputs/chatgpt_context/latest)."
+    ),
+    out_dir: Optional[str] = typer.Option(
+        None, "--out-dir", help="Validation output root (default: outputs/chatgpt_context/validation)."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    context_root = OUTPUTS_DIR / "chatgpt_context"
+    json_path = Path(context_json) if context_json else context_root / "latest" / "chatgpt_invest_context_pack.json"
+    out_root = Path(out_dir) if out_dir else context_root / "validation"
+    try:
+        context_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        typer.echo(f"weekly-candidate-brief-validation-seed: {e}", err=True)
+        raise typer.Exit(2) from e
+    if not isinstance(context_payload, dict):
+        typer.echo("weekly-candidate-brief-validation-seed: context json must be object", err=True)
+        raise typer.Exit(2)
+    seed = build_validation_seed(report_date=run_date, context_json_payload=context_payload)
+    seed_dir = out_root / "seeds" / run_date[:4] / run_date
+    seed_dir.mkdir(parents=True, exist_ok=True)
+    seed_md = seed_dir / "decision_seed.md"
+    seed_json = seed_dir / "decision_seed.json"
+    seed_md.write_text(seed.markdown_text, encoding="utf-8")
+    seed_json.write_text(json.dumps(seed.json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    typer.echo(f"weekly-candidate-brief-validation-seed: decision_seed_md={seed_md}")
+    typer.echo(f"weekly-candidate-brief-validation-seed: decision_seed_json={seed_json}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-validation-evaluate")
+def weekly_candidate_brief_validation_evaluate_command(
+    as_of_date: Optional[str] = typer.Option(None, "--as-of-date", help="ISO date for evaluation (default: today JST)."),
+    seeds_dir: Optional[str] = typer.Option(
+        None, "--seeds-dir", help="Seeds directory (default: outputs/chatgpt_context/validation/seeds)."
+    ),
+    out_dir: Optional[str] = typer.Option(
+        None, "--out-dir", help="Validation output root (default: outputs/chatgpt_context/validation)."
+    ),
+) -> None:
+    eval_date = as_of_date or today_jst_iso()
+    context_root = OUTPUTS_DIR / "chatgpt_context" / "validation"
+    seeds_root = Path(seeds_dir) if seeds_dir else context_root / "seeds"
+    out_root = Path(out_dir) if out_dir else context_root
+    paths = evaluate_validation_seeds(as_of_date=eval_date, seeds_dir=seeds_root, out_dir=out_root)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-validation-evaluate: {key}={p}")
+    raise typer.Exit(0)
+
+
 @validate_app.command("us-forward-returns")
 def validate_us_forward_returns_command(
     observation_log: Optional[str] = typer.Option(

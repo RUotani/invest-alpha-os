@@ -133,3 +133,49 @@ def test_cli_chatgpt_audit_writes_quality_feedback_seed(tmp_path: Path) -> None:
     assert (out_dir / "latest" / "decision_feedback_template.md").is_file()
     assert (out_dir / "archive" / "2026" / "2026-05-27" / "context_pack_quality_audit.md").is_file()
     assert (out_dir / "validation" / "seeds" / "2026" / "2026-05-27" / "decision_seed.json").is_file()
+
+
+def test_cli_chatgpt_enrich_and_validation_seed(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r1 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r1.exit_code == 0, r1.stdout + r1.stderr
+    r2 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-enrich",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r2.exit_code == 0, r2.stdout + r2.stderr
+    assert (out_dir / "latest" / "trap_analysis.md").is_file()
+    assert (out_dir / "latest" / "trap_analysis.json").is_file()
+    r3 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-validation-seed",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir / "validation"),
+            "--context-json",
+            str(out_dir / "latest" / "chatgpt_invest_context_pack.json"),
+        ],
+    )
+    assert r3.exit_code == 0, r3.stdout + r3.stderr
+    assert (out_dir / "validation" / "seeds" / "2026" / "2026-05-27" / "decision_seed.json").is_file()

@@ -20,6 +20,8 @@ def write_context_pack_outputs(
     feedback_template_markdown: str | None = None,
     decision_seed_markdown: str | None = None,
     decision_seed_json_payload: dict[str, Any] | None = None,
+    trap_analysis_markdown: str | None = None,
+    trap_analysis_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -56,6 +58,14 @@ def write_context_pack_outputs(
             fb = latest / "decision_feedback_template.md"
             fb.write_text(feedback_template_markdown, encoding="utf-8")
             paths["latest_feedback_template"] = fb
+        if trap_analysis_markdown is not None:
+            trap_md = latest / "trap_analysis.md"
+            trap_md.write_text(trap_analysis_markdown, encoding="utf-8")
+            paths["latest_trap_analysis_md"] = trap_md
+        if trap_analysis_json_payload is not None:
+            trap_json = latest / "trap_analysis.json"
+            trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_trap_analysis_json"] = trap_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -87,6 +97,14 @@ def write_context_pack_outputs(
             fb = arc / "decision_feedback_template.md"
             fb.write_text(feedback_template_markdown, encoding="utf-8")
             paths["archive_feedback_template"] = fb
+        if trap_analysis_markdown is not None:
+            trap_md = arc / "trap_analysis.md"
+            trap_md.write_text(trap_analysis_markdown, encoding="utf-8")
+            paths["archive_trap_analysis_md"] = trap_md
+        if trap_analysis_json_payload is not None:
+            trap_json = arc / "trap_analysis.json"
+            trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_trap_analysis_json"] = trap_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -115,6 +133,8 @@ def sync_to_reports_repo(
     feedback_template_markdown: str | None = None,
     decision_seed_markdown: str | None = None,
     decision_seed_json_payload: dict[str, Any] | None = None,
+    trap_analysis_markdown: str | None = None,
+    trap_analysis_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -168,5 +188,19 @@ def sync_to_reports_repo(
             encoding="utf-8",
         )
         paths["reports_validation_seed_json"] = seed_json
+    if trap_analysis_markdown is not None:
+        latest_trap_md = latest / "trap_analysis.md"
+        weekly_trap_md = weekly / "trap_analysis.md"
+        latest_trap_md.write_text(trap_analysis_markdown, encoding="utf-8")
+        weekly_trap_md.write_text(trap_analysis_markdown, encoding="utf-8")
+        paths["reports_latest_trap_analysis_md"] = latest_trap_md
+        paths["reports_weekly_trap_analysis_md"] = weekly_trap_md
+    if trap_analysis_json_payload is not None:
+        latest_trap_json = latest / "trap_analysis.json"
+        weekly_trap_json = weekly / "trap_analysis.json"
+        latest_trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        weekly_trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["reports_latest_trap_analysis_json"] = latest_trap_json
+        paths["reports_weekly_trap_analysis_json"] = weekly_trap_json
     return paths
 
