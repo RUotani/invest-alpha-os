@@ -810,7 +810,7 @@ def _strip_reason_prefix_for_copy(reason: str) -> str:
 
 def _copy_ready_type_for_top5(card: CandidateCard) -> str:
     c = card.candidate
-    return "proxy" if candidate_group(c) == "etf_proxy" else "注目"
+    return "指数連動" if candidate_group(c) == "etf_proxy" else "注目"
 
 
 def _format_copy_ready_brief_table_row(*, rank: int, card: CandidateCard) -> str:
@@ -874,11 +874,11 @@ def _copy_ready_name(c: UnifiedCandidate) -> str:
 def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines = [
         COPY_READY_MARKER_FROM,
-        f"# Weekly Candidate Brief — {brief.report_date}",
+        f"# 週次候補ブリーフ — {brief.report_date}",
         "",
-        "## 今週の深掘り候補 Top 5",
+        "## 今週の深掘り候補 上位5件",
         "",
-        "| Rank | Symbol | Name | Market | Type | Short reason |",
+        "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |",
         "|---|---|---|---|---|---|",
     ]
     for rank, card in enumerate(brief.top_picks, start=1):
@@ -908,7 +908,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
             "",
             "## 見方",
             "- これは観測・深掘り候補の整理であり、売買推奨ではありません。",
-            "- Top 5 は JP / US / ETF proxy の横断性を優先します。",
+            "- 上位5件は JP / US / ETF の横断性を優先します。",
             "- 反証と次確認を見て、深掘りする候補を選びます。",
             "",
             COPY_READY_MARKER_TO,
@@ -929,7 +929,7 @@ def format_weekly_candidate_brief_v0_copy(brief: WeeklyCandidateBriefV0) -> str:
 
 def _format_copy_ready_summary(brief: WeeklyCandidateBriefV0) -> list[str]:
     return [
-        "## Copy-ready summary",
+        "## コピー用サマリー",
         "",
         *_format_copy_ready_block_lines(brief),
         "",

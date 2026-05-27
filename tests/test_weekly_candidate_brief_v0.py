@@ -86,10 +86,10 @@ def test_format_markdown_has_candidate_sections() -> None:
     )
     md = format_weekly_candidate_brief_v0_markdown(brief)
     assert "# 週次候補ブリーフ v0.1" in md
-    assert "## Copy-ready summary" in md
+    assert "## コピー用サマリー" in md
     assert "<<< COPY FROM HERE >>>" in md
-    assert "## 今週の深掘り候補 Top 5" in md
-    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in md
+    assert "## 今週の深掘り候補 上位5件" in md
+    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in md
     assert "| 1 | MSFT |" in md
     assert "## 今週の候補 Top 5" in md
     assert "**反証**" in md
@@ -331,8 +331,8 @@ def test_format_copy_only_block() -> None:
     body = format_weekly_candidate_brief_v0_copy(brief)
     assert body.strip().startswith("<<< COPY FROM HERE >>>")
     assert body.strip().endswith("<<< COPY TO HERE >>>")
-    assert "## 今週の深掘り候補 Top 5" in body
-    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in body
+    assert "## 今週の深掘り候補 上位5件" in body
+    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in body
     assert "## 候補別メモ" in body
     assert "- 反証: 反証1" in body
     assert "- 次確認: 確認1" in body
@@ -364,10 +364,10 @@ def test_cli_weekly_candidate_brief_copy(mini_discovery_cache: Path, monkeypatch
     out = r.stdout
     assert out.strip().startswith("<<< COPY FROM HERE >>>")
     assert "<<< COPY TO HERE >>>" in out
-    assert "# 週次候補ブリーフ" not in out
+    assert "# 週次候補ブリーフ — 2026-05-27" in out
     assert "## マクロ環境" not in out
     assert "## 候補別メモ" in out
-    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in out
+    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in out
     assert "Counter evidence" not in out
     assert "Next checks" not in out
 

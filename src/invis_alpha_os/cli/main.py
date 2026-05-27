@@ -760,7 +760,7 @@ def weekly_candidate_brief_email_command(
     if "[TEST]" not in draft.subject:
         typer.echo("weekly-candidate-brief-email: subject must include [TEST]", err=True)
         raise typer.Exit(2)
-    if not draft.text_body.startswith("TEST EMAIL"):
+    if not draft.text_body.startswith(("TEST EMAIL", "テストメール")):
         typer.echo("weekly-candidate-brief-email: body must start with TEST EMAIL", err=True)
         raise typer.Exit(2)
     try:

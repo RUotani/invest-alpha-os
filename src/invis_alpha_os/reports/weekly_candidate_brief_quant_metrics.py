@@ -52,16 +52,16 @@ def _dist(latest: float | None, base: float | None) -> float | None:
 
 def _freshness_label(*, latest_bar_date: str | None, report_date: str) -> str:
     if not latest_bar_date:
-        return "unknown"
+        return "不明"
     try:
         d_latest = date.fromisoformat(latest_bar_date)
         d_report = date.fromisoformat(report_date)
     except ValueError:
-        return "unknown"
+        return "不明"
     delta = (d_report - d_latest).days
     if delta <= 7:
-        return "fresh"
-    return f"stale: latest bar older than 7 calendar days ({delta}d)"
+        return "最新圏"
+    return f"要更新（直近データが7日超過: {delta}日）"
 
 
 def _load_bars(symbol: str, market: str) -> tuple[list[DailyBar], str] | None:
@@ -101,7 +101,7 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
             avg_volume_20d=None,
             volume_ratio_20d=None,
             freshness_label="unknown",
-            missing_reason="cache file not found or invalid",
+            missing_reason="キャッシュファイルが見つからないか壊れています",
         )
     bars, source = loaded
     closes = [float(b["close"]) for b in bars]
@@ -124,13 +124,13 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
 
     missing: list[str] = []
     if len(closes) < 60:
-        missing.append(f"insufficient bars for 60D return (got {len(closes)})")
+        missing.append(f"データ本数不足（60日騰落率: {len(closes)}本）")
     if len(closes) < 200:
-        missing.append(f"insufficient bars for 200D MA (got {len(closes)})")
+        missing.append(f"データ本数不足（200日移動平均線: {len(closes)}本）")
     if len(lookback) < 252:
-        missing.append(f"partial 52W range (got {len(lookback)} bars)")
+        missing.append(f"一部期間のみの52週レンジ（{len(lookback)}本）")
     if avgv20 is None:
-        missing.append("insufficient bars for 20D volume average")
+        missing.append("データ本数不足（20日平均出来高）")
 
     return CandidateQuantMetrics(
         symbol=symbol,
@@ -160,11 +160,11 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
 
 def fmt_num(value: float | None, digits: int = 2) -> str:
     if value is None:
-        return "not available in cache"
+        return "キャッシュ内にデータなし"
     return f"{value:.{digits}f}"
 
 
 def fmt_pct(value: float | None, digits: int = 1) -> str:
     if value is None:
-        return "not available in cache"
+        return "キャッシュ内にデータなし"
     return f"{value * 100:.{digits}f}%"

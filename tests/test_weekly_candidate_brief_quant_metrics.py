@@ -48,4 +48,4 @@ def test_quant_metrics_marks_insufficient_bars(monkeypatch) -> None:
     assert qm.ma_200 is None
     assert qm.ret_60d_pct is not None
     assert qm.missing_reason is not None
-    assert "insufficient bars for 200D MA" in qm.missing_reason
+    assert "データ本数不足（200日移動平均線" in qm.missing_reason

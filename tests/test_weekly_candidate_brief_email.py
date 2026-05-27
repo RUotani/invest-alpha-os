@@ -45,22 +45,22 @@ def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
     assert draft.subject.endswith("2026-05-27")
     assert "7203" in draft.text_body
     assert len(draft.text_body) > 800
-    assert draft.text_body.startswith("TEST EMAIL")
+    assert draft.text_body.startswith("テストメール")
     assert draft.html_body is not None
     assert len(draft.html_body) > 1200
-    assert "TEST EMAIL" in draft.html_body
-    assert "Moving Average Context" in draft.text_body
-    assert "Quant Snapshot" in draft.text_body
-    assert "Momentum Rationale" in draft.text_body
-    assert "Counter Evidence" in draft.text_body
-    assert "Sources" in draft.text_body
-    assert "Next Checks" in draft.text_body
-    assert "Moving Average Context" in draft.html_body
-    assert "Quant Snapshot" in draft.html_body
-    assert "Momentum Rationale" in draft.html_body
-    assert "Counter Evidence" in draft.html_body
-    assert "Sources" in draft.html_body
-    assert "Next Checks" in draft.html_body
+    assert "テストメール" in draft.html_body
+    assert "移動平均線の位置づけ" in draft.text_body
+    assert "定量スナップショット" in draft.text_body
+    assert "モメンタム根拠" in draft.text_body
+    assert "反証・下落リスク" in draft.text_body
+    assert "情報ソース" in draft.text_body
+    assert "次に確認すること" in draft.text_body
+    assert "移動平均線の位置づけ" in draft.html_body
+    assert "定量スナップショット" in draft.html_body
+    assert "モメンタム根拠" in draft.html_body
+    assert "反証・下落リスク" in draft.html_body
+    assert "情報ソース" in draft.html_body
+    assert "次に確認すること" in draft.html_body
     assert "Weekly Observation Report" not in draft.text_body
     lower = draft.text_body.lower()
     for term in FORBIDDEN_OUTPUT_TERMS:
@@ -98,12 +98,12 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     assert "[TEST][invest-alpha-os] Weekly Candidate Brief 2026-05-27" in r.stdout
     txt = (report_dir / "email" / "email_preview.txt").read_text(encoding="utf-8")
     html = (report_dir / "email" / "email_preview.html").read_text(encoding="utf-8")
-    assert "TEST EMAIL" in txt
-    assert "TEST EMAIL" in html
+    assert "テストメール" in txt
+    assert "テストメール" in html
     assert "7203" in txt
-    assert "Moving Average Context" in txt
-    assert "Quant Snapshot" in txt
-    assert "Counter Evidence" in txt
+    assert "移動平均線の位置づけ" in txt
+    assert "定量スナップショット" in txt
+    assert "反証・下落リスク" in txt
 
 
 def test_weekly_candidate_brief_email_missing_copy_exit2(tmp_path: Path) -> None:
