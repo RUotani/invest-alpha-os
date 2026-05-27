@@ -17,6 +17,7 @@ from invis_alpha_os.product.weekly_candidate_brief_v0 import (
     build_reason_human,
     candidate_group,
     build_weekly_candidate_brief_v0,
+    format_weekly_candidate_brief_v0_copy,
     format_weekly_candidate_brief_v0_json,
     format_weekly_candidate_brief_v0_markdown,
     is_pullback_candidate,
@@ -306,6 +307,60 @@ def test_build_weekly_candidate_brief_v0_us_only(mini_discovery_cache: Path) -> 
     md = format_weekly_candidate_brief_v0_markdown(brief)
     assert "MSFT" in md or "（該当なし）" not in md or brief.top_picks
     assert "## マクロ環境" in md
+
+
+def test_format_copy_only_block() -> None:
+    from invis_alpha_os.product.weekly_candidate_brief_v0 import WeeklyCandidateBriefV0
+
+    card = CandidateCard(
+        brief_type="top_pick",
+        candidate=_candidate(reason="surfaced: near_high"),
+        reason="注目理由: 52週高値近辺での反応。",
+        counter_evidence=("反証1",),
+        next_checks=("確認1", "確認2", "確認3"),
+    )
+    brief = WeeklyCandidateBriefV0(
+        report_date="2026-05-27",
+        generated_at_jp="t1",
+        generated_at_us="t2",
+        jp_scope="jp",
+        us_scope="us",
+        macro_summary="macro",
+        top_picks=[card],
+    )
+    body = format_weekly_candidate_brief_v0_copy(brief)
+    assert body.strip().startswith("<<< COPY FROM HERE >>>")
+    assert body.strip().endswith("<<< COPY TO HERE >>>")
+    assert "## 今週の深掘り候補 Top 5" in body
+    assert "| Rank | Symbol | Name | Market |" in body
+    for forbidden in (
+        "# 週次候補ブリーフ v0.1",
+        "## マクロ環境",
+        "## 急騰候補",
+        "## 押し目候補",
+        "## 付録",
+        "surfaced:",
+        "rapid_mover",
+        "near_high",
+    ):
+        assert forbidden not in body
+    lower = body.lower()
+    for term in FORBIDDEN_OUTPUT_TERMS:
+        assert term not in lower
+
+
+def test_cli_weekly_candidate_brief_copy(mini_discovery_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("invis_alpha_os.cli.main.ROOT_DIR", mini_discovery_cache)
+    r = runner.invoke(
+        app,
+        ["weekly-candidate-brief", "--format", "copy", "--report-date", "2026-05-27"],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    out = r.stdout
+    assert out.strip().startswith("<<< COPY FROM HERE >>>")
+    assert "<<< COPY TO HERE >>>" in out
+    assert "# 週次候補ブリーフ" not in out
+    assert "## マクロ環境" not in out
 
 
 def test_cli_weekly_candidate_brief_markdown(mini_discovery_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
