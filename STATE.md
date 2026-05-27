@@ -3,7 +3,7 @@
 版: v0.1 / 最終更新: 2026-05-26
 
 ## 3行サマリー
-- `origin/main` @ `e2bc4e1`（#299 weekly P3 preflight · #298 post-smoke · #296 horizon export）。
+- `origin/main` @ `69c477b`（#304 P3 axis · #302–#303 display/L1 · #299 preflight）。
 - log **538** · peer **usable** · US **1/10** thin（normal）· human **55%** P0-P2。
 - バッチ: **L1 消費済み 2/2** · P3/70% は usable 到達後に L3 再承認。
 
@@ -29,7 +29,9 @@ p3_us_forward_summary: need 9 toward usable
 | path to usable | `validate p3-path-to-usable` / weekly dry-run **P3 path preflight**（#299） |
 | P3 CLI hints | `p3_monitoring_next_commands()`（#299） |
 | horizon export | `validate p3-horizon-timeline --format json`（#296） |
-| matched P3 vs raw | `matched_normal`（dedupe）≠ `rows_matched`（#296） |
+| matched P3 vs raw | `matched_normal`（dedupe）≠ `rows_matched`（#302–#304） |
+| P3 display | forward-p3-status: `all_rows_sample_quality` vs `p3_sample_quality`（#302） |
+| L1 rollover passed | `rollover_passed_write_still_blocked` wording（#303） |
 | 重複週方針 | [decision](../docs/decisions/2026-05-26_observation_log_duplicate_week_policy.md) |
 | portfolio 70% / P3 | usable 到達後に L3 再承認 |
 
