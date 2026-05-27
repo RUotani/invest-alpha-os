@@ -736,6 +736,85 @@ def _format_card_md(index: int, card: CandidateCard) -> list[str]:
     return lines
 
 
+COPY_READY_MARKER_FROM = "<<< COPY FROM HERE >>>"
+COPY_READY_MARKER_TO = "<<< COPY TO HERE >>>"
+COPY_READY_TABLE_MAX_CELL = 120
+
+
+def _escape_md_table_cell(text: str, *, max_len: int = COPY_READY_TABLE_MAX_CELL) -> str:
+    compact = " ".join(text.replace("|", "/").replace("\n", " ").split())
+    if not compact:
+        return "—"
+    if len(compact) <= max_len:
+        return compact
+    return compact[: max_len - 1] + "…"
+
+
+def _copy_ready_market(c: UnifiedCandidate) -> str:
+    if c.market == MARKET_JP:
+        return "JP"
+    if candidate_group(c) == "etf_proxy":
+        return "ETF"
+    return "US"
+
+
+def _copy_ready_name(c: UnifiedCandidate) -> str:
+    sym = c.instrument_id.strip()
+    dn = c.display_name.strip()
+    if dn.upper().startswith(sym.upper()):
+        rest = dn[len(sym) :].strip()
+        return rest or dn
+    return dn
+
+
+def _format_copy_ready_summary(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## Copy-ready summary",
+        "",
+        COPY_READY_MARKER_FROM,
+        f"# Weekly Candidate Brief — {brief.report_date}",
+        "",
+        "## 今週の深掘り候補 Top 5",
+        "",
+        "| Rank | Symbol | Name | Market | Why now | Counter evidence | Next checks |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for rank, card in enumerate(brief.top_picks, start=1):
+        c = card.candidate
+        counter = "; ".join(card.counter_evidence)
+        checks = "; ".join(card.next_checks)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(rank),
+                    _escape_md_table_cell(c.instrument_id, max_len=24),
+                    _escape_md_table_cell(_copy_ready_name(c), max_len=40),
+                    _copy_ready_market(c),
+                    _escape_md_table_cell(card.reason),
+                    _escape_md_table_cell(counter),
+                    _escape_md_table_cell(checks),
+                ]
+            )
+            + " |"
+        )
+    if not brief.top_picks:
+        lines.append("| — | — | — | — | （該当なし） | — | — |")
+    lines.extend(
+        [
+            "",
+            "## 見方",
+            "- これは観測・深掘り候補の整理であり、売買推奨ではありません。",
+            "- Top 5 は JP / US / ETF proxy の横断性を優先します。",
+            "- 反証と次確認を見て、深掘りする候補を選びます。",
+            "",
+            COPY_READY_MARKER_TO,
+            "",
+        ]
+    )
+    return lines
+
+
 def _format_cards_section(title: str, cards: Sequence[CandidateCard]) -> list[str]:
     lines = [f"## {title}", ""]
     if not cards:
@@ -759,11 +838,16 @@ def format_weekly_candidate_brief_v0_markdown(brief: WeeklyCandidateBriefV0) -> 
         f"- JP 生成: {brief.generated_at_jp} · scope `{brief.jp_scope}`",
         f"- US 生成: {brief.generated_at_us} · scope `{brief.us_scope}`",
         "",
-        "## マクロ環境（ETF proxy）",
-        "",
-        brief.macro_summary,
-        "",
     ]
+    lines.extend(_format_copy_ready_summary(brief))
+    lines.extend(
+        [
+            "## マクロ環境（ETF proxy）",
+            "",
+            brief.macro_summary,
+            "",
+        ]
+    )
     lines.extend(_format_cards_section("今週の候補 Top 5（横断）", brief.top_picks))
     if brief.coverage_note:
         lines.append("- " + brief.coverage_note)
