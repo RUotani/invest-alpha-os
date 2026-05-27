@@ -683,8 +683,18 @@ def weekly_candidate_brief_email_command(
         "--full-md",
         help="Optional full markdown path to attach (preview only).",
     ),
+    send_test: bool = typer.Option(
+        False,
+        "--send-test",
+        help="Send Gmail test email only when explicit env gates are satisfied.",
+    ),
+    gmail_to: Optional[str] = typer.Option(
+        None,
+        "--gmail-to",
+        help="Optional test recipient override (default: GMAIL_TO env).",
+    ),
 ) -> None:
-    """Write Gmail previews for Weekly Candidate Brief (dry-run only; never sends)."""
+    """Write Weekly Candidate Brief Gmail previews; optional gated test send."""
 
     run_date = report_date or today_jst_iso()
     base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
@@ -704,9 +714,15 @@ def weekly_candidate_brief_email_command(
         ]
 
     email_out = base / "email"
+    recipient = (gmail_to or os.environ.get("GMAIL_TO", "")).strip()
+    dry_run = not send_test
+    sender = resolve_gmail_sender(dry_run=dry_run, recipient=recipient)
+    to_list = [recipient] if recipient else ["dry-run@local"]
+    if dry_run:
+        to_list = [recipient or "dry-run@local"]
     message = build_mime_message(
-        sender="dry-run@local",
-        to=["dry-run@local"],
+        sender=sender or "dry-run@local",
+        to=to_list,
         subject=draft.subject,
         text_body=draft.text_body,
         html_body=draft.html_body,
@@ -721,7 +737,59 @@ def weekly_candidate_brief_email_command(
         typer.echo(f"weekly-candidate-brief-email: {key}={path}")
     if full_path.is_file():
         typer.echo(f"weekly-candidate-brief-email: attachment_candidate={full_path}")
-    typer.echo("weekly-candidate-brief-email: dry-run only (no Gmail API call)")
+    if dry_run:
+        typer.echo("weekly-candidate-brief-email: dry-run only (no Gmail API call)")
+        raise typer.Exit(0)
+    if os.environ.get("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", "").strip() != "1":
+        typer.echo(
+            "weekly-candidate-brief-email: test send blocked "
+            "(set INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND=1)",
+            err=True,
+        )
+        raise typer.Exit(2)
+    if not recipient:
+        typer.echo("weekly-candidate-brief-email: GMAIL_TO is required for --send-test", err=True)
+        raise typer.Exit(2)
+    if not sender:
+        typer.echo(
+            "weekly-candidate-brief-email: gmail_failure_reason=gmail_sender_unconfigured "
+            "(set GMAIL_REPORT_FROM or GMAIL_SELF_EMAIL)",
+            err=True,
+        )
+        raise typer.Exit(2)
+    if "[TEST]" not in draft.subject:
+        typer.echo("weekly-candidate-brief-email: subject must include [TEST]", err=True)
+        raise typer.Exit(2)
+    if not draft.text_body.startswith("TEST EMAIL"):
+        typer.echo("weekly-candidate-brief-email: body must start with TEST EMAIL", err=True)
+        raise typer.Exit(2)
+    try:
+        validate_gmail_send_gates(
+            recipient=recipient,
+            confirm_env="YES",
+            allowlist_env=recipient,
+            self_email_env=recipient,
+        )
+    except GmailSendBlockedError as e:
+        reason = classify_gmail_failure(e)
+        typer.echo(f"weekly-candidate-brief-email: gmail_failure_reason={reason}", err=True)
+        raise typer.Exit(2) from e
+    if not credentials_configured():
+        typer.echo("weekly-candidate-brief-email: gmail_failure_reason=gmail_oauth_required", err=True)
+        raise typer.Exit(2)
+    try:
+        result = send_gmail_message(raw, allow_interactive_oauth=False)
+    except (GmailSendBlockedError, GmailDeliveryError) as e:
+        reason = classify_gmail_failure(e)
+        typer.echo(f"weekly-candidate-brief-email: gmail_failure_reason={reason}", err=True)
+        raise typer.Exit(2) from e
+    except Exception as e:
+        reason = classify_gmail_failure(e)
+        typer.echo(f"weekly-candidate-brief-email: gmail_failure_reason={reason}", err=True)
+        raise typer.Exit(2) from e
+    msg_id = result.get("id", "") if isinstance(result, dict) else ""
+    masked_to = recipient.split("@")[0][:2] + "***@" + recipient.split("@", 1)[1] if "@" in recipient else "***"
+    typer.echo(f"weekly-candidate-brief-email: sent test message id={msg_id!r} to={masked_to}")
     raise typer.Exit(0)
 
 

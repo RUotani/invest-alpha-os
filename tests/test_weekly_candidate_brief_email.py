@@ -19,7 +19,7 @@ runner = CliRunner()
 
 def test_weekly_candidate_brief_email_subject() -> None:
     assert build_weekly_candidate_brief_email_subject("2026-05-27") == (
-        "[invest-alpha-os] Weekly Candidate Brief 2026-05-27"
+        "[TEST][invest-alpha-os] Weekly Candidate Brief 2026-05-27"
     )
 
 
@@ -28,6 +28,9 @@ def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
     draft = build_weekly_candidate_brief_email_draft(report_date="2026-05-27", copy_body=copy)
     assert draft.subject.endswith("2026-05-27")
     assert "<<< COPY FROM HERE >>>" in draft.text_body
+    assert draft.text_body.startswith("TEST EMAIL")
+    assert draft.html_body is not None
+    assert "TEST EMAIL" in draft.html_body
     assert "Weekly Observation Report" not in draft.text_body
     lower = draft.text_body.lower()
     for term in FORBIDDEN_OUTPUT_TERMS:
@@ -62,8 +65,11 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     assert r.exit_code == 0, r.stdout + r.stderr
     assert (report_dir / "email" / "email_preview.eml").is_file()
     assert "dry-run only" in r.stdout
-    assert "[invest-alpha-os] Weekly Candidate Brief 2026-05-27" in r.stdout
+    assert "[TEST][invest-alpha-os] Weekly Candidate Brief 2026-05-27" in r.stdout
     txt = (report_dir / "email" / "email_preview.txt").read_text(encoding="utf-8")
+    html = (report_dir / "email" / "email_preview.html").read_text(encoding="utf-8")
+    assert "TEST EMAIL" in txt
+    assert "TEST EMAIL" in html
     assert "<<< COPY FROM HERE >>>" in txt
 
 
@@ -79,3 +85,75 @@ def test_weekly_candidate_brief_email_missing_copy_exit2(tmp_path: Path) -> None
         ],
     )
     assert r.exit_code == 2
+
+
+def test_weekly_candidate_brief_email_send_test_requires_gate_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    report_dir.mkdir(parents=True)
+    copy_path = report_dir / "weekly_candidate_brief_copy.md"
+    copy_path.write_text("# brief\n", encoding="utf-8")
+    monkeypatch.setenv("GMAIL_TO", "tester@example.com")
+    monkeypatch.delenv("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", raising=False)
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-email",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--send-test",
+        ],
+    )
+    assert r.exit_code == 2
+    assert "test send blocked" in r.stderr
+
+
+def test_weekly_candidate_brief_email_send_test_requires_gmail_to(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    report_dir.mkdir(parents=True)
+    copy_path = report_dir / "weekly_candidate_brief_copy.md"
+    copy_path.write_text("# brief\n", encoding="utf-8")
+    monkeypatch.setenv("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", "1")
+    monkeypatch.delenv("GMAIL_TO", raising=False)
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-email",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--send-test",
+        ],
+    )
+    assert r.exit_code == 2
+    assert "GMAIL_TO is required" in r.stderr
+
+
+def test_weekly_candidate_brief_email_send_test_sends_when_gated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    report_dir.mkdir(parents=True)
+    copy_path = report_dir / "weekly_candidate_brief_copy.md"
+    copy_path.write_text("# brief\n", encoding="utf-8")
+    monkeypatch.setenv("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", "1")
+    monkeypatch.setenv("GMAIL_TO", "tester@example.com")
+    monkeypatch.setenv("GMAIL_REPORT_FROM", "sender@example.com")
+    monkeypatch.setattr("invis_alpha_os.cli.main.credentials_configured", lambda: True)
+    monkeypatch.setattr(
+        "invis_alpha_os.cli.main.send_gmail_message",
+        lambda raw, allow_interactive_oauth=False: {"id": "test-id-1"},
+    )
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-email",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--send-test",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert "sent test message id='test-id-1'" in r.stdout

@@ -72,4 +72,12 @@ cd /path/to/invest-alpha-os
 - Gmail 配信 → 別 runbook
 - `RULES.md` / portfolio 進捗 `[要確認]%` 更新
 
+## Weekly Candidate Brief Gmail テスト送信（明示ゲート）
+
+- 既定は dry-run（preview 生成のみ）: `weekly-candidate-brief-email`
+- テスト送信は `--send-test` + `GMAIL_TO` + `INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND=1` が必須
+- 本番/定期送信は未有効（この one-pager では扱わない）
+- 生成物 `reports/YYYY-MM-DD/weekly_candidate_brief_*` / `reports/YYYY-MM-DD/email/*` / `outputs/operator/weekly_candidate_brief/**` は原則コミットしない
+- Gmail credential / token は表示・コミットしない
+
 <<< COPY UNTIL HERE >>>
