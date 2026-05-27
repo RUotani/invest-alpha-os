@@ -336,6 +336,14 @@ def format_forward_p3_status_markdown(report: dict[str, Any]) -> str:
                         f"{rollover.get('projected_write_now_symbols_at_rollover', 0)}",
                     ]
                 )
+                note = rollover.get("days_until_earliest_rollover_note")
+                if note:
+                    lines.append(f"- days_until_earliest_rollover_note: {note}")
+                if rollover.get("rollover_passed"):
+                    lines.append(
+                        "- rollover_passed_write_still_blocked: planned writes still duplicate "
+                        "or cache/as_of not advanced"
+                    )
                 hint = rollover.get("l1_unblock_hint")
                 if hint:
                     lines.append(f"- l1_unblock_hint: {hint}")
