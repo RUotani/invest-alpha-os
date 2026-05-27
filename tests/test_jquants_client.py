@@ -678,6 +678,7 @@ def test_get_daily_quotes_live_success_v1_bearer_no_body_in_dict(monkeypatch):
 
 
 def test_debug_jquants_status_never_calls_urlopen(monkeypatch):
+    monkeypatch.delenv("JQUANTS_API_KEY", raising=False)
     monkeypatch.setenv("JQUANTS_ENABLED", "true")
     monkeypatch.setenv("JQUANTS_ALLOW_LIVE_HTTP", "true")
     monkeypatch.setenv("JQUANTS_EMAIL", "u@example.local")
@@ -708,6 +709,8 @@ def test_debug_jquants_status_never_calls_urlopen(monkeypatch):
 
 def test_debug_jquants_status_output_masked(monkeypatch):
     monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
+    monkeypatch.delenv("JQUANTS_API_KEY", raising=False)
+    monkeypatch.delenv("JQUANTS_API_BASE_URL", raising=False)
     r = runner.invoke(app, ["debug", "jquants-status"])
     assert r.exit_code == 0
     blob = json.loads(r.stdout.strip().split("(never")[0].strip())

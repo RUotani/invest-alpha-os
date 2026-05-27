@@ -459,7 +459,10 @@ def test_live_delimiter_drift_parse_error_stable_reason(mock_urlopen: MagicMock)
 
 
 @patch.object(uplp, "urlopen")
-def test_live_get_url_omits_placeholder_apikey_when_stooq_env_unset(mock_urlopen: MagicMock) -> None:
+def test_live_get_url_omits_placeholder_apikey_when_stooq_env_unset(
+    mock_urlopen: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv(uplp.STOOQ_APIKEY_ENV, raising=False)
     _patch_urlopen_ok(mock_urlopen, _csv_body())
     with patch.dict(os.environ, {uplp.CONFIRM_US_LIVE_HTTP_ENV: "YES"}, clear=False):
         r = runner.invoke(

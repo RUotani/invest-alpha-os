@@ -65,6 +65,7 @@ def test_daily_flagless_matches_golden_fixed_date_and_watchlist_stub(
 ) -> None:
     """Deterministic JP header / watchlist counts / J‑Quants line (stub disabled env)."""
 
+    monkeypatch.delenv("JQUANTS_ENABLED", raising=False)
     monkeypatch.setattr("invis_alpha_os.cli.main.today_jst_iso", lambda: "2031-07-15")
 
     def _tiny_watchlist_yaml(_path: object) -> dict:
