@@ -39,6 +39,8 @@ class OpsSmokeReport:
     signals_ok: int
     signals_total: int
     next_commands: list[str]
+    p3_path_line: str | None = None
+    portfolio_exposure_line: str | None = None
     observation_only: bool = True
     live_http: bool = False
 
@@ -57,6 +59,8 @@ class OpsSmokeReport:
             "signals_ok": self.signals_ok,
             "signals_total": self.signals_total,
             "next_commands": self.next_commands,
+            "p3_path_line": self.p3_path_line,
+            "portfolio_exposure_line": self.portfolio_exposure_line,
             "observation_only": self.observation_only,
             "live_http": self.live_http,
         }
@@ -209,8 +213,39 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         )
 
     obs_path = OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    if not obs_path.is_file():
+        obs_path = root / "outputs" / "observation_log" / "observation_log.jsonl"
     health = build_observation_health_report(path_base=root, observation_path=obs_path)
     checks.append(_observation_health_check(health))
+
+    p3_path_line: str | None = None
+    portfolio_exposure_line: str | None = None
+    if obs_path.is_file():
+        from invis_alpha_os.product.p3_path_to_usable import (
+            build_weekly_p3_path_preflight,
+            format_p3_path_weekly_one_liner,
+        )
+
+        p3_preflight = build_weekly_p3_path_preflight(path_base=root, observation_path=obs_path)
+        if p3_preflight:
+            p3_path_line = format_p3_path_weekly_one_liner(p3_preflight)
+
+        from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+            build_portfolio_exposure_by_signal_veto,
+            format_portfolio_exposure_weekly_one_liner,
+        )
+
+        shadow_file = OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl"
+        if not shadow_file.is_file():
+            shadow_file = root / "outputs" / "shadow_portfolio" / "positions.jsonl"
+        if shadow_file.is_file():
+            exposure = build_portfolio_exposure_by_signal_veto(
+                path_base=root,
+                shadow_path=shadow_file,
+                observation_path=obs_path,
+            )
+            if int(exposure.get("shadow_position_count") or 0) > 0:
+                portfolio_exposure_line = format_portfolio_exposure_weekly_one_liner(exposure)
 
     pmap = CONFIG_DIR / "peer_map.yaml"
     checks.append(
@@ -242,6 +277,8 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         signals_ok=sig_ok,
         signals_total=sig_total,
         next_commands=next_commands,
+        p3_path_line=p3_path_line,
+        portfolio_exposure_line=portfolio_exposure_line,
     )
 
 
@@ -255,11 +292,20 @@ def format_ops_smoke_markdown(report: OpsSmokeReport) -> str:
         f"- peer_sync pairs: {report.peer_sync_pairs}",
         f"- shadow positions: {report.portfolio_positions}",
         "",
-        "## Checks",
-        "",
-        "| check | status | detail |",
-        "| --- | --- | --- |",
     ]
+    snapshot_lines = [ln for ln in (report.p3_path_line, report.portfolio_exposure_line) if ln]
+    if snapshot_lines:
+        lines.extend(["## P3 & portfolio snapshot", ""])
+        lines.extend(snapshot_lines)
+        lines.append("")
+    lines.extend(
+        [
+            "## Checks",
+            "",
+            "| check | status | detail |",
+            "| --- | --- | --- |",
+        ]
+    )
     for c in report.checks:
         lines.append(f"| {c.name} | {c.status} | {c.detail} |")
     tax = classify_ops_smoke_strict(report)

@@ -161,6 +161,30 @@ def test_build_ops_smoke_report_fails_partial_signal_quality(
     assert not report.all_ok
 
 
+def test_ops_smoke_markdown_includes_p3_portfolio_snapshot(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    obs_path = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs_path.parent.mkdir(parents=True, exist_ok=True)
+    obs_path.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        "invis_alpha_os.product.p3_path_to_usable.build_weekly_p3_path_preflight",
+        lambda **_kw: {
+            "matched_normal": 1,
+            "samples_needed_for_usable": 9,
+            "dominant_path": "horizon_maturation",
+            "write_now_count": 0,
+            "rows_matched_all": 20,
+        },
+    )
+    report = build_ops_smoke_report(path_base=mini_us_cache)
+    md = format_ops_smoke_markdown(report)
+    assert "## P3 & portfolio snapshot" in md
+    assert report.p3_path_line
+    assert "matched_normal=1" in report.p3_path_line
+    assert "p3_path:" in md
+
+
 def test_ops_smoke_markdown_links_weekly_one_pager(mini_us_cache: Path) -> None:
     report = build_ops_smoke_report(path_base=mini_us_cache)
     md = format_ops_smoke_markdown(report)
