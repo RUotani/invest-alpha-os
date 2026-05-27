@@ -1,11 +1,10 @@
 # Resume state — post #304 merge
 
 ## main
-`origin/main` @ `69c477b`
+`origin/main` @ `43c507f` (#306 veto summary)
 
 ## Merged this session
-- #304 P3 axis (portfolio/health/smoke/weekly)
-- #302 display split, #303 L1 rollover wording (prior)
+- #304 #305 #306 (+ prior #302 #303 on main)
 
 ## Pending
 - None (open PRs cleared)
