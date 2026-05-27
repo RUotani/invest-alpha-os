@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from invis_alpha_os.cli.main import app
@@ -44,37 +45,38 @@ def _write_weekly_json(report_dir: Path) -> None:
     )
 
 
-def test_build_chatgpt_context_pack() -> None:
-    with runner.isolated_filesystem():
-        report_dir = Path("reports/2026-05-27")
-        _write_weekly_json(report_dir)
-        pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
-        assert "ChatGPT投資対話用Context Pack" in pack.markdown_text
-        assert "注目候補Top10" in pack.markdown_text
-        assert "AAPL" in pack.markdown_text
-        assert pack.json_payload["language"] == "ja"
-        assert pack.json_payload["candidates"][0]["ticker"] == "AAPL"
+def test_build_chatgpt_context_pack(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
+    assert "ChatGPT投資対話用Context Pack" in pack.markdown_text
+    assert "注目候補Top10" in pack.markdown_text
+    assert "AAPL" in pack.markdown_text
+    assert pack.json_payload["language"] == "ja"
+    assert pack.json_payload["candidates"][0]["ticker"] == "AAPL"
 
 
-def test_cli_context_pack_writes_latest_and_archive() -> None:
-    with runner.isolated_filesystem():
-        report_dir = Path("reports/2026-05-27")
-        _write_weekly_json(report_dir)
-        r = runner.invoke(
-            app,
-            [
-                "weekly-candidate-brief-chatgpt-context",
-                "--report-date",
-                "2026-05-27",
-                "--report-dir",
-                str(report_dir),
-                "--out-dir",
-                "outputs/chatgpt_context",
-            ],
-        )
-        assert r.exit_code == 0, r.stdout + r.stderr
-        assert Path("outputs/chatgpt_context/latest/chatgpt_invest_context_pack.md").is_file()
-        assert Path("outputs/chatgpt_context/archive/2026/2026-05-27/chatgpt_invest_context_pack.json").is_file()
+def test_cli_context_pack_writes_latest_and_archive(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert (out_dir / "latest" / "chatgpt_invest_context_pack.md").is_file()
+    assert (
+        out_dir / "archive" / "2026" / "2026-05-27" / "chatgpt_invest_context_pack.json"
+    ).is_file()
 
 
 def test_sync_reports_repo_rejects_same_repo_path(tmp_path: Path) -> None:
