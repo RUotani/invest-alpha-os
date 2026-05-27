@@ -179,14 +179,16 @@ def build_observation_health_report(
         ".venv/bin/python -m invis_alpha_os.cli.main log peer-sync-summary",
     ]
     if forward:
-        sq = forward.get("sample_quality") or {}
-        st = str(sq.get("status") or "")
-        if st == "empty":
+        from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
+
+        p3_axis = us_forward_p3_axis(forward)
+        p3_st = str(p3_axis.get("p3_sample_quality_status") or "")
+        if p3_st == "empty":
             next_commands.extend(forward_validation_next_commands())
             next_commands.append(
                 "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"
             )
-        elif st == "thin":
+        elif p3_st == "thin":
             next_commands.extend(p3_monitoring_next_commands())
             next_commands.extend(
                 c
@@ -270,7 +272,8 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 "",
                 "## Post-refresh hints (docs/163)",
                 f"- docs_163_hard_pass: {hints.get('docs_163_hard_pass')}",
-                f"- forward_matched: {hints.get('forward_matched', 0)}",
+                f"- forward_matched (P3): {hints.get('forward_matched', 0)}",
+                f"- forward_rows_matched_all: {hints.get('forward_rows_matched_all', hints.get('forward_matched', 0))}",
                 f"- skip_pattern: {hints.get('skip_pattern') or '(n/a)'}",
             ]
         )
@@ -480,25 +483,36 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
     )
     if report.forward_validation:
         fwd = report.forward_validation
+        from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
+
+        p3_axis = us_forward_p3_axis(fwd)
         sq = fwd.get("sample_quality") or {}
+        p3 = p3_axis.get("p3_progress") or {}
         lines.extend(
             [
                 "",
                 "## Forward validation",
-                f"- sample_quality: {sq.get('status')} — {sq.get('interpretation', '')}",
-                f"- matched rows: {fwd.get('rows_matched', 0)}",
+                f"- rows_matched (all): {p3_axis.get('rows_matched_all', 0)}",
+                f"- matched_normal (P3): {p3_axis.get('matched_normal', 0)}",
+                (
+                    f"- all_rows_sample_quality: {p3_axis.get('all_rows_sample_quality_status', '')} "
+                    "(supplementary; not P3 milestone axis)"
+                ),
+                f"- p3_sample_quality: {p3_axis.get('p3_sample_quality_status', '')}",
+                f"- interpretation: {sq.get('interpretation', '')}",
             ]
         )
         skipped = fwd.get("skipped_reasons") or {}
         if skipped:
             top = max(skipped.items(), key=lambda kv: kv[1])
             lines.append(f"- top skipped_reason: {top[0]} ({top[1]})")
-        if sq.get("needed_more_samples"):
-            lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
-        skip_pat = sq.get("skip_pattern")
+        if p3_axis.get("samples_needed_for_usable"):
+            lines.append(f"- samples_needed_for_usable: {p3_axis.get('samples_needed_for_usable')}")
+        elif sq.get("needed_more_samples"):
+            lines.append(f"- needed_more_samples (all rows): {sq.get('needed_more_samples')}")
+        skip_pat = p3_axis.get("skip_pattern") or sq.get("skip_pattern")
         if skip_pat and skip_pat != "none":
             lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
-        p3 = sq.get("p3_progress") or {}
         if p3.get("progress_label"):
             lines.append(f"- p3_progress: {p3.get('progress_label')}")
         try:

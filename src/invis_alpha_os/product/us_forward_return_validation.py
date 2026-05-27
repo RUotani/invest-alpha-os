@@ -67,6 +67,45 @@ def forward_p3_sample_quality_status(
     return "usable"
 
 
+def us_forward_p3_axis(
+    forward: dict[str, Any] | None,
+    *,
+    stall_diagnosis: dict[str, Any] | None = None,
+    p3_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """P3 milestone axis from matched_normal; rows_matched_all is supplementary only."""
+
+    if not forward:
+        empty_progress = forward_p3_progress(0)
+        return {
+            "rows_matched_all": 0,
+            "matched_normal": 0,
+            "all_rows_sample_quality_status": "",
+            "p3_sample_quality_status": "empty",
+            "p3_progress": empty_progress,
+            "samples_needed_for_usable": int(empty_progress.get("samples_needed_for_usable") or 0),
+            "skip_pattern": "",
+        }
+    rows_all = int(forward.get("rows_matched") or 0)
+    stall = stall_diagnosis if stall_diagnosis is not None else forward.get("p3_stall_diagnosis")
+    matched_normal = us_forward_matched_normal_for_p3(
+        rows_matched=rows_all,
+        stall_diagnosis=stall if isinstance(stall, dict) else None,
+        p3_summary=p3_summary,
+    )
+    sq = forward.get("sample_quality") or {}
+    p3_progress = forward_p3_progress(matched_normal)
+    return {
+        "rows_matched_all": rows_all,
+        "matched_normal": matched_normal,
+        "all_rows_sample_quality_status": str(sq.get("status") or ""),
+        "p3_sample_quality_status": forward_p3_sample_quality_status(matched_normal),
+        "p3_progress": p3_progress,
+        "samples_needed_for_usable": int(p3_progress.get("samples_needed_for_usable") or 0),
+        "skip_pattern": str(sq.get("skip_pattern") or ""),
+    }
+
+
 def forward_p3_progress(matched_count: int, *, threshold: int = THIN_SAMPLE_THRESHOLD) -> dict[str, Any]:
     """Read-only progress toward sample_quality=usable (docs/163 / P3)."""
 

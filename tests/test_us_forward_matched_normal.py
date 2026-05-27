@@ -14,6 +14,7 @@ from invis_alpha_os.product.forward_p3_status import (
 from invis_alpha_os.product.us_forward_return_validation import (
     forward_p3_sample_quality_status,
     us_forward_matched_normal_for_p3,
+    us_forward_p3_axis,
 )
 from invis_alpha_os.signals.momentum import load_bars_json_file
 
@@ -50,6 +51,25 @@ def test_forward_p3_sample_quality_status() -> None:
     assert forward_p3_sample_quality_status(0) == "empty"
     assert forward_p3_sample_quality_status(1) == "thin"
     assert forward_p3_sample_quality_status(10) == "usable"
+
+
+def test_us_forward_p3_axis_prefers_matched_normal_over_raw_usable() -> None:
+    axis = us_forward_p3_axis(
+        {
+            "rows_matched": 20,
+            "sample_quality": {
+                "status": "usable",
+                "p3_progress": {"progress_label": "usable (20 matched)"},
+            },
+            "p3_stall_diagnosis": {"matched_normal": 1},
+        }
+    )
+    assert axis["rows_matched_all"] == 20
+    assert axis["matched_normal"] == 1
+    assert axis["all_rows_sample_quality_status"] == "usable"
+    assert axis["p3_sample_quality_status"] == "thin"
+    assert axis["samples_needed_for_usable"] == 9
+    assert "1/10" in axis["p3_progress"]["progress_label"]
 
 
 def test_forward_p3_status_raw_usable_p3_thin_markdown(
