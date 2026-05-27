@@ -591,7 +591,7 @@ def weekly_candidate_brief_command(
     fmt: str = typer.Option(
         "markdown",
         "--format",
-        help="Output format: markdown or json.",
+        help="Output format: markdown, json, or copy (copy-ready block only).",
     ),
     scan_limit: int = typer.Option(
         0,
@@ -613,13 +613,14 @@ def weekly_candidate_brief_command(
 
     from invis_alpha_os.product.weekly_candidate_brief_v0 import (
         build_weekly_candidate_brief_v0,
+        format_weekly_candidate_brief_v0_copy,
         format_weekly_candidate_brief_v0_json,
         format_weekly_candidate_brief_v0_markdown,
     )
 
     fmt_norm = fmt.strip().lower()
-    if fmt_norm not in {"markdown", "json"}:
-        typer.echo("weekly-candidate-brief: --format must be markdown or json", err=True)
+    if fmt_norm not in {"markdown", "json", "copy"}:
+        typer.echo("weekly-candidate-brief: --format must be markdown, json, or copy", err=True)
         raise typer.Exit(2)
     jp_path = Path(jp_universe_file) if jp_universe_file else None
     us_path = Path(us_universe_file) if us_universe_file else None
@@ -643,13 +644,19 @@ def weekly_candidate_brief_command(
         raise typer.Exit(2) from e
     if fmt_norm == "json":
         body = format_weekly_candidate_brief_v0_json(brief)
+    elif fmt_norm == "copy":
+        body = format_weekly_candidate_brief_v0_copy(brief)
     else:
         body = format_weekly_candidate_brief_v0_markdown(brief)
     if out:
         out_path = Path(out)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(body if body.endswith("\n") else body + "\n", encoding="utf-8")
-        typer.echo(f"weekly candidate brief written: {out_path}")
+        status = f"weekly candidate brief written: {out_path}"
+        if fmt_norm == "copy":
+            typer.echo(status, err=True)
+        else:
+            typer.echo(status)
     typer.echo(body)
 
 

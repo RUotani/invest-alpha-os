@@ -767,10 +767,8 @@ def _copy_ready_name(c: UnifiedCandidate) -> str:
     return dn
 
 
-def _format_copy_ready_summary(brief: WeeklyCandidateBriefV0) -> list[str]:
+def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines = [
-        "## Copy-ready summary",
-        "",
         COPY_READY_MARKER_FROM,
         f"# Weekly Candidate Brief — {brief.report_date}",
         "",
@@ -809,10 +807,28 @@ def _format_copy_ready_summary(brief: WeeklyCandidateBriefV0) -> list[str]:
             "- 反証と次確認を見て、深掘りする候補を選びます。",
             "",
             COPY_READY_MARKER_TO,
-            "",
         ]
     )
     return lines
+
+
+def format_weekly_candidate_brief_v0_copy(brief: WeeklyCandidateBriefV0) -> str:
+    """Copy-only body: markers, Top5 table, and 見方 (no full report sections)."""
+
+    body = "\n".join(_format_copy_ready_block_lines(brief))
+    if not body.endswith("\n"):
+        body += "\n"
+    assert_no_forbidden_terms(body)
+    return body
+
+
+def _format_copy_ready_summary(brief: WeeklyCandidateBriefV0) -> list[str]:
+    return [
+        "## Copy-ready summary",
+        "",
+        *_format_copy_ready_block_lines(brief),
+        "",
+    ]
 
 
 def _format_cards_section(title: str, cards: Sequence[CandidateCard]) -> list[str]:
