@@ -3,9 +3,9 @@
 版: v0.1 / 最終更新: 2026-05-27
 
 ## 3行サマリー
-- **短期開発完成判定**: [Weekly Observation Report v1](../docs/decisions/2026-05-27_weekly_observation_report_v1_completion_gate.md) — `weekly-observation-report-v1`
+- **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
-- 人間判断: `reports/YYYY-MM-DD/sample_weekly_observation_report_v1.md` のみ → **MERGE / STOP**
+- 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
 
 ## §4. ローカル
 
@@ -38,9 +38,20 @@ p3_us_forward_summary: need 9 toward usable
 ## §6. 監視コマンド
 
 ```bash
-.venv/bin/python -m invis_alpha_os.cli.main weekly-observation-report-v1
+scripts/run_weekly_candidate_brief.sh
+.venv/bin/python -m invis_alpha_os.cli.main weekly-candidate-brief --format copy --report-date "$(date +%F)" | pbcopy
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate p3-horizon-timeline --format json --horizon-rows 100
 .venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown
 ```
+
+## §7. Weekly Candidate Brief 生成物ポリシー
+
+以下は生成物であり、原則コミットしない。
+
+- `reports/YYYY-MM-DD/weekly_candidate_brief_v0_1.md`
+- `reports/YYYY-MM-DD/weekly_candidate_brief_v0_1.json`
+- `reports/YYYY-MM-DD/weekly_candidate_brief_copy.md`
+- `reports/YYYY-MM-DD/email/*`
+- `outputs/operator/weekly_candidate_brief/**`
