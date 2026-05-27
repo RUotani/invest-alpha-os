@@ -764,12 +764,7 @@ def weekly_candidate_brief_email_command(
         typer.echo("weekly-candidate-brief-email: body must start with TEST EMAIL", err=True)
         raise typer.Exit(2)
     try:
-        validate_gmail_send_gates(
-            recipient=recipient,
-            confirm_env="YES",
-            allowlist_env=recipient,
-            self_email_env=recipient,
-        )
+        validate_gmail_send_gates(recipient=recipient)
     except GmailSendBlockedError as e:
         reason = classify_gmail_failure(e)
         typer.echo(f"weekly-candidate-brief-email: gmail_failure_reason={reason}", err=True)

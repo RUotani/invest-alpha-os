@@ -131,13 +131,43 @@ def test_weekly_candidate_brief_email_send_test_requires_gmail_to(tmp_path: Path
     assert "GMAIL_TO is required" in r.stderr
 
 
+def test_weekly_candidate_brief_email_send_test_blocks_recipient_not_in_allowlist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    report_dir.mkdir(parents=True)
+    copy_path = report_dir / "weekly_candidate_brief_copy.md"
+    copy_path.write_text("# brief\n", encoding="utf-8")
+    monkeypatch.setenv("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", "1")
+    monkeypatch.setenv("CONFIRM_GMAIL_SEND", "YES")
+    monkeypatch.setenv("GMAIL_TO", "other@example.com")
+    monkeypatch.setenv("GMAIL_SELF_EMAIL", "self@example.com")
+    monkeypatch.setenv("GMAIL_REPORT_FROM", "sender@example.com")
+    monkeypatch.setattr("invis_alpha_os.cli.main.credentials_configured", lambda: True)
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-email",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--send-test",
+        ],
+    )
+    assert r.exit_code == 2
+    assert "gmail_send_gate_recipient" in r.stderr
+
+
 def test_weekly_candidate_brief_email_send_test_sends_when_gated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report_dir = tmp_path / "reports" / "2026-05-27"
     report_dir.mkdir(parents=True)
     copy_path = report_dir / "weekly_candidate_brief_copy.md"
     copy_path.write_text("# brief\n", encoding="utf-8")
     monkeypatch.setenv("INVEST_ALPHA_OS_ALLOW_GMAIL_TEST_SEND", "1")
+    monkeypatch.setenv("CONFIRM_GMAIL_SEND", "YES")
     monkeypatch.setenv("GMAIL_TO", "tester@example.com")
+    monkeypatch.setenv("GMAIL_SELF_EMAIL", "tester@example.com")
     monkeypatch.setenv("GMAIL_REPORT_FROM", "sender@example.com")
     monkeypatch.setattr("invis_alpha_os.cli.main.credentials_configured", lambda: True)
     monkeypatch.setattr(
