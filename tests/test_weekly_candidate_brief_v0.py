@@ -85,6 +85,11 @@ def test_format_markdown_has_candidate_sections() -> None:
     )
     md = format_weekly_candidate_brief_v0_markdown(brief)
     assert "# 週次候補ブリーフ v0.1" in md
+    assert "## Copy-ready summary" in md
+    assert "<<< COPY FROM HERE >>>" in md
+    assert "## 今週の深掘り候補 Top 5" in md
+    assert "| Rank | Symbol | Name | Market |" in md
+    assert "| 1 | MSFT |" in md
     assert "## 今週の候補 Top 5" in md
     assert "**反証**" in md
     assert "**次に確認**" in md
