@@ -967,8 +967,6 @@ def weekly_candidate_brief_chatgpt_audit_command(
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-chatgpt-audit: {key}={p}")
     raise typer.Exit(0)
-
-
 @validate_app.command("us-forward-returns")
 def validate_us_forward_returns_command(
     observation_log: Optional[str] = typer.Option(
