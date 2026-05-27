@@ -143,6 +143,8 @@ def test_cli_weekly_dry_run(mini_us_cache: Path) -> None:
     assert result.exit_code == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
     assert payload["quality"]["signals_ok"] == 1
+    assert "duplicate_week_preflight" in payload
+    assert "p3_path_preflight" in payload
 
 
 def test_cli_weekly_dry_run_includes_ops_smoke_hint(mini_us_cache: Path) -> None:
