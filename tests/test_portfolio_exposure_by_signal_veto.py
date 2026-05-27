@@ -116,6 +116,8 @@ def test_report_usefulness_hints_include_exposure_cli() -> None:
     )
     assert any("portfolio-exposure-by-signal-veto" in h for h in hints)
     assert any("p3-path-to-usable" in h for h in hints)
+    assert any("forward-p3-status" in h for h in hints)
+    assert any("ops-smoke" in h for h in hints)
 
 
 def test_portfolio_exposure_empty_shadow(tmp_path: Path) -> None:

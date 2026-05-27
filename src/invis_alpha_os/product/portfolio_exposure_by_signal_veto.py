@@ -175,6 +175,12 @@ def build_observation_report_usefulness_hints(
     hints.append(
         ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown"
     )
+    hints.append(
+        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown"
+    )
+    hints.append(
+        ".venv/bin/python -m invis_alpha_os.cli.main validate ops-smoke --format markdown"
+    )
     if p3_samples_needed and p3_samples_needed > 0:
         hints.append(
             ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation "
