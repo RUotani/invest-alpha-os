@@ -750,6 +750,7 @@ def run_weekly_us_observation_cycle(
     duplicate_week_preflight: dict[str, Any] | None = None
     p3_path_preflight: dict[str, Any] | None = None
     portfolio_exposure_line: str | None = None
+    p3_path_line: str | None = None
     obs_candidates = (
         root / "outputs" / "observation_log" / "observation_log.jsonl",
         root / "observation_log" / "observation_log.jsonl",
