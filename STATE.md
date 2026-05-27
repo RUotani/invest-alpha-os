@@ -1,11 +1,11 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.1 / 最終更新: 2026-05-26
+版: v0.1 / 最終更新: 2026-05-27
 
 ## 3行サマリー
-- `origin/main` @ `69c477b`（#304 P3 axis · #302–#303 display/L1 · #299 preflight）。
-- log **538** · peer **usable** · US **1/10** thin（normal）· human **55%** P0-P2。
-- バッチ: **L1 消費済み 2/2** · P3/70% は usable 到達後に L3 再承認。
+- **短期開発完成判定**: [Weekly Observation Report v1](../docs/decisions/2026-05-27_weekly_observation_report_v1_completion_gate.md) — `weekly-observation-report-v1`
+- P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
+- 人間判断: `reports/YYYY-MM-DD/sample_weekly_observation_report_v1.md` のみ → **MERGE / STOP**
 
 ## §4. ローカル
 
@@ -38,6 +38,7 @@ p3_us_forward_summary: need 9 toward usable
 ## §6. 監視コマンド
 
 ```bash
+.venv/bin/python -m invis_alpha_os.cli.main weekly-observation-report-v1
 .venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown
 .venv/bin/python -m invis_alpha_os.cli.main validate p3-horizon-timeline --format json --horizon-rows 100
