@@ -179,6 +179,48 @@ def test_cli_weekly_with_peer_sync(mini_us_cache: Path, tmp_path: Path, monkeypa
     assert "pairs" in payload["peer_sync"]
 
 
+def test_weekly_dry_run_portfolio_exposure_line_with_shadow(
+    mini_us_cache: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from invis_alpha_os.core.jsonl_store import JsonlStore
+    from invis_alpha_os.core.models import ShadowPosition
+    from invis_alpha_os.observation.us_signal_note import build_us_signal_observation_note
+
+    obs = mini_us_cache / "outputs" / "observation_log" / "observation_log.jsonl"
+    obs.parent.mkdir(parents=True, exist_ok=True)
+    svc = ObservationService(observation_path=obs, outcome_path=mini_us_cache / "outcome.jsonl")
+    note = build_us_signal_observation_note({"status": "ok", "momentum_label": "neutral"})
+    svc.log_observation("MSFT", note)
+    shadow = mini_us_cache / "outputs" / "shadow_portfolio" / "positions.jsonl"
+    shadow.parent.mkdir(parents=True, exist_ok=True)
+    store = JsonlStore(
+        path=shadow,
+        encode=lambda x: {
+            "id": x.id,
+            "created_at": x.created_at,
+            "symbol": x.symbol,
+            "quantity": x.quantity,
+            "thesis_evidence_ids": x.thesis_evidence_ids,
+            "tags": x.tags,
+            "extra": x.extra,
+        },
+        decode=lambda d: ShadowPosition(
+            id=d["id"],
+            symbol=d.get("symbol", ""),
+            quantity=float(d.get("quantity", 0)),
+            thesis_evidence_ids=list(d.get("thesis_evidence_ids", [])),
+            tags=list(d.get("tags", [])),
+            extra=dict(d.get("extra", {})),
+        ),
+    )
+    store.append(ShadowPosition(symbol="MSFT", quantity=1.0))
+
+    result = run_weekly_us_observation_cycle(path_base=mini_us_cache, write_observation_log=False)
+    assert result.portfolio_exposure_line
+    md = format_weekly_us_observation_markdown(result, path_base=mini_us_cache)
+    assert "portfolio_exposure:" in md
+
+
 def test_weekly_write_includes_peer_sync_log(
     mini_us_cache: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

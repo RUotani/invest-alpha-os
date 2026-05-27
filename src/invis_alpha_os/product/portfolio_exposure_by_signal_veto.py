@@ -140,6 +140,25 @@ def build_portfolio_exposure_by_signal_veto(
     }
 
 
+def format_portfolio_exposure_weekly_one_liner(report: dict[str, Any]) -> str:
+    """Single markdown bullet for weekly dry-run when shadow positions exist."""
+
+    count = int(report.get("shadow_position_count") or 0)
+    if count == 0:
+        return ""
+    by_veto = report.get("by_veto_bucket") or {}
+    veto_parts = [
+        f"{VETO_BUCKET_VETO}={by_veto.get(VETO_BUCKET_VETO, {}).get('position_count', 0)}",
+        f"{VETO_BUCKET_CLEAR}={by_veto.get(VETO_BUCKET_CLEAR, {}).get('position_count', 0)}",
+        f"{VETO_BUCKET_UNKNOWN}={by_veto.get(VETO_BUCKET_UNKNOWN, {}).get('position_count', 0)}",
+    ]
+    return (
+        f"- portfolio_exposure: {count} shadow position(s); "
+        f"{', '.join(veto_parts)} · "
+        "detail: snapshot portfolio-exposure-by-signal-veto --format markdown"
+    )
+
+
 def build_observation_report_usefulness_hints(
     *,
     shadow_position_count: int,

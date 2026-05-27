@@ -14,6 +14,7 @@ from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
     VETO_BUCKET_VETO,
     build_observation_report_usefulness_hints,
     build_portfolio_exposure_by_signal_veto,
+    format_portfolio_exposure_weekly_one_liner,
     format_portfolio_exposure_by_signal_veto_markdown,
     latest_us_signal_context_by_symbol,
 )
@@ -88,6 +89,24 @@ def test_portfolio_exposure_buckets(tmp_path: Path) -> None:
     md = format_portfolio_exposure_by_signal_veto_markdown(report)
     assert "## Portfolio exposure" in md
     assert "285A" in md or "weak" in md
+
+
+def test_format_portfolio_exposure_weekly_one_liner_empty() -> None:
+    assert format_portfolio_exposure_weekly_one_liner({"shadow_position_count": 0}) == ""
+
+
+def test_format_portfolio_exposure_weekly_one_liner() -> None:
+    line = format_portfolio_exposure_weekly_one_liner(
+        {
+            "shadow_position_count": 2,
+            "by_veto_bucket": {
+                VETO_BUCKET_VETO: {"position_count": 1},
+                VETO_BUCKET_CLEAR: {"position_count": 1},
+            },
+        }
+    )
+    assert line.startswith("- portfolio_exposure:")
+    assert "veto_triggered=1" in line
 
 
 def test_report_usefulness_hints_include_exposure_cli() -> None:
