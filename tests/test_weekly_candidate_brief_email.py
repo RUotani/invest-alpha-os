@@ -15,6 +15,23 @@ from invis_alpha_os.reports.weekly_candidate_brief_email import (
 )
 
 runner = CliRunner()
+SAMPLE_COPY = """<<< COPY FROM HERE >>>
+# Weekly Candidate Brief — 2026-05-27
+
+## 今週の深掘り候補 Top 5
+
+| Rank | Symbol | Name | Market | Type | Short reason |
+|---|---|---|---|---|---|
+| 1 | 7203 | トヨタ | JP | 注目 | 20日モメンタム継続 |
+
+## 候補別メモ
+
+### 1. 7203 トヨタ
+- 反証: 過熱後の反落リスク
+- 次確認: 需要と為替の再確認
+
+<<< COPY TO HERE >>>
+"""
 
 
 def test_weekly_candidate_brief_email_subject() -> None:
@@ -24,13 +41,24 @@ def test_weekly_candidate_brief_email_subject() -> None:
 
 
 def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
-    copy = "<<< COPY FROM HERE >>>\n# Weekly Candidate Brief — 2026-05-27\n<<< COPY TO HERE >>>\n"
-    draft = build_weekly_candidate_brief_email_draft(report_date="2026-05-27", copy_body=copy)
+    draft = build_weekly_candidate_brief_email_draft(report_date="2026-05-27", copy_body=SAMPLE_COPY)
     assert draft.subject.endswith("2026-05-27")
-    assert "<<< COPY FROM HERE >>>" in draft.text_body
+    assert "7203" in draft.text_body
+    assert len(draft.text_body) > 800
     assert draft.text_body.startswith("TEST EMAIL")
     assert draft.html_body is not None
+    assert len(draft.html_body) > 1200
     assert "TEST EMAIL" in draft.html_body
+    assert "Moving Average Context" in draft.text_body
+    assert "Momentum Rationale" in draft.text_body
+    assert "Counter Evidence" in draft.text_body
+    assert "Sources" in draft.text_body
+    assert "Next Checks" in draft.text_body
+    assert "Moving Average Context" in draft.html_body
+    assert "Momentum Rationale" in draft.html_body
+    assert "Counter Evidence" in draft.html_body
+    assert "Sources" in draft.html_body
+    assert "Next Checks" in draft.html_body
     assert "Weekly Observation Report" not in draft.text_body
     lower = draft.text_body.lower()
     for term in FORBIDDEN_OUTPUT_TERMS:
@@ -42,7 +70,7 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     report_dir.mkdir(parents=True)
     copy_path = report_dir / "weekly_candidate_brief_copy.md"
     copy_path.write_text(
-        "<<< COPY FROM HERE >>>\n# Weekly Candidate Brief — 2026-05-27\n<<< COPY TO HERE >>>\n",
+        SAMPLE_COPY,
         encoding="utf-8",
     )
     full_md = report_dir / "weekly_candidate_brief_v0_1.md"
@@ -70,7 +98,9 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     html = (report_dir / "email" / "email_preview.html").read_text(encoding="utf-8")
     assert "TEST EMAIL" in txt
     assert "TEST EMAIL" in html
-    assert "<<< COPY FROM HERE >>>" in txt
+    assert "7203" in txt
+    assert "Moving Average Context" in txt
+    assert "Counter Evidence" in txt
 
 
 def test_weekly_candidate_brief_email_missing_copy_exit2(tmp_path: Path) -> None:

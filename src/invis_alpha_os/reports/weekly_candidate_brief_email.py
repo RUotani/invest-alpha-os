@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from html import escape
+import re
+
+_TABLE_ROW_RE = re.compile(
+    r"^\|\s*(?P<rank>\d+)\s*\|\s*(?P<symbol>[^|]+)\|\s*(?P<name>[^|]+)\|\s*(?P<market>[^|]+)\|\s*(?P<kind>[^|]+)\|\s*(?P<reason>[^|]+)\|\s*$"
+)
 
 
 @dataclass(frozen=True)
@@ -18,46 +23,209 @@ def build_weekly_candidate_brief_email_subject(report_date: str) -> str:
     return f"[TEST][invest-alpha-os] Weekly Candidate Brief {report_date}"
 
 
+@dataclass(frozen=True)
+class CandidateDigest:
+    rank: int
+    symbol: str
+    name: str
+    market: str
+    kind: str
+    short_reason: str
+    counter_evidence: str
+    next_checks: str
+
+
+def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
+    lines = [x.rstrip() for x in copy_body.splitlines()]
+    by_rank: dict[int, dict[str, str]] = {}
+    in_table = False
+    in_memo = False
+    current_rank: int | None = None
+
+    for raw in lines:
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("| Rank |"):
+            in_table = True
+            continue
+        if in_table and line.startswith("|---"):
+            continue
+        if in_table and line.startswith("|"):
+            m = _TABLE_ROW_RE.match(line)
+            if not m:
+                continue
+            r = int(m.group("rank"))
+            by_rank[r] = {
+                "symbol": m.group("symbol").strip(),
+                "name": m.group("name").strip(),
+                "market": m.group("market").strip(),
+                "kind": m.group("kind").strip(),
+                "reason": m.group("reason").strip(),
+                "counter": "not available in cache",
+                "next": "requires next data refresh",
+            }
+            continue
+        if line.startswith("## 候補別メモ"):
+            in_memo = True
+            in_table = False
+            continue
+        if in_memo and line.startswith("### "):
+            m = re.match(r"^###\s*(\d+)\.\s*", line)
+            current_rank = int(m.group(1)) if m else None
+            continue
+        if in_memo and current_rank is not None and line.startswith("- 反証:"):
+            if current_rank in by_rank:
+                by_rank[current_rank]["counter"] = line.split(":", 1)[1].strip() or "not available in cache"
+            continue
+        if in_memo and current_rank is not None and line.startswith("- 次確認:"):
+            if current_rank in by_rank:
+                by_rank[current_rank]["next"] = line.split(":", 1)[1].strip() or "requires next data refresh"
+
+    out: list[CandidateDigest] = []
+    for r in sorted(by_rank.keys()):
+        row = by_rank[r]
+        out.append(
+            CandidateDigest(
+                rank=r,
+                symbol=row["symbol"],
+                name=row["name"],
+                market=row["market"],
+                kind=row["kind"],
+                short_reason=row["reason"],
+                counter_evidence=row["counter"],
+                next_checks=row["next"],
+            )
+        )
+    return out
+
+
+def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest]) -> str:
+    lines: list[str] = [
+        "TEST EMAIL",
+        f"report date: {report_date}",
+        f"generated at: {generated_at}",
+        "disclaimer: this is not investment advice; observation and validation use only.",
+        "",
+        "## Executive Summary",
+        f"- top candidates: {len(candidates)}",
+        "- primary objective: candidate screening for next research checks",
+        "- safety: observation-only; no execution instructions",
+        "",
+        "## Top Candidates",
+    ]
+    if not candidates:
+        lines.extend(["- no candidates in copy body", ""])
+    for c in candidates:
+        lines.extend(
+            [
+                "",
+                f"### {c.rank}. {c.symbol} — {c.name}",
+                f"- Market: {c.market}",
+                f"- Candidate Type: {c.kind}",
+                f"- Short reason: {c.short_reason}",
+                "",
+                "#### Moving Average Context",
+                "- 25D MA: not available in cache",
+                "- 75D MA: not available in cache",
+                "- 200D MA: not available in cache",
+                "- Interpretation: insufficient bars or MA metrics unavailable in cache snapshot",
+                "",
+                "#### Momentum Rationale",
+                f"- {c.short_reason}",
+                "- trend persistence to be validated with next cache refresh",
+                "",
+                "#### Counter Evidence",
+                f"- {c.counter_evidence}",
+                "- insufficient bars may hide trend deterioration risk",
+                "",
+                "#### Next Checks",
+                f"- {c.next_checks}",
+                "- validate latest bar freshness before deep-dive",
+                "",
+                "#### Sources",
+                "- market data source: existing bars cache (cache-only)",
+                "- signal source: weekly candidate brief score + momentum labels",
+                f"- report date: {report_date}",
+                f"- generated at: {generated_at}",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## Footer / Safety Notes",
+            "- observation and validation only",
+            "- this email is a test rendering for Gmail UI review",
+        ]
+    )
+    return "\n".join(lines).strip() + "\n"
+
+
+def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest], footer: str) -> str:
+    parts: list[str] = [
+        "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
+        "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
+        "<div style='background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:12px;margin-bottom:12px;'>",
+        "<strong>TEST EMAIL</strong><br>",
+        f"report date: {escape(report_date)}<br>",
+        f"generated at: {escape(generated_at)}<br>",
+        "disclaimer: this is not investment advice; observation and validation use only.",
+        "</div>",
+        "<h2 style='margin:10px 0 6px;'>Executive Summary</h2>",
+        f"<p style='margin:0 0 10px;'>top candidates: {len(candidates)} / observation-only candidate screening</p>",
+        "<h2 style='margin:14px 0 8px;'>Top Candidates</h2>",
+    ]
+    if not candidates:
+        parts.append("<p>no candidates in copy body</p>")
+    for c in candidates:
+        parts.extend(
+            [
+                "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:10px 0;'>",
+                f"<h3 style='margin:0 0 6px;'>{c.rank}. {escape(c.symbol)} - {escape(c.name)}</h3>",
+                f"<p style='margin:0 0 8px;'><strong>Market:</strong> {escape(c.market)} / <strong>Type:</strong> {escape(c.kind)}</p>",
+                f"<p style='margin:0 0 8px;'><strong>Short reason:</strong> {escape(c.short_reason)}</p>",
+                "<h4 style='margin:8px 0 4px;'>Moving Average Context</h4>",
+                "<ul style='margin:0 0 8px 18px;padding:0;'><li>25D MA: not available in cache</li><li>75D MA: not available in cache</li><li>200D MA: not available in cache</li><li>Interpretation: insufficient bars or MA metrics unavailable in cache snapshot</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>Momentum Rationale</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.short_reason)}</li><li>trend persistence to be validated with next cache refresh</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>Counter Evidence</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.counter_evidence)}</li><li>insufficient bars may hide trend deterioration risk</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>Next Checks</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.next_checks)}</li><li>validate latest bar freshness before deep-dive</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>Sources</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>market data source: existing bars cache (cache-only)</li><li>signal source: weekly candidate brief score + momentum labels</li><li>report date: {escape(report_date)}</li><li>generated at: {escape(generated_at)}</li></ul>",
+                "</div>",
+            ]
+        )
+    parts.extend(
+        [
+            "<h2 style='margin:14px 0 8px;'>Footer / Safety Notes</h2>",
+            f"<p style='font-size:13px;color:#4b5563;'>{escape(footer)}</p>",
+            "</div></body></html>",
+        ]
+    )
+    return "".join(parts)
+
+
 def _render_copy_markdown_as_simple_html(copy_body: str) -> str:
     blocks: list[str] = []
-    in_list = False
     for raw in copy_body.splitlines():
         line = raw.strip()
         if not line:
-            if in_list:
-                blocks.append("</ul>")
-                in_list = False
             continue
         if line.startswith("### "):
-            if in_list:
-                blocks.append("</ul>")
-                in_list = False
             blocks.append(f"<h3>{escape(line[4:])}</h3>")
             continue
         if line.startswith("## "):
-            if in_list:
-                blocks.append("</ul>")
-                in_list = False
             blocks.append(f"<h2>{escape(line[3:])}</h2>")
             continue
         if line.startswith("# "):
-            if in_list:
-                blocks.append("</ul>")
-                in_list = False
             blocks.append(f"<h1>{escape(line[2:])}</h1>")
             continue
         if line.startswith("- "):
-            if not in_list:
-                blocks.append("<ul>")
-                in_list = True
-            blocks.append(f"<li>{escape(line[2:])}</li>")
+            blocks.append(f"<p>- {escape(line[2:])}</p>")
             continue
-        if in_list:
-            blocks.append("</ul>")
-            in_list = False
         blocks.append(f"<p>{escape(line)}</p>")
-    if in_list:
-        blocks.append("</ul>")
     return "\n".join(blocks)
 
 
@@ -67,32 +235,18 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     body_core = copy_body.strip()
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     footer = "観測・深掘り候補の整理です。売買推奨・投資助言・発注指示ではありません。"
-    header_lines = [
-        "TEST EMAIL",
-        f"report date: {report_date}",
-        f"generated at: {generated_at}",
-        "disclaimer: this is not investment advice; observation and validation use only.",
-        "",
-    ]
-    body = "\n".join(header_lines) + body_core
-    if footer not in body_core:
-        body = f"{body}\n\n---\n{footer}\n"
-    if not body.endswith("\n"):
-        body += "\n"
-    html_body = (
-        "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>"
-        "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.6;'>"
-        "<div style='background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:12px;margin-bottom:12px;'>"
-        "<strong>TEST EMAIL</strong><br>"
-        f"report date: {escape(report_date)}<br>"
-        f"generated at: {escape(generated_at)}<br>"
-        "disclaimer: this is not investment advice; observation and validation use only."
-        "</div>"
-        f"{_render_copy_markdown_as_simple_html(body_core)}"
-        "<hr style='border:none;border-top:1px solid #e5e7eb;margin:16px 0;'>"
-        f"<p style='font-size:13px;color:#4b5563;'>{escape(footer)}</p>"
-        "</div></body></html>"
+    candidates = _parse_top_candidates(body_core)
+    body = _build_rich_text_body(report_date=report_date, generated_at=generated_at, candidates=candidates)
+    if footer not in body:
+        body = f"{body.rstrip()}\n\n---\n{footer}\n"
+    html_body = _build_rich_html_body(
+        report_date=report_date,
+        generated_at=generated_at,
+        candidates=candidates,
+        footer=footer,
     )
+    if not candidates:
+        html_body = html_body.replace("</div></body></html>", f"{_render_copy_markdown_as_simple_html(body_core)}</div></body></html>")
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),
         text_body=body,
