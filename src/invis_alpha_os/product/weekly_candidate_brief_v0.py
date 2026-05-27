@@ -432,7 +432,21 @@ def build_next_checks(c: UnifiedCandidate) -> tuple[str, ...]:
     else:
         # JP themes deep-dive入口
         themes = set(c.themes or [])
-        if "energy" in themes or "automotive_wire" in themes:
+        if c.instrument_id == "5803":
+            # Fujikura-like: prioritize cable/communications/data-center demand (avoid NAND/DRAM-style checks).
+            checks = [
+                "光ファイバー/データセンター需要と発注サイクル",
+                "電線・通信インフラ投資と需給（部材/納期）",
+                "銅価格・素材コストの動きと利益率への波及",
+            ]
+        elif c.instrument_id == "7203":
+            # Toyota-like: avoid industrial equipment mapping unless explicitly justified.
+            checks = [
+                "為替（円/ドル）と原材料コストの変化",
+                "需要/販売台数と販売サイクル（回復タイミング）",
+                "ハイブリッド/EV ミックスとガイダンス更新",
+            ]
+        elif "energy" in themes or "automotive_wire" in themes:
             checks = [
                 "銅価格・電力/素材コストの動きと業績への波及",
                 "受注残/利益率の変化（粗利の耐性）",
@@ -513,10 +527,14 @@ def build_reason_human(c: UnifiedCandidate, brief_type: CandidateBriefType) -> s
             "cables": "ケーブル/配線材料",
             "digital": "デジタル投資（成長ドライバー）",
         }
-        for t in c.themes:
-            if t in theme_map:
-                theme_phrase = theme_map[t]
-                break
+        if c.instrument_id == "7203":
+            # Toyota: avoid incorrect industrial equipment mapping unless explicitly justified.
+            theme_phrase = "自動車・モビリティ（需要サイクル/為替感応度）"
+        else:
+            for t in c.themes:
+                if t in theme_map:
+                    theme_phrase = theme_map[t]
+                    break
 
     horizon_parts: list[str] = []
     if "rapid_mover_20d" in c.labels:
@@ -636,6 +654,19 @@ def _theme_highlights(ranked: Sequence[UnifiedCandidate], *, max_themes: int = 8
     return [_make_card(best[t], "theme") for t in themes_sorted]
 
 
+def _dedupe_cards_by_symbol(cards: Sequence[CandidateCard]) -> list[CandidateCard]:
+    """Remove duplicate candidate symbols to avoid repeated theme highlights."""
+    seen: set[str] = set()
+    out: list[CandidateCard] = []
+    for card in cards:
+        sym = card.candidate.instrument_id
+        if sym in seen:
+            continue
+        seen.add(sym)
+        out.append(card)
+    return out
+
+
 def build_weekly_candidate_brief_v0(
     *,
     report_date: str | None = None,
@@ -674,7 +705,7 @@ def build_weekly_candidate_brief_v0(
     pullbacks = [_make_card(c, "pullback") for c in pullback_src[:SECTION_TOP_COUNT]]
     avoid_list = [_make_card(c, "avoid") for c in avoid_src[:SECTION_TOP_COUNT]]
     insufficient_list = [_make_card(c, "insufficient") for c in insuf_src]
-    theme_highlights = _theme_highlights(all_ranked)
+    theme_highlights = _dedupe_cards_by_symbol(_theme_highlights(all_ranked))
 
     appendix = (
         f"- JP スキャン: `{jp_result.universe_scope}` · {jp_result.symbol_count} 銘柄",
@@ -750,6 +781,79 @@ def _escape_md_table_cell(text: str, *, max_len: int = COPY_READY_TABLE_MAX_CELL
     return compact[: max_len - 1] + "…"
 
 
+def _truncate(text: str, *, max_len: int) -> str:
+    compact = " ".join(text.replace("\n", " ").split())
+    if len(compact) <= max_len:
+        return compact
+    return compact[: max_len - 1] + "…"
+
+
+def _strip_reason_prefix_for_copy(reason: str) -> str:
+    # Copy-only should be compact and stable for one-click paste.
+    prefixes = (
+        "注目理由: ",
+        "急騰の観測理由: ",
+        "押し目の観測理由: ",
+        "テーマの観測理由: ",
+        "回避の観測理由: ",
+        "要注意（データ不足）: ",
+    )
+    for p in prefixes:
+        if reason.startswith(p):
+            reason = reason[len(p) :]
+            break
+    # Drop trailing Japanese full stop for brevity.
+    if reason.endswith("。"):
+        reason = reason[:-1]
+    return reason
+
+
+def _copy_ready_type_for_top5(card: CandidateCard) -> str:
+    c = card.candidate
+    return "proxy" if candidate_group(c) == "etf_proxy" else "注目"
+
+
+def _format_copy_ready_brief_table_row(*, rank: int, card: CandidateCard) -> str:
+    c = card.candidate
+    t = _copy_ready_type_for_top5(card)
+    short_reason = _strip_reason_prefix_for_copy(card.reason)
+    short_reason = _truncate(short_reason, max_len=44)
+    return (
+        "| "
+        + " | ".join(
+            [
+                str(rank),
+                _escape_md_table_cell(c.instrument_id, max_len=24),
+                _escape_md_table_cell(_copy_ready_name(c), max_len=32),
+                _copy_ready_market(c),
+                t,
+                _escape_md_table_cell(short_reason, max_len=44),
+            ]
+        )
+        + " |"
+    )
+
+
+def _format_copy_ready_candidate_memo(*, rank: int, card: CandidateCard) -> list[str]:
+    c = card.candidate
+
+    counter0 = card.counter_evidence[0] if card.counter_evidence else "（該当なし）"
+    counter0 = counter0.replace("\n", " ")
+    counter0 = _truncate(counter0, max_len=70)
+
+    next0 = card.next_checks[0] if card.next_checks else "（該当なし）"
+    next0 = next0.replace("\n", " ")
+    next0 = _truncate(next0, max_len=78)
+
+    title = f"### {rank}. {c.instrument_id} {_copy_ready_name(c)}"
+    return [
+        title,
+        f"- 反証: {counter0}",
+        f"- 次確認: {next0}",
+        "",
+    ]
+
+
 def _copy_ready_market(c: UnifiedCandidate) -> str:
     if c.market == MARKET_JP:
         return "JP"
@@ -774,30 +878,31 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         "",
         "## 今週の深掘り候補 Top 5",
         "",
-        "| Rank | Symbol | Name | Market | Why now | Counter evidence | Next checks |",
-        "|---|---|---|---|---|---|---|",
+        "| Rank | Symbol | Name | Market | Type | Short reason |",
+        "|---|---|---|---|---|---|",
     ]
     for rank, card in enumerate(brief.top_picks, start=1):
-        c = card.candidate
-        counter = "; ".join(card.counter_evidence)
-        checks = "; ".join(card.next_checks)
-        lines.append(
-            "| "
-            + " | ".join(
-                [
-                    str(rank),
-                    _escape_md_table_cell(c.instrument_id, max_len=24),
-                    _escape_md_table_cell(_copy_ready_name(c), max_len=40),
-                    _copy_ready_market(c),
-                    _escape_md_table_cell(card.reason),
-                    _escape_md_table_cell(counter),
-                    _escape_md_table_cell(checks),
-                ]
-            )
-            + " |"
-        )
+        lines.append(_format_copy_ready_brief_table_row(rank=rank, card=card))
     if not brief.top_picks:
-        lines.append("| — | — | — | — | （該当なし） | — | — |")
+        lines.append("| — | — | — | — | — | — |")
+
+    lines.extend(
+        [
+            "",
+            "## 候補別メモ",
+            "",
+        ]
+    )
+    if brief.top_picks:
+        for rank, card in enumerate(brief.top_picks, start=1):
+            lines.extend(_format_copy_ready_candidate_memo(rank=rank, card=card))
+    else:
+        lines.extend(
+            [
+                "- （該当なし）",
+                "",
+            ]
+        )
     lines.extend(
         [
             "",
