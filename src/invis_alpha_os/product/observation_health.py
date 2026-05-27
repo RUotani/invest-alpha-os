@@ -33,6 +33,7 @@ class ObservationHealthReport:
     tier1_missing: list[str]
     post_refresh_hints: dict[str, Any]
     next_commands: list[str]
+    risk_veto_summary: dict[str, Any] | None = None
     observation_only: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +48,7 @@ class ObservationHealthReport:
             "tier1_missing": self.tier1_missing,
             "post_refresh_hints": self.post_refresh_hints,
             "next_commands": self.next_commands,
+            "risk_veto_summary": self.risk_veto_summary,
             "observation_only": self.observation_only,
         }
         repeat_summary = self.us_signals.get("repeat_summary")
@@ -129,6 +131,12 @@ def build_observation_health_report(
         "readiness": readiness,
     }
     integrity = _scan_log_integrity(obs)
+
+    from invis_alpha_os.product.risk_veto_observation_summary import (
+        summarize_risk_veto_observation_log,
+    )
+
+    risk_veto_summary = summarize_risk_veto_observation_log(obs)
 
     from invis_alpha_os.product.post_p10_refresh_smoke import build_post_refresh_hints_light
 
@@ -250,6 +258,7 @@ def build_observation_health_report(
         tier1_missing=tier1_missing,
         post_refresh_hints=post_refresh_hints,
         next_commands=_dedupe_next_commands(next_commands),
+        risk_veto_summary=risk_veto_summary,
     )
 
 
@@ -350,6 +359,12 @@ def format_observation_health_markdown(report: ObservationHealthReport) -> str:
                 lines.append(
                     f"- [{item.get('category')}] {sym}: {item.get('reason')}"
                 )
+    if report.risk_veto_summary:
+        from invis_alpha_os.product.risk_veto_observation_summary import (
+            format_risk_veto_observation_summary_markdown,
+        )
+
+        lines.extend(["", format_risk_veto_observation_summary_markdown(report.risk_veto_summary)])
     lines.extend(
         [
         "",
