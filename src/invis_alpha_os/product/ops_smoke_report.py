@@ -129,9 +129,15 @@ def _observation_health_check(health: Any) -> OpsSmokeCheck:
     if stale_repeat > 0:
         detail += f" stale_repeat_flags={stale_repeat}"
     if isinstance(fwd, dict):
-        us_p3 = (fwd.get("sample_quality") or {}).get("p3_progress") or {}
+        from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
+
+        p3_axis = us_forward_p3_axis(fwd)
+        us_p3 = p3_axis.get("p3_progress") or {}
         if us_p3.get("progress_label"):
-            detail += f" us_p3={us_p3.get('progress_label')}"
+            detail += (
+                f" us_p3={us_p3.get('progress_label')}"
+                f" rows_matched_all={p3_axis.get('rows_matched_all', 0)}"
+            )
     if isinstance(ps_fwd, dict):
         peer_p3 = (ps_fwd.get("sample_quality") or {}).get("p3_progress") or {}
         if peer_p3.get("progress_label"):

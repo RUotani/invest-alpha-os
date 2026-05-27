@@ -223,6 +223,42 @@ def test_portfolio_readiness_p3_detail_notes_peer_usable(
     assert report.get("peer_forward_note")
 
 
+def test_portfolio_readiness_p3_uses_matched_normal_not_raw_usable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import invis_alpha_os.product.portfolio_readiness as readiness_mod
+
+    outputs = tmp_path / "outputs"
+    (outputs / "observation_log").mkdir(parents=True)
+    obs = outputs / "observation_log" / "observation_log.jsonl"
+    obs.write_text('{"symbol":"MSFT","note":"x"}\n', encoding="utf-8")
+    _patch_outputs(monkeypatch, outputs)
+
+    def _fake_forward(**_kw: object) -> dict:
+        return {
+            "rows_matched": 20,
+            "sample_quality": {"status": "usable", "reason": "raw rows sufficient"},
+            "p3_stall_diagnosis": {
+                "matched_normal": 1,
+                "p3_bucket_counts": {"will_be_matchable_after_date": 0},
+            },
+            "peer_sync_forward": {"rows_matched": 0, "sample_quality": {"status": "empty"}},
+        }
+
+    monkeypatch.setattr(readiness_mod, "compute_us_forward_returns", _fake_forward)
+    monkeypatch.setattr(
+        readiness_mod,
+        "summarize_us_observation_log",
+        lambda *_a, **_k: {"us_signal_rows": 5, "rows": []},
+    )
+    report = evaluate_portfolio_readiness(path_base=tmp_path, observation_path=obs)
+    p3 = next(m for m in report["milestones"] if m["id"] == "P3")
+    assert p3["passed"] is False
+    assert "p3_sample_quality=thin" in p3["detail"]
+    assert "matched_normal=1" in p3["detail"]
+    assert report["p3_forward_progress"]["samples_needed_for_usable"] == 9
+
+
 def test_compute_us_signal_weekly_trend_growing() -> None:
     from invis_alpha_os.product.weekly_us_observation import compute_us_signal_weekly_trend
 

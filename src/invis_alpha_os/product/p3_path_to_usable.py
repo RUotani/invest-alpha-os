@@ -31,7 +31,7 @@ def build_p3_path_to_usable(
 
     path_a = {
         "label": "horizon_maturation_in_existing_log",
-        "pending_rows": timeline.get("pending_horizon_rows", hm.get("will_be_matchable_after_date_rows", 0)),
+        "pending_rows": int(timeline.get("pending_horizon_rows") or hm.get("will_be_matchable_after_date_rows") or 0),
         "min_sessions_until": timeline.get("min_sessions_until", hm.get("min_sessions_until")),
         "median_sessions_until": timeline.get("median_sessions_until", hm.get("median_sessions_until")),
         "projected_matched_at_min_sessions": timeline.get("projected_matched_at_min_sessions"),

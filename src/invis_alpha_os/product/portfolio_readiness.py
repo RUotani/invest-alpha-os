@@ -125,23 +125,21 @@ def evaluate_portfolio_readiness(
 
     p3_l1_write_gate: dict[str, Any] | None = None
     p3_path_to_usable: dict[str, Any] | None = None
+    p3_us_forward_summary: dict[str, Any] | None = None
+    p3_axis: dict[str, Any] | None = None
     if forward:
-        stall_fwd = forward.get("p3_stall_diagnosis") or {}
-        p3_l1_write_gate = build_p3_l1_write_gate_for_observation(
-            observation_path=obs,
-            stall_diagnosis=stall_fwd,
-            path_base=root,
+        from invis_alpha_os.product.us_forward_return_validation import (
+            THIN_SAMPLE_THRESHOLD,
+            us_forward_p3_axis,
         )
+
+        stall_fwd = forward.get("p3_stall_diagnosis") or {}
         if stall_fwd:
-            from invis_alpha_os.product.p3_path_to_usable import build_p3_path_to_usable
             from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
                 build_p3_us_forward_portfolio_summary,
                 default_watchlist_cache_planned_writes,
             )
-            from invis_alpha_os.product.us_forward_return_validation import (
-                THIN_SAMPLE_THRESHOLD,
-                us_forward_matched_normal_for_p3,
-            )
+            from invis_alpha_os.product.p3_path_to_usable import build_p3_path_to_usable
             from invis_alpha_os.product.us_signal_iso_week_dedupe import build_p3_weekly_write_plan
 
             us_matched = int(forward.get("rows_matched") or 0)
@@ -150,8 +148,9 @@ def evaluate_portfolio_readiness(
                 us_matched=us_matched,
                 thin_threshold=THIN_SAMPLE_THRESHOLD,
             )
-            matched_normal = us_forward_matched_normal_for_p3(
-                rows_matched=us_matched,
+            p3_us_forward_summary = summary
+            p3_axis = us_forward_p3_axis(
+                forward,
                 stall_diagnosis=stall_fwd,
                 p3_summary=summary,
             )
@@ -169,13 +168,20 @@ def evaluate_portfolio_readiness(
             except (FileNotFoundError, ValueError):
                 write_plan = {}
             p3_path_to_usable = build_p3_path_to_usable(
-                matched_normal=matched_normal,
+                matched_normal=int(p3_axis["matched_normal"]),
                 thin_threshold=THIN_SAMPLE_THRESHOLD,
                 p3_us_forward_summary=summary,
                 p3_weekly_write_plan=write_plan,
                 p3_horizon_timeline=stall_fwd.get("p3_horizon_timeline") or {},
                 stall_diagnosis=stall_fwd,
             )
+        else:
+            p3_axis = us_forward_p3_axis(forward)
+        p3_l1_write_gate = build_p3_l1_write_gate_for_observation(
+            observation_path=obs,
+            stall_diagnosis=stall_fwd,
+            path_base=root,
+        )
 
     shadow_count = portfolio.shadow_position_count
     with_evidence = portfolio.positions_with_evidence_ids
@@ -254,13 +260,16 @@ def evaluate_portfolio_readiness(
         ps_sq = ps_fwd.get("sample_quality") or {}
         peer_forward_usable = str(ps_sq.get("status") or "") == "usable"
 
-    sq_status = str((forward or {}).get("sample_quality", {}).get("status") or "")
-    if sq_status == "usable":
+    p3_sample_status = str((p3_axis or {}).get("p3_sample_quality_status") or "")
+    if p3_sample_status == "usable":
         p3 = _milestone(
             milestone_id="P3",
             passed=True,
             status="passed",
-            detail="forward sample_quality=usable (normal mode)",
+            detail=(
+                f"p3_sample_quality=usable matched_normal="
+                f"{(p3_axis or {}).get('matched_normal', 0)} (normal mode)"
+            ),
         )
     elif forward is None:
         p3 = _milestone(
@@ -270,9 +279,18 @@ def evaluate_portfolio_readiness(
             detail="forward validation unavailable",
         )
     else:
-        reason = str((forward.get("sample_quality") or {}).get("reason") or sq_status or "unknown")
-        skip_pat = str((forward.get("sample_quality") or {}).get("skip_pattern") or "")
-        detail = f"sample_quality={sq_status or 'empty'} ({reason})"
+        axis = p3_axis or {}
+        sq_status = str(axis.get("all_rows_sample_quality_status") or "")
+        reason = str((forward.get("sample_quality") or {}).get("reason") or p3_sample_status or "unknown")
+        skip_pat = str(axis.get("skip_pattern") or "")
+        detail = (
+            f"p3_sample_quality={p3_sample_status or 'empty'} "
+            f"matched_normal={axis.get('matched_normal', 0)}/"
+            f"{(p3_us_forward_summary or {}).get('thin_threshold', 10)} "
+            f"(rows_matched_all={axis.get('rows_matched_all', 0)}; all_rows_sample_quality={sq_status or 'empty'})"
+        )
+        if reason and reason != p3_sample_status:
+            detail += f"; {reason}"
         if skip_pat:
             detail += f"; skip_pattern={skip_pat}"
         if peer_forward_usable:
@@ -334,25 +352,9 @@ def evaluate_portfolio_readiness(
 
     p2_weekly_hint = portfolio_p2_weekly_hint(weekly_trend)
     p3_forward_progress: dict[str, Any] | None = None
-    p3_us_forward_summary: dict[str, Any] | None = None
     peer_forward_note: str | None = None
-    if forward:
-        sq = forward.get("sample_quality") or {}
-        raw_p3 = sq.get("p3_progress")
-        if isinstance(raw_p3, dict):
-            p3_forward_progress = raw_p3
-        stall = forward.get("p3_stall_diagnosis") or {}
-        if stall:
-            from invis_alpha_os.product.us_forward_p3_stall_diagnosis import (
-                build_p3_us_forward_portfolio_summary,
-            )
-            from invis_alpha_os.product.us_forward_return_validation import THIN_SAMPLE_THRESHOLD
-
-            p3_us_forward_summary = build_p3_us_forward_portfolio_summary(
-                stall_diagnosis=stall,
-                us_matched=int(forward.get("rows_matched") or 0),
-                thin_threshold=THIN_SAMPLE_THRESHOLD,
-            )
+    if forward and p3_axis:
+        p3_forward_progress = p3_axis.get("p3_progress")
         if peer_forward_usable:
             peer_forward_note = (
                 f"peer_sync_forward sample_quality=usable ({peer_forward_matched} matched); "

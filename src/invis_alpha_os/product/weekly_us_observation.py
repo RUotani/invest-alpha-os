@@ -382,7 +382,16 @@ def build_enriched_us_observation_summary(
                 cache_dir=cache if cache.is_dir() else None,
                 path_base=root,
             )
-            forward_sq = fwd.get("sample_quality")
+            from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
+
+            axis = us_forward_p3_axis(fwd)
+            forward_sq = {
+                **(fwd.get("sample_quality") or {}),
+                "rows_matched_all": axis["rows_matched_all"],
+                "matched_normal": axis["matched_normal"],
+                "p3_sample_quality_status": axis["p3_sample_quality_status"],
+                "p3_progress": axis["p3_progress"],
+            }
             peer_sq = (fwd.get("peer_sync_forward") or {}).get("sample_quality")
         except (FileNotFoundError, ValueError):
             forward_sq = None
@@ -475,7 +484,8 @@ def _build_research_checklist(
             )
         )
     fq = forward_sample_quality or {}
-    if fq.get("status") in {"thin", "empty"}:
+    p3_status = str(fq.get("p3_sample_quality_status") or fq.get("status") or "")
+    if p3_status in {"thin", "empty"}:
         skip_pat = str(fq.get("skip_pattern") or "")
         if skip_pat == "fresh_log":
             items.append(
@@ -490,11 +500,13 @@ def _build_research_checklist(
                 )
             )
         else:
-            matched = int(fq.get("matched_rows") or 0)
+            matched_normal = int(fq.get("matched_normal") or fq.get("matched_rows") or 0)
             p3 = fq.get("p3_progress") or {}
             label = str(p3.get("progress_label") or "")
-            if fq.get("status") == "thin" and matched > 0 and label:
-                reason = f"US forward {label} ({fq.get('reason')})"
+            if p3_status == "thin" and matched_normal > 0 and label:
+                reason = f"US forward P3 {label} (matched_normal={matched_normal})"
+                if fq.get("rows_matched_all") and int(fq.get("rows_matched_all") or 0) != matched_normal:
+                    reason += f"; rows_matched_all={fq.get('rows_matched_all')} (supplementary)"
                 if observation_log_total_lines >= 50:
                     reason += (
                         f"; log_lines={observation_log_total_lines} "
@@ -909,26 +921,32 @@ def format_weekly_us_observation_markdown(
             from invis_alpha_os.product.us_forward_return_validation import compute_us_forward_returns
 
             fwd = compute_us_forward_returns(observation_path=obs_path, path_base=root)
-            sq = fwd.get("sample_quality") or {}
             from invis_alpha_os.product.us_forward_return_validation import (
                 forward_validation_next_commands,
+                us_forward_p3_axis,
             )
 
+            axis = us_forward_p3_axis(fwd)
+            sq = fwd.get("sample_quality") or {}
+            p3 = axis.get("p3_progress") or {}
             lines.extend(
                 [
                     "",
                     "## Forward validation summary",
-                    f"- sample quality: {sq.get('status')} — {sq.get('reason')}",
-                    f"- matched rows: {fwd.get('rows_matched')}",
+                    f"- rows_matched (all): {axis.get('rows_matched_all', 0)}",
+                    f"- matched_normal (P3): {axis.get('matched_normal', 0)}",
+                    f"- all_rows_sample_quality: {axis.get('all_rows_sample_quality_status', '')} (supplementary)",
+                    f"- p3_sample_quality: {axis.get('p3_sample_quality_status', '')}",
                     f"- interpretation: {sq.get('interpretation', '')}",
                 ]
             )
-            if sq.get("status") in {"empty", "thin"}:
-                lines.append(f"- needed_more_samples: {sq.get('needed_more_samples')}")
-            p3 = sq.get("p3_progress") or {}
+            if axis.get("samples_needed_for_usable"):
+                lines.append(f"- samples_needed_for_usable: {axis.get('samples_needed_for_usable')}")
+            elif sq.get("status") in {"empty", "thin"}:
+                lines.append(f"- needed_more_samples (all rows): {sq.get('needed_more_samples')}")
             if p3.get("progress_label"):
                 lines.append(f"- p3_progress: {p3.get('progress_label')}")
-            skip_pat = sq.get("skip_pattern")
+            skip_pat = axis.get("skip_pattern") or sq.get("skip_pattern")
             if skip_pat and skip_pat != "none":
                 lines.append(f"- skip_pattern: {skip_pat} (docs/161)")
             try:

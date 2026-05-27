@@ -179,21 +179,18 @@ def build_post_refresh_hints_light(
 
     sq = forward.get("sample_quality") or {}
     skipped = forward.get("skipped_reasons") or {}
-    from invis_alpha_os.product.us_forward_return_validation import (
-        us_forward_matched_normal_for_p3,
-    )
+    from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
 
-    matched_raw = int(forward.get("rows_matched") or 0)
-    matched = us_forward_matched_normal_for_p3(
-        rows_matched=matched_raw,
-        stall_diagnosis=forward.get("p3_stall_diagnosis"),
-    )
-    skip_pattern = str(sq.get("skip_pattern") or "")
+    axis = us_forward_p3_axis(forward)
+    matched_raw = int(axis["rows_matched_all"])
+    matched = int(axis["matched_normal"])
+    p3_sample_quality = str(axis.get("p3_sample_quality_status") or "")
+    skip_pattern = str(axis.get("skip_pattern") or sq.get("skip_pattern") or "")
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     ps_matched = int(peer_sync_forward.get("rows_matched") or 0)
     ps_sq = peer_sync_forward.get("sample_quality") or {}
     tier1_ok = not tier1_missing
-    forward_ok = matched > 0 and str(sq.get("status") or "") in {"thin", "usable"}
+    forward_ok = matched > 0 and p3_sample_quality in {"thin", "usable"}
     from invis_alpha_os.product.us_signal_iso_week_dedupe import (
         build_p3_l1_write_gate_for_observation,
     )
@@ -219,7 +216,8 @@ def build_post_refresh_hints_light(
         "forward_matched": matched,
         "forward_rows_matched_all": matched_raw,
         "forward_sample_quality": str(sq.get("status") or ""),
-        "forward_p3_progress": sq.get("p3_progress") or forward_p3_progress(matched),
+        "forward_p3_sample_quality": p3_sample_quality,
+        "forward_p3_progress": axis.get("p3_progress") or forward_p3_progress(matched),
         "peer_sync_forward_matched": ps_matched,
         "peer_sync_sample_quality": str(ps_sq.get("status") or ""),
         "peer_sync_p3_progress": ps_sq.get("p3_progress") or forward_p3_progress(ps_matched),
@@ -280,6 +278,12 @@ def build_post_p10_refresh_smoke_summary(
     tax = classify_ops_smoke_strict(ops)
     ps_matched = int(peer_sync_forward.get("rows_matched") or 0)
     ps_sq = peer_sync_forward.get("sample_quality") or {}
+    from invis_alpha_os.product.us_forward_return_validation import us_forward_p3_axis
+
+    axis = us_forward_p3_axis(forward)
+    matched_rows = int(axis["rows_matched_all"])
+    matched_normal = int(axis["matched_normal"])
+    p3_sample_quality = str(axis.get("p3_sample_quality_status") or "")
 
     checks: list[dict[str, Any]] = [
         {
@@ -289,13 +293,16 @@ def build_post_p10_refresh_smoke_summary(
         },
         {
             "id": "forward_matched",
-            "status": "pass" if int(forward.get("rows_matched") or 0) > 0 else "warn",
-            "detail": f"matched={forward.get('rows_matched', 0)} sample_quality={sq.get('status')}",
+            "status": "pass" if matched_normal > 0 else "warn",
+            "detail": (
+                f"matched_normal={matched_normal} rows_matched_all={matched_rows} "
+                f"p3_sample_quality={p3_sample_quality} all_rows_sample_quality={sq.get('status')}"
+            ),
         },
         {
             "id": "forward_not_empty",
-            "status": "pass" if str(sq.get("status") or "") != "empty" else "warn",
-            "detail": str(sq.get("reason") or ""),
+            "status": "pass" if p3_sample_quality != "empty" else "warn",
+            "detail": f"p3_sample_quality={p3_sample_quality}",
         },
         {
             "id": "peer_sync_forward_matched",
@@ -344,20 +351,11 @@ def build_post_p10_refresh_smoke_summary(
                 ),
             }
         )
-    from invis_alpha_os.product.us_forward_return_validation import (
-        us_forward_matched_normal_for_p3,
-    )
-
-    matched_rows = int(forward.get("rows_matched") or 0)
-    matched_normal = us_forward_matched_normal_for_p3(
-        rows_matched=matched_rows,
-        stall_diagnosis=forward.get("p3_stall_diagnosis"),
-    )
     stale_skips = int(skipped.get("cache_stale_event_after_cache_end") or 0)
     hard_pass = (
         not tier1_missing
-        and matched_rows > 0
-        and str(sq.get("status") or "") in {"thin", "usable"}
+        and matched_normal > 0
+        and p3_sample_quality in {"thin", "usable"}
     )
     recommended = forward_p3_recommended_actions(
         skip_pattern=skip_pattern,
@@ -373,6 +371,8 @@ def build_post_p10_refresh_smoke_summary(
         "rows_matched": matched_rows,
         "matched_normal": matched_normal,
         "sample_quality": sq,
+        "p3_sample_quality_status": p3_sample_quality,
+        "p3_progress": axis.get("p3_progress") or forward_p3_progress(matched_normal),
         "skip_pattern": skip_pattern,
         "skipped_reasons": skipped,
     }
@@ -420,18 +420,24 @@ def format_post_p10_refresh_smoke_markdown(report: dict[str, Any]) -> str:
             lines.append(f"| {c.get('id')} | {c.get('status')} | {c.get('detail')} |")
     fwd = report.get("forward_validation") or {}
     sq = fwd.get("sample_quality") or {}
-    p3 = sq.get("p3_progress") or {}
+    p3 = fwd.get("p3_progress") or sq.get("p3_progress") or {}
     lines.extend(
         [
             "",
             "## Forward validation",
-            f"- matched: {fwd.get('rows_matched', 0)}",
-            f"- sample_quality: {sq.get('status')}",
+            f"- rows_matched (all): {fwd.get('rows_matched', 0)}",
+            f"- matched_normal (P3): {fwd.get('matched_normal', 0)}",
+            f"- all_rows_sample_quality: {sq.get('status')} (supplementary)",
+            f"- p3_sample_quality: {fwd.get('p3_sample_quality_status', '')}",
             f"- skip_pattern: {fwd.get('skip_pattern')}",
         ]
     )
     if p3.get("progress_label"):
         lines.append(f"- p3_progress: {p3.get('progress_label')}")
+    if fwd.get("p3_progress", {}).get("samples_needed_for_usable") is not None:
+        lines.append(
+            f"- samples_needed_for_usable: {fwd.get('p3_progress', {}).get('samples_needed_for_usable')}"
+        )
     ps_fwd = report.get("peer_sync_forward_validation") or {}
     ps_sq = ps_fwd.get("sample_quality") or {}
     if ps_fwd:
