@@ -89,7 +89,7 @@ def test_format_markdown_has_candidate_sections() -> None:
     assert "## Copy-ready summary" in md
     assert "<<< COPY FROM HERE >>>" in md
     assert "## 今週の深掘り候補 Top 5" in md
-    assert "| Rank | Symbol | Name | Market |" in md
+    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in md
     assert "| 1 | MSFT |" in md
     assert "## 今週の候補 Top 5" in md
     assert "**反証**" in md
@@ -332,7 +332,12 @@ def test_format_copy_only_block() -> None:
     assert body.strip().startswith("<<< COPY FROM HERE >>>")
     assert body.strip().endswith("<<< COPY TO HERE >>>")
     assert "## 今週の深掘り候補 Top 5" in body
-    assert "| Rank | Symbol | Name | Market |" in body
+    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in body
+    assert "## 候補別メモ" in body
+    assert "- 反証: 反証1" in body
+    assert "- 次確認: 確認1" in body
+    assert "Counter evidence" not in body
+    assert "Next checks" not in body
     for forbidden in (
         "# 週次候補ブリーフ v0.1",
         "## マクロ環境",
@@ -361,6 +366,10 @@ def test_cli_weekly_candidate_brief_copy(mini_discovery_cache: Path, monkeypatch
     assert "<<< COPY TO HERE >>>" in out
     assert "# 週次候補ブリーフ" not in out
     assert "## マクロ環境" not in out
+    assert "## 候補別メモ" in out
+    assert "| Rank | Symbol | Name | Market | Type | Short reason |" in out
+    assert "Counter evidence" not in out
+    assert "Next checks" not in out
 
 
 def test_cli_weekly_candidate_brief_markdown(mini_discovery_cache: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -371,6 +380,51 @@ def test_cli_weekly_candidate_brief_markdown(mini_discovery_cache: Path, monkeyp
     )
     assert r.exit_code == 0, r.stdout + r.stderr
     assert "週次候補ブリーフ" in r.stdout
+
+
+def test_theme_highlights_dedupes_by_symbol(mini_discovery_cache: Path) -> None:
+    brief = build_weekly_candidate_brief_v0(
+        report_date="2026-05-27",
+        path_base=mini_discovery_cache,
+    )
+    syms = [c.candidate.instrument_id for c in brief.theme_highlights]
+    assert len(syms) == len(set(syms))
+
+
+def test_next_checks_5803_avoid_nand_dram() -> None:
+    from invis_alpha_os.product.weekly_candidate_brief_v0 import build_next_checks
+
+    c = _candidate_jp(
+        code="5803",
+        themes=("memory", "semiconductors", "communications"),
+        labels=("rapid_mover_20d", "near_high"),
+        categories=("rapid_mover", "near_high_quality_trend"),
+        discovery_score=10,
+    )
+    checks = build_next_checks(c)
+    joined = " ".join(checks)
+    assert "NAND/DRAM" not in joined
+    assert "メモリ/半導体市況" not in joined
+    assert "光ファイバー/データセンター需要" in joined
+
+
+def test_7203_reason_and_checks_not_industrials() -> None:
+    from invis_alpha_os.product.weekly_candidate_brief_v0 import build_next_checks
+
+    c = _candidate_jp(
+        code="7203",
+        themes=("industrials",),
+        labels=("rapid_mover_20d", "near_high"),
+        categories=("rapid_mover", "near_high_quality_trend"),
+        discovery_score=10,
+    )
+    reason = build_reason_human(c, "top_pick")
+    assert "産業設備・受注サイクル" not in reason
+
+    checks = build_next_checks(c)
+    joined = " ".join(checks)
+    assert "設備投資サイクル" not in joined
+    assert "為替（円/ドル）" in joined
 
 
 def test_cli_invalid_format_exit2() -> None:
