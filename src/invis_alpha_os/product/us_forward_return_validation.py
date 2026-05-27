@@ -191,13 +191,24 @@ def summarize_us_signal_event_date_sources(
     }
 
 
+def p3_monitoring_next_commands(*, horizon_rows: int = 100) -> list[str]:
+    """Read-only P3 path / horizon / status CLI hints (observation only)."""
+
+    return [
+        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
+        (
+            ".venv/bin/python -m invis_alpha_os.cli.main validate p3-horizon-timeline "
+            f"--format json --horizon-rows {int(horizon_rows)}"
+        ),
+        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
+    ]
+
+
 def forward_validation_next_commands(*, exploratory: bool = False) -> list[str]:
     """Read-only CLI hints after observation_log append (no defaults changed)."""
 
     cmds = [
-        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
-        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
-        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-horizon-timeline --format json",
+        *p3_monitoring_next_commands(),
         ".venv/bin/python -m invis_alpha_os.cli.main validate us-forward-returns --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log us-signals-summary",
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --format markdown",

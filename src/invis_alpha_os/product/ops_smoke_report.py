@@ -12,6 +12,7 @@ from invis_alpha_os.product.observation_health import build_observation_health_r
 from invis_alpha_os.product.peer_sync_cache_only import build_peer_sync_cache_only_report
 from invis_alpha_os.product.portfolio_observation_summary import build_portfolio_observation_summary
 from invis_alpha_os.product.ops_smoke_taxonomy import classify_ops_smoke_strict
+from invis_alpha_os.product.us_forward_return_validation import p3_monitoring_next_commands
 from invis_alpha_os.product.weekly_us_observation import (
     build_us_watchlist_signals_manifest,
     us_signal_quality_snapshot,
@@ -219,8 +220,7 @@ def build_ops_smoke_report(*, path_base: Path | None = None) -> OpsSmokeReport:
         ".venv/bin/python -m invis_alpha_os.cli.main weekly-us-observation --dry-run --with-peer-sync",
         ".venv/bin/python -m invis_alpha_os.cli.main snapshot observation-health --format json",
         ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown",
-        ".venv/bin/python -m invis_alpha_os.cli.main validate forward-p3-status --format markdown",
-        ".venv/bin/python -m invis_alpha_os.cli.main validate p3-path-to-usable --format markdown",
+        *p3_monitoring_next_commands(),
         ".venv/bin/python -m invis_alpha_os.cli.main validate jp-peer-sync-readiness --format markdown",
         ".venv/bin/python -m invis_alpha_os.cli.main log evidence-manifest "
         "--task-id ops_smoke_YYYYMMDD --report-date YYYY-MM-DD --summary read-only preflight",

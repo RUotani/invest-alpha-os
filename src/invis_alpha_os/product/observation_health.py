@@ -15,6 +15,7 @@ from invis_alpha_os.product.portfolio_readiness import evaluate_portfolio_readin
 from invis_alpha_os.signals.peer_sync import load_peer_map
 from invis_alpha_os.product.us_forward_return_validation import (
     forward_validation_next_commands,
+    p3_monitoring_next_commands,
 )
 from invis_alpha_os.product.us_universe_expansion import build_us_universe_expansion_report
 from invis_alpha_os.product.weekly_us_observation import build_enriched_us_observation_summary
@@ -186,7 +187,12 @@ def build_observation_health_report(
                 "weekly-us-observation --write-observation-log  # explicit approval; writes outputs/"
             )
         elif st == "thin":
-            next_commands.extend(forward_validation_next_commands())
+            next_commands.extend(p3_monitoring_next_commands())
+            next_commands.extend(
+                c
+                for c in forward_validation_next_commands()
+                if c not in p3_monitoring_next_commands()
+            )
             next_commands.append(
                 ".venv/bin/python -m invis_alpha_os.cli.main validate post-refresh-smoke --format markdown"
             )

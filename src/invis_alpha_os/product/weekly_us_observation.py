@@ -633,6 +633,7 @@ class WeeklyUsObservationResult:
     observation_write_stats: dict[str, Any] | None = None
     peer_sync_write_stats: dict[str, Any] | None = None
     duplicate_week_preflight: dict[str, Any] | None = None
+    p3_path_preflight: dict[str, Any] | None = None
 
 
 def run_weekly_us_observation_cycle(
@@ -733,6 +734,7 @@ def run_weekly_us_observation_cycle(
             )
 
     duplicate_week_preflight: dict[str, Any] | None = None
+    p3_path_preflight: dict[str, Any] | None = None
     obs_candidates = (
         root / "outputs" / "observation_log" / "observation_log.jsonl",
         root / "observation_log" / "observation_log.jsonl",
@@ -749,6 +751,12 @@ def run_weekly_us_observation_cycle(
             planned_writes=planned_writes_from_batch_previews(batch),
             path_base=root,
         )
+        from invis_alpha_os.product.p3_path_to_usable import build_weekly_p3_path_preflight
+
+        p3_path_preflight = build_weekly_p3_path_preflight(
+            path_base=root,
+            observation_path=obs_for_preflight,
+        )
 
     return WeeklyUsObservationResult(
         manifest=manifest,
@@ -760,6 +768,7 @@ def run_weekly_us_observation_cycle(
         observation_write_stats=write_stats,
         peer_sync_write_stats=peer_sync_write_stats,
         duplicate_week_preflight=duplicate_week_preflight,
+        p3_path_preflight=p3_path_preflight,
     )
 
 
@@ -832,6 +841,10 @@ def format_weekly_us_observation_markdown(
         )
 
         lines.extend(["", format_duplicate_week_preflight_markdown(result.duplicate_week_preflight)])
+    if result.p3_path_preflight:
+        from invis_alpha_os.product.p3_path_to_usable import format_weekly_p3_path_preflight_markdown
+
+        lines.extend(["", format_weekly_p3_path_preflight_markdown(result.p3_path_preflight)])
     if result.observation_write_stats:
         ws = result.observation_write_stats
         lines.extend(

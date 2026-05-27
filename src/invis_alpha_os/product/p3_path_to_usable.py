@@ -304,6 +304,70 @@ def format_p3_horizon_timeline_export_markdown(export: dict[str, Any]) -> str:
     return "\n".join(header) + "\n" + format_p3_horizon_match_timeline_markdown(timeline)
 
 
+def build_weekly_p3_path_preflight(
+    *,
+    path_base: Path | None = None,
+    observation_path: Path | None = None,
+    cache_dir: Path | None = None,
+) -> dict[str, Any] | None:
+    """Compact read-only P3 path snapshot for weekly-us-observation dry-run."""
+
+    root = path_base or ROOT_DIR
+    obs = observation_path or (OUTPUTS_DIR / "observation_log" / "observation_log.jsonl")
+    if not obs.is_file():
+        return None
+    try:
+        bundle = build_p3_path_to_usable_bundle(
+            path_base=root,
+            observation_path=obs,
+            cache_dir=cache_dir,
+            horizon_timeline_max_rows=16,
+        )
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+    path = bundle.get("p3_path_to_usable") or {}
+    path_a = path.get("path_a_horizon_maturation") or {}
+    path_b = path.get("path_b_new_iso_week_writes") or {}
+    return {
+        "schema_version": 1,
+        "observation_only": True,
+        "headline": path.get("headline"),
+        "dominant_path": path.get("dominant_path"),
+        "matched_normal": bundle.get("us_forward_matched_normal"),
+        "rows_matched_all": bundle.get("us_forward_rows_matched"),
+        "samples_needed_for_usable": path.get("samples_needed_for_usable"),
+        "pending_horizon_rows": path_a.get("pending_rows", 0),
+        "write_now_count": path_b.get("write_now_count", 0),
+        "l1_status": path_b.get("l1_status"),
+        "requires_iso_week_rollover": path_b.get("requires_iso_week_rollover"),
+        "next_steps": list(path.get("next_steps") or [])[:4],
+    }
+
+
+def format_weekly_p3_path_preflight_markdown(preflight: dict[str, Any]) -> str:
+    lines = [
+        "## P3 path preflight (read-only)",
+        "",
+        f"- {preflight.get('headline', '')}",
+        f"- dominant_path: {preflight.get('dominant_path', '')}",
+        f"- matched_normal: {preflight.get('matched_normal')} "
+        f"(rows_matched_all: {preflight.get('rows_matched_all')})",
+        f"- samples_needed_for_usable: {preflight.get('samples_needed_for_usable', 0)}",
+        f"- path_a pending_horizon_rows: {preflight.get('pending_horizon_rows', 0)}",
+        f"- path_b write_now_count: {preflight.get('write_now_count', 0)} "
+        f"l1_status={preflight.get('l1_status')}",
+    ]
+    if preflight.get("requires_iso_week_rollover"):
+        lines.append("- requires_iso_week_rollover: True")
+    steps = preflight.get("next_steps") or []
+    if steps:
+        lines.append("")
+        lines.append("### Suggested next steps")
+        for step in steps:
+            lines.append(f"- {step}")
+    return "\n".join(lines)
+
+
 def format_p3_path_to_usable_bundle_markdown(bundle: dict[str, Any]) -> str:
     path = bundle.get("p3_path_to_usable") or {}
     parts = [format_p3_path_to_usable_markdown(path)]
