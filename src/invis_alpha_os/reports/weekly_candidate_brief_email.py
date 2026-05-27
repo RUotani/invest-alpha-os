@@ -68,8 +68,8 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
                 "market": m.group("market").strip(),
                 "kind": m.group("kind").strip(),
                 "reason": m.group("reason").strip(),
-                "counter": "not available in cache",
-                "next": "requires next data refresh",
+                "counter": "キャッシュ内にデータなし",
+                "next": "次回データ更新で要確認",
             }
             continue
         if line.startswith("## 候補別メモ"):
@@ -82,11 +82,11 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
             continue
         if in_memo and current_rank is not None and line.startswith("- 反証:"):
             if current_rank in by_rank:
-                by_rank[current_rank]["counter"] = line.split(":", 1)[1].strip() or "not available in cache"
+                by_rank[current_rank]["counter"] = line.split(":", 1)[1].strip() or "キャッシュ内にデータなし"
             continue
         if in_memo and current_rank is not None and line.startswith("- 次確認:"):
             if current_rank in by_rank:
-                by_rank[current_rank]["next"] = line.split(":", 1)[1].strip() or "requires next data refresh"
+                by_rank[current_rank]["next"] = line.split(":", 1)[1].strip() or "次回データ更新で要確認"
 
     out: list[CandidateDigest] = []
     for r in sorted(by_rank.keys()):
@@ -108,17 +108,17 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
 
 def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest]) -> str:
     lines: list[str] = [
-        "TEST EMAIL",
-        f"report date: {report_date}",
-        f"generated at: {generated_at}",
-        "disclaimer: this is not investment advice; observation and validation use only.",
+        "テストメール",
+        f"レポート日: {report_date}",
+        f"生成日時: {generated_at}",
+        "注意書き: 投資助言ではなく、観測・検証用の情報です。",
         "",
-        "## Executive Summary",
-        f"- top candidates: {len(candidates)}",
-        "- primary objective: candidate screening for next research checks",
-        "- safety: observation-only; no execution instructions",
+        "## 要約",
+        f"- 注目候補数: {len(candidates)}",
+        "- 主目的: 次の調査候補を絞り込むための観測",
+        "- 安全方針: 観測のみ（実行指示なし）",
         "",
-        "## Top Candidates",
+        "## 注目候補",
     ]
     if not candidates:
         lines.extend(["- no candidates in copy body", ""])
@@ -127,22 +127,22 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
         momentum_q: list[str] = []
         counter_q: list[str] = []
         if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct > 0:
-            momentum_q.append("close above 25D MA")
+            momentum_q.append("終値が25日移動平均線を上回る")
         if qm.dist_ma_75_pct is not None and qm.dist_ma_75_pct > 0:
-            momentum_q.append("close above 75D MA")
+            momentum_q.append("終値が75日移動平均線を上回る")
         if qm.ret_20d_pct is not None and qm.ret_20d_pct > 0:
-            momentum_q.append("20D return positive")
+            momentum_q.append("20日騰落率がプラス")
         if qm.ret_60d_pct is not None and qm.ret_60d_pct > 0:
-            momentum_q.append("60D return positive")
+            momentum_q.append("60日騰落率がプラス")
         if qm.volume_ratio_20d is not None and qm.volume_ratio_20d >= 1.5:
-            momentum_q.append("volume ratio above 1.5x")
+            momentum_q.append("出来高倍率が1.5x超")
         if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct < 0:
-            counter_q.append("close below 25D MA")
+            counter_q.append("終値が25日移動平均線を下回る")
         if qm.dist_ma_25_pct is not None and qm.dist_ma_25_pct > 0.12:
-            counter_q.append("distance vs 25D MA > +12% (pullback risk)")
+            counter_q.append("25日移動平均線からの乖離が+12%超（反落余地）")
         if qm.ret_60d_pct is not None and qm.ret_60d_pct < 0:
-            counter_q.append("60D return negative")
-        if qm.freshness_label.startswith("stale"):
+            counter_q.append("60日騰落率がマイナス")
+        if qm.freshness_label.startswith("要更新"):
             counter_q.append(qm.freshness_label)
         if qm.missing_reason:
             counter_q.append(qm.missing_reason)
@@ -150,52 +150,52 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
             [
                 "",
                 f"### {c.rank}. {c.symbol} — {c.name}",
-                f"- Market: {c.market}",
-                f"- Candidate Type: {c.kind}",
-                f"- Short reason: {c.short_reason}",
+                f"- 市場: {c.market}",
+                f"- 候補種別: {c.kind}",
+                f"- 短期理由: {c.short_reason}",
                 "",
-                "#### Moving Average Context",
-                f"- 25D MA: {fmt_num(qm.ma_25)} (dist {fmt_pct(qm.dist_ma_25_pct)})",
-                f"- 75D MA: {fmt_num(qm.ma_75)} (dist {fmt_pct(qm.dist_ma_75_pct)})",
-                f"- 200D MA: {fmt_num(qm.ma_200)} (dist {fmt_pct(qm.dist_ma_200_pct)})",
-                "- Interpretation: MA context is cache-only and should be validated with freshness label",
+                "#### 移動平均線の位置づけ",
+                f"- 25D移動平均線: {fmt_num(qm.ma_25)}（乖離 {fmt_pct(qm.dist_ma_25_pct)}）",
+                f"- 75D移動平均線: {fmt_num(qm.ma_75)}（乖離 {fmt_pct(qm.dist_ma_75_pct)}）",
+                f"- 200D移動平均線: {fmt_num(qm.ma_200)}（乖離 {fmt_pct(qm.dist_ma_200_pct)}）",
+                "- 解釈: キャッシュ由来のため、データ鮮度と合わせて確認してください",
                 "",
-                "#### Quant Snapshot",
-                f"- Latest Close: {fmt_num(qm.latest_close)}",
-                f"- Latest Bar Date: {qm.latest_bar_date or 'not available in cache'}",
-                f"- Data Freshness: {qm.freshness_label}",
-                f"- Returns: 5D {fmt_pct(qm.ret_5d_pct)}, 20D {fmt_pct(qm.ret_20d_pct)}, 60D {fmt_pct(qm.ret_60d_pct)}",
-                f"- 52W Range: high {fmt_num(qm.high_52w)} ({fmt_pct(qm.dist_52w_high_pct)} from high), low {fmt_num(qm.low_52w)} ({fmt_pct(qm.dist_52w_low_pct)} from low)",
-                f"- Volume: latest {fmt_num(qm.latest_volume, 0)}, 20D avg {fmt_num(qm.avg_volume_20d, 0)}, ratio {fmt_num(qm.volume_ratio_20d)}x",
+                "#### 定量スナップショット",
+                f"- 直近終値: {fmt_num(qm.latest_close)}",
+                f"- 直近データ日: {qm.latest_bar_date or 'キャッシュ内にデータなし'}",
+                f"- データ鮮度: {qm.freshness_label}",
+                f"- 騰落率: 5D {fmt_pct(qm.ret_5d_pct)}, 20D {fmt_pct(qm.ret_20d_pct)}, 60D {fmt_pct(qm.ret_60d_pct)}",
+                f"- 52週レンジ: 高値 {fmt_num(qm.high_52w)}（高値から {fmt_pct(qm.dist_52w_high_pct)}）, 安値 {fmt_num(qm.low_52w)}（安値から {fmt_pct(qm.dist_52w_low_pct)}）",
+                f"- 出来高: 直近 {fmt_num(qm.latest_volume, 0)}, 20D平均 {fmt_num(qm.avg_volume_20d, 0)}, 出来高倍率 {fmt_num(qm.volume_ratio_20d)}x",
                 "",
-                "#### Momentum Rationale",
+                "#### モメンタム根拠",
                 f"- {c.short_reason}",
-                f"- quant support: {', '.join(momentum_q) if momentum_q else 'not available in cache'}",
-                "- trend persistence to be validated with next cache refresh",
+                f"- 定量根拠: {', '.join(momentum_q) if momentum_q else 'キャッシュ内にデータなし'}",
+                "- トレンド継続性は次回データ更新でも確認",
                 "",
-                "#### Counter Evidence",
+                "#### 反証・下落リスク",
                 f"- {c.counter_evidence}",
-                f"- quant risk: {', '.join(counter_q[:2]) if counter_q else 'not available in cache'}",
-                "- insufficient bars may hide trend deterioration risk",
+                f"- 定量リスク: {', '.join(counter_q[:2]) if counter_q else 'キャッシュ内にデータなし'}",
+                "- データ不足時はトレンド悪化を見落とす可能性がある",
                 "",
-                "#### Next Checks",
+                "#### 次に確認すること",
                 f"- {c.next_checks}",
-                "- validate latest bar freshness before deep-dive",
+                "- 深掘り前に直近データ鮮度を再確認",
                 "",
-                "#### Sources",
-                f"- market data source: {qm.source}",
-                "- signal source: weekly candidate brief score + momentum labels",
-                f"- report date: {report_date}",
-                f"- generated at: {generated_at}",
-                f"- missing data reason: {qm.missing_reason or 'none'}",
+                "#### 情報ソース",
+                f"- 市場データソース: {qm.source}",
+                "- シグナルソース: weekly candidate brief score + momentum labels",
+                f"- レポート日: {report_date}",
+                f"- 生成日時: {generated_at}",
+                f"- データ不足理由: {qm.missing_reason or 'なし'}",
             ]
         )
     lines.extend(
         [
             "",
             "## Footer / Safety Notes",
-            "- observation and validation only",
-            "- this email is a test rendering for Gmail UI review",
+            "- 観測・検証用のみ",
+            "- このメールはGmail表示確認用のテスト出力です",
         ]
     )
     return "\n".join(lines).strip() + "\n"
@@ -206,14 +206,14 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
         "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
         "<div style='background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:12px;margin-bottom:12px;'>",
-        "<strong>TEST EMAIL</strong><br>",
-        f"report date: {escape(report_date)}<br>",
-        f"generated at: {escape(generated_at)}<br>",
-        "disclaimer: this is not investment advice; observation and validation use only.",
+        "<strong>テストメール</strong><br>",
+        f"レポート日: {escape(report_date)}<br>",
+        f"生成日時: {escape(generated_at)}<br>",
+        "注意書き: 投資助言ではなく、観測・検証用の情報です。",
         "</div>",
-        "<h2 style='margin:10px 0 6px;'>Executive Summary</h2>",
-        f"<p style='margin:0 0 10px;'>top candidates: {len(candidates)} / observation-only candidate screening</p>",
-        "<h2 style='margin:14px 0 8px;'>Top Candidates</h2>",
+        "<h2 style='margin:10px 0 6px;'>要約</h2>",
+        f"<p style='margin:0 0 10px;'>注目候補数: {len(candidates)} / 観測ベースの候補抽出</p>",
+        "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
         parts.append("<p>no candidates in copy body</p>")
@@ -223,26 +223,26 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
             [
                 "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:10px 0;'>",
                 f"<h3 style='margin:0 0 6px;'>{c.rank}. {escape(c.symbol)} - {escape(c.name)}</h3>",
-                f"<p style='margin:0 0 8px;'><strong>Market:</strong> {escape(c.market)} / <strong>Type:</strong> {escape(c.kind)}</p>",
-                f"<p style='margin:0 0 8px;'><strong>Short reason:</strong> {escape(c.short_reason)}</p>",
-                "<h4 style='margin:8px 0 4px;'>Moving Average Context</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>25D MA: {escape(fmt_num(qm.ma_25))} (dist {escape(fmt_pct(qm.dist_ma_25_pct))})</li><li>75D MA: {escape(fmt_num(qm.ma_75))} (dist {escape(fmt_pct(qm.dist_ma_75_pct))})</li><li>200D MA: {escape(fmt_num(qm.ma_200))} (dist {escape(fmt_pct(qm.dist_ma_200_pct))})</li><li>Interpretation: MA context is cache-only and should be validated with freshness label</li></ul>",
-                "<h4 style='margin:8px 0 4px;'>Quant Snapshot</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>Latest Close: {escape(fmt_num(qm.latest_close))}</li><li>Latest Bar Date: {escape(qm.latest_bar_date or 'not available in cache')}</li><li>Data Freshness: {escape(qm.freshness_label)}</li><li>Returns: 5D {escape(fmt_pct(qm.ret_5d_pct))}, 20D {escape(fmt_pct(qm.ret_20d_pct))}, 60D {escape(fmt_pct(qm.ret_60d_pct))}</li><li>52W Range: high {escape(fmt_num(qm.high_52w))} ({escape(fmt_pct(qm.dist_52w_high_pct))} from high), low {escape(fmt_num(qm.low_52w))} ({escape(fmt_pct(qm.dist_52w_low_pct))} from low)</li><li>Volume: latest {escape(fmt_num(qm.latest_volume, 0))}, 20D avg {escape(fmt_num(qm.avg_volume_20d, 0))}, ratio {escape(fmt_num(qm.volume_ratio_20d))}x</li></ul>",
-                "<h4 style='margin:8px 0 4px;'>Momentum Rationale</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.short_reason)}</li><li>trend persistence to be validated with next cache refresh</li></ul>",
-                "<h4 style='margin:8px 0 4px;'>Counter Evidence</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.counter_evidence)}</li><li>insufficient bars may hide trend deterioration risk</li></ul>",
-                "<h4 style='margin:8px 0 4px;'>Next Checks</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.next_checks)}</li><li>validate latest bar freshness before deep-dive</li></ul>",
-                "<h4 style='margin:8px 0 4px;'>Sources</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>market data source: {escape(qm.source)}</li><li>signal source: weekly candidate brief score + momentum labels</li><li>report date: {escape(report_date)}</li><li>generated at: {escape(generated_at)}</li><li>missing data reason: {escape(qm.missing_reason or 'none')}</li></ul>",
+                f"<p style='margin:0 0 8px;'><strong>市場:</strong> {escape(c.market)} / <strong>種別:</strong> {escape(c.kind)}</p>",
+                f"<p style='margin:0 0 8px;'><strong>短期理由:</strong> {escape(c.short_reason)}</p>",
+                "<h4 style='margin:8px 0 4px;'>移動平均線の位置づけ</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>25D移動平均線: {escape(fmt_num(qm.ma_25))}（乖離 {escape(fmt_pct(qm.dist_ma_25_pct))}）</li><li>75D移動平均線: {escape(fmt_num(qm.ma_75))}（乖離 {escape(fmt_pct(qm.dist_ma_75_pct))}）</li><li>200D移動平均線: {escape(fmt_num(qm.ma_200))}（乖離 {escape(fmt_pct(qm.dist_ma_200_pct))}）</li><li>解釈: キャッシュ由来のため、データ鮮度と合わせて確認してください</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>定量スナップショット</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>直近終値: {escape(fmt_num(qm.latest_close))}</li><li>直近データ日: {escape(qm.latest_bar_date or 'キャッシュ内にデータなし')}</li><li>データ鮮度: {escape(qm.freshness_label)}</li><li>騰落率: 5D {escape(fmt_pct(qm.ret_5d_pct))}, 20D {escape(fmt_pct(qm.ret_20d_pct))}, 60D {escape(fmt_pct(qm.ret_60d_pct))}</li><li>52週レンジ: 高値 {escape(fmt_num(qm.high_52w))}（高値から {escape(fmt_pct(qm.dist_52w_high_pct))}）, 安値 {escape(fmt_num(qm.low_52w))}（安値から {escape(fmt_pct(qm.dist_52w_low_pct))}）</li><li>出来高: 直近 {escape(fmt_num(qm.latest_volume, 0))}, 20D平均 {escape(fmt_num(qm.avg_volume_20d, 0))}, 出来高倍率 {escape(fmt_num(qm.volume_ratio_20d))}x</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>モメンタム根拠</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.short_reason)}</li><li>トレンド継続性は次回データ更新でも確認</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>反証・下落リスク</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.counter_evidence)}</li><li>データ本数不足時はトレンド悪化を見落とす可能性があります</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>次に確認すること</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.next_checks)}</li><li>深掘り前に直近データ鮮度を再確認</li></ul>",
+                "<h4 style='margin:8px 0 4px;'>情報ソース</h4>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>市場データソース: {escape(qm.source)}</li><li>シグナルソース: weekly candidate brief score + momentum labels</li><li>レポート日: {escape(report_date)}</li><li>生成日時: {escape(generated_at)}</li><li>データ不足理由: {escape(qm.missing_reason or 'なし')}</li></ul>",
                 "</div>",
             ]
         )
     parts.extend(
         [
-            "<h2 style='margin:14px 0 8px;'>Footer / Safety Notes</h2>",
+            "<h2 style='margin:14px 0 8px;'>補足・安全上の注意</h2>",
             f"<p style='font-size:13px;color:#4b5563;'>{escape(footer)}</p>",
             "</div></body></html>",
         ]
