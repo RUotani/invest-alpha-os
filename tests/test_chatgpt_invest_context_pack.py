@@ -94,3 +94,42 @@ def test_sync_reports_repo_rejects_same_repo_path(tmp_path: Path) -> None:
         assert "同一" in str(e)
     else:
         raise AssertionError("expected ValueError")
+
+
+def test_cli_chatgpt_audit_writes_quality_feedback_seed(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r1 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r1.exit_code == 0, r1.stdout + r1.stderr
+
+    r2 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-audit",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--write-latest",
+            "--write-archive",
+            "--write-feedback-template",
+            "--write-validation-seed",
+        ],
+    )
+    assert r2.exit_code == 0, r2.stdout + r2.stderr
+    assert (out_dir / "latest" / "context_pack_quality_audit.md").is_file()
+    assert (out_dir / "latest" / "decision_feedback_template.md").is_file()
+    assert (out_dir / "archive" / "2026" / "2026-05-27" / "context_pack_quality_audit.md").is_file()
+    assert (out_dir / "validation" / "seeds" / "2026" / "2026-05-27" / "decision_seed.json").is_file()

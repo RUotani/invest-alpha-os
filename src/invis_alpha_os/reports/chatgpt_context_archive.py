@@ -16,6 +16,10 @@ def write_context_pack_outputs(
     json_payload: dict[str, Any],
     write_latest: bool,
     write_archive: bool,
+    quality_audit_markdown: str | None = None,
+    feedback_template_markdown: str | None = None,
+    decision_seed_markdown: str | None = None,
+    decision_seed_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -44,6 +48,14 @@ def write_context_pack_outputs(
         paths["latest_md"] = md
         paths["latest_json"] = js
         paths["latest_index"] = idx
+        if quality_audit_markdown is not None:
+            qa = latest / "context_pack_quality_audit.md"
+            qa.write_text(quality_audit_markdown, encoding="utf-8")
+            paths["latest_quality_audit"] = qa
+        if feedback_template_markdown is not None:
+            fb = latest / "decision_feedback_template.md"
+            fb.write_text(feedback_template_markdown, encoding="utf-8")
+            paths["latest_feedback_template"] = fb
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -67,6 +79,28 @@ def write_context_pack_outputs(
         paths["archive_md"] = md
         paths["archive_json"] = js
         paths["archive_metadata"] = meta
+        if quality_audit_markdown is not None:
+            qa = arc / "context_pack_quality_audit.md"
+            qa.write_text(quality_audit_markdown, encoding="utf-8")
+            paths["archive_quality_audit"] = qa
+        if feedback_template_markdown is not None:
+            fb = arc / "decision_feedback_template.md"
+            fb.write_text(feedback_template_markdown, encoding="utf-8")
+            paths["archive_feedback_template"] = fb
+    if decision_seed_markdown is not None or decision_seed_json_payload is not None:
+        seed = out_dir / "validation" / "seeds" / yyyy / report_date
+        seed.mkdir(parents=True, exist_ok=True)
+        if decision_seed_markdown is not None:
+            md_path = seed / "decision_seed.md"
+            md_path.write_text(decision_seed_markdown, encoding="utf-8")
+            paths["validation_seed_md"] = md_path
+        if decision_seed_json_payload is not None:
+            js_path = seed / "decision_seed.json"
+            js_path.write_text(
+                json.dumps(decision_seed_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["validation_seed_json"] = js_path
     return paths
 
 
@@ -77,6 +111,10 @@ def sync_to_reports_repo(
     report_date: str,
     markdown_text: str,
     json_payload: dict[str, Any],
+    quality_audit_markdown: str | None = None,
+    feedback_template_markdown: str | None = None,
+    decision_seed_markdown: str | None = None,
+    decision_seed_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -84,8 +122,10 @@ def sync_to_reports_repo(
         raise FileNotFoundError(f"reports repo path が見つかりません: {reports_repo_path}")
     latest = reports_repo_path / "latest"
     weekly = reports_repo_path / "weekly" / report_date[:4] / report_date
+    validation_seed = reports_repo_path / "validation" / "seeds" / report_date[:4] / report_date
     latest.mkdir(parents=True, exist_ok=True)
     weekly.mkdir(parents=True, exist_ok=True)
+    validation_seed.mkdir(parents=True, exist_ok=True)
     latest_md = latest / "chatgpt_invest_context_pack.md"
     latest_json = latest / "chatgpt_invest_context_pack.json"
     latest_idx = latest / "index.md"
@@ -96,11 +136,37 @@ def sync_to_reports_repo(
     weekly_md.write_text(markdown_text, encoding="utf-8")
     weekly_json.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     latest_idx.write_text(f"# 最新Context Pack\n\n- レポート日: {report_date}\n", encoding="utf-8")
-    return {
+    paths: dict[str, Path] = {
         "reports_latest_md": latest_md,
         "reports_latest_json": latest_json,
         "reports_latest_index": latest_idx,
         "reports_weekly_md": weekly_md,
         "reports_weekly_json": weekly_json,
     }
+    if quality_audit_markdown is not None:
+        latest_qa = latest / "context_pack_quality_audit.md"
+        weekly_qa = weekly / "context_pack_quality_audit.md"
+        latest_qa.write_text(quality_audit_markdown, encoding="utf-8")
+        weekly_qa.write_text(quality_audit_markdown, encoding="utf-8")
+        paths["reports_latest_quality_audit"] = latest_qa
+        paths["reports_weekly_quality_audit"] = weekly_qa
+    if feedback_template_markdown is not None:
+        latest_fb = latest / "decision_feedback_template.md"
+        weekly_fb = weekly / "decision_feedback_template.md"
+        latest_fb.write_text(feedback_template_markdown, encoding="utf-8")
+        weekly_fb.write_text(feedback_template_markdown, encoding="utf-8")
+        paths["reports_latest_feedback_template"] = latest_fb
+        paths["reports_weekly_feedback_template"] = weekly_fb
+    if decision_seed_markdown is not None:
+        seed_md = validation_seed / "decision_seed.md"
+        seed_md.write_text(decision_seed_markdown, encoding="utf-8")
+        paths["reports_validation_seed_md"] = seed_md
+    if decision_seed_json_payload is not None:
+        seed_json = validation_seed / "decision_seed.json"
+        seed_json.write_text(
+            json.dumps(decision_seed_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        paths["reports_validation_seed_json"] = seed_json
+    return paths
 

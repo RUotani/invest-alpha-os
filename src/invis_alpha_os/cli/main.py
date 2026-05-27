@@ -160,6 +160,9 @@ from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_to_reports_repo,
     write_context_pack_outputs,
 )
+from invis_alpha_os.reports.chatgpt_context_quality import build_context_pack_quality_audit
+from invis_alpha_os.reports.chatgpt_decision_feedback import build_decision_feedback_template
+from invis_alpha_os.reports.chatgpt_forward_validation_seed import build_forward_validation_seed
 from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_context_pack
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
@@ -857,6 +860,113 @@ def weekly_candidate_brief_chatgpt_context_command(
     raise typer.Exit(0)
 
 
+@app.command("weekly-candidate-brief-chatgpt-audit")
+def weekly_candidate_brief_chatgpt_audit_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    context_json: Optional[str] = typer.Option(
+        None,
+        "--context-json",
+        help="Path to chatgpt_invest_context_pack.json (default: outputs/chatgpt_context/latest).",
+    ),
+    context_md: Optional[str] = typer.Option(
+        None,
+        "--context-md",
+        help="Path to chatgpt_invest_context_pack.md (optional, used for label/length checks).",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    write_feedback_template: bool = typer.Option(
+        True, "--write-feedback-template/--no-write-feedback-template", help="Write decision feedback template."
+    ),
+    write_validation_seed: bool = typer.Option(
+        True, "--write-validation-seed/--no-write-validation-seed", help="Write forward validation seed."
+    ),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    json_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
+    md_path = Path(context_md) if context_md else out_root / "latest" / "chatgpt_invest_context_pack.md"
+    try:
+        context_payload = json.loads(json_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as e:
+        typer.echo(f"weekly-candidate-brief-chatgpt-audit: context json not found: {json_path}", err=True)
+        raise typer.Exit(2) from e
+    except json.JSONDecodeError as e:
+        typer.echo(f"weekly-candidate-brief-chatgpt-audit: invalid context json: {e}", err=True)
+        raise typer.Exit(2) from e
+    if not isinstance(context_payload, dict):
+        typer.echo("weekly-candidate-brief-chatgpt-audit: context json must be object", err=True)
+        raise typer.Exit(2)
+
+    md_text: str | None = None
+    if md_path.is_file():
+        md_text = md_path.read_text(encoding="utf-8")
+
+    audit = build_context_pack_quality_audit(
+        report_date=run_date,
+        context_json_payload=context_payload,
+        context_markdown_text=md_text,
+    )
+    feedback = (
+        build_decision_feedback_template(report_date=run_date, context_json_payload=context_payload)
+        if write_feedback_template
+        else None
+    )
+    seed = (
+        build_forward_validation_seed(report_date=run_date, context_json_payload=context_payload)
+        if write_validation_seed
+        else None
+    )
+
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=md_text or "# ChatGPT投資対話用Context Pack\n",
+        json_payload=context_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+        quality_audit_markdown=audit.markdown_text,
+        feedback_template_markdown=feedback.markdown_text if feedback else None,
+        decision_seed_markdown=seed.markdown_text if seed else None,
+        decision_seed_json_payload=seed.json_payload if seed else None,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-chatgpt-audit: {key}={p}")
+
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-chatgpt-audit: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        if md_text is None:
+            md_text = "# ChatGPT投資対話用Context Pack\n"
+        try:
+            sync_paths = sync_to_reports_repo(
+                reports_repo_path=Path(reports_repo_path),
+                repo_root=ROOT_DIR,
+                report_date=run_date,
+                markdown_text=md_text,
+                json_payload=context_payload,
+                quality_audit_markdown=audit.markdown_text,
+                feedback_template_markdown=feedback.markdown_text if feedback else None,
+                decision_seed_markdown=seed.markdown_text if seed else None,
+                decision_seed_json_payload=seed.json_payload if seed else None,
+            )
+        except (ValueError, FileNotFoundError) as e:
+            typer.echo(f"weekly-candidate-brief-chatgpt-audit: {e}", err=True)
+            raise typer.Exit(2) from e
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-chatgpt-audit: {key}={p}")
+    raise typer.Exit(0)
 @validate_app.command("us-forward-returns")
 def validate_us_forward_returns_command(
     observation_log: Optional[str] = typer.Option(
