@@ -95,6 +95,10 @@ from invis_alpha_os.product.ops_smoke_report import (
     format_ops_smoke_markdown,
 )
 from invis_alpha_os.product.ops_smoke_taxonomy import format_strict_taxonomy_stderr_line
+from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
+    build_portfolio_exposure_by_signal_veto,
+    format_portfolio_exposure_by_signal_veto_markdown,
+)
 from invis_alpha_os.product.portfolio_observation_summary import (
     build_portfolio_observation_summary,
     format_portfolio_observation_summary_json,
@@ -1737,6 +1741,50 @@ def snapshot_portfolio_observation_summary(
     else:
         typer.echo(
             "snapshot portfolio-observation-summary: --format must be markdown or json",
+            err=True,
+        )
+        raise typer.Exit(2)
+
+
+@snapshot_app.command("portfolio-exposure-by-signal-veto")
+def snapshot_portfolio_exposure_by_signal_veto(
+    shadow_path: Optional[str] = typer.Option(
+        None,
+        "--shadow-path",
+        help="Shadow portfolio JSONL (default: outputs/shadow_portfolio/positions.jsonl).",
+    ),
+    observation_log: Optional[str] = typer.Option(
+        None,
+        "--observation-log",
+        help="Observation log JSONL (default: outputs/observation_log/observation_log.jsonl).",
+    ),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    """Read-only shadow exposure by latest US signal momentum_label and veto bucket."""
+
+    fmt_norm = fmt.strip().lower()
+    shadow = (
+        Path(shadow_path)
+        if shadow_path
+        else OUTPUTS_DIR / "shadow_portfolio" / "positions.jsonl"
+    )
+    obs = (
+        Path(observation_log)
+        if observation_log
+        else OUTPUTS_DIR / "observation_log" / "observation_log.jsonl"
+    )
+    report = build_portfolio_exposure_by_signal_veto(
+        path_base=ROOT_DIR,
+        shadow_path=shadow,
+        observation_path=obs,
+    )
+    if fmt_norm == "json":
+        typer.echo(json.dumps(report, ensure_ascii=False, indent=2))
+    elif fmt_norm == "markdown":
+        typer.echo(format_portfolio_exposure_by_signal_veto_markdown(report))
+    else:
+        typer.echo(
+            "snapshot portfolio-exposure-by-signal-veto: --format must be markdown or json",
             err=True,
         )
         raise typer.Exit(2)
