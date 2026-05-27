@@ -887,9 +887,16 @@ def format_duplicate_week_preflight_markdown(preflight: dict[str, Any]) -> str:
                 "",
                 f"- earliest_next_iso_week_start: {rollover.get('earliest_next_iso_week_start')}",
                 f"- days_until_earliest_rollover: {rollover.get('days_until_earliest_rollover')}",
-                f"- l1_unblock_hint: {rollover.get('l1_unblock_hint', '')}",
             ]
         )
+        note = rollover.get("days_until_earliest_rollover_note")
+        if note:
+            lines.append(f"- days_until_earliest_rollover_note: {note}")
+        if rollover.get("rollover_passed"):
+            lines.append(
+                "- rollover_passed_write_still_blocked: planned writes still duplicate or cache/as_of not advanced"
+            )
+        lines.append(f"- l1_unblock_hint: {rollover.get('l1_unblock_hint', '')}")
     return "\n".join(lines)
 
 

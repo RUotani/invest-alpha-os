@@ -117,3 +117,67 @@ def test_estimate_p3_iso_week_rollover() -> None:
     assert rollover["earliest_next_iso_week_start"] == "2024-04-15"
     assert rollover["days_until_earliest_rollover"] == 5
     assert rollover["projected_write_now_symbols_at_rollover"] == 1
+    assert rollover["rollover_passed"] is False
+
+
+def test_estimate_p3_iso_week_rollover_passed_write_still_blocked() -> None:
+    rollover = estimate_p3_iso_week_rollover(
+        skip_duplicate=[{"symbol": "MSFT", "last_date": "2024-04-10"}],
+        reference_date=date(2024, 4, 20),
+    )
+    assert rollover["status"] == "rollover_passed_write_still_blocked"
+    assert rollover["days_until_earliest_rollover"] == 0
+    assert rollover["rollover_passed"] is True
+    assert "rollover date has passed" in rollover["l1_unblock_hint"]
+    assert "cache/as_of has not advanced" in rollover["l1_unblock_hint"]
+    assert "0 =" in rollover["days_until_earliest_rollover_note"]
+
+
+def test_evaluate_p3_l1_write_gate_rollover_passed_wording() -> None:
+    rollover = estimate_p3_iso_week_rollover(
+        skip_duplicate=[{"symbol": "MSFT", "last_date": "2024-04-10"}],
+        reference_date=date(2024, 4, 20),
+    )
+    gate = evaluate_p3_l1_write_gate(
+        write_now_count=0,
+        skip_duplicate_count=16,
+        will_be_matchable_after_date_rows=8,
+        iso_week_rollover=rollover,
+    )
+    assert gate["status"] == "blocked_duplicate_iso_week"
+    assert "rollover date has passed" in gate["next_action"]
+    assert "wait for ISO week rollover" not in gate["next_action"]
+
+
+def test_build_p3_weekly_write_plan_rollover_passed(tmp_path: Path) -> None:
+    obs_path = tmp_path / "observation_log.jsonl"
+    note = "us_cache_signal observation_only status=ok momentum_label=neutral as_of=2024-04-10 not buy/sell advice"
+    line = {
+        "id": "a",
+        "created_at": "2024-04-10T09:00:00+00:00",
+        "symbol": "MSFT",
+        "note": note,
+        "evidence_ids": [],
+        "tags": [],
+    }
+    obs_path.write_text(json.dumps(line) + "\n", encoding="utf-8")
+    plan = build_p3_weekly_write_plan(
+        observation_path=obs_path,
+        planned_writes=[{"symbol": "MSFT", "last_date": "2024-04-10"}],
+        will_be_matchable_after_date_rows=8,
+    )
+    rollover = plan["iso_week_rollover"]
+    rollover["reference_date"] = "2024-04-20"
+    rollover = estimate_p3_iso_week_rollover(
+        skip_duplicate=plan["skip_duplicate"],
+        reference_date=date(2024, 4, 20),
+    )
+    gate = evaluate_p3_l1_write_gate(
+        write_now_count=plan["write_now_count"],
+        skip_duplicate_count=plan["skip_duplicate_count"],
+        will_be_matchable_after_date_rows=8,
+        iso_week_rollover=rollover,
+    )
+    assert plan["write_now_count"] == 0
+    assert gate["next_action"]
+    assert "rollover date has passed" in gate["next_action"]
