@@ -47,10 +47,21 @@ def build_p3_path_to_usable(
         "l1_status": l1_gate.get("status"),
         "l1_recommended": l1_gate.get("l1_recommended"),
         "days_until_earliest_rollover": rollover.get("days_until_earliest_rollover"),
+        "days_until_earliest_rollover_note": rollover.get("days_until_earliest_rollover_note"),
+        "rollover_passed": rollover.get("rollover_passed"),
         "earliest_next_iso_week_start": rollover.get("earliest_next_iso_week_start"),
         "projected_write_now_symbols_at_rollover": rollover.get("projected_write_now_symbols_at_rollover", 0),
         "requires_l1": bool(l1_gate.get("l1_recommended")),
-        "requires_iso_week_rollover": (plan.get("write_now_count", 0) == 0 and plan.get("skip_duplicate_count", 0) > 0),
+        "requires_iso_week_rollover": (
+            plan.get("write_now_count", 0) == 0
+            and plan.get("skip_duplicate_count", 0) > 0
+            and not rollover.get("rollover_passed")
+        ),
+        "rollover_passed_write_still_blocked": (
+            plan.get("write_now_count", 0) == 0
+            and plan.get("skip_duplicate_count", 0) > 0
+            and bool(rollover.get("rollover_passed"))
+        ),
     }
 
     gaps: list[str] = []
@@ -64,7 +75,9 @@ def build_p3_path_to_usable(
         gaps.append(f"duplicate_rows_in_log={dc.get('duplicate_rows_suppressed')} (ineffective for P3)")
 
     dominant = "horizon_maturation"
-    if path_b.get("requires_iso_week_rollover") and not path_b.get("l1_recommended"):
+    if path_b.get("rollover_passed_write_still_blocked"):
+        dominant = "rollover_passed_cache_or_duplicate_blocked"
+    elif path_b.get("requires_iso_week_rollover") and not path_b.get("l1_recommended"):
         dominant = "iso_week_rollover_then_l1"
     elif path_a.get("pending_rows", 0) == 0 and path_b.get("write_now_count", 0) == 0:
         dominant = "blocked"
@@ -78,6 +91,8 @@ def build_p3_path_to_usable(
     next_steps: list[str] = []
     if path_b.get("l1_recommended"):
         next_steps.append(str(l1_gate.get("next_action") or "Run L1 with --skip-duplicate-iso-week"))
+    elif path_b.get("rollover_passed_write_still_blocked") and rollover.get("l1_unblock_hint"):
+        next_steps.append(str(rollover["l1_unblock_hint"]))
     elif path_b.get("requires_iso_week_rollover") and rollover.get("l1_unblock_hint"):
         next_steps.append(str(rollover["l1_unblock_hint"]))
     if path_a.get("pending_rows", 0) > 0:
@@ -137,6 +152,18 @@ def format_p3_path_to_usable_markdown(path: dict[str, Any]) -> str:
             f"- skip_duplicate_count: {pb.get('skip_duplicate_count', 0)}",
             f"- l1_status: {pb.get('l1_status')}",
             f"- days_until_earliest_rollover: {pb.get('days_until_earliest_rollover')}",
+        ]
+    )
+    note = pb.get("days_until_earliest_rollover_note")
+    if note:
+        lines.append(f"- days_until_earliest_rollover_note: {note}")
+    if pb.get("rollover_passed_write_still_blocked"):
+        lines.append(
+            "- rollover_passed_write_still_blocked: True "
+            "(calendar ISO week rollover elapsed; planned writes still duplicate or cache/as_of not advanced)"
+        )
+    lines.extend(
+        [
             f"- requires_iso_week_rollover: {pb.get('requires_iso_week_rollover')}",
         ]
     )
@@ -165,6 +192,8 @@ def _slim_weekly_write_plan(plan: dict[str, Any] | None) -> dict[str, Any]:
         "l1_status": l1.get("status"),
         "l1_recommended": l1.get("l1_recommended"),
         "days_until_earliest_rollover": rollover.get("days_until_earliest_rollover"),
+        "days_until_earliest_rollover_note": rollover.get("days_until_earliest_rollover_note"),
+        "rollover_passed": rollover.get("rollover_passed"),
         "earliest_next_iso_week_start": rollover.get("earliest_next_iso_week_start"),
     }
 

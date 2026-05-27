@@ -110,19 +110,38 @@ def estimate_p3_iso_week_rollover(
 
     days_until = max(0, (earliest - ref).days)
     iso = earliest.isocalendar()
+    rollover_passed = ref >= earliest
+    days_until_note = (
+        "0 = earliest_next_iso_week_start reached or passed (calendar rollover date elapsed; "
+        "write_now may still be 0 if cache/as_of has not advanced)"
+        if rollover_passed
+        else f"{days_until} calendar day(s) until earliest_next_iso_week_start"
+    )
+    if rollover_passed:
+        status = "rollover_passed_write_still_blocked"
+        l1_unblock_hint = (
+            "ISO week rollover date has passed but write_now_count=0: planned writes still "
+            "duplicate existing symbol×ISO week rows or cache/as_of has not advanced; "
+            "refresh P10 tier-1 cache and re-check write_now_count"
+        )
+    else:
+        status = "waiting_for_iso_week_rollover"
+        l1_unblock_hint = (
+            f"Re-check write_now_count after {earliest.isoformat()} "
+            f"(ISO week {iso[0]}-W{iso[1]:02d}) or after P10 extends cache into a new week"
+        )
     return {
         "schema_version": 1,
-        "status": "waiting_for_iso_week_rollover",
+        "status": status,
         "reference_date": ref.isoformat(),
         "earliest_next_iso_week_start": earliest.isoformat(),
         "earliest_next_iso_week": f"{iso[0]}-W{iso[1]:02d}",
         "days_until_earliest_rollover": days_until,
+        "days_until_earliest_rollover_note": days_until_note,
+        "rollover_passed": rollover_passed,
         "projected_write_now_symbols_at_rollover": len(per_symbol),
         "per_symbol_sample": per_symbol[:12],
-        "l1_unblock_hint": (
-            f"Re-check write_now_count after {earliest.isoformat()} "
-            f"(ISO week {iso[0]}-W{iso[1]:02d}) or after P10 extends cache into a new week"
-        ),
+        "l1_unblock_hint": l1_unblock_hint,
         "observation_only": True,
     }
 
@@ -132,10 +151,12 @@ def evaluate_p3_l1_write_gate(
     write_now_count: int,
     skip_duplicate_count: int,
     will_be_matchable_after_date_rows: int | None = None,
+    iso_week_rollover: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Read-only L1 batch gate from weekly write plan + horizon maturity (docs/161)."""
 
     will_match = int(will_be_matchable_after_date_rows or 0)
+    rollover = iso_week_rollover or {}
     base = {
         "write_now_count": write_now_count,
         "skip_duplicate_count": skip_duplicate_count,
@@ -154,10 +175,17 @@ def evaluate_p3_l1_write_gate(
             ),
         }
     if skip_duplicate_count > 0:
-        msg = (
-            "L1 blocked: all planned cache as_of dates fall in ISO weeks already logged; "
-            "wait for ISO week rollover, then re-check write_now_count"
-        )
+        if rollover.get("rollover_passed"):
+            msg = (
+                "L1 blocked: ISO week rollover date has passed but write_now_count=0 — "
+                "planned writes still duplicate existing symbol×ISO week rows or "
+                "cache/as_of has not advanced; refresh P10 tier-1 cache and re-check write_now_count"
+            )
+        else:
+            msg = (
+                "L1 blocked: all planned cache as_of dates fall in ISO weeks already logged; "
+                "wait for ISO week rollover, then re-check write_now_count"
+            )
         if will_match > 0:
             msg += f" ({will_match} row(s) will_be_matchable_after_date in log)"
         return {
@@ -198,23 +226,30 @@ def build_p3_weekly_write_plan(
             skip_duplicate.append(entry)
         else:
             write_now.append(entry)
+    rollover = estimate_p3_iso_week_rollover(skip_duplicate=skip_duplicate)
     l1_gate = evaluate_p3_l1_write_gate(
         write_now_count=len(write_now),
         skip_duplicate_count=len(skip_duplicate),
         will_be_matchable_after_date_rows=will_be_matchable_after_date_rows,
+        iso_week_rollover=rollover,
     )
-    rollover = estimate_p3_iso_week_rollover(skip_duplicate=skip_duplicate)
     if rollover.get("l1_unblock_hint") and not l1_gate.get("l1_recommended"):
         l1_gate = {
             **l1_gate,
             "iso_week_rollover": {
                 "earliest_next_iso_week_start": rollover.get("earliest_next_iso_week_start"),
                 "days_until_earliest_rollover": rollover.get("days_until_earliest_rollover"),
+                "days_until_earliest_rollover_note": rollover.get("days_until_earliest_rollover_note"),
+                "rollover_passed": rollover.get("rollover_passed"),
                 "projected_write_now_symbols_at_rollover": rollover.get(
                     "projected_write_now_symbols_at_rollover"
                 ),
             },
-            "next_action": f"{l1_gate.get('next_action', '')}; {rollover['l1_unblock_hint']}",
+            "next_action": (
+                f"{l1_gate.get('next_action', '')}; {rollover['l1_unblock_hint']}"
+                if not rollover.get("rollover_passed")
+                else rollover["l1_unblock_hint"]
+            ),
         }
     return {
         "schema_version": 1,
