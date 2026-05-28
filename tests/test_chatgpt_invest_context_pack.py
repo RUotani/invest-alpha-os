@@ -509,3 +509,39 @@ def test_cli_cache_refresh_execute_writes_outputs_and_rejects_execute(tmp_path: 
     )
     assert r5.exit_code == 2, r5.stdout + r5.stderr
     assert "actual_refresh_not_enabled" in (r5.stdout + r5.stderr)
+
+
+def test_cli_jp_cache_refresh_dry_run_filters_jquants_high(tmp_path: Path) -> None:
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    (out_dir / "latest").mkdir(parents=True, exist_ok=True)
+    (out_dir / "latest" / "cache_refresh_execution_plan.json").write_text(
+        json.dumps(
+            {
+                "targets": [
+                    {"ticker": "5802", "provider": "jquants", "priority": "high"},
+                    {"ticker": "6645", "provider": "jquants", "priority": "high"},
+                    {"ticker": "5801", "provider": "jquants", "priority": "high"},
+                    {"ticker": "QQQ", "provider": "us_daily_bars", "priority": "medium"},
+                ]
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    r4 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-jp-cache-refresh-dry-run",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--plan-json",
+            str(out_dir / "latest" / "cache_refresh_execution_plan.json"),
+        ],
+    )
+    assert r4.exit_code == 0, r4.stdout + r4.stderr
+    md = (out_dir / "latest" / "jp_cache_refresh_dry_run.md").read_text(encoding="utf-8")
+    assert "5802" in md and "6645" in md and "5801" in md
+    assert "QQQ" not in md
