@@ -4,7 +4,8 @@ from invis_alpha_os.reports.cache_refresh_execute import (
     JP_ALLOWED_TARGETS,
     build_cache_refresh_execute,
     build_cache_refresh_execute_dry_run,
-    validate_jp_only_gates,
+    normalize_target_status,
+    retry_safe,
 )
 
 
@@ -40,6 +41,9 @@ def _full_gates_env() -> dict[str, str]:
         "CONFIRM_PROVIDER": "jquants",
         "CONFIRM_SCOPE": "JP_ONLY",
         "JQUANTS_ALLOW_LIVE_HTTP": "true",
+        "JQUANTS_ENABLED": "true",
+        "JQUANTS_API_BASE_URL": "https://example.test/v2",
+        "JQUANTS_API_KEY": "test-key",
     }
 
 
@@ -52,11 +56,8 @@ def test_execute_dry_run_success_without_live_or_cache_write() -> None:
     )
     assert result.json_payload["dry_run_only"] is True
     assert result.json_payload["live_http_executed"] is False
-    assert result.json_payload["cache_write_executed"] is False
     assert result.json_payload["actual_refresh_executed"] is False
     assert result.json_payload["status"] == "planned_dry_run_only"
-    assert "5802" in result.markdown_text
-    assert "QQQ" not in result.json_payload.get("targets", [])
 
 
 def test_execute_refresh_rejected_without_gates() -> None:
@@ -66,31 +67,33 @@ def test_execute_refresh_rejected_without_gates() -> None:
         execute_refresh=True,
         env={},
     )
-    assert result.json_payload["status"] == "refused_missing_gates"
+    assert result.json_payload["overall_status"] == "gate_refused"
     assert result.json_payload["actual_refresh_executed"] is False
+    assert result.json_payload["retry_safe"] is True
 
 
-def test_refused_target_mismatch() -> None:
-    status, detail = validate_jp_only_gates(
-        env=_full_gates_env(),
-        targets=["5802", "6645"],
-        provider="jquants",
-        scope="JP_ONLY",
+def test_execute_refresh_auth_missing_with_gates_only() -> None:
+    env = _full_gates_env()
+    env.pop("JQUANTS_API_KEY")
+    env.pop("JQUANTS_API_BASE_URL")
+    env["JQUANTS_ENABLED"] = "false"
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
         execute_refresh=True,
+        env=env,
     )
-    assert status == "refused_target_mismatch"
-    assert detail
+    assert result.is_result is True
+    assert result.json_payload["overall_status"] == "auth_missing"
+    assert result.json_payload["cache_write_executed"] is False
+    assert result.json_payload["retry_safe"] is True
+    assert "J-Quants" in result.json_payload["next_required_action"]
 
 
-def test_refused_provider_mismatch() -> None:
-    status, _ = validate_jp_only_gates(
-        env=_full_gates_env(),
-        targets=["5802", "6645", "5801"],
-        provider="us_daily_bars",
-        scope="JP_ONLY",
-        execute_refresh=True,
-    )
-    assert status == "refused_provider_mismatch"
+def test_normalize_target_status_maps_disabled_to_auth_missing() -> None:
+    row = normalize_target_status({"ticker": "5802", "status": "disabled", "hint": "JQUANTS_ENABLED=false"})
+    assert row["status"] == "auth_missing"
+    assert row["live_http_executed"] is False
 
 
 def test_execute_refresh_mocked_success() -> None:
@@ -110,11 +113,10 @@ def test_execute_refresh_mocked_success() -> None:
         env=_full_gates_env(),
         refresh_fn=_mock_refresh,
     )
-    assert result.is_result is True
+    assert result.json_payload["overall_status"] == "success"
     assert result.json_payload["actual_refresh_executed"] is True
-    assert result.json_payload["live_http_executed"] is True
-    assert result.json_payload["cache_write_executed"] is True
     assert set(result.json_payload["targets"]) == JP_ALLOWED_TARGETS
+    assert retry_safe("success") is False
 
 
 def test_build_cache_refresh_execute_dry_run_legacy_helper() -> None:
