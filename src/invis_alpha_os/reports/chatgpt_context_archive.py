@@ -32,6 +32,8 @@ def write_context_pack_outputs(
     cache_refresh_execute_result_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
+    jquants_preflight_markdown: str | None = None,
+    jquants_preflight_json_payload: dict[str, Any] | None = None,
     cache_refresh_postcheck_markdown: str | None = None,
     cache_refresh_postcheck_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
@@ -128,6 +130,14 @@ def write_context_pack_outputs(
                 json.dumps(jp_cache_refresh_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["latest_jp_cache_refresh_dry_run_json"] = jp_json
+        if jquants_preflight_markdown is not None:
+            pre_md = latest / "jquants_preflight.md"
+            pre_md.write_text(jquants_preflight_markdown, encoding="utf-8")
+            paths["latest_jquants_preflight_md"] = pre_md
+        if jquants_preflight_json_payload is not None:
+            pre_json = latest / "jquants_preflight.json"
+            pre_json.write_text(json.dumps(jquants_preflight_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_jquants_preflight_json"] = pre_json
         if cache_refresh_postcheck_markdown is not None:
             post_md = latest / "cache_refresh_postcheck.md"
             post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
@@ -225,6 +235,14 @@ def write_context_pack_outputs(
                 json.dumps(jp_cache_refresh_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["archive_jp_cache_refresh_dry_run_json"] = jp_json
+        if jquants_preflight_markdown is not None:
+            pre_md = arc / "jquants_preflight.md"
+            pre_md.write_text(jquants_preflight_markdown, encoding="utf-8")
+            paths["archive_jquants_preflight_md"] = pre_md
+        if jquants_preflight_json_payload is not None:
+            pre_json = arc / "jquants_preflight.json"
+            pre_json.write_text(json.dumps(jquants_preflight_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_jquants_preflight_json"] = pre_json
         if cache_refresh_postcheck_markdown is not None:
             post_md = arc / "cache_refresh_postcheck.md"
             post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
@@ -273,6 +291,8 @@ def sync_to_reports_repo(
     cache_refresh_execute_result_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
+    jquants_preflight_markdown: str | None = None,
+    jquants_preflight_json_payload: dict[str, Any] | None = None,
     cache_refresh_postcheck_markdown: str | None = None,
     cache_refresh_postcheck_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
@@ -432,6 +452,20 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_jp_cache_refresh_dry_run_json"] = latest_jp_json
         paths["reports_weekly_jp_cache_refresh_dry_run_json"] = weekly_jp_json
+    if jquants_preflight_markdown is not None:
+        latest_pre_md = latest / "jquants_preflight.md"
+        weekly_pre_md = weekly / "jquants_preflight.md"
+        latest_pre_md.write_text(jquants_preflight_markdown, encoding="utf-8")
+        weekly_pre_md.write_text(jquants_preflight_markdown, encoding="utf-8")
+        paths["reports_latest_jquants_preflight_md"] = latest_pre_md
+        paths["reports_weekly_jquants_preflight_md"] = weekly_pre_md
+    if jquants_preflight_json_payload is not None:
+        latest_pre_json = latest / "jquants_preflight.json"
+        weekly_pre_json = weekly / "jquants_preflight.json"
+        latest_pre_json.write_text(json.dumps(jquants_preflight_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        weekly_pre_json.write_text(json.dumps(jquants_preflight_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["reports_latest_jquants_preflight_json"] = latest_pre_json
+        paths["reports_weekly_jquants_preflight_json"] = weekly_pre_json
     if cache_refresh_postcheck_markdown is not None:
         latest_post_md = latest / "cache_refresh_postcheck.md"
         weekly_post_md = weekly / "cache_refresh_postcheck.md"
