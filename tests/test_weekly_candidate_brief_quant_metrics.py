@@ -61,7 +61,11 @@ def test_quant_metrics_accepts_lowercase_jp_market(monkeypatch) -> None:
     assert qm.source.startswith("cache:jquants_daily_bars:")
 
 
-def test_quant_metrics_resolves_jp_symbol_suffix_fallback() -> None:
+def test_quant_metrics_resolves_jp_symbol_suffix_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.weekly_candidate_brief_quant_metrics.load_jquants_daily_bars_cache",
+        lambda symbol: (_bars(260), {}) if symbol == "5802" else None,
+    )
     qm = compute_candidate_quant_metrics(symbol="5802.T", market="jp", report_date="2026-05-27")
     assert qm.latest_close is not None
     assert qm.source.endswith(":5802")
