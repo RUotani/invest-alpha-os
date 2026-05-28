@@ -179,3 +179,39 @@ def test_cli_chatgpt_enrich_and_validation_seed(tmp_path: Path) -> None:
     )
     assert r3.exit_code == 0, r3.stdout + r3.stderr
     assert (out_dir / "validation" / "seeds" / "2026" / "2026-05-27" / "decision_seed.json").is_file()
+
+
+def test_cli_validation_evaluate_writes_dashboard(tmp_path: Path) -> None:
+    seeds_dir = tmp_path / "outputs" / "chatgpt_context" / "validation" / "seeds" / "2026" / "2026-05-27"
+    seeds_dir.mkdir(parents=True, exist_ok=True)
+    seed_payload = {
+        "report_date": "2026-05-27",
+        "candidates": [
+            {
+                "ticker": "NOFILE",
+                "market": "US",
+                "latest_close_at_report": 100.0,
+                "classification": "見送り",
+                "timing": "見送り",
+                "future_evaluation_dates": {"plus_4w": "2026-06-24", "plus_12w": "2026-08-19", "plus_26w": "2026-11-25"},
+            }
+        ],
+    }
+    (seeds_dir / "decision_seed.json").write_text(json.dumps(seed_payload, ensure_ascii=False), encoding="utf-8")
+    out_dir = tmp_path / "outputs" / "chatgpt_context" / "validation" / "results"
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-validation-evaluate",
+            "--as-of-date",
+            "2026-12-01",
+            "--seeds-dir",
+            str(tmp_path / "outputs" / "chatgpt_context" / "validation" / "seeds"),
+            "--out-dir",
+            str(out_dir),
+            "--write-dashboard",
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert (out_dir / "validation_dashboard.md").is_file()
+    assert (out_dir / "validation_dashboard.json").is_file()

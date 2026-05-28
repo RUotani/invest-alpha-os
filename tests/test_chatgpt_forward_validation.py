@@ -26,3 +26,5 @@ def test_evaluate_validation_seeds_without_cache(tmp_path: Path) -> None:
     assert out["result_4w"].is_file()
     data = json.loads(out["result_4w"].read_text(encoding="utf-8"))
     assert data["horizon"] == "4w"
+    assert out["dashboard_md"].is_file()
+    assert out["dashboard_json"].is_file()
