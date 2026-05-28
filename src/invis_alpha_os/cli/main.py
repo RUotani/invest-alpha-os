@@ -171,6 +171,7 @@ from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_con
 from invis_alpha_os.reports.cache_refresh_execution_plan import build_cache_refresh_execution_plan
 from invis_alpha_os.reports.cache_refresh_execute import build_cache_refresh_execute_dry_run
 from invis_alpha_os.reports.jp_cache_refresh_dry_run import build_jp_cache_refresh_dry_run
+from invis_alpha_os.reports.cache_refresh_postcheck import build_cache_refresh_postcheck
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
     GmailSendBlockedError,
@@ -1463,6 +1464,98 @@ def weekly_candidate_brief_jp_cache_refresh_dry_run_command(
         for key, p in sync_paths.items():
             if "jp_cache_refresh_dry_run" in key:
                 typer.echo(f"weekly-candidate-brief-jp-cache-refresh-dry-run: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-cache-refresh-postcheck")
+def weekly_candidate_brief_cache_refresh_postcheck_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    before_context_json: str = typer.Option(..., "--before-context-json", help="Before context pack JSON path."),
+    after_context_json: Optional[str] = typer.Option(
+        None, "--after-context-json", help="After context pack JSON path (default latest context pack JSON)."
+    ),
+    before_readiness_json: str = typer.Option(..., "--before-readiness-json", help="Before readiness JSON path."),
+    after_readiness_json: Optional[str] = typer.Option(
+        None, "--after-readiness-json", help="After readiness JSON path (default latest readiness JSON)."
+    ),
+    before_plan_json: Optional[str] = typer.Option(None, "--before-plan-json", help="Before execution plan JSON path."),
+    after_plan_json: Optional[str] = typer.Option(
+        None, "--after-plan-json", help="After execution plan JSON path (default latest execution plan JSON)."
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    after_context_path = Path(after_context_json) if after_context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
+    after_readiness_path = Path(after_readiness_json) if after_readiness_json else out_root / "latest" / "cache_refresh_readiness.json"
+    after_plan_path = Path(after_plan_json) if after_plan_json else out_root / "latest" / "cache_refresh_execution_plan.json"
+
+    def _load_json(path: Path) -> dict[str, Any]:
+        if not path.is_file():
+            return {}
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+        return raw if isinstance(raw, dict) else {}
+
+    post = build_cache_refresh_postcheck(
+        report_date=run_date,
+        before_context_json_payload=_load_json(Path(before_context_json)),
+        after_context_json_payload=_load_json(after_context_path),
+        before_readiness_json_payload=_load_json(Path(before_readiness_json)),
+        after_readiness_json_payload=_load_json(after_readiness_path),
+        before_plan_json_payload=_load_json(Path(before_plan_json)) if before_plan_json else {},
+        after_plan_json_payload=_load_json(after_plan_path),
+    )
+    context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
+    context_json_path = out_root / "latest" / "chatgpt_invest_context_pack.json"
+    context_md_text = (
+        context_md_path.read_text(encoding="utf-8")
+        if context_md_path.is_file()
+        else "# ChatGPT投資対話用Context Pack\n"
+    )
+    context_payload = _load_json(context_json_path)
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload or {"report_date": run_date, "source": "cache_refresh_postcheck"},
+        write_latest=write_latest,
+        write_archive=write_archive,
+        cache_refresh_postcheck_markdown=post.markdown_text,
+        cache_refresh_postcheck_json_payload=post.json_payload,
+    )
+    for key, p in paths.items():
+        if "cache_refresh_postcheck" in key:
+            typer.echo(f"weekly-candidate-brief-cache-refresh-postcheck: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-cache-refresh-postcheck: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload or {"report_date": run_date, "source": "cache_refresh_postcheck"},
+            cache_refresh_postcheck_markdown=post.markdown_text,
+            cache_refresh_postcheck_json_payload=post.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "cache_refresh_postcheck" in key:
+                typer.echo(f"weekly-candidate-brief-cache-refresh-postcheck: {key}={p}")
     raise typer.Exit(0)
 
 

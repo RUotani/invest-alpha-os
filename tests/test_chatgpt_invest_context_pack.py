@@ -545,3 +545,39 @@ def test_cli_jp_cache_refresh_dry_run_filters_jquants_high(tmp_path: Path) -> No
     md = (out_dir / "latest" / "jp_cache_refresh_dry_run.md").read_text(encoding="utf-8")
     assert "5802" in md and "6645" in md and "5801" in md
     assert "QQQ" not in md
+
+
+def test_cli_cache_refresh_postcheck_writes_outputs(tmp_path: Path) -> None:
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    before_context = tmp_path / "before_context.json"
+    before_readiness = tmp_path / "before_readiness.json"
+    after_context = out_dir / "latest" / "chatgpt_invest_context_pack.json"
+    after_readiness = out_dir / "latest" / "cache_refresh_readiness.json"
+    before_context.write_text(
+        json.dumps({"candidates": [{"ticker": "5802", "freshness_classification": "data_update_required", "stale_days": 99}]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    before_readiness.write_text(json.dumps({"stale_candidates": [{"ticker": "5802"}]}, ensure_ascii=False), encoding="utf-8")
+    (out_dir / "latest").mkdir(parents=True, exist_ok=True)
+    after_context.write_text(
+        json.dumps({"candidates": [{"ticker": "5802", "freshness_classification": "stale", "stale_days": 7}]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    after_readiness.write_text(json.dumps({"stale_candidates": []}, ensure_ascii=False), encoding="utf-8")
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-postcheck",
+            "--report-date",
+            "2026-05-27",
+            "--before-context-json",
+            str(before_context),
+            "--before-readiness-json",
+            str(before_readiness),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert (out_dir / "latest" / "cache_refresh_postcheck.md").is_file()
+    assert (out_dir / "latest" / "cache_refresh_postcheck.json").is_file()

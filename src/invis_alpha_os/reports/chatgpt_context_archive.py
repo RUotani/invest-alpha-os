@@ -30,6 +30,8 @@ def write_context_pack_outputs(
     cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
+    cache_refresh_postcheck_markdown: str | None = None,
+    cache_refresh_postcheck_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -114,6 +116,14 @@ def write_context_pack_outputs(
                 json.dumps(jp_cache_refresh_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["latest_jp_cache_refresh_dry_run_json"] = jp_json
+        if cache_refresh_postcheck_markdown is not None:
+            post_md = latest / "cache_refresh_postcheck.md"
+            post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
+            paths["latest_cache_refresh_postcheck_md"] = post_md
+        if cache_refresh_postcheck_json_payload is not None:
+            post_json = latest / "cache_refresh_postcheck.json"
+            post_json.write_text(json.dumps(cache_refresh_postcheck_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_cache_refresh_postcheck_json"] = post_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -193,6 +203,14 @@ def write_context_pack_outputs(
                 json.dumps(jp_cache_refresh_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["archive_jp_cache_refresh_dry_run_json"] = jp_json
+        if cache_refresh_postcheck_markdown is not None:
+            post_md = arc / "cache_refresh_postcheck.md"
+            post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
+            paths["archive_cache_refresh_postcheck_md"] = post_md
+        if cache_refresh_postcheck_json_payload is not None:
+            post_json = arc / "cache_refresh_postcheck.json"
+            post_json.write_text(json.dumps(cache_refresh_postcheck_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_cache_refresh_postcheck_json"] = post_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -231,6 +249,8 @@ def sync_to_reports_repo(
     cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
+    cache_refresh_postcheck_markdown: str | None = None,
+    cache_refresh_postcheck_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -370,6 +390,24 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_jp_cache_refresh_dry_run_json"] = latest_jp_json
         paths["reports_weekly_jp_cache_refresh_dry_run_json"] = weekly_jp_json
+    if cache_refresh_postcheck_markdown is not None:
+        latest_post_md = latest / "cache_refresh_postcheck.md"
+        weekly_post_md = weekly / "cache_refresh_postcheck.md"
+        latest_post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
+        weekly_post_md.write_text(cache_refresh_postcheck_markdown, encoding="utf-8")
+        paths["reports_latest_cache_refresh_postcheck_md"] = latest_post_md
+        paths["reports_weekly_cache_refresh_postcheck_md"] = weekly_post_md
+    if cache_refresh_postcheck_json_payload is not None:
+        latest_post_json = latest / "cache_refresh_postcheck.json"
+        weekly_post_json = weekly / "cache_refresh_postcheck.json"
+        latest_post_json.write_text(
+            json.dumps(cache_refresh_postcheck_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        weekly_post_json.write_text(
+            json.dumps(cache_refresh_postcheck_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        paths["reports_latest_cache_refresh_postcheck_json"] = latest_post_json
+        paths["reports_weekly_cache_refresh_postcheck_json"] = weekly_post_json
     return paths
 
 
