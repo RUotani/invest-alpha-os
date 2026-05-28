@@ -16,3 +16,22 @@ def test_analyze_candidate_traps_basic() -> None:
     assert out["ticker"] == "285A"
     assert out["value_trap_risk"]["level"] in {"中", "高"}
     assert isinstance(out["upside_thesis"], list)
+
+
+def test_analyze_candidate_traps_uses_context_fields() -> None:
+    candidate = {
+        "ticker": "5802",
+        "freshness": "最新圏",
+        "returns": {"d5": 0.02, "d20": 0.28, "d60": 0.32},
+        "moving_averages": {"dist_ma25_pct": 0.11, "dist_ma75_pct": 0.16, "dist_ma200_pct": 0.24},
+        "range_52w": {"dist_high_pct": -0.03},
+        "volume": {"ratio20": 1.1},
+        "momentum_rationale": ["電力インフラ需要が追い風"],
+        "counter_evidence": ["急伸後の利益確定リスク"],
+        "next_checks": ["銅価格の継続確認"],
+    }
+    out = analyze_candidate_traps(candidate)
+    assert "追加入力待ち" not in out["upside_thesis"]
+    assert "電力インフラ需要が追い風" in out["upside_thesis"]
+    assert "急伸後の利益確定リスク" in out["downside_thesis"]
+    assert "銅価格の継続確認" in out["next_review_conditions"]

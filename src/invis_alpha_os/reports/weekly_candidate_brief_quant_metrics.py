@@ -10,6 +10,8 @@ from invis_alpha_os.data.jquants_daily_bars_cache import load_jquants_daily_bars
 from invis_alpha_os.data.us_daily_bars_cache import load_us_daily_bars_cache
 from invis_alpha_os.signals.momentum import DailyBar, calculate_returns
 
+_JP_MARKET_ALIASES = {"JP", "JPN", "TSE", "TYO"}
+
 
 @dataclass(frozen=True)
 class CandidateQuantMetrics:
@@ -64,19 +66,44 @@ def _freshness_label(*, latest_bar_date: str | None, report_date: str) -> str:
     return f"要更新（直近データが7日超過: {delta}日）"
 
 
-def _load_bars(symbol: str, market: str) -> tuple[list[DailyBar], str] | None:
-    if market == "JP":
-        loaded = load_jquants_daily_bars_cache(symbol)
-        if loaded is None:
-            return None
-        return loaded[0], "cache:jquants_daily_bars"
-    loaded = load_us_daily_bars_cache(symbol)
-    if loaded is None:
+def _normalize_market(raw_market: str) -> str:
+    return raw_market.strip().upper()
+
+
+def _jp_symbol_candidates(symbol: str) -> list[str]:
+    s = symbol.strip()
+    base = s[:-2] if s.upper().endswith(".T") else s
+    raw = [s, base, f"{base}.T", f"{base} JP", f"{base}.JP"]
+    out: list[str] = []
+    for item in raw:
+        key = item.strip()
+        if key and key not in out:
+            out.append(key)
+    return out
+
+
+def _load_bars(symbol: str, market: str) -> tuple[list[DailyBar], str, list[str]] | None:
+    market_norm = _normalize_market(market)
+    if market_norm in _JP_MARKET_ALIASES:
+        tried = _jp_symbol_candidates(symbol)
+        for candidate in tried:
+            loaded = load_jquants_daily_bars_cache(candidate)
+            if loaded is None:
+                continue
+            return loaded[0], f"cache:jquants_daily_bars:{candidate}", tried
         return None
-    return loaded[0], "cache:us_daily_bars"
+    tried = [symbol.strip()]
+    for candidate in tried:
+        loaded = load_us_daily_bars_cache(candidate)
+        if loaded is None:
+            continue
+        return loaded[0], f"cache:us_daily_bars:{candidate}", tried
+    return None
 
 
 def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: str) -> CandidateQuantMetrics:
+    market_norm = _normalize_market(market)
+    tried_symbols = _jp_symbol_candidates(symbol) if market_norm in _JP_MARKET_ALIASES else [symbol.strip()]
     loaded = _load_bars(symbol, market)
     if loaded is None:
         return CandidateQuantMetrics(
@@ -101,9 +128,14 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
             avg_volume_20d=None,
             volume_ratio_20d=None,
             freshness_label="unknown",
-            missing_reason="キャッシュファイルが見つからないか壊れています",
+            missing_reason=(
+                f"キャッシュ未検出（market={market_norm or 'UNKNOWN'}; tried={','.join(tried_symbols)}）"
+            ),
         )
-    bars, source = loaded
+    if len(loaded) == 2:
+        bars, source = loaded  # backward-compatible for test monkeypatch
+    else:
+        bars, source, _ = loaded
     closes = [float(b["close"]) for b in bars]
     highs = [float(b["high"]) for b in bars]
     lows = [float(b["low"]) for b in bars]

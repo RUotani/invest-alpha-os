@@ -79,6 +79,62 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
     }
 
 
+def _timing_label_ja(timing: str) -> str:
+    labels = {
+        "deep_dive": "深掘り",
+        "breakout_watch": "ブレイクアウト監視",
+        "wait_for_pullback": "押し目待ち",
+        "watch_continue": "監視継続",
+        "skip": "見送り",
+        "data_insufficient": "データ不足",
+        "overheated_watch": "過熱監視",
+    }
+    return labels.get(timing, "要確認")
+
+
+def _normalize_timing(
+    *,
+    candidate: dict[str, Any],
+    in_skip: bool,
+) -> tuple[str, str]:
+    returns = candidate.get("returns") or {}
+    ma = candidate.get("moving_averages") or {}
+    classification = str(candidate.get("classification", "")).strip()
+    freshness = str(candidate.get("freshness", "")).strip()
+    missing = candidate.get("missing_data_reasons") or []
+    ret20 = returns.get("d20")
+    ret60 = returns.get("d60")
+    dist25 = ma.get("dist_ma25_pct")
+    dist75 = ma.get("dist_ma75_pct")
+    try:
+        v20 = float(ret20) if ret20 is not None else None
+        v60 = float(ret60) if ret60 is not None else None
+        d25 = float(dist25) if dist25 is not None else None
+        d75 = float(dist75) if dist75 is not None else None
+    except (TypeError, ValueError):
+        v20, v60, d25, d75 = None, None, None, None
+
+    overheat = bool(
+        (v20 is not None and v20 >= 0.3)
+        or (v60 is not None and v60 >= 0.6)
+        or (d25 is not None and d25 >= 0.15)
+        or (d75 is not None and d75 >= 0.2)
+    )
+    if missing:
+        return "data_insufficient", "定量データに欠損があるためタイミング判定を保留"
+    if classification == "top_pick" and in_skip and overheat:
+        return "wait_for_pullback", "候補性はあるが短期急伸のため高値追いを回避"
+    if classification == "top_pick" and overheat:
+        return "overheated_watch", "候補性はあるが過熱警戒で監視優先"
+    if "要更新" in freshness:
+        return "watch_continue", "データ鮮度が低いため更新後に再評価"
+    if classification == "top_pick":
+        return "deep_dive", "上位候補として前提条件と無効化条件を優先確認"
+    if in_skip:
+        return "skip", "反証優位のため見送り"
+    return "watch_continue", "継続観測で条件改善を待つ"
+
+
 def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> ContextPackResult:
     payload = _read_brief_payload(report_dir)
     sections = payload.get("sections") or {}
@@ -88,6 +144,18 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     pull = sections.get("pullbacks") or []
     avoid = sections.get("avoid") or []
     insuf = sections.get("insufficient") or []
+
+    skip_symbols = {
+        str((x.get("candidate") or {}).get("instrument_id", "")).strip()
+        for x in avoid
+        if isinstance(x, dict)
+    }
+    for item in top10:
+        timing, timing_reason = _normalize_timing(candidate=item, in_skip=item["ticker"] in skip_symbols)
+        item["timing"] = timing
+        item["timing_label_ja"] = _timing_label_ja(timing)
+        item["timing_reason"] = timing_reason
+        item["quant_data_status"] = "ok" if not item["missing_data_reasons"] else "missing"
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -151,10 +219,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         md_lines.extend(
             [
                 f"### {c['rank']}. {c['ticker']} — {c['name']}",
-                f"- 分類: {c['classification']}",
+                f"- 候補分類: {c['classification']}",
+                f"- タイミング分類: {c['timing']}（{c['timing_label_ja']}）",
+                f"- タイミング理由: {c['timing_reason']}",
                 f"- 直近終値: {c['latest_close']}",
                 f"- 直近データ日: {c['latest_bar_date']}",
                 f"- データ鮮度: {c['freshness']}",
+                f"- 定量データ状態: {c['quant_data_status']}",
+                f"- 欠損理由: {', '.join(c['missing_data_reasons']) or 'なし'}",
                 f"- 5D/20D/60D騰落率: {c['returns']['d5']}, {c['returns']['d20']}, {c['returns']['d60']}",
                 f"- 25D/75D/200D移動平均線との乖離: {c['moving_averages']['dist_ma25_pct']}, {c['moving_averages']['dist_ma75_pct']}, {c['moving_averages']['dist_ma200_pct']}",
                 f"- 52週高値/安値との距離: {c['range_52w']['dist_high_pct']}, {c['range_52w']['dist_low_pct']}",
