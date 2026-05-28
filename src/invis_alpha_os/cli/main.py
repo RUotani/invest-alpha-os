@@ -171,6 +171,7 @@ from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_con
 from invis_alpha_os.reports.cache_refresh_execution_plan import build_cache_refresh_execution_plan
 from invis_alpha_os.reports.cache_refresh_execute import build_cache_refresh_execute
 from invis_alpha_os.reports.jp_cache_refresh_dry_run import build_jp_cache_refresh_dry_run
+from invis_alpha_os.reports.jquants_preflight import build_jquants_preflight
 from invis_alpha_os.reports.cache_refresh_postcheck import build_cache_refresh_postcheck
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
@@ -1485,6 +1486,72 @@ def weekly_candidate_brief_jp_cache_refresh_dry_run_command(
         for key, p in sync_paths.items():
             if "jp_cache_refresh_dry_run" in key:
                 typer.echo(f"weekly-candidate-brief-jp-cache-refresh-dry-run: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-jquants-preflight")
+def weekly_candidate_brief_jquants_preflight_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    preflight = build_jquants_preflight(report_date=run_date, env=dict(os.environ))
+    context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
+    context_json_path = out_root / "latest" / "chatgpt_invest_context_pack.json"
+    context_md_text = (
+        context_md_path.read_text(encoding="utf-8")
+        if context_md_path.is_file()
+        else "# ChatGPT投資対話用Context Pack\n"
+    )
+    context_payload: dict[str, Any] = {}
+    if context_json_path.is_file():
+        try:
+            raw = json.loads(context_json_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                context_payload = raw
+        except json.JSONDecodeError:
+            context_payload = {}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload or {"report_date": run_date, "source": "jquants_preflight"},
+        write_latest=write_latest,
+        write_archive=write_archive,
+        jquants_preflight_markdown=preflight.markdown_text,
+        jquants_preflight_json_payload=preflight.json_payload,
+    )
+    for key, p in paths.items():
+        if "jquants_preflight" in key:
+            typer.echo(f"weekly-candidate-brief-jquants-preflight: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-jquants-preflight: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload or {"report_date": run_date, "source": "jquants_preflight"},
+            jquants_preflight_markdown=preflight.markdown_text,
+            jquants_preflight_json_payload=preflight.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "jquants_preflight" in key:
+                typer.echo(f"weekly-candidate-brief-jquants-preflight: {key}={p}")
     raise typer.Exit(0)
 
 
