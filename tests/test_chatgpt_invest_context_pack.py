@@ -58,8 +58,10 @@ def test_build_chatgpt_context_pack(tmp_path: Path) -> None:
     assert "AAPL" in pack.markdown_text
     assert "候補分類" in pack.markdown_text
     assert "タイミング分類" in pack.markdown_text
+    assert "市場レジーム" in pack.markdown_text
     assert pack.json_payload["language"] == "ja"
     assert pack.json_payload["candidates"][0]["ticker"] == "AAPL"
+    assert pack.json_payload["market_regime"]["label"] != "未実装"
 
 
 def test_cli_context_pack_writes_latest_and_archive(tmp_path: Path) -> None:
@@ -306,9 +308,52 @@ def test_build_chatgpt_context_pack_normalizes_top_pick_skip_overheat(tmp_path: 
         volume_ratio_20d=1.0,
         freshness_label="最新圏",
         missing_reason=None,
+        freshness_classification="fresh",
+        stale_days=0,
+        freshness_reason="直近データが0日差で最新圏",
+        timing_impact="通常のタイミング判断が可能。",
     ),
     )
     pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
     c0 = pack.json_payload["candidates"][0]
     assert c0["classification"] == "top_pick"
     assert c0["timing"] in {"wait_for_pullback", "overheated_watch"}
+
+
+def test_priority_queue_includes_data_update_required_warning(tmp_path: Path, monkeypatch) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.chatgpt_invest_context_pack.compute_candidate_quant_metrics",
+        lambda **_: CandidateQuantMetrics(
+            symbol="AAPL",
+            source="cache:test",
+            latest_bar_date="2026-01-01",
+            latest_close=1000.0,
+            ret_5d_pct=0.01,
+            ret_20d_pct=0.02,
+            ret_60d_pct=0.03,
+            ma_25=900.0,
+            ma_75=800.0,
+            ma_200=700.0,
+            dist_ma_25_pct=0.1,
+            dist_ma_75_pct=0.1,
+            dist_ma_200_pct=0.1,
+            high_52w=1100.0,
+            low_52w=500.0,
+            dist_52w_high_pct=-0.1,
+            dist_52w_low_pct=1.0,
+            latest_volume=100.0,
+            avg_volume_20d=100.0,
+            volume_ratio_20d=1.0,
+            freshness_label="要更新（直近データが7日超過: 99日）",
+            missing_reason=None,
+            freshness_classification="data_update_required",
+            stale_days=99,
+            freshness_reason="直近データが99日古い",
+            timing_impact="実タイミング判断不可。テーマ深掘りのみ可。",
+        ),
+    )
+    pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
+    queue = pack.json_payload["research_queue"]["data_update_required"]
+    assert queue and queue[0]["ticker"] == "AAPL"

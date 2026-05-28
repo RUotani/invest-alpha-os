@@ -37,6 +37,10 @@ class CandidateQuantMetrics:
     volume_ratio_20d: float | None
     freshness_label: str
     missing_reason: str | None
+    freshness_classification: str | None = None
+    stale_days: int | None = None
+    freshness_reason: str | None = None
+    timing_impact: str | None = None
 
 
 def _mean_last(vals: Sequence[float], n: int) -> float | None:
@@ -64,6 +68,42 @@ def _freshness_label(*, latest_bar_date: str | None, report_date: str) -> str:
     if delta <= 7:
         return "最新圏"
     return f"要更新（直近データが7日超過: {delta}日）"
+
+
+def _freshness_details(*, latest_bar_date: str | None, report_date: str) -> tuple[str, int | None, str, str]:
+    if not latest_bar_date:
+        return (
+            "cache_missing",
+            None,
+            "価格キャッシュが見つからないため鮮度判定不可",
+            "実タイミング判断不可。データ更新を優先。",
+        )
+    try:
+        d_latest = date.fromisoformat(latest_bar_date)
+        d_report = date.fromisoformat(report_date)
+    except ValueError:
+        return (
+            "cache_missing",
+            None,
+            "日付形式が不正なため鮮度判定不可",
+            "実タイミング判断不可。データ形式確認が必要。",
+        )
+    delta = max((d_report - d_latest).days, 0)
+    if delta <= 7:
+        return ("fresh", delta, f"直近データが{delta}日差で最新圏", "通常のタイミング判断が可能。")
+    if delta <= 30:
+        return (
+            "stale",
+            delta,
+            f"直近データが{delta}日古い",
+            "短期タイミング判断の確度低下。監視優先。",
+        )
+    return (
+        "data_update_required",
+        delta,
+        f"直近データが{delta}日古い",
+        "実タイミング判断不可。テーマ深掘りのみ可。",
+    )
 
 
 def _normalize_market(raw_market: str) -> str:
@@ -131,6 +171,10 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
             missing_reason=(
                 f"キャッシュ未検出（market={market_norm or 'UNKNOWN'}; tried={','.join(tried_symbols)}）"
             ),
+            freshness_classification="cache_missing",
+            stale_days=None,
+            freshness_reason="価格キャッシュが見つからないため鮮度判定不可",
+            timing_impact="実タイミング判断不可。データ更新を優先。",
         )
     if len(loaded) == 2:
         bars, source = loaded  # backward-compatible for test monkeypatch
@@ -164,6 +208,10 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
     if avgv20 is None:
         missing.append("データ本数不足（20日平均出来高）")
 
+    freshness_classification, stale_days, freshness_reason, timing_impact = _freshness_details(
+        latest_bar_date=latest_bar_date or None,
+        report_date=report_date,
+    )
     return CandidateQuantMetrics(
         symbol=symbol,
         source=source,
@@ -187,6 +235,14 @@ def compute_candidate_quant_metrics(*, symbol: str, market: str, report_date: st
         volume_ratio_20d=_dist(latest_volume, avgv20) + 1.0 if latest_volume is not None and avgv20 not in (None, 0) else None,
         freshness_label=_freshness_label(latest_bar_date=latest_bar_date or None, report_date=report_date),
         missing_reason="; ".join(missing) if missing else None,
+        freshness_classification=(
+            "partial_history"
+            if missing and freshness_classification in {"fresh", "stale"}
+            else freshness_classification
+        ),
+        stale_days=stale_days,
+        freshness_reason=freshness_reason,
+        timing_impact=timing_impact,
     )
 
 

@@ -40,3 +40,4 @@ def test_build_context_enrichment_reduces_placeholder_text() -> None:
     }
     result = build_context_enrichment(report_date="2026-05-27", context_json_payload=payload)
     assert "追加入力待ち" not in result.markdown_text
+    assert "データ鮮度リスク" in result.markdown_text

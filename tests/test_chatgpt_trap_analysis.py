@@ -35,3 +35,4 @@ def test_analyze_candidate_traps_uses_context_fields() -> None:
     assert "電力インフラ需要が追い風" in out["upside_thesis"]
     assert "急伸後の利益確定リスク" in out["downside_thesis"]
     assert "銅価格の継続確認" in out["next_review_conditions"]
+    assert "freshness_risk" in out
