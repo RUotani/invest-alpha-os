@@ -436,3 +436,76 @@ def test_cli_cache_refresh_plan_writes_outputs(tmp_path: Path) -> None:
     assert r3.exit_code == 0, r3.stdout + r3.stderr
     assert (out_dir / "latest" / "cache_refresh_execution_plan.md").is_file()
     assert (out_dir / "latest" / "cache_refresh_execution_plan.json").is_file()
+
+
+def test_cli_cache_refresh_execute_writes_outputs_and_rejects_execute(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r1 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r1.exit_code == 0, r1.stdout + r1.stderr
+    r2 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-readiness",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r2.exit_code == 0, r2.stdout + r2.stderr
+    r3 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-plan",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--readiness-json",
+            str(out_dir / "latest" / "cache_refresh_readiness.json"),
+        ],
+    )
+    assert r3.exit_code == 0, r3.stdout + r3.stderr
+    r4 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-execute",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--plan-json",
+            str(out_dir / "latest" / "cache_refresh_execution_plan.json"),
+        ],
+    )
+    assert r4.exit_code == 0, r4.stdout + r4.stderr
+    assert (out_dir / "latest" / "cache_refresh_execute_dry_run.md").is_file()
+    assert (out_dir / "latest" / "cache_refresh_execute_dry_run.json").is_file()
+    r5 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-execute",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--plan-json",
+            str(out_dir / "latest" / "cache_refresh_execution_plan.json"),
+            "--execute-refresh",
+        ],
+    )
+    assert r5.exit_code == 2, r5.stdout + r5.stderr
+    assert "actual_refresh_not_enabled" in (r5.stdout + r5.stderr)
