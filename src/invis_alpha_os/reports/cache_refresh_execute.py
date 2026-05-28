@@ -1,33 +1,293 @@
-"""Dry-run only cache refresh execute skeleton."""
+"""JP-only gated cache refresh execute (dry-run default; one-shot live when gates match)."""
 
 from __future__ import annotations
 
+import os
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
+from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
+from invis_alpha_os.data.jquants_daily_bars_cache import save_jquants_daily_bars_cache, utc_now_iso
 from invis_alpha_os.reports.cache_refresh_execution_plan import REQUIRED_GATES
+
+JP_ALLOWED_TARGETS: frozenset[str] = frozenset({"5802", "6645", "5801"})
+REQUIRED_PROVIDER = "jquants"
+REQUIRED_SCOPE = "JP_ONLY"
+REFRESH_LOOKBACK_DAYS = 400
+
+RefreshSymbolFn = Callable[[str, str, str], dict[str, Any]]
 
 
 @dataclass(frozen=True)
 class CacheRefreshExecuteResult:
     markdown_text: str
     json_payload: dict[str, Any]
+    is_result: bool = False
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _required_gates_status(env: dict[str, str] | None) -> dict[str, str]:
-    values = env or {}
+def parse_targets_csv(targets_csv: str) -> list[str]:
+    out: list[str] = []
+    for part in targets_csv.split(","):
+        token = part.strip()
+        if token:
+            out.append(token)
+    return out
+
+
+def _truthy_env(env: dict[str, str], key: str, expected: str) -> bool:
+    return env.get(key, "").strip() == expected
+
+
+def validate_jp_only_gates(
+    *,
+    env: dict[str, str],
+    targets: list[str],
+    provider: str,
+    scope: str,
+    execute_refresh: bool,
+) -> tuple[str, list[str]]:
+    """Return (status, missing_or_reason_tokens). status: ok | refused_*."""
+    missing: list[str] = []
+    target_set = frozenset(targets)
+    if provider.strip().lower() != REQUIRED_PROVIDER:
+        return "refused_provider_mismatch", [f"provider={provider}"]
+    if scope.strip().upper() != REQUIRED_SCOPE:
+        return "refused_scope_mismatch", [f"scope={scope}"]
+    if target_set != JP_ALLOWED_TARGETS:
+        return "refused_target_mismatch", [f"targets={sorted(target_set)}"]
+    for t in targets:
+        if normalize_jquants_equity_code(t) is None:
+            return "refused_invalid_target", [t]
+    if not execute_refresh:
+        return "planned_dry_run_only", []
+    for gate in REQUIRED_GATES:
+        if gate == "ALLOW_LIVE_HTTP" and not _truthy_env(env, gate, "1"):
+            missing.append(gate)
+        elif gate.startswith("CONFIRM_") and not _truthy_env(env, gate, "YES"):
+            missing.append(gate)
+    if not _truthy_env(env, "CONFIRM_TARGETS", "5802,6645,5801"):
+        missing.append("CONFIRM_TARGETS")
+    if env.get("CONFIRM_PROVIDER", "").strip().lower() != REQUIRED_PROVIDER:
+        missing.append("CONFIRM_PROVIDER")
+    if env.get("CONFIRM_SCOPE", "").strip().upper() != REQUIRED_SCOPE:
+        missing.append("CONFIRM_SCOPE")
+    jq_live = env.get("JQUANTS_ALLOW_LIVE_HTTP", "").strip().lower()
+    if jq_live not in {"true", "1"}:
+        missing.append("JQUANTS_ALLOW_LIVE_HTTP")
+    if missing:
+        return "refused_missing_gates", missing
+    return "ok", []
+
+
+def default_refresh_date_range() -> tuple[str, str]:
+    to_d = date.today()
+    from_d = to_d - timedelta(days=REFRESH_LOOKBACK_DAYS)
+    return from_d.strftime("%Y-%m-%d"), to_d.strftime("%Y-%m-%d")
+
+
+def refresh_jp_symbol_live(
+    code: str,
+    from_date: str,
+    to_date: str,
+) -> dict[str, Any]:
+    """Fetch J-Quants daily bars and write cache (live HTTP + cache write)."""
+    from invis_alpha_os.data.adapters.jquants_client import JQuantsClient
+
+    wire = normalize_jquants_equity_code(code.strip())
+    if wire is None:
+        return {"ticker": code, "status": "validation_error", "reason": "invalid_equity_code"}
+    if os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
+        return {"ticker": wire, "status": "live_blocked", "reason": "confirm_live_http_required"}
+    client = JQuantsClient.from_env()
+    result = client.get_daily_quotes(
+        wire,
+        from_date=from_date,
+        to_date=to_date,
+        attempt_live=True,
+        return_sanitized_bars=True,
+    )
+    st = str(result.get("status", ""))
+    if st != "success":
+        return {
+            "ticker": wire,
+            "status": st,
+            "reason": str(result.get("reason", st)),
+            "live_http_executed": True,
+            "cache_write_executed": False,
+        }
+    bars = result.get("sanitized_bars")
+    if not isinstance(bars, list) or not bars:
+        return {
+            "ticker": wire,
+            "status": "success",
+            "sanitized_bar_count": 0,
+            "cache_written_to": None,
+            "live_http_executed": True,
+            "cache_write_executed": False,
+        }
+    path = save_jquants_daily_bars_cache(
+        wire,
+        bars,
+        source="jquants_v2_equities_bars_daily",
+        fetched_at=utc_now_iso(),
+    )
     return {
-        "ALLOW_LIVE_HTTP": "1" if values.get("ALLOW_LIVE_HTTP") == "1" else "",
-        "CONFIRM_LIVE_HTTP": "YES" if values.get("CONFIRM_LIVE_HTTP") == "YES" else "",
-        "ALLOW_CACHE_WRITE": "1" if values.get("ALLOW_CACHE_WRITE") == "1" else "",
-        "CONFIRM_CACHE_WRITE": "YES" if values.get("CONFIRM_CACHE_WRITE") == "YES" else "",
-        "CONFIRM_CACHE_REFRESH": "YES" if values.get("CONFIRM_CACHE_REFRESH") == "YES" else "",
+        "ticker": wire,
+        "status": "success",
+        "sanitized_bar_count": len(bars),
+        "cache_written_to": str(path),
+        "live_http_executed": True,
+        "cache_write_executed": True,
     }
+
+
+def execute_jp_targets(
+    targets: list[str],
+    *,
+    from_date: str,
+    to_date: str,
+    refresh_fn: RefreshSymbolFn | None = None,
+) -> list[dict[str, Any]]:
+    fn = refresh_fn or refresh_jp_symbol_live
+    ordered = [t for t in ("5802", "6645", "5801") if t in targets]
+    return [fn(t, from_date, to_date) for t in ordered]
+
+
+def build_cache_refresh_execute(
+    *,
+    report_date: str,
+    plan_json_payload: dict[str, Any] | None,
+    execute_refresh: bool,
+    provider: str = REQUIRED_PROVIDER,
+    targets_csv: str = "5802,6645,5801",
+    scope: str = REQUIRED_SCOPE,
+    env: dict[str, str] | None = None,
+    refresh_fn: RefreshSymbolFn | None = None,
+) -> CacheRefreshExecuteResult:
+    env_map = env or {}
+    targets = parse_targets_csv(targets_csv)
+    gate_status, gate_detail = validate_jp_only_gates(
+        env=env_map,
+        targets=targets,
+        provider=provider,
+        scope=scope,
+        execute_refresh=execute_refresh,
+    )
+    plan = plan_json_payload if isinstance(plan_json_payload, dict) else {}
+    plan_targets = plan.get("targets")
+    plan_rows = [x for x in plan_targets if isinstance(x, dict)] if isinstance(plan_targets, list) else []
+    filtered_rows = [
+        row
+        for row in plan_rows
+        if str(row.get("provider", "")).strip() == REQUIRED_PROVIDER
+        and str(row.get("ticker", "")).strip() in JP_ALLOWED_TARGETS
+    ]
+    from_date, to_date = default_refresh_date_range()
+    if gate_status != "ok":
+        payload: dict[str, Any] = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "dry_run_only": not execute_refresh,
+            "live_http_executed": False,
+            "cache_write_executed": False,
+            "actual_refresh_executed": False,
+            "status": gate_status,
+            "provider": provider,
+            "scope": scope,
+            "targets": targets,
+            "required_gates": list(REQUIRED_GATES)
+            + ["CONFIRM_TARGETS", "CONFIRM_PROVIDER", "CONFIRM_SCOPE", "JQUANTS_ALLOW_LIVE_HTTP"],
+            "gate_detail": gate_detail,
+            "plan_targets": filtered_rows,
+            "secrets_printed": False,
+        }
+        title = "# Cache Refresh Execute Dry-Run"
+        if execute_refresh:
+            title = "# Cache Refresh Execute Refused"
+        lines = [
+            title,
+            "",
+            "## メタ情報",
+            f"- report_date: {report_date}",
+            f"- generated_at: {payload['generated_at']}",
+            f"- status: {gate_status}",
+            "- dry_run_only: true" if not execute_refresh else "- dry_run_only: false",
+            "- live_http_executed: false",
+            "- cache_write_executed: false",
+            "- actual_refresh_executed: false",
+            f"- provider: {provider}",
+            f"- scope: {scope}",
+            f"- targets: {', '.join(targets)}",
+            "",
+        ]
+        if gate_detail:
+            lines.append(f"- gate_detail: {', '.join(gate_detail)}")
+        lines.append("")
+        return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload, is_result=False)
+
+    if not execute_refresh:
+        return build_cache_refresh_execute_dry_run(
+            report_date=report_date,
+            plan_json_payload=plan,
+            execute_refresh=False,
+            env=env_map,
+            targets=targets,
+            provider=provider,
+            scope=scope,
+            filtered_rows=filtered_rows,
+        )
+
+    symbol_results = execute_jp_targets(targets, from_date=from_date, to_date=to_date, refresh_fn=refresh_fn)
+    any_live = any(bool(r.get("live_http_executed")) for r in symbol_results)
+    any_write = any(bool(r.get("cache_write_executed")) for r in symbol_results)
+    all_ok = all(str(r.get("status")) == "success" for r in symbol_results)
+    payload = {
+        "report_date": report_date,
+        "generated_at": _now_iso(),
+        "dry_run_only": False,
+        "live_http_executed": any_live,
+        "cache_write_executed": any_write,
+        "actual_refresh_executed": all_ok and any_write,
+        "status": "executed" if all_ok else "partial_failure",
+        "provider": provider,
+        "scope": scope,
+        "targets": targets,
+        "from_date": from_date,
+        "to_date": to_date,
+        "symbol_results": symbol_results,
+        "secrets_printed": False,
+    }
+    lines = [
+        "# Cache Refresh Execute Result",
+        "",
+        "## メタ情報",
+        f"- report_date: {report_date}",
+        f"- generated_at: {payload['generated_at']}",
+        "- dry_run_only: false",
+        f"- live_http_executed: {str(any_live).lower()}",
+        f"- cache_write_executed: {str(any_write).lower()}",
+        f"- actual_refresh_executed: {str(payload['actual_refresh_executed']).lower()}",
+        f"- status: {payload['status']}",
+        f"- provider: {provider}",
+        f"- scope: {scope}",
+        "",
+        "## 対象結果",
+        "| ticker | status | sanitized_bar_count | cache_written |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for row in symbol_results:
+        lines.append(
+            f"| {row.get('ticker', '')} | {row.get('status', '')} | {row.get('sanitized_bar_count', '-')} | "
+            f"{'yes' if row.get('cache_write_executed') else 'no'} |"
+        )
+    lines.append("")
+    return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload, is_result=True)
 
 
 def build_cache_refresh_execute_dry_run(
@@ -36,17 +296,26 @@ def build_cache_refresh_execute_dry_run(
     plan_json_payload: dict[str, Any] | None,
     execute_refresh: bool,
     env: dict[str, str] | None = None,
+    targets: list[str] | None = None,
+    provider: str = REQUIRED_PROVIDER,
+    scope: str = REQUIRED_SCOPE,
+    filtered_rows: list[dict[str, Any]] | None = None,
 ) -> CacheRefreshExecuteResult:
     plan = plan_json_payload if isinstance(plan_json_payload, dict) else {}
-    targets = plan.get("targets")
-    target_rows = [x for x in targets if isinstance(x, dict)] if isinstance(targets, list) else []
-    gate_status = _required_gates_status(env)
-    missing_gates = [k for k, v in gate_status.items() if not v]
-    status = "planned_dry_run_only"
-    error = ""
-    if execute_refresh:
-        status = "actual_refresh_not_enabled"
-        error = "actual_refresh_not_enabled"
+    rows = filtered_rows
+    if rows is None:
+        plan_targets = plan.get("targets")
+        all_rows = [x for x in plan_targets if isinstance(x, dict)] if isinstance(plan_targets, list) else []
+        rows = all_rows
+    target_list = targets or [str(r.get("ticker", "")) for r in rows if r.get("ticker")]
+    gate_status, gate_detail = validate_jp_only_gates(
+        env=env or {},
+        targets=target_list,
+        provider=provider,
+        scope=scope,
+        execute_refresh=False,
+    )
+    from_date, to_date = default_refresh_date_range()
     payload = {
         "report_date": report_date,
         "generated_at": _now_iso(),
@@ -54,12 +323,15 @@ def build_cache_refresh_execute_dry_run(
         "live_http_executed": False,
         "cache_write_executed": False,
         "actual_refresh_executed": False,
-        "status": status,
-        "error": error,
-        "required_gates": list(REQUIRED_GATES),
-        "gate_status": gate_status,
-        "missing_gates": missing_gates,
-        "targets": target_rows,
+        "status": gate_status,
+        "provider": provider,
+        "scope": scope,
+        "targets": target_list,
+        "from_date": from_date,
+        "to_date": to_date,
+        "gate_detail": gate_detail,
+        "plan_targets": rows,
+        "secrets_printed": False,
     }
     lines = [
         "# Cache Refresh Execute Dry-Run",
@@ -71,38 +343,23 @@ def build_cache_refresh_execute_dry_run(
         "- live_http_executed: false",
         "- cache_write_executed: false",
         "- actual_refresh_executed: false",
-        f"- status: {status}",
+        f"- status: {gate_status}",
+        f"- provider: {provider}",
+        f"- scope: {scope}",
+        f"- targets: {', '.join(target_list)}",
+        f"- from_date: {from_date}",
+        f"- to_date: {to_date}",
+        "",
+        "## 対象",
+        "| ticker | market | provider | priority | plan_status |",
+        "| --- | --- | --- | --- | --- |",
     ]
-    if error:
-        lines.append(f"- error: {error}")
-    lines.extend(
-        [
-            "",
-            "## 対象",
-            "| ticker | market | provider | priority | plan_status |",
-            "| --- | --- | --- | --- | --- |",
-        ]
-    )
-    if not target_rows:
+    if not rows:
         lines.append("| (none) | - | - | - | planned_dry_run_only |")
-    for row in target_rows:
+    for item in rows:
         lines.append(
-            "| {ticker} | {market} | {provider} | {priority} | {plan_status} |".format(
-                ticker=row.get("ticker", ""),
-                market=row.get("market", ""),
-                provider=row.get("provider", ""),
-                priority=row.get("priority", ""),
-                plan_status=row.get("plan_status", "planned_dry_run_only"),
-            )
+            f"| {item.get('ticker', '')} | {item.get('market', 'JP')} | {item.get('provider', '')} | "
+            f"{item.get('priority', '')} | {item.get('plan_status', 'planned_dry_run_only')} |"
         )
-    lines.extend(
-        [
-            "",
-            "## Gate確認",
-            f"- required_gates: {', '.join(REQUIRED_GATES)}",
-            f"- missing_gates: {', '.join(missing_gates) if missing_gates else '(none)'}",
-            "- 実refresh: 未実装 (このPRでは常時無効)",
-            "",
-        ]
-    )
-    return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload)
+    lines.extend(["", "## Gate確認", "- 実refresh: 未実行 (dry-run)", ""])
+    return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload, is_result=False)
