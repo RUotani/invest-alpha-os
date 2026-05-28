@@ -44,6 +44,10 @@ def build_context_enrichment(*, report_date: str, context_json_payload: dict[str
                 "### 無効化条件",
                 *[f"- {s}" for s in item["invalidation_conditions"]],
                 "",
+                "### データ鮮度リスク",
+                f"- stale日数: {item.get('freshness_risk', {}).get('stale_days')}",
+                f"- タイミング判断への影響: {item.get('freshness_risk', {}).get('timing_impact')}",
+                "",
             ]
         )
     return ContextEnrichmentResult(

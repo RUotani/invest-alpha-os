@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from invis_alpha_os.reports.chatgpt_market_regime import build_market_regime_v0
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -51,6 +52,10 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
         "latest_close": qm.latest_close,
         "latest_bar_date": qm.latest_bar_date,
         "freshness": qm.freshness_label,
+        "freshness_classification": qm.freshness_classification,
+        "stale_days": qm.stale_days,
+        "freshness_reason": qm.freshness_reason,
+        "timing_impact": qm.timing_impact,
         "returns": {"d5": qm.ret_5d_pct, "d20": qm.ret_20d_pct, "d60": qm.ret_60d_pct},
         "moving_averages": {
             "ma25": qm.ma_25,
@@ -88,6 +93,7 @@ def _timing_label_ja(timing: str) -> str:
         "skip": "見送り",
         "data_insufficient": "データ不足",
         "overheated_watch": "過熱監視",
+        "data_update_required": "データ更新待ち",
     }
     return labels.get(timing, "要確認")
 
@@ -96,11 +102,12 @@ def _normalize_timing(
     *,
     candidate: dict[str, Any],
     in_skip: bool,
-) -> tuple[str, str]:
+) -> tuple[str, str, list[str]]:
     returns = candidate.get("returns") or {}
     ma = candidate.get("moving_averages") or {}
     classification = str(candidate.get("classification", "")).strip()
     freshness = str(candidate.get("freshness", "")).strip()
+    freshness_class = str(candidate.get("freshness_classification", "")).strip()
     missing = candidate.get("missing_data_reasons") or []
     ret20 = returns.get("d20")
     ret60 = returns.get("d60")
@@ -120,19 +127,51 @@ def _normalize_timing(
         or (d25 is not None and d25 >= 0.15)
         or (d75 is not None and d75 >= 0.2)
     )
+    timing_warnings: list[str] = []
+    if freshness_class == "data_update_required":
+        timing_warnings.append("data_update_required")
+    elif freshness_class == "stale":
+        timing_warnings.append("stale")
     if missing:
-        return "data_insufficient", "定量データに欠損があるためタイミング判定を保留"
+        return "data_insufficient", "定量データに欠損があるためタイミング判定を保留", timing_warnings
     if classification == "top_pick" and in_skip and overheat:
-        return "wait_for_pullback", "候補性はあるが短期急伸のため高値追いを回避"
+        return "wait_for_pullback", "候補性はあるが短期急伸のため高値追いを回避", timing_warnings
     if classification == "top_pick" and overheat:
-        return "overheated_watch", "候補性はあるが過熱警戒で監視優先"
+        return "overheated_watch", "候補性はあるが過熱警戒で監視優先", timing_warnings
     if "要更新" in freshness:
-        return "watch_continue", "データ鮮度が低いため更新後に再評価"
+        return "watch_continue", "データ鮮度が低いため更新後に再評価", timing_warnings
     if classification == "top_pick":
-        return "deep_dive", "上位候補として前提条件と無効化条件を優先確認"
+        return "deep_dive", "上位候補として前提条件と無効化条件を優先確認", timing_warnings
     if in_skip:
-        return "skip", "反証優位のため見送り"
-    return "watch_continue", "継続観測で条件改善を待つ"
+        return "skip", "反証優位のため見送り", timing_warnings
+    return "watch_continue", "継続観測で条件改善を待つ", timing_warnings
+
+
+def _build_priority_queues(candidates: list[dict[str, Any]]) -> dict[str, list[dict[str, str]]]:
+    queues: dict[str, list[dict[str, str]]] = {
+        "deep_dive": [],
+        "breakout_watch": [],
+        "wait_for_pullback": [],
+        "overheated_watch": [],
+        "watch_continue": [],
+        "data_update_required": [],
+        "data_insufficient": [],
+        "skip": [],
+    }
+    for c in candidates:
+        ticker = str(c.get("ticker", "")).strip()
+        if not ticker:
+            continue
+        base_reason = str(c.get("timing_reason", ""))
+        entry = {"ticker": ticker, "reason": base_reason}
+        timing = str(c.get("timing", "")).strip()
+        if timing in queues:
+            queues[timing].append(entry)
+        warnings = c.get("timing_warnings") or []
+        for warning in warnings:
+            if warning in queues:
+                queues[warning].append({"ticker": ticker, "reason": f"警告: {warning}"})
+    return queues
 
 
 def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> ContextPackResult:
@@ -140,8 +179,6 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     sections = payload.get("sections") or {}
     top = sections.get("top_picks") or []
     top10 = [_to_candidate_item(row, rank=i + 1, report_date=report_date) for i, row in enumerate(top[:10]) if isinstance(row, dict)]
-    rapid = sections.get("rapid_movers") or []
-    pull = sections.get("pullbacks") or []
     avoid = sections.get("avoid") or []
     insuf = sections.get("insufficient") or []
 
@@ -151,11 +188,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         if isinstance(x, dict)
     }
     for item in top10:
-        timing, timing_reason = _normalize_timing(candidate=item, in_skip=item["ticker"] in skip_symbols)
+        timing, timing_reason, timing_warnings = _normalize_timing(candidate=item, in_skip=item["ticker"] in skip_symbols)
         item["timing"] = timing
         item["timing_label_ja"] = _timing_label_ja(timing)
         item["timing_reason"] = timing_reason
+        item["timing_warnings"] = timing_warnings
         item["quant_data_status"] = "ok" if not item["missing_data_reasons"] else "missing"
+    regime = build_market_regime_v0(report_date=report_date)
+    queues = _build_priority_queues(top10)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -163,7 +203,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "source": "weekly_candidate_brief",
         "language": "ja",
         "disclaimer": "投資助言ではなく、観測・検証用です",
-        "market_regime": {"label": "未実装", "notes": ["次PRで市場レジーム判定を追加予定"]},
+        "market_regime": regime,
         "summary": {
             "a_candidates": [c["ticker"] for c in top10[:3]],
             "b_candidates": [c["ticker"] for c in top10[3:6]],
@@ -175,11 +215,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         },
         "candidates": top10,
         "research_queue": {
-            "today": [c["ticker"] for c in top10[:3]],
-            "pullback_watch": [str((x.get("candidate") or {}).get("instrument_id", "")) for x in pull[:5] if isinstance(x, dict)],
-            "breakout_watch": [str((x.get("candidate") or {}).get("instrument_id", "")) for x in rapid[:5] if isinstance(x, dict)],
-            "skip": [str((x.get("candidate") or {}).get("instrument_id", "")) for x in avoid[:5] if isinstance(x, dict)],
-            "data_insufficient": [str((x.get("candidate") or {}).get("instrument_id", "")) for x in insuf[:5] if isinstance(x, dict)],
+            "deep_dive": queues["deep_dive"],
+            "breakout_watch": queues["breakout_watch"],
+            "wait_for_pullback": queues["wait_for_pullback"],
+            "overheated_watch": queues["overheated_watch"],
+            "watch_continue": queues["watch_continue"],
+            "data_update_required": queues["data_update_required"],
+            "data_insufficient": queues["data_insufficient"],
+            "skip": queues["skip"],
         },
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -210,8 +253,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "- 最大の注意点: stale/データ不足理由を優先確認",
         "",
         "## 2. 市場レジーム",
-        "- レジーム判定: 未実装",
-        "- 補足: 次PRで追加予定",
+        f"- レジーム判定: {regime['label']}",
+        f"- 注意点: {', '.join(regime.get('notes') or [])}",
+        "- 根拠:",
+        *[
+            f"  - {px['ticker']}: ret20={px['ret20']}, ret60={px['ret60']}, ma75={px['dist_ma75_pct']}, ma200={px['dist_ma200_pct']}, fresh={px['freshness_classification']}"
+            for px in regime.get("proxies", [])
+        ],
         "",
         "## 3. 注目候補Top10",
     ]
@@ -227,6 +275,11 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
                 f"- データ鮮度: {c['freshness']}",
                 f"- 定量データ状態: {c['quant_data_status']}",
                 f"- 欠損理由: {', '.join(c['missing_data_reasons']) or 'なし'}",
+                f"- データ鮮度分類: {c.get('freshness_classification')}",
+                f"- stale日数: {c.get('stale_days')}",
+                f"- stale理由: {c.get('freshness_reason')}",
+                f"- タイミングへの影響: {c.get('timing_impact')}",
+                f"- タイミング警告: {', '.join(c.get('timing_warnings') or []) or 'なし'}",
                 f"- 5D/20D/60D騰落率: {c['returns']['d5']}, {c['returns']['d20']}, {c['returns']['d60']}",
                 f"- 25D/75D/200D移動平均線との乖離: {c['moving_averages']['dist_ma25_pct']}, {c['moving_averages']['dist_ma75_pct']}, {c['moving_averages']['dist_ma200_pct']}",
                 f"- 52週高値/安値との距離: {c['range_52w']['dist_high_pct']}, {c['range_52w']['dist_low_pct']}",
@@ -241,17 +294,47 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     md_lines.extend(
         [
             "## 4. 深掘り優先キュー",
-            "### 今日見る",
-            *[f"{i+1}. {s}" for i, s in enumerate(out_json["research_queue"]["today"][:3])],
+            "### 深掘り",
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["deep_dive"][:5]
+            ],
+            "",
+            "### 過熱監視",
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["overheated_watch"][:5]
+            ],
             "",
             "### 押し目待ち",
-            *[f"- {s}" for s in out_json["research_queue"]["pullback_watch"][:5]],
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["wait_for_pullback"][:5]
+            ],
             "",
-            "### ブレイクアウト監視",
-            *[f"- {s}" for s in out_json["research_queue"]["breakout_watch"][:5]],
+            "### 監視継続",
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["watch_continue"][:5]
+            ],
+            "",
+            "### データ更新待ち",
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["data_update_required"][:5]
+            ],
+            "",
+            "### データ不足",
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["data_insufficient"][:5]
+            ],
             "",
             "### 見送り",
-            *[f"- {s}" for s in out_json["research_queue"]["skip"][:5]],
+            *[
+                f"- {row['ticker']} ({row['reason']})"
+                for row in out_json["research_queue"]["skip"][:5]
+            ],
             "",
             "## 5. 前週からの変化",
             "- 未実装（次PR候補）",

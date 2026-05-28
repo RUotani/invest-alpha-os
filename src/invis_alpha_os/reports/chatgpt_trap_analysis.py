@@ -49,6 +49,9 @@ def analyze_candidate_traps(candidate: dict[str, Any]) -> dict[str, Any]:
     ret60 = _pct(returns.get("d60"))
     dist_high = _pct(rng.get("dist_high_pct"))
     ratio20 = _pct(vol.get("ratio20"))
+    stale_days = candidate.get("stale_days")
+    freshness_class = str(candidate.get("freshness_classification", "")).strip()
+    timing_impact = str(candidate.get("timing_impact", "")).strip()
 
     value_trap_score = 0
     if dist200 is not None and dist200 < 0:
@@ -133,4 +136,9 @@ def analyze_candidate_traps(candidate: dict[str, Any]) -> dict[str, Any]:
         "downside_thesis": downside or ["反証情報の追加入力が必要"],
         "invalidation_conditions": invalidation,
         "next_review_conditions": next_review,
+        "freshness_risk": {
+            "classification": freshness_class or "unknown",
+            "stale_days": stale_days,
+            "timing_impact": timing_impact or "データ鮮度情報なし",
+        },
     }
