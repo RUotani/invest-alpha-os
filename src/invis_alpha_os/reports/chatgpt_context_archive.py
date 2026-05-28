@@ -28,6 +28,8 @@ def write_context_pack_outputs(
     cache_refresh_execution_plan_json_payload: dict[str, Any] | None = None,
     cache_refresh_execute_dry_run_markdown: str | None = None,
     cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
+    cache_refresh_execute_result_markdown: str | None = None,
+    cache_refresh_execute_result_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
     cache_refresh_postcheck_markdown: str | None = None,
@@ -106,6 +108,16 @@ def write_context_pack_outputs(
                 json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["latest_cache_refresh_execute_dry_run_json"] = execute_json
+        if cache_refresh_execute_result_markdown is not None:
+            result_md = latest / "cache_refresh_execute_result.md"
+            result_md.write_text(cache_refresh_execute_result_markdown, encoding="utf-8")
+            paths["latest_cache_refresh_execute_result_md"] = result_md
+        if cache_refresh_execute_result_json_payload is not None:
+            result_json = latest / "cache_refresh_execute_result.json"
+            result_json.write_text(
+                json.dumps(cache_refresh_execute_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["latest_cache_refresh_execute_result_json"] = result_json
         if jp_cache_refresh_dry_run_markdown is not None:
             jp_md = latest / "jp_cache_refresh_dry_run.md"
             jp_md.write_text(jp_cache_refresh_dry_run_markdown, encoding="utf-8")
@@ -193,6 +205,16 @@ def write_context_pack_outputs(
                 json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["archive_cache_refresh_execute_dry_run_json"] = execute_json
+        if cache_refresh_execute_result_markdown is not None:
+            result_md = arc / "cache_refresh_execute_result.md"
+            result_md.write_text(cache_refresh_execute_result_markdown, encoding="utf-8")
+            paths["archive_cache_refresh_execute_result_md"] = result_md
+        if cache_refresh_execute_result_json_payload is not None:
+            result_json = arc / "cache_refresh_execute_result.json"
+            result_json.write_text(
+                json.dumps(cache_refresh_execute_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["archive_cache_refresh_execute_result_json"] = result_json
         if jp_cache_refresh_dry_run_markdown is not None:
             jp_md = arc / "jp_cache_refresh_dry_run.md"
             jp_md.write_text(jp_cache_refresh_dry_run_markdown, encoding="utf-8")
@@ -247,6 +269,8 @@ def sync_to_reports_repo(
     cache_refresh_execution_plan_json_payload: dict[str, Any] | None = None,
     cache_refresh_execute_dry_run_markdown: str | None = None,
     cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
+    cache_refresh_execute_result_markdown: str | None = None,
+    cache_refresh_execute_result_json_payload: dict[str, Any] | None = None,
     jp_cache_refresh_dry_run_markdown: str | None = None,
     jp_cache_refresh_dry_run_json_payload: dict[str, Any] | None = None,
     cache_refresh_postcheck_markdown: str | None = None,
@@ -372,6 +396,24 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_cache_refresh_execute_dry_run_json"] = latest_execute_json
         paths["reports_weekly_cache_refresh_execute_dry_run_json"] = weekly_execute_json
+    if cache_refresh_execute_result_markdown is not None:
+        latest_result_md = latest / "cache_refresh_execute_result.md"
+        weekly_result_md = weekly / "cache_refresh_execute_result.md"
+        latest_result_md.write_text(cache_refresh_execute_result_markdown, encoding="utf-8")
+        weekly_result_md.write_text(cache_refresh_execute_result_markdown, encoding="utf-8")
+        paths["reports_latest_cache_refresh_execute_result_md"] = latest_result_md
+        paths["reports_weekly_cache_refresh_execute_result_md"] = weekly_result_md
+    if cache_refresh_execute_result_json_payload is not None:
+        latest_result_json = latest / "cache_refresh_execute_result.json"
+        weekly_result_json = weekly / "cache_refresh_execute_result.json"
+        latest_result_json.write_text(
+            json.dumps(cache_refresh_execute_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        weekly_result_json.write_text(
+            json.dumps(cache_refresh_execute_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        paths["reports_latest_cache_refresh_execute_result_json"] = latest_result_json
+        paths["reports_weekly_cache_refresh_execute_result_json"] = weekly_result_json
     if jp_cache_refresh_dry_run_markdown is not None:
         latest_jp_md = latest / "jp_cache_refresh_dry_run.md"
         weekly_jp_md = weekly / "jp_cache_refresh_dry_run.md"

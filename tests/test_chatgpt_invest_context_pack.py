@@ -489,6 +489,12 @@ def test_cli_cache_refresh_execute_writes_outputs_and_rejects_execute(tmp_path: 
             str(out_dir),
             "--plan-json",
             str(out_dir / "latest" / "cache_refresh_execution_plan.json"),
+            "--provider",
+            "jquants",
+            "--targets",
+            "5802,6645,5801",
+            "--scope",
+            "JP_ONLY",
         ],
     )
     assert r4.exit_code == 0, r4.stdout + r4.stderr
@@ -504,11 +510,17 @@ def test_cli_cache_refresh_execute_writes_outputs_and_rejects_execute(tmp_path: 
             str(out_dir),
             "--plan-json",
             str(out_dir / "latest" / "cache_refresh_execution_plan.json"),
+            "--provider",
+            "jquants",
+            "--targets",
+            "5802,6645,5801",
+            "--scope",
+            "JP_ONLY",
             "--execute-refresh",
         ],
     )
     assert r5.exit_code == 2, r5.stdout + r5.stderr
-    assert "actual_refresh_not_enabled" in (r5.stdout + r5.stderr)
+    assert "refused" in (r5.stdout + r5.stderr).lower()
 
 
 def test_cli_jp_cache_refresh_dry_run_filters_jquants_high(tmp_path: Path) -> None:
