@@ -26,6 +26,8 @@ def write_context_pack_outputs(
     cache_refresh_readiness_json_payload: dict[str, Any] | None = None,
     cache_refresh_execution_plan_markdown: str | None = None,
     cache_refresh_execution_plan_json_payload: dict[str, Any] | None = None,
+    cache_refresh_execute_dry_run_markdown: str | None = None,
+    cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -90,6 +92,16 @@ def write_context_pack_outputs(
                 json.dumps(cache_refresh_execution_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["latest_cache_refresh_execution_plan_json"] = plan_json
+        if cache_refresh_execute_dry_run_markdown is not None:
+            execute_md = latest / "cache_refresh_execute_dry_run.md"
+            execute_md.write_text(cache_refresh_execute_dry_run_markdown, encoding="utf-8")
+            paths["latest_cache_refresh_execute_dry_run_md"] = execute_md
+        if cache_refresh_execute_dry_run_json_payload is not None:
+            execute_json = latest / "cache_refresh_execute_dry_run.json"
+            execute_json.write_text(
+                json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["latest_cache_refresh_execute_dry_run_json"] = execute_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -149,6 +161,16 @@ def write_context_pack_outputs(
                 json.dumps(cache_refresh_execution_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             paths["archive_cache_refresh_execution_plan_json"] = plan_json
+        if cache_refresh_execute_dry_run_markdown is not None:
+            execute_md = arc / "cache_refresh_execute_dry_run.md"
+            execute_md.write_text(cache_refresh_execute_dry_run_markdown, encoding="utf-8")
+            paths["archive_cache_refresh_execute_dry_run_md"] = execute_md
+        if cache_refresh_execute_dry_run_json_payload is not None:
+            execute_json = arc / "cache_refresh_execute_dry_run.json"
+            execute_json.write_text(
+                json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["archive_cache_refresh_execute_dry_run_json"] = execute_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -183,6 +205,8 @@ def sync_to_reports_repo(
     cache_refresh_readiness_json_payload: dict[str, Any] | None = None,
     cache_refresh_execution_plan_markdown: str | None = None,
     cache_refresh_execution_plan_json_payload: dict[str, Any] | None = None,
+    cache_refresh_execute_dry_run_markdown: str | None = None,
+    cache_refresh_execute_dry_run_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -286,6 +310,24 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_cache_refresh_execution_plan_json"] = latest_plan_json
         paths["reports_weekly_cache_refresh_execution_plan_json"] = weekly_plan_json
+    if cache_refresh_execute_dry_run_markdown is not None:
+        latest_execute_md = latest / "cache_refresh_execute_dry_run.md"
+        weekly_execute_md = weekly / "cache_refresh_execute_dry_run.md"
+        latest_execute_md.write_text(cache_refresh_execute_dry_run_markdown, encoding="utf-8")
+        weekly_execute_md.write_text(cache_refresh_execute_dry_run_markdown, encoding="utf-8")
+        paths["reports_latest_cache_refresh_execute_dry_run_md"] = latest_execute_md
+        paths["reports_weekly_cache_refresh_execute_dry_run_md"] = weekly_execute_md
+    if cache_refresh_execute_dry_run_json_payload is not None:
+        latest_execute_json = latest / "cache_refresh_execute_dry_run.json"
+        weekly_execute_json = weekly / "cache_refresh_execute_dry_run.json"
+        latest_execute_json.write_text(
+            json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        weekly_execute_json.write_text(
+            json.dumps(cache_refresh_execute_dry_run_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        paths["reports_latest_cache_refresh_execute_dry_run_json"] = latest_execute_json
+        paths["reports_weekly_cache_refresh_execute_dry_run_json"] = weekly_execute_json
     return paths
 
 
