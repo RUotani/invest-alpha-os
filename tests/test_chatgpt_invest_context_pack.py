@@ -12,6 +12,7 @@ from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
 )
 from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_context_pack
+from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import CandidateQuantMetrics
 
 runner = CliRunner()
 
@@ -55,6 +56,8 @@ def test_build_chatgpt_context_pack(tmp_path: Path) -> None:
     assert "ChatGPT投資対話用Context Pack" in pack.markdown_text
     assert "注目候補Top10" in pack.markdown_text
     assert "AAPL" in pack.markdown_text
+    assert "候補分類" in pack.markdown_text
+    assert "タイミング分類" in pack.markdown_text
     assert pack.json_payload["language"] == "ja"
     assert pack.json_payload["candidates"][0]["ticker"] == "AAPL"
 
@@ -242,3 +245,70 @@ def test_sync_validation_outputs_avoids_double_results_path(tmp_path: Path) -> N
 
     assert (reports_repo / "validation" / "results" / "2026" / "2026-05-28" / "result_4w.json").is_file()
     assert not (reports_repo / "validation" / "results" / "results").exists()
+
+
+def test_build_chatgpt_context_pack_normalizes_top_pick_skip_overheat(tmp_path: Path, monkeypatch) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": "weekly_candidate_brief.v0.1",
+        "report_date": "2026-05-27",
+        "sections": {
+            "top_picks": [
+                {
+                    "brief_type": "top_pick",
+                    "reason": "急伸中",
+                    "counter_evidence": ["過熱リスク"],
+                    "next_checks": ["押し目形成確認"],
+                    "candidate": {
+                        "instrument_id": "5801",
+                        "display_name": "5801 古河電工",
+                        "market": "jp",
+                        "themes": ["energy"],
+                    },
+                }
+            ],
+            "rapid_movers": [],
+            "pullbacks": [],
+            "avoid": [
+                {
+                    "candidate": {"instrument_id": "5801"},
+                }
+            ],
+            "insufficient": [],
+        },
+    }
+    (report_dir / "weekly_candidate_brief_v0_1.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.chatgpt_invest_context_pack.compute_candidate_quant_metrics",
+        lambda **_: CandidateQuantMetrics(
+        symbol="5801",
+        source="cache:test",
+        latest_bar_date="2026-05-27",
+        latest_close=1000.0,
+        ret_5d_pct=0.12,
+        ret_20d_pct=0.97,
+        ret_60d_pct=1.04,
+        ma_25=900.0,
+        ma_75=800.0,
+        ma_200=700.0,
+        dist_ma_25_pct=0.2,
+        dist_ma_75_pct=0.25,
+        dist_ma_200_pct=0.4,
+        high_52w=1100.0,
+        low_52w=500.0,
+        dist_52w_high_pct=-0.09,
+        dist_52w_low_pct=1.0,
+        latest_volume=100.0,
+        avg_volume_20d=100.0,
+        volume_ratio_20d=1.0,
+        freshness_label="最新圏",
+        missing_reason=None,
+    ),
+    )
+    pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
+    c0 = pack.json_payload["candidates"][0]
+    assert c0["classification"] == "top_pick"
+    assert c0["timing"] in {"wait_for_pullback", "overheated_watch"}

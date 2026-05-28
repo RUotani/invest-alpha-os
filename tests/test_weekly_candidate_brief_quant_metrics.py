@@ -49,3 +49,26 @@ def test_quant_metrics_marks_insufficient_bars(monkeypatch) -> None:
     assert qm.ret_60d_pct is not None
     assert qm.missing_reason is not None
     assert "データ本数不足（200日移動平均線" in qm.missing_reason
+
+
+def test_quant_metrics_accepts_lowercase_jp_market(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.weekly_candidate_brief_quant_metrics.load_jquants_daily_bars_cache",
+        lambda symbol: (_bars(260), {}) if symbol == "5802" else None,
+    )
+    qm = compute_candidate_quant_metrics(symbol="5802", market="jp", report_date="2026-05-27")
+    assert qm.latest_close is not None
+    assert qm.source.startswith("cache:jquants_daily_bars:")
+
+
+def test_quant_metrics_resolves_jp_symbol_suffix_fallback() -> None:
+    qm = compute_candidate_quant_metrics(symbol="5802.T", market="jp", report_date="2026-05-27")
+    assert qm.latest_close is not None
+    assert qm.source.endswith(":5802")
+
+
+def test_quant_metrics_missing_reason_has_tried_symbols() -> None:
+    qm = compute_candidate_quant_metrics(symbol="ZZZZ", market="jp", report_date="2026-05-27")
+    assert qm.latest_close is None
+    assert qm.missing_reason is not None
+    assert "tried=" in qm.missing_reason
