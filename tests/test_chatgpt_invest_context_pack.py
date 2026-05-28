@@ -357,3 +357,37 @@ def test_priority_queue_includes_data_update_required_warning(tmp_path: Path, mo
     pack = build_chatgpt_context_pack(report_date="2026-05-27", report_dir=report_dir)
     queue = pack.json_payload["research_queue"]["data_update_required"]
     assert queue and queue[0]["ticker"] == "AAPL"
+
+
+def test_cli_cache_refresh_readiness_writes_outputs(tmp_path: Path) -> None:
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r1 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r1.exit_code == 0, r1.stdout + r1.stderr
+    r2 = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-cache-refresh-readiness",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+            "--context-json",
+            str(out_dir / "latest" / "chatgpt_invest_context_pack.json"),
+        ],
+    )
+    assert r2.exit_code == 0, r2.stdout + r2.stderr
+    assert (out_dir / "latest" / "cache_refresh_readiness.md").is_file()
+    assert (out_dir / "latest" / "cache_refresh_readiness.json").is_file()

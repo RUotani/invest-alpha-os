@@ -22,6 +22,8 @@ def write_context_pack_outputs(
     decision_seed_json_payload: dict[str, Any] | None = None,
     trap_analysis_markdown: str | None = None,
     trap_analysis_json_payload: dict[str, Any] | None = None,
+    cache_refresh_readiness_markdown: str | None = None,
+    cache_refresh_readiness_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -66,6 +68,16 @@ def write_context_pack_outputs(
             trap_json = latest / "trap_analysis.json"
             trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
             paths["latest_trap_analysis_json"] = trap_json
+        if cache_refresh_readiness_markdown is not None:
+            ready_md = latest / "cache_refresh_readiness.md"
+            ready_md.write_text(cache_refresh_readiness_markdown, encoding="utf-8")
+            paths["latest_cache_refresh_readiness_md"] = ready_md
+        if cache_refresh_readiness_json_payload is not None:
+            ready_json = latest / "cache_refresh_readiness.json"
+            ready_json.write_text(
+                json.dumps(cache_refresh_readiness_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["latest_cache_refresh_readiness_json"] = ready_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -105,6 +117,16 @@ def write_context_pack_outputs(
             trap_json = arc / "trap_analysis.json"
             trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
             paths["archive_trap_analysis_json"] = trap_json
+        if cache_refresh_readiness_markdown is not None:
+            ready_md = arc / "cache_refresh_readiness.md"
+            ready_md.write_text(cache_refresh_readiness_markdown, encoding="utf-8")
+            paths["archive_cache_refresh_readiness_md"] = ready_md
+        if cache_refresh_readiness_json_payload is not None:
+            ready_json = arc / "cache_refresh_readiness.json"
+            ready_json.write_text(
+                json.dumps(cache_refresh_readiness_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            paths["archive_cache_refresh_readiness_json"] = ready_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -135,6 +157,8 @@ def sync_to_reports_repo(
     decision_seed_json_payload: dict[str, Any] | None = None,
     trap_analysis_markdown: str | None = None,
     trap_analysis_json_payload: dict[str, Any] | None = None,
+    cache_refresh_readiness_markdown: str | None = None,
+    cache_refresh_readiness_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -202,6 +226,24 @@ def sync_to_reports_repo(
         weekly_trap_json.write_text(json.dumps(trap_analysis_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths["reports_latest_trap_analysis_json"] = latest_trap_json
         paths["reports_weekly_trap_analysis_json"] = weekly_trap_json
+    if cache_refresh_readiness_markdown is not None:
+        latest_ready_md = latest / "cache_refresh_readiness.md"
+        weekly_ready_md = weekly / "cache_refresh_readiness.md"
+        latest_ready_md.write_text(cache_refresh_readiness_markdown, encoding="utf-8")
+        weekly_ready_md.write_text(cache_refresh_readiness_markdown, encoding="utf-8")
+        paths["reports_latest_cache_refresh_readiness_md"] = latest_ready_md
+        paths["reports_weekly_cache_refresh_readiness_md"] = weekly_ready_md
+    if cache_refresh_readiness_json_payload is not None:
+        latest_ready_json = latest / "cache_refresh_readiness.json"
+        weekly_ready_json = weekly / "cache_refresh_readiness.json"
+        latest_ready_json.write_text(
+            json.dumps(cache_refresh_readiness_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        weekly_ready_json.write_text(
+            json.dumps(cache_refresh_readiness_json_payload, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        paths["reports_latest_cache_refresh_readiness_json"] = latest_ready_json
+        paths["reports_weekly_cache_refresh_readiness_json"] = weekly_ready_json
     return paths
 
 
