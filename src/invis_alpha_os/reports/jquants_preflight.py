@@ -53,9 +53,16 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
     }
 
 
-def build_jquants_preflight(*, report_date: str, env: dict[str, str] | None = None) -> JQuantsPreflightResult:
+def build_jquants_preflight(
+    *,
+    report_date: str,
+    env: dict[str, str] | None = None,
+    env_file_meta: dict[str, object] | None = None,
+) -> JQuantsPreflightResult:
     diag = assess_jquants_credentials(env)
-    payload = {"report_date": report_date, "generated_at": _now_iso(), **diag}
+    payload: dict[str, Any] = {"report_date": report_date, "generated_at": _now_iso(), **diag}
+    if env_file_meta:
+        payload.update(env_file_meta)
     lines = [
         "# J-Quants Preflight",
         "",
@@ -69,9 +76,26 @@ def build_jquants_preflight(*, report_date: str, env: dict[str, str] | None = No
         "- secrets_printed: false",
         "- live_http_executed: false",
         "- cache_write_executed: false",
-        "",
-        "## 不足env",
     ]
+    if env_file_meta and env_file_meta.get("env_file_used"):
+        loaded_keys = env_file_meta.get("keys_loaded_from_file", [])
+        loaded_label = (
+            ", ".join(str(key) for key in loaded_keys)
+            if isinstance(loaded_keys, list) and loaded_keys
+            else "(none)"
+        )
+        lines.extend(
+            [
+                "- env_file_used: true",
+                f"- keys_loaded_from_file: {loaded_label}",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## 不足env",
+        ]
+    )
     if diag["missing_env"]:
         for key in diag["missing_env"]:
             lines.append(f"- {key}: absent")
