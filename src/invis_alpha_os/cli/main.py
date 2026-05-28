@@ -10,6 +10,11 @@ import typer
 
 from invis_alpha_os.cli.bars_file_symbol import normalize_generic_bars_file_symbol_label
 from invis_alpha_os.config import CONFIG_DIR, OUTPUTS_DIR, load_yaml
+from invis_alpha_os.config.env_file_loader import (
+    EnvFileLoaderError,
+    apply_allowlisted_env_file,
+    env_file_load_metadata,
+)
 from invis_alpha_os.config.paths import ROOT_DIR
 from invis_alpha_os.config.jp_watchlist import (
     load_jp_watchlist_tickers,
@@ -239,6 +244,17 @@ def _obs_service() -> ObservationService:
         observation_path=OUTPUTS_DIR / "observation_log" / "observation_log.jsonl",
         outcome_path=OUTPUTS_DIR / "outcome_log" / "outcome_log.jsonl",
     )
+
+
+def _apply_optional_jquants_env_file(env_file: str | None) -> dict[str, object] | None:
+    if not env_file:
+        return None
+    try:
+        result = apply_allowlisted_env_file(Path(env_file), repo_root=ROOT_DIR)
+    except EnvFileLoaderError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    return env_file_load_metadata(result)
 
 
 def _jp_watchlist_count(jp_rows: object) -> int:
@@ -1316,6 +1332,11 @@ def weekly_candidate_brief_cache_refresh_execute_command(
         "--execute-refresh",
         help="Execute one-shot JP refresh when all explicit gates are set.",
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
     sync_github_reports_repo: bool = typer.Option(
         False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
     ),
@@ -1334,6 +1355,7 @@ def weekly_candidate_brief_cache_refresh_execute_command(
                 plan_payload = raw
         except json.JSONDecodeError:
             plan_payload = {}
+    _apply_optional_jquants_env_file(env_file)
     execute_result = build_cache_refresh_execute(
         report_date=run_date,
         plan_json_payload=plan_payload,
@@ -1502,10 +1524,20 @@ def weekly_candidate_brief_jquants_preflight_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
-    preflight = build_jquants_preflight(report_date=run_date, env=dict(os.environ))
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    preflight = build_jquants_preflight(
+        report_date=run_date,
+        env=dict(os.environ),
+        env_file_meta=env_file_meta,
+    )
     context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
     context_json_path = out_root / "latest" / "chatgpt_invest_context_pack.json"
     context_md_text = (
