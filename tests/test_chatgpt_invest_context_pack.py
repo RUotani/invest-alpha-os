@@ -7,7 +7,10 @@ import pytest
 from typer.testing import CliRunner
 
 from invis_alpha_os.cli.main import app
-from invis_alpha_os.reports.chatgpt_context_archive import sync_to_reports_repo
+from invis_alpha_os.reports.chatgpt_context_archive import (
+    sync_to_reports_repo,
+    sync_validation_outputs_to_reports_repo,
+)
 from invis_alpha_os.reports.chatgpt_invest_context_pack import build_chatgpt_context_pack
 
 runner = CliRunner()
@@ -215,3 +218,25 @@ def test_cli_validation_evaluate_writes_dashboard(tmp_path: Path) -> None:
     assert r.exit_code == 0, r.stdout + r.stderr
     assert (out_dir / "validation_dashboard.md").is_file()
     assert (out_dir / "validation_dashboard.json").is_file()
+
+
+def test_sync_validation_outputs_avoids_double_results_path(tmp_path: Path) -> None:
+    repo_root = tmp_path / "source_repo"
+    repo_root.mkdir()
+    reports_repo = tmp_path / "reports_repo"
+    reports_repo.mkdir()
+    validation_results = tmp_path / "outputs" / "chatgpt_context" / "validation" / "results"
+    nested = validation_results / "results" / "2026" / "2026-05-28"
+    nested.mkdir(parents=True, exist_ok=True)
+    (nested / "result_4w.json").write_text('{"ok":true}', encoding="utf-8")
+
+    sync_validation_outputs_to_reports_repo(
+        reports_repo_path=reports_repo,
+        repo_root=repo_root,
+        validation_results_dir=validation_results,
+        dashboard_markdown="# dashboard\n",
+        dashboard_json_payload={"ok": True},
+    )
+
+    assert (reports_repo / "validation" / "results" / "2026" / "2026-05-28" / "result_4w.json").is_file()
+    assert not (reports_repo / "validation" / "results" / "results").exists()

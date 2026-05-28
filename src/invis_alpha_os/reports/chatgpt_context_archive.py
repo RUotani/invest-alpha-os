@@ -224,6 +224,11 @@ def sync_validation_outputs_to_reports_repo(
     paths: dict[str, Path] = {}
     for src in sorted(validation_results_dir.glob("**/result_*.json")):
         relative = src.relative_to(validation_results_dir)
+        # Normalize stray nested "results/" paths from old runs.
+        if relative.parts and relative.parts[0] == "results":
+            relative = Path(*relative.parts[1:])
+        if not relative.parts:
+            continue
         dst = results_dst / relative
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
