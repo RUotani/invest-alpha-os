@@ -1402,11 +1402,12 @@ def weekly_candidate_brief_cache_refresh_execute_command(
             if "cache_refresh_execute" in key:
                 typer.echo(f"weekly-candidate-brief-cache-refresh-execute: {key}={p}")
     status = str(execute_result.json_payload.get("status", ""))
-    if status.startswith("refused_"):
-        typer.echo(f"weekly-candidate-brief-cache-refresh-execute: {status}", err=True)
+    overall = str(execute_result.json_payload.get("overall_status", status))
+    if overall.startswith("refused_") or overall in {"gate_refused", "target_mismatch", "auth_missing"}:
+        typer.echo(f"weekly-candidate-brief-cache-refresh-execute: {overall}", err=True)
         raise typer.Exit(2)
-    if execute_refresh and status == "partial_failure":
-        typer.echo("weekly-candidate-brief-cache-refresh-execute: partial_failure", err=True)
+    if execute_refresh and overall in {"partial_failure", "provider_error"}:
+        typer.echo(f"weekly-candidate-brief-cache-refresh-execute: {overall}", err=True)
         raise typer.Exit(1)
     raise typer.Exit(0)
 

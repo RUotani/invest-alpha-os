@@ -11,6 +11,7 @@ from typing import Any
 from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import save_jquants_daily_bars_cache, utc_now_iso
 from invis_alpha_os.reports.cache_refresh_execution_plan import REQUIRED_GATES
+from invis_alpha_os.reports.jquants_preflight import assess_jquants_credentials
 
 JP_ALLOWED_TARGETS: frozenset[str] = frozenset({"5802", "6645", "5801"})
 REQUIRED_PROVIDER = "jquants"
@@ -91,6 +92,96 @@ def default_refresh_date_range() -> tuple[str, str]:
     return from_d.strftime("%Y-%m-%d"), to_d.strftime("%Y-%m-%d")
 
 
+def _map_gate_status(gate_status: str) -> str:
+    if gate_status == "refused_target_mismatch" or gate_status == "refused_invalid_target":
+        return "target_mismatch"
+    if gate_status == "refused_provider_mismatch":
+        return "target_mismatch"
+    if gate_status.startswith("refused_"):
+        return "gate_refused"
+    return gate_status
+
+
+def normalize_target_status(raw: dict[str, Any]) -> dict[str, Any]:
+    raw_status = str(raw.get("status", ""))
+    reason = str(raw.get("reason", raw.get("hint", "")))
+    if raw_status in {"disabled", "not_configured", "api_key_missing", "base_url_missing"}:
+        normalized = "auth_missing"
+        live = False
+    elif raw_status == "success" and raw.get("cache_write_executed"):
+        normalized = "success"
+        live = bool(raw.get("live_http_executed"))
+    elif raw_status == "success":
+        normalized = "partial_failure"
+        live = bool(raw.get("live_http_executed"))
+    elif raw_status in {"live_blocked"}:
+        normalized = "gate_refused"
+        live = False
+    elif raw_status in {"validation_error"}:
+        normalized = "target_mismatch"
+        live = False
+    else:
+        normalized = "provider_error"
+        live = bool(raw.get("live_http_executed"))
+    return {
+        "ticker": raw.get("ticker", ""),
+        "status": normalized,
+        "raw_status": raw_status,
+        "reason": reason,
+        "live_http_executed": live,
+        "cache_write_executed": bool(raw.get("cache_write_executed")),
+        "sanitized_bar_count": raw.get("sanitized_bar_count"),
+    }
+
+
+def normalize_overall_status(
+    *,
+    gate_status: str,
+    execute_refresh: bool,
+    per_target: list[dict[str, Any]],
+    auth_ready: bool,
+) -> str:
+    if not execute_refresh:
+        return "planned_dry_run_only"
+    if gate_status != "ok":
+        return _map_gate_status(gate_status)
+    if not auth_ready:
+        return "auth_missing"
+    if not per_target:
+        return "no_targets"
+    statuses = [str(x.get("status", "")) for x in per_target]
+    if all(s == "success" for s in statuses):
+        return "success"
+    if any(s == "auth_missing" for s in statuses):
+        return "auth_missing"
+    if any(s == "provider_error" for s in statuses):
+        return "provider_error"
+    return "partial_failure"
+
+
+def next_required_action(overall_status: str) -> str:
+    mapping = {
+        "auth_missing": "Set J-Quants credentials and rerun once",
+        "gate_refused": "Set required CONFIRM/ALLOW gates and rerun once",
+        "target_mismatch": "Fix targets/provider/scope to exact JP-only set",
+        "provider_error": "Inspect provider error and retry once after fix",
+        "partial_failure": "Review per-target results and rerun once if needed",
+        "success": "Run postcheck and regenerate Context Pack",
+        "planned_dry_run_only": "Review dry-run output then execute once with gates",
+    }
+    return mapping.get(overall_status, "Review execute result")
+
+
+def retry_safe(overall_status: str) -> bool:
+    return overall_status in {
+        "auth_missing",
+        "gate_refused",
+        "provider_error",
+        "partial_failure",
+        "planned_dry_run_only",
+    }
+
+
 def refresh_jp_symbol_live(
     code: str,
     from_date: str,
@@ -105,6 +196,14 @@ def refresh_jp_symbol_live(
     if os.environ.get("CONFIRM_LIVE_HTTP") != "YES":
         return {"ticker": wire, "status": "live_blocked", "reason": "confirm_live_http_required"}
     client = JQuantsClient.from_env()
+    if not client.is_enabled():
+        return {
+            "ticker": wire,
+            "status": "disabled",
+            "hint": "JQUANTS_ENABLED=false",
+            "live_http_executed": False,
+            "cache_write_executed": False,
+        }
     result = client.get_daily_quotes(
         wire,
         from_date=from_date,
@@ -114,11 +213,12 @@ def refresh_jp_symbol_live(
     )
     st = str(result.get("status", ""))
     if st != "success":
+        attempted_live = st not in {"disabled", "not_configured", "api_key_missing", "base_url_missing", "dry_run"}
         return {
             "ticker": wire,
             "status": st,
-            "reason": str(result.get("reason", st)),
-            "live_http_executed": True,
+            "reason": str(result.get("reason", result.get("hint", st))),
+            "live_http_executed": attempted_live,
             "cache_write_executed": False,
         }
     bars = result.get("sanitized_bars")
@@ -190,6 +290,7 @@ def build_cache_refresh_execute(
     ]
     from_date, to_date = default_refresh_date_range()
     if gate_status != "ok":
+        overall = _map_gate_status(gate_status)
         payload: dict[str, Any] = {
             "report_date": report_date,
             "generated_at": _now_iso(),
@@ -198,6 +299,7 @@ def build_cache_refresh_execute(
             "cache_write_executed": False,
             "actual_refresh_executed": False,
             "status": gate_status,
+            "overall_status": overall,
             "provider": provider,
             "scope": scope,
             "targets": targets,
@@ -205,6 +307,9 @@ def build_cache_refresh_execute(
             + ["CONFIRM_TARGETS", "CONFIRM_PROVIDER", "CONFIRM_SCOPE", "JQUANTS_ALLOW_LIVE_HTTP"],
             "gate_detail": gate_detail,
             "plan_targets": filtered_rows,
+            "per_target_results": [],
+            "retry_safe": retry_safe(overall),
+            "next_required_action": next_required_action(overall),
             "secrets_printed": False,
         }
         title = "# Cache Refresh Execute Dry-Run"
@@ -243,26 +348,68 @@ def build_cache_refresh_execute(
             filtered_rows=filtered_rows,
         )
 
-    symbol_results = execute_jp_targets(targets, from_date=from_date, to_date=to_date, refresh_fn=refresh_fn)
-    any_live = any(bool(r.get("live_http_executed")) for r in symbol_results)
-    any_write = any(bool(r.get("cache_write_executed")) for r in symbol_results)
-    all_ok = all(str(r.get("status")) == "success" for r in symbol_results)
-    payload = {
-        "report_date": report_date,
-        "generated_at": _now_iso(),
-        "dry_run_only": False,
-        "live_http_executed": any_live,
-        "cache_write_executed": any_write,
-        "actual_refresh_executed": all_ok and any_write,
-        "status": "executed" if all_ok else "partial_failure",
-        "provider": provider,
-        "scope": scope,
-        "targets": targets,
-        "from_date": from_date,
-        "to_date": to_date,
-        "symbol_results": symbol_results,
-        "secrets_printed": False,
-    }
+    auth_diag = assess_jquants_credentials(env_map)
+    if not auth_diag.get("refresh_allowed"):
+        per_target = [
+            {
+                "ticker": t,
+                "status": "auth_missing",
+                "live_http_executed": False,
+                "cache_write_executed": False,
+            }
+            for t in targets
+        ]
+        overall = "auth_missing"
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "dry_run_only": False,
+            "live_http_executed": False,
+            "cache_write_executed": False,
+            "actual_refresh_executed": False,
+            "status": overall,
+            "overall_status": overall,
+            "provider": provider,
+            "scope": scope,
+            "targets": targets,
+            "from_date": from_date,
+            "to_date": to_date,
+            "symbol_results": [],
+            "per_target_results": per_target,
+            "missing_env": auth_diag.get("missing_env", []),
+            "retry_safe": True,
+            "next_required_action": next_required_action(overall),
+            "secrets_printed": False,
+        }
+    else:
+        symbol_results = execute_jp_targets(targets, from_date=from_date, to_date=to_date, refresh_fn=refresh_fn)
+        per_target = [normalize_target_status(row) for row in symbol_results]
+        overall = normalize_overall_status(
+            gate_status=gate_status,
+            execute_refresh=True,
+            per_target=per_target,
+            auth_ready=True,
+        )
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "dry_run_only": False,
+            "live_http_executed": any(bool(r.get("live_http_executed")) for r in per_target),
+            "cache_write_executed": any(bool(r.get("cache_write_executed")) for r in per_target),
+            "actual_refresh_executed": overall == "success",
+            "status": overall,
+            "overall_status": overall,
+            "provider": provider,
+            "scope": scope,
+            "targets": targets,
+            "from_date": from_date,
+            "to_date": to_date,
+            "symbol_results": symbol_results,
+            "per_target_results": per_target,
+            "retry_safe": retry_safe(overall),
+            "next_required_action": next_required_action(overall),
+            "secrets_printed": False,
+        }
     lines = [
         "# Cache Refresh Execute Result",
         "",
@@ -270,10 +417,13 @@ def build_cache_refresh_execute(
         f"- report_date: {report_date}",
         f"- generated_at: {payload['generated_at']}",
         "- dry_run_only: false",
-        f"- live_http_executed: {str(any_live).lower()}",
-        f"- cache_write_executed: {str(any_write).lower()}",
+        f"- live_http_executed: {str(payload['live_http_executed']).lower()}",
+        f"- cache_write_executed: {str(payload['cache_write_executed']).lower()}",
         f"- actual_refresh_executed: {str(payload['actual_refresh_executed']).lower()}",
         f"- status: {payload['status']}",
+        f"- overall_status: {payload.get('overall_status', payload['status'])}",
+        f"- retry_safe: {str(payload.get('retry_safe', False)).lower()}",
+        f"- next_required_action: {payload.get('next_required_action', '')}",
         f"- provider: {provider}",
         f"- scope: {scope}",
         "",
@@ -281,7 +431,7 @@ def build_cache_refresh_execute(
         "| ticker | status | sanitized_bar_count | cache_written |",
         "| --- | --- | ---: | --- |",
     ]
-    for row in symbol_results:
+    for row in payload.get("per_target_results") or []:
         lines.append(
             f"| {row.get('ticker', '')} | {row.get('status', '')} | {row.get('sanitized_bar_count', '-')} | "
             f"{'yes' if row.get('cache_write_executed') else 'no'} |"
