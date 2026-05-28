@@ -204,3 +204,40 @@ def sync_to_reports_repo(
         paths["reports_weekly_trap_analysis_json"] = weekly_trap_json
     return paths
 
+
+def sync_validation_outputs_to_reports_repo(
+    *,
+    reports_repo_path: Path,
+    repo_root: Path,
+    validation_results_dir: Path,
+    dashboard_markdown: str | None = None,
+    dashboard_json_payload: dict[str, Any] | None = None,
+) -> dict[str, Path]:
+    if reports_repo_path.resolve() == repo_root.resolve():
+        raise ValueError("reports-repo-path が本体repoと同一です")
+    if not reports_repo_path.is_dir():
+        raise FileNotFoundError(f"reports repo path が見つかりません: {reports_repo_path}")
+    results_dst = reports_repo_path / "validation" / "results"
+    latest_dst = reports_repo_path / "latest"
+    results_dst.mkdir(parents=True, exist_ok=True)
+    latest_dst.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for src in sorted(validation_results_dir.glob("**/result_*.json")):
+        relative = src.relative_to(validation_results_dir)
+        dst = results_dst / relative
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        paths[f"validation_result_{relative.stem}"] = dst
+    if dashboard_markdown is not None:
+        md1 = results_dst / "validation_dashboard.md"
+        md2 = latest_dst / "validation_dashboard.md"
+        md1.write_text(dashboard_markdown, encoding="utf-8")
+        md2.write_text(dashboard_markdown, encoding="utf-8")
+        paths["validation_dashboard_md"] = md1
+        paths["latest_validation_dashboard_md"] = md2
+    if dashboard_json_payload is not None:
+        js = results_dst / "validation_dashboard.json"
+        js.write_text(json.dumps(dashboard_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["validation_dashboard_json"] = js
+    return paths
+

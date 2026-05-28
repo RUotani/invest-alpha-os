@@ -157,6 +157,7 @@ from invis_alpha_os.discovery.us_universe_scanner import (
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.weekly_candidate_brief_email import build_weekly_candidate_brief_email_draft
 from invis_alpha_os.reports.chatgpt_context_archive import (
+    sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
     write_context_pack_outputs,
 )
@@ -1076,14 +1077,49 @@ def weekly_candidate_brief_validation_evaluate_command(
     out_dir: Optional[str] = typer.Option(
         None, "--out-dir", help="Validation output root (default: outputs/chatgpt_context/validation)."
     ),
+    write_dashboard: bool = typer.Option(True, "--write-dashboard/--no-write-dashboard", help="Write dashboard outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy validation outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
 ) -> None:
     eval_date = as_of_date or today_jst_iso()
     context_root = OUTPUTS_DIR / "chatgpt_context" / "validation"
     seeds_root = Path(seeds_dir) if seeds_dir else context_root / "seeds"
     out_root = Path(out_dir) if out_dir else context_root
     paths = evaluate_validation_seeds(as_of_date=eval_date, seeds_dir=seeds_root, out_dir=out_root)
+    if not write_dashboard:
+        for key in ("dashboard_md", "dashboard_json"):
+            _ = paths.pop(key, None)
     for key, p in paths.items():
         typer.echo(f"weekly-candidate-brief-validation-evaluate: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-validation-evaluate: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        dashboard_md_text = None
+        dashboard_json_payload = None
+        if write_dashboard:
+            md_path = paths.get("dashboard_md")
+            js_path = paths.get("dashboard_json")
+            if md_path and md_path.is_file():
+                dashboard_md_text = md_path.read_text(encoding="utf-8")
+            if js_path and js_path.is_file():
+                dashboard_json_payload = json.loads(js_path.read_text(encoding="utf-8"))
+        sync_paths = sync_validation_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            validation_results_dir=out_root,
+            dashboard_markdown=dashboard_md_text,
+            dashboard_json_payload=dashboard_json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-validation-evaluate: {key}={p}")
     raise typer.Exit(0)
 
 
