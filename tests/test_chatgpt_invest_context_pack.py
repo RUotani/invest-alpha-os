@@ -168,6 +168,8 @@ def test_cli_chatgpt_enrich_and_validation_seed(tmp_path: Path) -> None:
     assert r2.exit_code == 0, r2.stdout + r2.stderr
     assert (out_dir / "latest" / "trap_analysis.md").is_file()
     assert (out_dir / "latest" / "trap_analysis.json").is_file()
+    context_md = (out_dir / "latest" / "chatgpt_invest_context_pack.md").read_text(encoding="utf-8")
+    assert "今週の結論" in context_md
     r3 = runner.invoke(
         app,
         [

@@ -991,6 +991,7 @@ def weekly_candidate_brief_chatgpt_enrich_command(
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
     json_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
+    md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
     try:
         context_payload = json.loads(json_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -1001,10 +1002,15 @@ def weekly_candidate_brief_chatgpt_enrich_command(
         raise typer.Exit(2)
 
     enrichment = build_context_enrichment(report_date=run_date, context_json_payload=context_payload)
+    base_markdown = "# ChatGPT投資対話用Context Pack\n"
+    if md_path.is_file():
+        loaded_md = md_path.read_text(encoding="utf-8").strip()
+        if loaded_md:
+            base_markdown = loaded_md + "\n"
     paths = write_context_pack_outputs(
         out_dir=out_root,
         report_date=run_date,
-        markdown_text="# ChatGPT投資対話用Context Pack\n",
+        markdown_text=base_markdown,
         json_payload=context_payload,
         write_latest=write_latest,
         write_archive=write_archive,
@@ -1024,7 +1030,7 @@ def weekly_candidate_brief_chatgpt_enrich_command(
             reports_repo_path=Path(reports_repo_path),
             repo_root=ROOT_DIR,
             report_date=run_date,
-            markdown_text="# ChatGPT投資対話用Context Pack\n",
+            markdown_text=base_markdown,
             json_payload=context_payload,
             trap_analysis_markdown=enrichment.markdown_text,
             trap_analysis_json_payload=enrichment.json_payload,
