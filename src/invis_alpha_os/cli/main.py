@@ -161,6 +161,7 @@ from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_to_reports_repo,
     write_context_pack_outputs,
 )
+from invis_alpha_os.reports.cache_refresh_readiness import build_cache_refresh_readiness_report
 from invis_alpha_os.reports.chatgpt_context_quality import build_context_pack_quality_audit
 from invis_alpha_os.reports.chatgpt_decision_feedback import build_decision_feedback_template
 from invis_alpha_os.reports.chatgpt_context_enrichment import build_context_enrichment
@@ -1126,6 +1127,92 @@ def weekly_candidate_brief_validation_evaluate_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-validation-evaluate: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-cache-refresh-readiness")
+def weekly_candidate_brief_cache_refresh_readiness_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    context_json: Optional[str] = typer.Option(
+        None, "--context-json", help="Path to chatgpt_invest_context_pack.json (default: outputs/chatgpt_context/latest)."
+    ),
+    trap_json: Optional[str] = typer.Option(
+        None, "--trap-json", help="Path to trap_analysis.json (optional)."
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    context_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
+    trap_path = Path(trap_json) if trap_json else out_root / "latest" / "trap_analysis.json"
+    context_payload: dict[str, Any] = {}
+    trap_payload: dict[str, Any] | None = None
+    if context_path.is_file():
+        try:
+            loaded = json.loads(context_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                context_payload = loaded
+        except json.JSONDecodeError:
+            context_payload = {}
+    if trap_path.is_file():
+        try:
+            loaded_trap = json.loads(trap_path.read_text(encoding="utf-8"))
+            if isinstance(loaded_trap, dict):
+                trap_payload = loaded_trap
+        except json.JSONDecodeError:
+            trap_payload = None
+    context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
+    context_md_text = (
+        context_md_path.read_text(encoding="utf-8")
+        if context_md_path.is_file()
+        else "# ChatGPT投資対話用Context Pack\n"
+    )
+    readiness = build_cache_refresh_readiness_report(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        context_json_payload=context_payload,
+        trap_json_payload=trap_payload,
+    )
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload or {"report_date": run_date, "source": "cache_refresh_readiness"},
+        write_latest=write_latest,
+        write_archive=write_archive,
+        cache_refresh_readiness_markdown=readiness.markdown_text,
+        cache_refresh_readiness_json_payload=readiness.json_payload,
+    )
+    for key, p in paths.items():
+        if "cache_refresh_readiness" in key:
+            typer.echo(f"weekly-candidate-brief-cache-refresh-readiness: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-cache-refresh-readiness: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload or {"report_date": run_date, "source": "cache_refresh_readiness"},
+            cache_refresh_readiness_markdown=readiness.markdown_text,
+            cache_refresh_readiness_json_payload=readiness.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "cache_refresh_readiness" in key:
+                typer.echo(f"weekly-candidate-brief-cache-refresh-readiness: {key}={p}")
     raise typer.Exit(0)
 
 
