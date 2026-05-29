@@ -206,6 +206,11 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
     sync_investment_readiness_v31_to_reports_repo,
     write_investment_readiness_v31_outputs,
 )
+from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
+    build_post_contract_structural_v32,
+    sync_post_contract_structural_v32_to_reports_repo,
+    write_post_contract_structural_v32_outputs,
+)
 from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
     build_manual_data_acquisition_ux_pack,
     sync_manual_data_acquisition_ux_to_reports_repo,
@@ -2425,6 +2430,56 @@ def weekly_candidate_brief_investment_readiness_after_refresh_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-investment-readiness-after-refresh: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-post-contract-ohlcv-structural-v32")
+def weekly_candidate_brief_post_contract_ohlcv_structural_v32_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets_csv: str = typer.Option("5802,6645,285A,5803", "--targets-csv"),
+    reports_latest_dir: Optional[str] = typer.Option(
+        None,
+        "--reports-latest-dir",
+        help="Path to reports-private latest/ (default: outputs/chatgpt_context/latest).",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    latest_dir = Path(reports_latest_dir) if reports_latest_dir else out_root / "latest"
+    result = build_post_contract_structural_v32(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        reports_latest_dir=latest_dir,
+        targets_csv=targets_csv,
+    )
+    paths = write_post_contract_structural_v32_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-post-contract-ohlcv-structural-v32: {key}={p}")
+    typer.echo(
+        "weekly-candidate-brief-post-contract-ohlcv-structural-v32: "
+        f"discovery_verdict={result.discovery_json.get('discovery_verdict')}"
+    )
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-post-contract-ohlcv-structural-v32: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_post_contract_structural_v32_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-post-contract-ohlcv-structural-v32: {key}={p}")
     raise typer.Exit(0)
 
 
