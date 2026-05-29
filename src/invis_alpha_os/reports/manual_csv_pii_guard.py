@@ -63,6 +63,15 @@ def _normalize_header(cell: str) -> str:
     return (cell or "").strip().lstrip("\ufeff").lower()
 
 
+def _delimiter_for_path(path: Path, first_line: str) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".tsv":
+        return "\t"
+    if suffix == ".txt" and "\t" in first_line:
+        return "\t"
+    return ","
+
+
 def read_csv_headers(csv_path: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     if not csv_path.is_file():
@@ -74,7 +83,8 @@ def read_csv_headers(csv_path: Path) -> tuple[list[str], list[str]]:
     lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         return [], ["csv_empty"]
-    reader = csv.reader([lines[0]])
+    delimiter = _delimiter_for_path(csv_path, lines[0])
+    reader = csv.reader([lines[0]], delimiter=delimiter)
     row = next(reader, [])
     return [cell for cell in row if cell.strip()], errors
 
