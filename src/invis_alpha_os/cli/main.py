@@ -5756,6 +5756,55 @@ def debug_jquants_watchlist_bars_cache(
     raise typer.Exit(0 if error_count == 0 else 1)
 
 
+@app.command("security-leakage-audit")
+def security_leakage_audit_command(
+    source_repo_path: Optional[str] = typer.Option(None, "--source-repo-path", help="Source repo root."),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path", help="Reports-private clone."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/security)."),
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+) -> None:
+    from invis_alpha_os.security.security_leakage_audit import build_security_leakage_audit
+    from invis_alpha_os.security.security_outputs import (
+        sync_security_outputs_to_reports_repo,
+        write_security_outputs,
+    )
+
+    run_date = report_date or today_jst_iso()
+    src = Path(source_repo_path) if source_repo_path else ROOT_DIR
+    reports = Path(reports_repo_path) if reports_repo_path else None
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "security"
+    result = build_security_leakage_audit(source_repo_path=src, reports_repo_path=reports)
+    paths = write_security_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        basename="security_leakage_audit",
+        markdown_text=result.markdown_text,
+        json_payload=result.json_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"security-leakage-audit: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo("security-leakage-audit: --reports-repo-path required with sync", err=True)
+            raise typer.Exit(2)
+        sync_paths = sync_security_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            basename="security_leakage_audit",
+            markdown_text=result.markdown_text,
+            json_payload=result.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"security-leakage-audit: {key}={p}")
+    raise typer.Exit(0 if result.json_payload.get("overall_status") == "pass" else 1)
+
+
 def main() -> None:
     app()
 
