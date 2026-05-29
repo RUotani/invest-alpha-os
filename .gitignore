@@ -45,3 +45,21 @@ outputs/jquants_smoke/*.json
 # Local ops smoke artifacts (generated; do not commit)
 .agent/ops_smoke/
 
+# Generated reports and local runtime outputs (archive in reports-private)
+/reports/
+!/reports/**/sample_weekly_observation_report_v1.md
+
+# Local broker/manual data inputs
+manual_jp_bars.csv
+manual_jp_bars.tsv
+manual_jp_bars.txt
+manual_jp_bars.xlsx
+broker_jp_bars.*
+moomoo_jp_bars.*
+sbi_jp_bars.*
+rakuten_jp_bars.*
+
+# Email previews
+*.eml
+email_preview.*
+
