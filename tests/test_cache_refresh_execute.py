@@ -158,3 +158,26 @@ def test_execute_refresh_mocked_http_error_includes_redacted_diagnostics() -> No
     assert row["secrets_printed"] is False
     assert "401" in result.markdown_text
     assert "http_401_unauthorized" in result.markdown_text
+
+
+def test_execute_refresh_accepts_provider_allow_yes_for_jquants_live_flag() -> None:
+    env = _full_gates_env()
+    env["JQUANTS_ALLOW_LIVE_HTTP"] = "yes"
+
+    def _mock_refresh(code: str, _from: str, _to: str) -> dict:
+        return {
+            "ticker": code,
+            "status": "success",
+            "sanitized_bar_count": 10,
+            "cache_write_executed": True,
+            "live_http_executed": True,
+        }
+
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=True,
+        env=env,
+        refresh_fn=_mock_refresh,
+    )
+    assert result.json_payload["overall_status"] == "success"

@@ -10,6 +10,7 @@ from typing import Any
 
 from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import save_jquants_daily_bars_cache, utc_now_iso
+from invis_alpha_os.config.env_bool import provider_allow_flag_truthy, strict_confirm_flag_truthy
 from invis_alpha_os.reports.cache_refresh_execution_plan import REQUIRED_GATES
 from invis_alpha_os.reports.jquants_preflight import assess_jquants_credentials
 from invis_alpha_os.reports.provider_error_diagnostics import (
@@ -73,18 +74,17 @@ def validate_jp_only_gates(
     if not execute_refresh:
         return "planned_dry_run_only", []
     for gate in REQUIRED_GATES:
-        if gate == "ALLOW_LIVE_HTTP" and not _truthy_env(env, gate, "1"):
+        if gate == "ALLOW_LIVE_HTTP" and env.get(gate, "").strip() != "1":
             missing.append(gate)
-        elif gate.startswith("CONFIRM_") and not _truthy_env(env, gate, "YES"):
+        elif gate.startswith("CONFIRM_") and not strict_confirm_flag_truthy(env.get(gate)):
             missing.append(gate)
-    if not _truthy_env(env, "CONFIRM_TARGETS", "5802,6645,5801"):
+    if env.get("CONFIRM_TARGETS", "").strip() != "5802,6645,5801":
         missing.append("CONFIRM_TARGETS")
     if env.get("CONFIRM_PROVIDER", "").strip().lower() != REQUIRED_PROVIDER:
         missing.append("CONFIRM_PROVIDER")
     if env.get("CONFIRM_SCOPE", "").strip().upper() != REQUIRED_SCOPE:
         missing.append("CONFIRM_SCOPE")
-    jq_live = env.get("JQUANTS_ALLOW_LIVE_HTTP", "").strip().lower()
-    if jq_live not in {"true", "1"}:
+    if not provider_allow_flag_truthy(env.get("JQUANTS_ALLOW_LIVE_HTTP")):
         missing.append("JQUANTS_ALLOW_LIVE_HTTP")
     if missing:
         return "refused_missing_gates", missing
