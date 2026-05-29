@@ -8,9 +8,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from invis_alpha_os.data.ohlcv_provider_approval import (
+    ACTUAL_REFRESH_IMPORT_APPROVAL_PHRASE,
+    CACHE_WRITE_APPROVAL_PHRASE,
+    build_default_provider_approval_package,
+)
 from invis_alpha_os.data.ohlcv_provider_registry import (
     CANONICAL_OHLCV_COLUMNS,
+    JQUANTS_APPROVAL_PHRASE,
+    MANUAL_IMPORT_APPROVAL_PHRASE,
     ProviderPriorityPolicy,
+    PUBLIC_OHLCV_APPROVAL_PHRASE,
     build_default_ohlcv_provider_registry,
     build_provider_coverage_matrix,
     score_provider_freshness,
@@ -255,7 +263,8 @@ def build_stooq_manual_fallback_generalization(*, report_date: str) -> tuple[str
 def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     registry_md, registry_json = build_ohlcv_provider_registry_strategy(report_date=report_date)
     planner_md, planner_json = build_ohlcv_provider_selection_planner(report_date=report_date)
-    _ = registry_md, planner_md
+    approval_md, approval_json = build_ohlcv_provider_approval_package(report_date=report_date)
+    _ = registry_md, planner_md, approval_md
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -271,6 +280,14 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 row
                 for row in planner_json["selections"]
                 if row.get("requires_approval")
+            ],
+        },
+        "provider_approval_package_status": {
+            "available": True,
+            "dry_run_only": approval_json["dry_run_only"],
+            "gates_covered": [
+                req["gate"]
+                for req in approval_json["package"]["requirements"]
             ],
         },
         "manual_csv_is_fallback_not_primary": True,
@@ -321,6 +338,150 @@ def build_ohlcv_provider_automation_core(*, report_date: str) -> OhlcvProviderAu
         },
     )
     return OhlcvProviderAutomationCoreResult(reports=reports)
+
+
+def build_ohlcv_provider_approval_package(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    package = build_default_provider_approval_package(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_approval_package"),
+        "pack_version": "v39",
+        "package": package.to_dict(),
+    }
+    requirements = payload["package"]["requirements"]
+    plan = payload["package"]["execution_plan"]
+    lines = [
+        "# OHLCV Provider Approval Package",
+        "",
+        "## Executive Summary",
+        "",
+        "- This package is source-only and preview-only.",
+        "- All dangerous provider execution actions remain blocked until explicit approval.",
+        "- No live HTTP, cache write, actual refresh/import, manual import, secret display, or raw data handling is executed.",
+        "",
+        "## Current Freshness / Coverage Context",
+        "",
+        f"- report_date: {report_date}",
+        "- JP sample: 285A, 5802, 5803, 6645, 5801",
+        "- US sample: NVDA, MSFT, AVGO, TSLA, MSTR, COIN",
+        "- Registry state: v36 provider registry core is available on source main.",
+        "",
+        "## Proposed Provider Execution Plan",
+        "",
+        "| order | title | preview_only | required_gates | stop_conditions |",
+        "|---:|---|---|---|---|",
+    ]
+    for step in plan["steps"]:
+        lines.append(
+            f"| {step['order']} | {step['title']} | {str(step['preview_only']).lower()} | "
+            f"{', '.join(step['required_gates']) or '(none)'} | {', '.join(step['stop_conditions'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Actions Requiring Explicit Approval",
+            "",
+            "| gate | action | default_status | approval_required | approval_phrase |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for req in requirements:
+        lines.append(
+            f"| {req['gate']} | {req['action']} | {req['default_status']} | "
+            f"{str(req['explicit_user_approval_required']).lower()} | {req['approval_phrase'] or '(separate approval required)'} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Safety Gates",
+            "",
+            "| gate | safe_by_default_behavior | expected_artifacts |",
+            "|---|---|---|",
+        ]
+    )
+    for req in requirements:
+        lines.append(
+            f"| {req['gate']} | {req['safe_by_default_behavior']} | {', '.join(req['expected_artifacts'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Expected Outputs",
+            "",
+            "- `latest/ohlcv_provider_approval_package.md`",
+            "- `latest/ohlcv_provider_approval_package.json`",
+            "- `weekly/2026/{report_date}/ohlcv_provider_approval_package.md`",
+            "- `weekly/2026/{report_date}/ohlcv_provider_approval_package.json`",
+            "",
+            "## Verification Plan",
+            "",
+        ]
+    )
+    for check in plan["verification"]["checks"]:
+        lines.append(f"- {check}")
+    lines.extend(["", "## Rollback Plan", ""])
+    for note in plan["rollback_plan"]["notes"]:
+        lines.append(f"- {note}")
+    lines.extend(["", "## Stop Conditions", ""])
+    for condition in payload["package"]["stop_conditions"]:
+        lines.append(f"- {condition}")
+    lines.extend(
+        [
+            "",
+            "## Approval Phrases",
+            "",
+            f"- {PUBLIC_OHLCV_APPROVAL_PHRASE}",
+            f"- {JQUANTS_APPROVAL_PHRASE}",
+            f"- {CACHE_WRITE_APPROVAL_PHRASE}",
+            f"- {ACTUAL_REFRESH_IMPORT_APPROVAL_PHRASE}",
+            f"- {MANUAL_IMPORT_APPROVAL_PHRASE}",
+            "",
+            "## Non-Goals",
+            "",
+        ]
+    )
+    for non_goal in payload["package"]["non_goals"]:
+        lines.append(f"- {non_goal}")
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "dry_run_only": payload["dry_run_only"],
+                    "gates": [req["gate"] for req in requirements],
+                    "safety_summary": payload["package"]["safety_summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
+def write_ohlcv_provider_approval_package_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "ohlcv_provider_approval_package.md"
+        json_path = root / "ohlcv_provider_approval_package.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_ohlcv_provider_approval_package_md"] = md_path
+        paths[f"{label}_ohlcv_provider_approval_package_json"] = json_path
+    return paths
 
 
 def write_ohlcv_provider_automation_core_outputs(
