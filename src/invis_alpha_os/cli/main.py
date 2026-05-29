@@ -206,10 +206,19 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
     sync_investment_readiness_v31_to_reports_repo,
     write_investment_readiness_v31_outputs,
 )
+from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
+    build_ohlcv_provider_coverage_matrix,
+    build_ohlcv_provider_registry_strategy,
+)
 from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
     build_post_contract_structural_v32,
     sync_post_contract_structural_v32_to_reports_repo,
     write_post_contract_structural_v32_outputs,
+)
+from invis_alpha_os.reports.stooq_manual_csv_ingest import (
+    build_stooq_manual_csv_ingest_v34,
+    sync_stooq_ingest_v34_to_reports_repo,
+    write_stooq_manual_csv_ingest_v34_outputs,
 )
 from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
     build_manual_data_acquisition_ux_pack,
@@ -2430,6 +2439,81 @@ def weekly_candidate_brief_investment_readiness_after_refresh_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-investment-readiness-after-refresh: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-stooq-manual-csv-ingest-v34")
+def weekly_candidate_brief_stooq_manual_csv_ingest_v34_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets_csv: str = typer.Option("5802,6645,285A,5803", "--targets-csv"),
+    dropzone_dir: Optional[str] = typer.Option(
+        None,
+        "--dropzone-dir",
+        help="Manual data dropzone (default: ~/Downloads/invest-alpha-os-manual-data-dropzone).",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    dz = (
+        Path(dropzone_dir).expanduser()
+        if dropzone_dir
+        else Path.home() / "Downloads" / "invest-alpha-os-manual-data-dropzone"
+    )
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    result = build_stooq_manual_csv_ingest_v34(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        dropzone_dir=dz,
+        targets_csv=targets_csv,
+    )
+    paths = write_stooq_manual_csv_ingest_v34_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    reg_md, reg_json = build_ohlcv_provider_registry_strategy(report_date=run_date)
+    cov_md, cov_json = build_ohlcv_provider_coverage_matrix(report_date=run_date)
+    for stem, md, js in (
+        ("ohlcv_provider_registry_strategy", reg_md, reg_json),
+        ("ohlcv_provider_coverage_matrix", cov_md, cov_json),
+    ):
+        for root in (out_root / "latest", out_root / "weekly" / "2026" / run_date):
+            root.mkdir(parents=True, exist_ok=True)
+            (root / f"{stem}.md").write_text(md, encoding="utf-8")
+            (root / f"{stem}.json").write_text(
+                json.dumps(js, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        paths[f"latest_{stem}_md"] = out_root / "latest" / f"{stem}.md"
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-stooq-manual-csv-ingest-v34: {key}={p}")
+    typer.echo(
+        "weekly-candidate-brief-stooq-manual-csv-ingest-v34: "
+        f"rows_newer_than_cache_total={result.import_plan_json.get('rows_newer_than_cache_total')}"
+    )
+    typer.echo(
+        "weekly-candidate-brief-stooq-manual-csv-ingest-v34: "
+        f"approval_status={result.approval_json.get('package_status')}"
+    )
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-stooq-manual-csv-ingest-v34: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_stooq_ingest_v34_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+            registry_md=reg_md,
+            registry_json=reg_json,
+            coverage_md=cov_md,
+            coverage_json=cov_json,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-stooq-manual-csv-ingest-v34: {key}={p}")
     raise typer.Exit(0)
 
 
