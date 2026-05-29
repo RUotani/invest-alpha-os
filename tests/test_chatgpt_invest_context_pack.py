@@ -87,6 +87,29 @@ def test_cli_context_pack_writes_latest_and_archive(tmp_path: Path) -> None:
     ).is_file()
 
 
+def test_cli_context_pack_default_report_dir_without_name_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("invis_alpha_os.cli.main.ROOT_DIR", tmp_path)
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--out-dir",
+            str(out_dir),
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert "report_dir fallback" in r.stderr
+    payload = json.loads((out_dir / "latest" / "chatgpt_invest_context_pack.json").read_text(encoding="utf-8"))
+    assert payload["report_dir_resolution"]["used_fallback"] is True
+
+
 def test_sync_reports_repo_rejects_same_repo_path(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
