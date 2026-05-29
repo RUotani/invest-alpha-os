@@ -25,7 +25,7 @@ def assess_data_contract_limit(
         parsed_latest is not None
         and parsed_report is not None
         and parsed_contract_to is not None
-        and parsed_latest >= parsed_contract_to
+        and parsed_latest == parsed_contract_to
         and parsed_report > parsed_contract_to
         and freshness_classification in _STALE_FRESHNESS
     ):
