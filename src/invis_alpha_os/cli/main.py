@@ -189,6 +189,7 @@ from invis_alpha_os.reports.manual_csv_import_plan import build_manual_csv_impor
 from invis_alpha_os.reports.manual_csv_import_execute import build_manual_csv_import_execute
 from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discovery
 from invis_alpha_os.reports.manual_data_discovery import build_manual_data_discovery
+from invis_alpha_os.reports.report_dir_resolution import resolve_weekly_report_dir
 from invis_alpha_os.reports.manual_data_export_package import build_manual_data_export_package
 from invis_alpha_os.reports.manual_data_import_flow import build_manual_data_import_flow
 from invis_alpha_os.reports.manual_data_normalizer import build_manual_data_normalization
@@ -759,7 +760,14 @@ def weekly_candidate_brief_email_command(
     """Write Weekly Candidate Brief Gmail previews; optional gated test send."""
 
     run_date = report_date or today_jst_iso()
-    base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
+    resolution = resolve_weekly_report_dir(
+        report_date=run_date,
+        report_dir=report_dir,
+        repo_root=ROOT_DIR,
+    )
+    base = resolution.path
+    if resolution.warning:
+        typer.echo(f"weekly-candidate-brief-email: {resolution.warning}", err=True)
     copy_path = Path(copy_file) if copy_file else base / "weekly_candidate_brief_copy.md"
     if not copy_path.is_file():
         typer.echo(f"weekly-candidate-brief-email: copy file not found: {copy_path}", err=True)
@@ -871,7 +879,14 @@ def weekly_candidate_brief_chatgpt_context_command(
     ),
 ) -> None:
     run_date = report_date or today_jst_iso()
-    base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
+    resolution = resolve_weekly_report_dir(
+        report_date=run_date,
+        report_dir=report_dir,
+        repo_root=ROOT_DIR,
+    )
+    base = resolution.path
+    if resolution.warning:
+        typer.echo(f"weekly-candidate-brief-chatgpt-context: {resolution.warning}", err=True)
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
     fmt_norm = fmt.strip().lower()
     if fmt_norm not in ("markdown", "json", "both"):
@@ -887,6 +902,15 @@ def weekly_candidate_brief_chatgpt_context_command(
 
     md_text = pack.markdown_text if fmt_norm in ("markdown", "both") else "# Context Pack\n\n- markdown出力は無効です。\n"
     js_payload = pack.json_payload if fmt_norm in ("json", "both") else {"report_date": run_date, "disabled": True}
+    if isinstance(js_payload, dict):
+        js_payload = {
+            **js_payload,
+            "report_dir_resolution": {
+                "path": str(resolution.path),
+                "resolution_source": resolution.resolution_source,
+                "used_fallback": resolution.used_fallback,
+            },
+        }
     paths = write_context_pack_outputs(
         out_dir=out_root,
         report_date=run_date,
@@ -6276,11 +6300,14 @@ def security_dashboard_command(
     src = Path(source_repo_path) if source_repo_path else ROOT_DIR
     reports = Path(reports_repo_path) if reports_repo_path else None
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "security"
+    evidence_path = Path(manual_evidence_json) if manual_evidence_json else None
+    manual_evidence = load_github_settings_manual_evidence(repo_root=src, evidence_path=evidence_path)
     result = build_security_dashboard(
         source_repo_path=src,
         reports_repo_path=reports,
         report_date=run_date,
         export_targets_csv=export_targets_csv,
+        manual_evidence=manual_evidence,
     )
     paths = write_security_outputs(
         out_dir=out_root,
