@@ -265,6 +265,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "provider_approval_package_status": provider_block["provider_approval_package_status"],
         "provider_safe_execution_harness_status": provider_block["provider_safe_execution_harness_status"],
         "provider_approved_execution_runbook_status": provider_block["provider_approved_execution_runbook_status"],
+        "provider_execution_approval_request_status": provider_block["provider_execution_approval_request_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -405,6 +406,8 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- provider_safe_execution_current_verdict: {provider_block['provider_safe_execution_harness_status']['current_verdict']}",
             f"- provider_approved_execution_runbook_available: {str(provider_block['provider_approved_execution_runbook_status']['available']).lower()}",
             f"- provider_approved_execution_runbook_phase: {provider_block['provider_approved_execution_runbook_status']['current_phase']}",
+            f"- provider_execution_approval_request_available: {str(provider_block['provider_execution_approval_request_status']['available']).lower()}",
+            f"- provider_execution_approval_request_phase: {provider_block['provider_execution_approval_request_status']['current_phase']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",

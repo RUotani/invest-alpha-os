@@ -210,14 +210,17 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     build_ohlcv_provider_automation_core,
     build_ohlcv_provider_approval_package,
     build_ohlcv_provider_approved_execution_runbook,
+    build_ohlcv_provider_execution_approval_request,
     build_ohlcv_provider_safe_execution_harness,
     build_ohlcv_provider_coverage_matrix,
     build_ohlcv_provider_registry_strategy,
     write_ohlcv_provider_automation_core_outputs,
     write_ohlcv_provider_approval_package_outputs,
     write_ohlcv_provider_approved_execution_runbook_outputs,
+    write_ohlcv_provider_execution_approval_request_outputs,
     write_ohlcv_provider_safe_execution_harness_outputs,
 )
+from invis_alpha_os.data.ohlcv_provider_approval_request import approval_request_scenario_from_cli
 from invis_alpha_os.data.ohlcv_provider_runbook import scenario_from_cli
 from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
     build_post_contract_structural_v32,
@@ -2653,6 +2656,47 @@ def weekly_candidate_brief_ohlcv_provider_approved_execution_runbook_command(
     typer.echo(
         "weekly-candidate-brief-ohlcv-provider-approved-execution-runbook: "
         "source_only=true commands_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-ohlcv-provider-execution-approval-request")
+def weekly_candidate_brief_ohlcv_provider_execution_approval_request_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+    scenario: str = typer.Option("public_ohlcv", "--scenario", help="public_ohlcv, jquants_refresh, cache_write, actual_import, or manual_import."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-ohlcv-provider-execution-approval-request: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    try:
+        request_scenario = approval_request_scenario_from_cli(scenario)
+    except ValueError as exc:
+        typer.echo(f"weekly-candidate-brief-ohlcv-provider-execution-approval-request: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    markdown_text, json_payload = build_ohlcv_provider_execution_approval_request(
+        report_date=run_date,
+        scenario=request_scenario,
+    )
+    paths = write_ohlcv_provider_execution_approval_request_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=json_payload,
+    )
+    if fmt == "json":
+        typer.echo(json.dumps(json_payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-ohlcv-provider-execution-approval-request: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-ohlcv-provider-execution-approval-request: "
+        "source_only=true approval_request_only=true commands_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false",
         err=True,
     )
     raise typer.Exit(0)
