@@ -26,6 +26,8 @@ def test_data_discovery_finds_tsv(
     monkeypatch.setattr(data_disc_mod, "_search_roots", lambda: [discovery_root])
     result = build_manual_data_discovery(report_date="2026-05-27", repo_root=tmp_path)
     assert result.json_payload["candidates_found"] == 1
+    assert result.json_payload["searched_location_count"] == 1
+    assert result.json_payload["contents_printed"] is False
     assert result.json_payload["safe_to_parse"] is True
     assert result.selected_path is not None
     assert result.selected_path.suffix == ".tsv"

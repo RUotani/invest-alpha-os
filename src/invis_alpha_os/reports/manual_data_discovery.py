@@ -164,17 +164,25 @@ def _public_payload(candidates: list[dict[str, Any]], selected: dict[str, Any] |
     selected_public = None
     if selected is not None:
         selected_public = {k: v for k, v in selected.items() if k != "resolved_path"}
-    next_action = "Place manual_jp_bars.csv/tsv/xlsx in Desktop or Downloads"
-    if selected and selected.get("safe_to_parse"):
+    searched_roots = [root for root in _search_roots() if root.is_dir()]
+    has_xlsx_candidate = any(row.get("extension") == ".xlsx" for row in candidates)
+    xlsx_supported = _openpyxl_available()
+    next_action = "Place manual_jp_bars.csv/tsv/txt in Desktop or Downloads"
+    if has_xlsx_candidate and not xlsx_supported:
+        next_action = "Use CSV/TSV/TXT or install openpyxl locally for XLSX (not bundled in repo)"
+    elif selected and selected.get("safe_to_parse"):
         next_action = "Run weekly-candidate-brief-manual-data-import-flow"
     return {
         "candidates_found": len(candidates),
+        "searched_location_count": len(searched_roots),
         "supported_extensions": list(SUPPORTED_EXTENSIONS),
         "candidates": public_candidates,
         "selected_candidate": selected_public,
         "safe_to_parse": bool(selected and selected.get("safe_to_parse")),
         "next_required_action": next_action,
-        "xlsx_supported": _openpyxl_available(),
+        "xlsx_supported": xlsx_supported,
+        "contents_printed": False,
+        "path_redacted": True,
     }
 
 
@@ -190,8 +198,10 @@ def build_manual_data_discovery(*, report_date: str, repo_root: Path) -> ManualD
         "# Manual Data Discovery",
         "",
         f"- candidates_found: {payload['candidates_found']}",
+        f"- searched_location_count: {payload['searched_location_count']}",
         f"- safe_to_parse: {str(payload['safe_to_parse']).lower()}",
         f"- xlsx_supported: {str(payload['xlsx_supported']).lower()}",
+        f"- contents_printed: {str(payload['contents_printed']).lower()}",
         f"- next_required_action: {payload['next_required_action']}",
         "",
     ]
