@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -126,13 +127,21 @@ def test_cli_help_exposes_only_safe_options() -> None:
     runner = CliRunner()
     result = runner.invoke(app, ["weekly-candidate-brief-ohlcv-provider-safe-execution-harness", "--help"])
     assert result.exit_code == 0
-    assert "--report-date" in result.output
-    assert "--out-dir" in result.output
-    assert "--format" in result.output
-    assert "--live" not in result.output
-    assert "--write-cache" not in result.output
-    assert "--execute" not in result.output
-    assert "--import" not in result.output
+    command_info = next(
+        command
+        for command in app.registered_commands
+        if command.name == "weekly-candidate-brief-ohlcv-provider-safe-execution-harness"
+    )
+    option_names = {
+        option
+        for parameter in inspect.signature(command_info.callback).parameters.values()
+        for option in parameter.default.param_decls
+    }
+    assert {"--report-date", "--out-dir", "--format"}.issubset(option_names)
+    assert "--live" not in option_names
+    assert "--write-cache" not in option_names
+    assert "--execute" not in option_names
+    assert "--import" not in option_names
 
 
 def test_cli_report_generation_is_dry_run_transcript_only(tmp_path: Path) -> None:
