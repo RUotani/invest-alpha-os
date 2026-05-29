@@ -6286,10 +6286,18 @@ def security_dashboard_command(
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     report_date: Optional[str] = typer.Option(None, "--report-date"),
     export_targets_csv: str = typer.Option("5802,6645,5801,285A,5803", "--export-targets-csv"),
+    manual_evidence_json: Optional[str] = typer.Option(
+        None,
+        "--manual-evidence-json",
+        help="Path to filled github_settings_manual_evidence_template.json (default: outputs/security/latest).",
+    ),
     write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
     write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
     sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
 ) -> None:
+    from invis_alpha_os.security.github_settings_manual_evidence_ingest import (
+        load_github_settings_manual_evidence,
+    )
     from invis_alpha_os.security.security_dashboard import build_security_dashboard
     from invis_alpha_os.security.security_outputs import (
         sync_security_outputs_to_reports_repo,

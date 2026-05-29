@@ -13,6 +13,7 @@ from invis_alpha_os.reports.manual_file_security import scan_manual_file_securit
 from invis_alpha_os.security.dependency_security_audit import build_dependency_security_audit
 from invis_alpha_os.security.github_actions_security_audit import build_github_actions_security_audit
 from invis_alpha_os.security.github_repo_settings_checklist import build_github_repo_settings_checklist
+from invis_alpha_os.security.github_settings_manual_evidence_ingest import ManualEvidenceSummary
 from invis_alpha_os.security.security_leakage_audit import build_security_leakage_audit
 from invis_alpha_os.security.source_generated_tracking_plan import build_source_generated_tracking_plan
 
@@ -36,6 +37,7 @@ def _resolve_grade(
     manual_check_count: int,
     tracked_reports_count: int,
     retained_secret_hit_count: int,
+    manual_evidence: ManualEvidenceSummary | None = None,
 ) -> str:
     if file_intake_status == "rejected" or retained_secret_hit_count > 0:
         return "review_required"
@@ -45,6 +47,15 @@ def _resolve_grade(
         return "review_required"
     if tracked_reports_count > 1:
         return "review_required"
+    if manual_evidence is not None and manual_evidence.loaded:
+        if manual_evidence.invalid_status_count > 0 or manual_evidence.validation_errors:
+            return "review_required"
+        if manual_evidence.manual_checks_failed > 0:
+            return "review_required"
+        if manual_evidence.manual_checks_not_checked > 0:
+            return "pass_with_manual_checks"
+        if manual_evidence.manual_checks_total > 0:
+            return "pass"
     if manual_check_count > 0:
         return "pass_with_manual_checks"
     if deps_status == "inventory_only":
@@ -59,6 +70,7 @@ def build_security_dashboard(
     report_date: str,
     export_targets_csv: str = "5802,6645,5801,285A,5803",
     github_repo: str = "RUotani/invest-alpha-os",
+    manual_evidence: ManualEvidenceSummary | None = None,
 ) -> SecurityDashboardResult:
     leakage = build_security_leakage_audit(
         source_repo_path=source_repo_path,
@@ -95,6 +107,7 @@ def build_security_dashboard(
         manual_check_count=manual_check_count,
         tracked_reports_count=tracked_reports_count,
         retained_secret_hit_count=retained_secret_hits,
+        manual_evidence=manual_evidence,
     )
 
     high_findings: list[dict[str, Any]] = []
@@ -106,7 +119,9 @@ def build_security_dashboard(
             medium_findings.append(finding)
 
     remaining_risks: list[str] = []
-    if manual_check_count > 0:
+    if manual_evidence is not None and manual_evidence.loaded and manual_evidence.manual_checks_not_checked > 0:
+        remaining_risks.append("GitHub manual evidence template has unchecked items")
+    elif manual_check_count > 0:
         remaining_risks.append("GitHub UI settings require manual verification")
     if tracked_reports_count > 1:
         remaining_risks.append("Multiple tracked reports remain in source repo")
@@ -154,6 +169,20 @@ def build_security_dashboard(
         },
         "github_repo_settings": {
             "manual_check_required_count": manual_check_count,
+        },
+        "github_manual_evidence": {
+            "loaded": manual_evidence.loaded if manual_evidence is not None else False,
+            "source_path": manual_evidence.source_path if manual_evidence is not None else None,
+            "manual_checks_total": manual_evidence.manual_checks_total if manual_evidence else 0,
+            "manual_checks_passed": manual_evidence.manual_checks_passed if manual_evidence else 0,
+            "manual_checks_failed": manual_evidence.manual_checks_failed if manual_evidence else 0,
+            "manual_checks_not_checked": manual_evidence.manual_checks_not_checked if manual_evidence else 0,
+            "manual_checks_not_available_on_plan": (
+                manual_evidence.manual_checks_not_available_on_plan if manual_evidence else 0
+            ),
+            "manual_checks_not_applicable": manual_evidence.manual_checks_not_applicable if manual_evidence else 0,
+            "invalid_status_count": manual_evidence.invalid_status_count if manual_evidence else 0,
+            "validation_errors": list(manual_evidence.validation_errors) if manual_evidence else [],
         },
         "manual_data_discovery": {
             "safe_to_parse": discovery.json_payload.get("safe_to_parse"),
