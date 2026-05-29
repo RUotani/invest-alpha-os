@@ -8,6 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from invis_alpha_os.reports.contract_env_status import (
+    append_contract_env_warning,
+    build_contract_env_status,
+)
 from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
 from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 
@@ -56,16 +60,24 @@ def _extract_stale_candidates(context_json_payload: dict[str, Any], *, report_da
         if freshness not in {"stale", "data_update_required", "cache_missing", "partial_history"}:
             continue
         prio, reason = _priority(freshness_label=freshness, stale_days=stale_days, timing=timing)
+        market = str(row.get("market", "")).strip().upper() or "UNKNOWN"
+        env_map = dict(os.environ)
         contract_limit = assess_data_contract_limit(
             latest_bar_date=str(row.get("latest_bar_date", "")).strip() or None,
             report_date=report_date,
-            contract_to=contract_dates_from_env(dict(os.environ)).get("data_available_to"),
+            contract_to=contract_dates_from_env(env_map).get("data_available_to"),
+            freshness_classification=freshness,
+        )
+        timing_warnings = append_contract_env_warning(
+            list(row.get("timing_warnings") or []),
+            env=env_map,
+            market=market,
             freshness_classification=freshness,
         )
         out.append(
             {
                 "ticker": ticker,
-                "market": str(row.get("market", "")).strip().upper() or "UNKNOWN",
+                "market": market,
                 "stale_days": stale_days,
                 "latest_bar_date": row.get("latest_bar_date"),
                 "freshness_label": freshness,
@@ -73,7 +85,7 @@ def _extract_stale_candidates(context_json_payload: dict[str, Any], *, report_da
                 "provider_candidate": _provider_candidate(str(row.get("market", ""))),
                 "refresh_priority": prio,
                 "reason": reason,
-                "timing_warnings": row.get("timing_warnings") or [],
+                "timing_warnings": timing_warnings,
                 **contract_limit,
             }
         )
@@ -141,18 +153,25 @@ def build_cache_refresh_readiness_report(
     context_payload = context_json_payload if isinstance(context_json_payload, dict) else {}
     stale_candidates = _extract_stale_candidates(context_payload, report_date=report_date)
     diagnostics = _scan_gate_diagnostics(repo_root)
+    contract_env = build_contract_env_status()
+    notes = [
+            "このレポートはread-only診断です。",
+            "実refresh/live HTTP/cache writeは実行していません。",
+    ]
+    if contract_env.get("contract_env_not_loaded"):
+        notes.append(
+            "JQUANTS_DATA_AVAILABLE_TO が未ロードのため data_contract_limited 分類が欠落する可能性があります（--env-file 推奨）。"
+        )
     payload = {
         "report_date": report_date,
         "generated_at": _now_iso(),
         "dry_run_only": True,
         "live_http_executed": False,
         "cache_write_executed": False,
+        "contract_env": contract_env,
         "stale_candidates": stale_candidates,
         "gate_diagnostics": diagnostics,
-        "notes": [
-            "このレポートはread-only診断です。",
-            "実refresh/live HTTP/cache writeは実行していません。",
-        ],
+        "notes": notes,
     }
     lines = [
         "# Cache Refresh Readiness Report",
@@ -163,6 +182,8 @@ def build_cache_refresh_readiness_report(
         "- dry_run_only: true",
         "- live_http_executed: false",
         "- cache_write_executed: false",
+        f"- jquants_contract_env_loaded: {str(contract_env['jquants_contract_env_loaded']).lower()}",
+        f"- contract_env_not_loaded: {str(contract_env['contract_env_not_loaded']).lower()}",
         "",
         "## 要更新候補",
         "| ticker | market | stale_days | latest_bar_date | freshness | provider候補 | refresh優先度 | 理由 |",

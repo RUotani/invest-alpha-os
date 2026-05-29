@@ -10,6 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.reports.chatgpt_market_regime import build_market_regime_v0
+from invis_alpha_os.reports.contract_env_status import (
+    append_contract_env_warning,
+    build_contract_env_status,
+    jp_stale_candidates_without_contract_env,
+)
 from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
 from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
@@ -44,10 +49,17 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
     symbol = str(cand.get("instrument_id", "")).strip()
     market = str(cand.get("market", "")).strip() or "US"
     qm = compute_candidate_quant_metrics(symbol=symbol, market=market, report_date=report_date)
+    env_map = dict(os.environ)
     contract_limit = assess_data_contract_limit(
         latest_bar_date=qm.latest_bar_date,
         report_date=report_date,
-        contract_to=contract_dates_from_env(dict(os.environ)).get("data_available_to"),
+        contract_to=contract_dates_from_env(env_map).get("data_available_to"),
+        freshness_classification=qm.freshness_classification,
+    )
+    timing_warnings = append_contract_env_warning(
+        [],
+        env=env_map,
+        market=market,
         freshness_classification=qm.freshness_classification,
     )
     return {
@@ -89,6 +101,7 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
             "今週の監視ポイントを優先順位付きで示してください。",
         ],
         "missing_data_reasons": [qm.missing_reason] if qm.missing_reason else [],
+        "timing_warnings": timing_warnings,
         "sources": [qm.source, "weekly_candidate_brief_v0_1.json"],
         **contract_limit,
     }
@@ -210,11 +223,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         item["quant_data_status"] = "ok" if not item["missing_data_reasons"] else "missing"
     regime = build_market_regime_v0(report_date=report_date)
     queues = _build_priority_queues(top10)
+    contract_env = build_contract_env_status()
+    jp_env_gap = jp_stale_candidates_without_contract_env(top10)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
         "generated_at": _now_iso(),
         "source": "weekly_candidate_brief",
+        "contract_env": contract_env,
         "language": "ja",
         "disclaimer": "投資助言ではなく、観測・検証用です",
         "market_regime": regime,
@@ -258,6 +274,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "- 対象市場: JP / US / ETF",
         "- 生成元: weekly_candidate_brief_v0_1.json",
         "- 注意書き: 投資助言ではなく、観測・検証用です",
+        f"- jquants_contract_env_loaded: {str(contract_env['jquants_contract_env_loaded']).lower()}",
+        f"- contract_env_not_loaded: {str(contract_env['contract_env_not_loaded']).lower()}",
+    ]
+    if jp_env_gap:
+        md_lines.append(f"- contract_env_gap_tickers: {', '.join(jp_env_gap)}")
+    md_lines.extend(
+        [
         "",
         "## 1. 今週の結論",
         f"- A候補: {', '.join(out_json['summary']['a_candidates']) or 'なし'}",
@@ -277,7 +300,8 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         ],
         "",
         "## 3. 注目候補Top10",
-    ]
+        ]
+    )
     for c in top10:
         md_lines.extend(
             [

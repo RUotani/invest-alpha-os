@@ -43,3 +43,28 @@ def test_build_cache_refresh_readiness_report_extracts_stale_candidates(tmp_path
     assert rows[0]["refresh_priority"] == "high"
     assert rows[0]["data_contract_limited"] is True
     assert any(x["ticker"] == "QQQ" for x in rows)
+
+
+def test_readiness_notes_contract_env_not_loaded_when_env_missing(monkeypatch) -> None:
+    monkeypatch.delenv("JQUANTS_DATA_AVAILABLE_TO", raising=False)
+    context_payload = {
+        "candidates": [
+            {
+                "ticker": "5802",
+                "market": "JP",
+                "stale_days": 82,
+                "latest_bar_date": "2026-02-17",
+                "freshness_classification": "data_update_required",
+                "timing_warnings": [],
+                "missing_data_reasons": [],
+            }
+        ]
+    }
+    result = build_cache_refresh_readiness_report(
+        report_date="2026-05-27",
+        repo_root=Path("."),
+        context_json_payload=context_payload,
+    )
+    assert result.json_payload["contract_env"]["contract_env_not_loaded"] is True
+    assert "contract_env_not_loaded" in result.json_payload["stale_candidates"][0]["timing_warnings"]
+    assert any("--env-file" in note for note in result.json_payload["notes"])
