@@ -40,6 +40,14 @@ def write_context_pack_outputs(
     jp_alternative_provider_readiness_json_payload: dict[str, Any] | None = None,
     jp_alternative_provider_execution_plan_markdown: str | None = None,
     jp_alternative_provider_execution_plan_json_payload: dict[str, Any] | None = None,
+    manual_csv_validation_markdown: str | None = None,
+    manual_csv_validation_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_plan_markdown: str | None = None,
+    manual_csv_import_plan_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_result_markdown: str | None = None,
+    manual_csv_import_result_json_payload: dict[str, Any] | None = None,
+    manual_csv_template_markdown: str | None = None,
+    manual_csv_template_csv_text: str | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -172,6 +180,38 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["latest_jp_alternative_provider_execution_plan_json"] = plan_json
+        if manual_csv_validation_markdown is not None:
+            val_md = latest / "manual_csv_validation.md"
+            val_md.write_text(manual_csv_validation_markdown, encoding="utf-8")
+            paths["latest_manual_csv_validation_md"] = val_md
+        if manual_csv_validation_json_payload is not None:
+            val_json = latest / "manual_csv_validation.json"
+            val_json.write_text(json.dumps(manual_csv_validation_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_manual_csv_validation_json"] = val_json
+        if manual_csv_import_plan_markdown is not None:
+            imp_md = latest / "manual_csv_import_plan.md"
+            imp_md.write_text(manual_csv_import_plan_markdown, encoding="utf-8")
+            paths["latest_manual_csv_import_plan_md"] = imp_md
+        if manual_csv_import_plan_json_payload is not None:
+            imp_json = latest / "manual_csv_import_plan.json"
+            imp_json.write_text(json.dumps(manual_csv_import_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_manual_csv_import_plan_json"] = imp_json
+        if manual_csv_import_result_markdown is not None:
+            res_md = latest / "manual_csv_import_result.md"
+            res_md.write_text(manual_csv_import_result_markdown, encoding="utf-8")
+            paths["latest_manual_csv_import_result_md"] = res_md
+        if manual_csv_import_result_json_payload is not None:
+            res_json = latest / "manual_csv_import_result.json"
+            res_json.write_text(json.dumps(manual_csv_import_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["latest_manual_csv_import_result_json"] = res_json
+        if manual_csv_template_markdown is not None:
+            tpl_md = latest / "manual_csv_template.md"
+            tpl_md.write_text(manual_csv_template_markdown, encoding="utf-8")
+            paths["latest_manual_csv_template_md"] = tpl_md
+        if manual_csv_template_csv_text is not None:
+            tpl_csv = latest / "manual_csv_template.csv"
+            tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
+            paths["latest_manual_csv_template_csv"] = tpl_csv
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -299,6 +339,38 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["archive_jp_alternative_provider_execution_plan_json"] = plan_json
+        if manual_csv_validation_markdown is not None:
+            val_md = arc / "manual_csv_validation.md"
+            val_md.write_text(manual_csv_validation_markdown, encoding="utf-8")
+            paths["archive_manual_csv_validation_md"] = val_md
+        if manual_csv_validation_json_payload is not None:
+            val_json = arc / "manual_csv_validation.json"
+            val_json.write_text(json.dumps(manual_csv_validation_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_manual_csv_validation_json"] = val_json
+        if manual_csv_import_plan_markdown is not None:
+            imp_md = arc / "manual_csv_import_plan.md"
+            imp_md.write_text(manual_csv_import_plan_markdown, encoding="utf-8")
+            paths["archive_manual_csv_import_plan_md"] = imp_md
+        if manual_csv_import_plan_json_payload is not None:
+            imp_json = arc / "manual_csv_import_plan.json"
+            imp_json.write_text(json.dumps(manual_csv_import_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_manual_csv_import_plan_json"] = imp_json
+        if manual_csv_import_result_markdown is not None:
+            res_md = arc / "manual_csv_import_result.md"
+            res_md.write_text(manual_csv_import_result_markdown, encoding="utf-8")
+            paths["archive_manual_csv_import_result_md"] = res_md
+        if manual_csv_import_result_json_payload is not None:
+            res_json = arc / "manual_csv_import_result.json"
+            res_json.write_text(json.dumps(manual_csv_import_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths["archive_manual_csv_import_result_json"] = res_json
+        if manual_csv_template_markdown is not None:
+            tpl_md = arc / "manual_csv_template.md"
+            tpl_md.write_text(manual_csv_template_markdown, encoding="utf-8")
+            paths["archive_manual_csv_template_md"] = tpl_md
+        if manual_csv_template_csv_text is not None:
+            tpl_csv = arc / "manual_csv_template.csv"
+            tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
+            paths["archive_manual_csv_template_csv"] = tpl_csv
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -347,6 +419,14 @@ def sync_to_reports_repo(
     jp_alternative_provider_readiness_json_payload: dict[str, Any] | None = None,
     jp_alternative_provider_execution_plan_markdown: str | None = None,
     jp_alternative_provider_execution_plan_json_payload: dict[str, Any] | None = None,
+    manual_csv_validation_markdown: str | None = None,
+    manual_csv_validation_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_plan_markdown: str | None = None,
+    manual_csv_import_plan_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_result_markdown: str | None = None,
+    manual_csv_import_result_json_payload: dict[str, Any] | None = None,
+    manual_csv_template_markdown: str | None = None,
+    manual_csv_template_csv_text: str | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -576,6 +656,62 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_jp_alternative_provider_execution_plan_json"] = latest_plan_json
         paths["reports_weekly_jp_alternative_provider_execution_plan_json"] = weekly_plan_json
+    if manual_csv_validation_markdown is not None:
+        latest_val_md = latest / "manual_csv_validation.md"
+        weekly_val_md = weekly / "manual_csv_validation.md"
+        latest_val_md.write_text(manual_csv_validation_markdown, encoding="utf-8")
+        weekly_val_md.write_text(manual_csv_validation_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_validation_md"] = latest_val_md
+        paths["reports_weekly_manual_csv_validation_md"] = weekly_val_md
+    if manual_csv_validation_json_payload is not None:
+        latest_val_json = latest / "manual_csv_validation.json"
+        weekly_val_json = weekly / "manual_csv_validation.json"
+        latest_val_json.write_text(json.dumps(manual_csv_validation_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        weekly_val_json.write_text(json.dumps(manual_csv_validation_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["reports_latest_manual_csv_validation_json"] = latest_val_json
+        paths["reports_weekly_manual_csv_validation_json"] = weekly_val_json
+    if manual_csv_import_plan_markdown is not None:
+        latest_imp_md = latest / "manual_csv_import_plan.md"
+        weekly_imp_md = weekly / "manual_csv_import_plan.md"
+        latest_imp_md.write_text(manual_csv_import_plan_markdown, encoding="utf-8")
+        weekly_imp_md.write_text(manual_csv_import_plan_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_import_plan_md"] = latest_imp_md
+        paths["reports_weekly_manual_csv_import_plan_md"] = weekly_imp_md
+    if manual_csv_import_plan_json_payload is not None:
+        latest_imp_json = latest / "manual_csv_import_plan.json"
+        weekly_imp_json = weekly / "manual_csv_import_plan.json"
+        latest_imp_json.write_text(json.dumps(manual_csv_import_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        weekly_imp_json.write_text(json.dumps(manual_csv_import_plan_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["reports_latest_manual_csv_import_plan_json"] = latest_imp_json
+        paths["reports_weekly_manual_csv_import_plan_json"] = weekly_imp_json
+    if manual_csv_import_result_markdown is not None:
+        latest_res_md = latest / "manual_csv_import_result.md"
+        weekly_res_md = weekly / "manual_csv_import_result.md"
+        latest_res_md.write_text(manual_csv_import_result_markdown, encoding="utf-8")
+        weekly_res_md.write_text(manual_csv_import_result_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_import_result_md"] = latest_res_md
+        paths["reports_weekly_manual_csv_import_result_md"] = weekly_res_md
+    if manual_csv_import_result_json_payload is not None:
+        latest_res_json = latest / "manual_csv_import_result.json"
+        weekly_res_json = weekly / "manual_csv_import_result.json"
+        latest_res_json.write_text(json.dumps(manual_csv_import_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        weekly_res_json.write_text(json.dumps(manual_csv_import_result_json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths["reports_latest_manual_csv_import_result_json"] = latest_res_json
+        paths["reports_weekly_manual_csv_import_result_json"] = weekly_res_json
+    if manual_csv_template_markdown is not None:
+        latest_tpl_md = latest / "manual_csv_template.md"
+        weekly_tpl_md = weekly / "manual_csv_template.md"
+        latest_tpl_md.write_text(manual_csv_template_markdown, encoding="utf-8")
+        weekly_tpl_md.write_text(manual_csv_template_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_template_md"] = latest_tpl_md
+        paths["reports_weekly_manual_csv_template_md"] = weekly_tpl_md
+    if manual_csv_template_csv_text is not None:
+        latest_tpl_csv = latest / "manual_csv_template.csv"
+        weekly_tpl_csv = weekly / "manual_csv_template.csv"
+        latest_tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
+        weekly_tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
+        paths["reports_latest_manual_csv_template_csv"] = latest_tpl_csv
+        paths["reports_weekly_manual_csv_template_csv"] = weekly_tpl_csv
     return paths
 
 
