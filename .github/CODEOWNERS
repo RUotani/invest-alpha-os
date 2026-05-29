@@ -1,0 +1,3 @@
+# Security-sensitive paths
+/.github/workflows/ @RUotani
+/src/invis_alpha_os/security/ @RUotani
