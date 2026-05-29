@@ -184,6 +184,7 @@ from invis_alpha_os.reports.manual_csv_validation import validate_manual_csv_fil
 from invis_alpha_os.reports.manual_csv_import_plan import build_manual_csv_import_plan
 from invis_alpha_os.reports.manual_csv_import_execute import build_manual_csv_import_execute
 from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discovery
+from invis_alpha_os.reports.manual_csv_import_flow import build_manual_csv_import_flow
 from invis_alpha_os.reports.manual_csv_normalizer import build_manual_csv_normalization
 from invis_alpha_os.reports.manual_csv_template import build_manual_csv_template
 from invis_alpha_os.reports.cache_refresh_postcheck import build_cache_refresh_postcheck
@@ -2072,6 +2073,91 @@ def weekly_candidate_brief_manual_csv_discover_command(
             if "manual_csv_discovery" in key:
                 typer.echo(f"weekly-candidate-brief-manual-csv-discover: {key}={p}")
     raise typer.Exit(0 if discovery.json_payload.get("safe_to_validate") else 1)
+
+
+@app.command("weekly-candidate-brief-manual-csv-import-flow")
+def weekly_candidate_brief_manual_csv_import_flow_command(
+    csv_path: str = typer.Option(..., "--csv-path", help="Path to manual JP bars CSV (must not be git-tracked)."),
+    targets: str = typer.Option("5802,6645,5801,285A,5803", "--targets", help="Comma-separated JP tickers."),
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    provider: str = typer.Option("manual_csv", "--provider", help="Import provider (must be manual_csv)."),
+    scope: str = typer.Option("JP_ONLY", "--scope", help="Execution scope (must be JP_ONLY)."),
+    broker_format: str = typer.Option(
+        "generic_ohlcv",
+        "--broker-format",
+        help="Broker CSV format: generic_ohlcv, moomoo_jp, sbi_jp, rakuten_jp, manual_csv, auto.",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    execute_import: bool = typer.Option(
+        False,
+        "--execute-import",
+        help="Execute gated manual CSV cache import when all explicit gates are set.",
+    ),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    working_dir = out_root / "latest"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    flow = build_manual_csv_import_flow(
+        csv_path=Path(csv_path),
+        targets_csv=targets,
+        report_date=run_date,
+        provider=provider,
+        scope=scope,
+        broker_format=broker_format,
+        execute_import=execute_import,
+        env=dict(os.environ),
+        repo_root=ROOT_DIR,
+        working_dir=working_dir,
+    )
+    context_md_text = "# Manual CSV Import Flow Report\n"
+    context_payload: dict[str, Any] = {"report_date": run_date, "source": "manual_csv_import_flow"}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+        manual_csv_import_flow_markdown=flow.markdown_text,
+        manual_csv_import_flow_json_payload=flow.json_payload,
+    )
+    for key, p in paths.items():
+        if "manual_csv_import_flow" in key:
+            typer.echo(f"weekly-candidate-brief-manual-csv-import-flow: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-csv-import-flow: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload,
+            manual_csv_import_flow_markdown=flow.markdown_text,
+            manual_csv_import_flow_json_payload=flow.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "manual_csv_import_flow" in key:
+                typer.echo(f"weekly-candidate-brief-manual-csv-import-flow: {key}={p}")
+    overall = str(flow.json_payload.get("overall_status", ""))
+    if overall in {"pii_guard_failed", "validation_failed", "normalization_failed", "path_refused"}:
+        raise typer.Exit(2)
+    if execute_import and not flow.json_payload.get("actual_import_executed"):
+        raise typer.Exit(2)
+    raise typer.Exit(0)
 
 
 @app.command("weekly-candidate-brief-manual-csv-normalize")
