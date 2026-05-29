@@ -12,7 +12,9 @@ from invis_alpha_os.reports.manual_data_export_package import build_manual_data_
 from invis_alpha_os.reports.manual_file_security import scan_manual_file_security
 from invis_alpha_os.security.dependency_security_audit import build_dependency_security_audit
 from invis_alpha_os.security.github_actions_security_audit import build_github_actions_security_audit
+from invis_alpha_os.security.github_repo_settings_checklist import build_github_repo_settings_checklist
 from invis_alpha_os.security.security_leakage_audit import build_security_leakage_audit
+from invis_alpha_os.security.source_generated_tracking_plan import build_source_generated_tracking_plan
 
 
 @dataclass(frozen=True)
@@ -25,10 +27,25 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _grade_from_statuses(statuses: list[str]) -> str:
-    if any(s == "fail" or s == "review_required" for s in statuses):
+def _resolve_grade(
+    *,
+    leakage_status: str,
+    actions_status: str,
+    deps_status: str,
+    file_intake_status: str,
+    manual_check_count: int,
+    tracked_reports_count: int,
+) -> str:
+    code_blockers = [
+        leakage_status in {"fail", "review_required"},
+        actions_status in {"fail", "review_required"},
+        file_intake_status == "rejected",
+    ]
+    if any(code_blockers):
         return "review_required"
-    if any(s == "inventory_only" for s in statuses):
+    if manual_check_count > 0 or tracked_reports_count > 1:
+        return "pass_with_manual_checks"
+    if deps_status == "inventory_only":
         return "acceptable_with_notes"
     return "pass"
 
@@ -39,6 +56,7 @@ def build_security_dashboard(
     reports_repo_path: Path | None,
     report_date: str,
     export_targets_csv: str = "5802,6645,5801,285A,5803",
+    github_repo: str = "RUotani/invest-alpha-os",
 ) -> SecurityDashboardResult:
     leakage = build_security_leakage_audit(
         source_repo_path=source_repo_path,
@@ -46,6 +64,8 @@ def build_security_dashboard(
     )
     actions = build_github_actions_security_audit(repo_path=source_repo_path)
     deps = build_dependency_security_audit()
+    tracking = build_source_generated_tracking_plan(source_repo_path=source_repo_path)
+    settings = build_github_repo_settings_checklist(repo=github_repo, repo_root=source_repo_path)
     discovery = build_manual_data_discovery(report_date=report_date, repo_root=source_repo_path)
     export_pkg = build_manual_data_export_package(
         report_date=report_date,
@@ -57,13 +77,17 @@ def build_security_dashboard(
         sec = scan_manual_file_security(discovery.selected_path)
         file_intake_status = sec.status
 
-    statuses = [
-        str(leakage.json_payload.get("overall_status", "")),
-        str(actions.json_payload.get("overall_status", "")),
-        str(deps.json_payload.get("overall_status", "")),
-        file_intake_status,
-    ]
-    grade = _grade_from_statuses(statuses)
+    tracked_reports_count = int(tracking.json_payload.get("tracked_reports_count", 0))
+    manual_check_count = int(settings.json_payload.get("manual_check_required_count", 0))
+
+    grade = _resolve_grade(
+        leakage_status=str(leakage.json_payload.get("overall_status", "")),
+        actions_status=str(actions.json_payload.get("overall_status", "")),
+        deps_status=str(deps.json_payload.get("overall_status", "")),
+        file_intake_status=file_intake_status,
+        manual_check_count=manual_check_count,
+        tracked_reports_count=tracked_reports_count,
+    )
 
     high_findings: list[dict[str, Any]] = []
     medium_findings: list[dict[str, Any]] = []
@@ -73,6 +97,14 @@ def build_security_dashboard(
         elif finding.get("severity") == "medium":
             medium_findings.append(finding)
 
+    remaining_risks: list[str] = []
+    if manual_check_count > 0:
+        remaining_risks.append("GitHub UI settings require manual verification")
+    if tracked_reports_count > 1:
+        remaining_risks.append("Multiple tracked reports remain in source repo")
+    if not discovery.json_payload.get("safe_to_parse"):
+        remaining_risks.append("Manual data files not present locally for dry-run validation")
+
     payload: dict[str, Any] = {
         "overall_grade": grade,
         "generated_at": _now_iso(),
@@ -81,28 +113,42 @@ def build_security_dashboard(
         "redaction_status": "all_audits_redacted",
         "high_severity_findings": high_findings,
         "medium_severity_findings": medium_findings,
+        "remaining_risks": remaining_risks,
         "accepted_risks": [
             "xlsx_supported may be false without openpyxl",
             "dependency audit is inventory-only when pip-audit unavailable",
+            "daily_report runs on workflow_dispatch only after remediation",
         ],
         "next_actions": [
-            "Review leakage audit if overall_status is review_required",
-            "Add top-level permissions to workflows if missing",
+            "Complete GitHub repo settings checklist items in browser",
+            "Keep generated reports in reports-private only",
             "Place manual data files only in untracked paths",
         ],
-        "github_browser_actions": [
-            "Enable branch protection on main if not already",
-            "Restrict GitHub Actions permissions at org/repo level",
-        ],
+        "github_browser_actions": settings.json_payload.get("checks", [])[:5],
         "leakage_audit": {"overall_status": leakage.json_payload.get("overall_status")},
-        "github_actions_audit": {"overall_status": actions.json_payload.get("overall_status")},
+        "github_actions_audit": {
+            "overall_status": actions.json_payload.get("overall_status"),
+            "schedule_findings": [
+                f for f in actions.json_payload.get("findings", []) if f.get("code") == "schedule_trigger"
+            ],
+        },
         "dependency_audit": {"overall_status": deps.json_payload.get("overall_status")},
+        "source_generated_tracking": {
+            "tracked_reports_count": tracked_reports_count,
+            "untrack_generated_count": tracking.json_payload.get("classification_counts", {}).get(
+                "untrack_generated", 0
+            ),
+            "de_index_recommended_count": len(tracking.json_payload.get("de_index_recommended", [])),
+        },
+        "github_repo_settings": {
+            "manual_check_required_count": manual_check_count,
+        },
         "manual_data_discovery": {
             "safe_to_parse": discovery.json_payload.get("safe_to_parse"),
             "xlsx_supported": discovery.json_payload.get("xlsx_supported"),
         },
         "manual_data_export_package": {
-            "targets_count": len(export_pkg.json_payload.get("targets", [])),
+            "targets_count": len(export_pkg.json_payload.get("required_targets", [])),
         },
         "manual_file_intake": {"status": file_intake_status},
     }
@@ -113,13 +159,13 @@ def build_security_dashboard(
         f"- secrets_printed: false",
         f"- leakage_status: {leakage.json_payload.get('overall_status')}",
         f"- actions_status: {actions.json_payload.get('overall_status')}",
-        f"- dependency_status: {deps.json_payload.get('overall_status')}",
-        f"- manual_file_intake: {file_intake_status}",
+        f"- tracked_reports_count: {tracked_reports_count}",
+        f"- manual_check_required_count: {manual_check_count}",
         "",
-        "## Next actions",
+        "## Remaining risks",
         "",
     ]
-    for action in payload["next_actions"]:
-        lines.append(f"- {action}")
+    for risk in remaining_risks or ["none"]:
+        lines.append(f"- {risk}")
     lines.append("")
     return SecurityDashboardResult(markdown_text="\n".join(lines), json_payload=payload)

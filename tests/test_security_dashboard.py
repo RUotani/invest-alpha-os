@@ -17,3 +17,5 @@ def test_security_dashboard_aggregates(tmp_path: Path) -> None:
     assert result.json_payload["secrets_printed"] is False
     assert "overall_grade" in result.json_payload
     assert "leakage_audit" in result.json_payload
+    assert "source_generated_tracking" in result.json_payload
+    assert "github_repo_settings" in result.json_payload
