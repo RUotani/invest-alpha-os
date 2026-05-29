@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
+from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 
 
 @dataclass(frozen=True)
@@ -37,7 +41,7 @@ def _priority(*, freshness_label: str, stale_days: int | None, timing: str) -> t
     return "none", "refresh不要"
 
 
-def _extract_stale_candidates(context_json_payload: dict[str, Any]) -> list[dict[str, Any]]:
+def _extract_stale_candidates(context_json_payload: dict[str, Any], *, report_date: str) -> list[dict[str, Any]]:
     rows = context_json_payload.get("candidates")
     candidates = [x for x in rows if isinstance(x, dict)] if isinstance(rows, list) else []
     out: list[dict[str, Any]] = []
@@ -52,6 +56,12 @@ def _extract_stale_candidates(context_json_payload: dict[str, Any]) -> list[dict
         if freshness not in {"stale", "data_update_required", "cache_missing", "partial_history"}:
             continue
         prio, reason = _priority(freshness_label=freshness, stale_days=stale_days, timing=timing)
+        contract_limit = assess_data_contract_limit(
+            latest_bar_date=str(row.get("latest_bar_date", "")).strip() or None,
+            report_date=report_date,
+            contract_to=contract_dates_from_env(dict(os.environ)).get("data_available_to"),
+            freshness_classification=freshness,
+        )
         out.append(
             {
                 "ticker": ticker,
@@ -64,6 +74,7 @@ def _extract_stale_candidates(context_json_payload: dict[str, Any]) -> list[dict
                 "refresh_priority": prio,
                 "reason": reason,
                 "timing_warnings": row.get("timing_warnings") or [],
+                **contract_limit,
             }
         )
     out.sort(key=lambda x: ({"high": 0, "medium": 1, "low": 2, "none": 3}.get(x["refresh_priority"], 9), -(x.get("stale_days") or -1)))
@@ -128,7 +139,7 @@ def build_cache_refresh_readiness_report(
 ) -> CacheRefreshReadinessResult:
     _ = trap_json_payload
     context_payload = context_json_payload if isinstance(context_json_payload, dict) else {}
-    stale_candidates = _extract_stale_candidates(context_payload)
+    stale_candidates = _extract_stale_candidates(context_payload, report_date=report_date)
     diagnostics = _scan_gate_diagnostics(repo_root)
     payload = {
         "report_date": report_date,

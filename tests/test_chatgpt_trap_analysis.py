@@ -18,6 +18,23 @@ def test_analyze_candidate_traps_basic() -> None:
     assert isinstance(out["upside_thesis"], list)
 
 
+def test_analyze_candidate_traps_contract_limit_guidance() -> None:
+    candidate = {
+        "ticker": "5802",
+        "freshness": "要更新",
+        "data_contract_limited": True,
+        "provider_plan_upgrade_required": True,
+        "alternative_provider_required": True,
+        "returns": {"d5": 0.01, "d60": 0.1},
+        "moving_averages": {"dist_ma25_pct": 0.02, "dist_ma75_pct": 0.05, "dist_ma200_pct": 0.1},
+        "range_52w": {"dist_high_pct": -0.1},
+        "volume": {"ratio20": 1.0},
+    }
+    out = analyze_candidate_traps(candidate)
+    assert any("provider契約上限" in item for item in out["downside_thesis"])
+    assert any("provider_plan_upgrade_required" in item for item in out["next_review_conditions"])
+
+
 def test_analyze_candidate_traps_uses_context_fields() -> None:
     candidate = {
         "ticker": "5802",

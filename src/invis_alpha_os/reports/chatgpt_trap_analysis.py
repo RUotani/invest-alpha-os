@@ -110,6 +110,8 @@ def analyze_candidate_traps(candidate: dict[str, Any]) -> dict[str, Any]:
         downside.append("60日騰落率が弱い")
     if dist200 is not None and dist200 < 0:
         downside.append("200日線を下回る")
+    if candidate.get("data_contract_limited"):
+        downside.append("provider契約上限によりreport_date基準では最新化不可")
     if "要更新" in freshness:
         downside.append("データ鮮度が低い")
 
@@ -121,6 +123,10 @@ def analyze_candidate_traps(candidate: dict[str, Any]) -> dict[str, Any]:
         downside.append("20日モメンタム過熱に伴う押し戻しリスク")
 
     next_review = ["出来高と移動平均乖離の再確認", "benchmark相対で再評価"]
+    if candidate.get("provider_plan_upgrade_required"):
+        next_review.append("provider_plan_upgrade_required を確認")
+    if candidate.get("alternative_provider_required"):
+        next_review.append("alternative_provider_required を確認")
     _append_unique(next_review, _as_text_list(candidate.get("next_checks")))
     invalidation = ["75日線割れ継続", "相対強度低下が継続"]
     if dist25 is not None and dist25 > 0.15:

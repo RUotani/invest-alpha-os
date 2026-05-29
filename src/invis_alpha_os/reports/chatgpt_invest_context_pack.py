@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.reports.chatgpt_market_regime import build_market_regime_v0
+from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
+from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -41,6 +44,12 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
     symbol = str(cand.get("instrument_id", "")).strip()
     market = str(cand.get("market", "")).strip() or "US"
     qm = compute_candidate_quant_metrics(symbol=symbol, market=market, report_date=report_date)
+    contract_limit = assess_data_contract_limit(
+        latest_bar_date=qm.latest_bar_date,
+        report_date=report_date,
+        contract_to=contract_dates_from_env(dict(os.environ)).get("data_available_to"),
+        freshness_classification=qm.freshness_classification,
+    )
     return {
         "rank": rank,
         "ticker": symbol,
@@ -81,6 +90,7 @@ def _to_candidate_item(row: dict[str, Any], *, rank: int, report_date: str) -> d
         ],
         "missing_data_reasons": [qm.missing_reason] if qm.missing_reason else [],
         "sources": [qm.source, "weekly_candidate_brief_v0_1.json"],
+        **contract_limit,
     }
 
 
@@ -155,6 +165,7 @@ def _build_priority_queues(candidates: list[dict[str, Any]]) -> dict[str, list[d
         "overheated_watch": [],
         "watch_continue": [],
         "data_update_required": [],
+        "data_contract_limited": [],
         "data_insufficient": [],
         "skip": [],
     }
@@ -193,6 +204,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         item["timing_label_ja"] = _timing_label_ja(timing)
         item["timing_reason"] = timing_reason
         item["timing_warnings"] = timing_warnings
+        if item.get("data_contract_limited"):
+            if "data_contract_limited" not in item["timing_warnings"]:
+                item["timing_warnings"].append("data_contract_limited")
         item["quant_data_status"] = "ok" if not item["missing_data_reasons"] else "missing"
     regime = build_market_regime_v0(report_date=report_date)
     queues = _build_priority_queues(top10)
@@ -221,6 +235,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "overheated_watch": queues["overheated_watch"],
             "watch_continue": queues["watch_continue"],
             "data_update_required": queues["data_update_required"],
+            "data_contract_limited": queues["data_contract_limited"],
             "data_insufficient": queues["data_insufficient"],
             "skip": queues["skip"],
         },
@@ -280,6 +295,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
                 f"- stale理由: {c.get('freshness_reason')}",
                 f"- タイミングへの影響: {c.get('timing_impact')}",
                 f"- タイミング警告: {', '.join(c.get('timing_warnings') or []) or 'なし'}",
+                f"- data_contract_limited: {str(c.get('data_contract_limited', False)).lower()}",
+                f"- provider_plan_upgrade_required: {str(c.get('provider_plan_upgrade_required', False)).lower()}",
+                f"- alternative_provider_required: {str(c.get('alternative_provider_required', False)).lower()}",
                 f"- 5D/20D/60D騰落率: {c['returns']['d5']}, {c['returns']['d20']}, {c['returns']['d60']}",
                 f"- 25D/75D/200D移動平均線との乖離: {c['moving_averages']['dist_ma25_pct']}, {c['moving_averages']['dist_ma75_pct']}, {c['moving_averages']['dist_ma200_pct']}",
                 f"- 52週高値/安値との距離: {c['range_52w']['dist_high_pct']}, {c['range_52w']['dist_low_pct']}",

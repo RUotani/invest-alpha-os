@@ -5,14 +5,15 @@ from pathlib import Path
 from invis_alpha_os.reports.cache_refresh_readiness import build_cache_refresh_readiness_report
 
 
-def test_build_cache_refresh_readiness_report_extracts_stale_candidates(tmp_path: Path) -> None:
+def test_build_cache_refresh_readiness_report_extracts_stale_candidates(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("JQUANTS_DATA_AVAILABLE_TO", "20260306")
     context_payload = {
         "candidates": [
             {
                 "ticker": "5802",
                 "market": "JP",
-                "stale_days": 99,
-                "latest_bar_date": "2026-02-17",
+                "stale_days": 82,
+                "latest_bar_date": "2026-03-06",
                 "freshness_classification": "data_update_required",
                 "timing": "overheated_watch",
                 "timing_warnings": ["data_update_required"],
@@ -40,4 +41,5 @@ def test_build_cache_refresh_readiness_report_extracts_stale_candidates(tmp_path
     rows = result.json_payload["stale_candidates"]
     assert rows[0]["ticker"] == "5802"
     assert rows[0]["refresh_priority"] == "high"
+    assert rows[0]["data_contract_limited"] is True
     assert any(x["ticker"] == "QQQ" for x in rows)
