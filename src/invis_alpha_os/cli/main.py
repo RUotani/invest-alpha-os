@@ -201,6 +201,11 @@ from invis_alpha_os.reports.jquants_env_preflight_refresh_pack import (
     sync_jquants_env_preflight_refresh_pack_to_reports_repo,
     write_jquants_env_preflight_refresh_pack_outputs,
 )
+from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
+    build_investment_readiness_v31,
+    sync_investment_readiness_v31_to_reports_repo,
+    write_investment_readiness_v31_outputs,
+)
 from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
     build_manual_data_acquisition_ux_pack,
     sync_manual_data_acquisition_ux_to_reports_repo,
@@ -2371,6 +2376,55 @@ def weekly_candidate_brief_jquants_env_preflight_refresh_pack_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-jquants-env-preflight-refresh-pack: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-investment-readiness-after-refresh")
+def weekly_candidate_brief_investment_readiness_after_refresh_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets_csv: str = typer.Option(DEFAULT_TARGET_TICKERS_CSV, "--targets-csv"),
+    reports_latest_dir: Optional[str] = typer.Option(
+        None,
+        "--reports-latest-dir",
+        help="Path to reports-private latest/ (default: outputs/chatgpt_context/latest).",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    latest_dir = Path(reports_latest_dir) if reports_latest_dir else out_root / "latest"
+    result = build_investment_readiness_v31(
+        report_date=run_date,
+        reports_latest_dir=latest_dir,
+        targets_csv=targets_csv,
+    )
+    paths = write_investment_readiness_v31_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-investment-readiness-after-refresh: {key}={p}")
+    typer.echo(
+        "weekly-candidate-brief-investment-readiness-after-refresh: "
+        f"verdict={result.readiness_json.get('investment_readiness_verdict')}"
+    )
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-investment-readiness-after-refresh: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_investment_readiness_v31_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-investment-readiness-after-refresh: {key}={p}")
     raise typer.Exit(0)
 
 
