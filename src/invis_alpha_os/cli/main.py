@@ -208,9 +208,11 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
 )
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     build_ohlcv_provider_automation_core,
+    build_ohlcv_provider_approval_package,
     build_ohlcv_provider_coverage_matrix,
     build_ohlcv_provider_registry_strategy,
     write_ohlcv_provider_automation_core_outputs,
+    write_ohlcv_provider_approval_package_outputs,
 )
 from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
     build_post_contract_structural_v32,
@@ -2543,6 +2545,38 @@ def weekly_candidate_brief_ohlcv_provider_automation_core_command(
     typer.echo(
         "weekly-candidate-brief-ohlcv-provider-automation-core: "
         "dry_run_only=true live_http_executed=false cache_write_executed=false"
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-ohlcv-provider-approval-package")
+def weekly_candidate_brief_ohlcv_provider_approval_package_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-ohlcv-provider-approval-package: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    markdown_text, json_payload = build_ohlcv_provider_approval_package(report_date=run_date)
+    paths = write_ohlcv_provider_approval_package_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=json_payload,
+    )
+    if fmt == "json":
+        typer.echo(json.dumps(json_payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-ohlcv-provider-approval-package: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-ohlcv-provider-approval-package: "
+        "dry_run_only=true live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false",
+        err=True,
     )
     raise typer.Exit(0)
 
