@@ -9,6 +9,7 @@ from typing import Any
 @dataclass(frozen=True)
 class RulesetOperationalRisk:
     solo_operation_review_required: bool
+    solo_approval_requirement_waived: bool
     collaborator_count: int | None
     bypass_actor_count: int
     required_approving_review_count: int
@@ -36,11 +37,21 @@ def assess_ruleset_operational_risk(
         and required_approving_review_count >= 1
         and bypass_count == 0
     )
+    solo_waived = (
+        collaborator_count == 1
+        and required_approving_review_count == 0
+        and bypass_count == 0
+    )
 
     manual_notes: list[str] = []
     recommendations: list[str] = []
 
-    if solo_review:
+    if solo_waived:
+        manual_notes.append(
+            "Solo-safe ruleset: required PR approvals waived (0); CI/status checks and "
+            "force-push/deletion rules remain enforced."
+        )
+    elif solo_review:
         manual_notes.append(
             "Single collaborator with required PR approvals>=1 and no ruleset bypass actors; "
             "merge may require self-approval or alternate account — confirm GitHub plan/policy."
@@ -58,6 +69,7 @@ def assess_ruleset_operational_risk(
 
     return RulesetOperationalRisk(
         solo_operation_review_required=solo_review,
+        solo_approval_requirement_waived=solo_waived,
         collaborator_count=collaborator_count,
         bypass_actor_count=bypass_count,
         required_approving_review_count=required_approving_review_count,
@@ -70,6 +82,7 @@ def assess_ruleset_operational_risk(
 def ruleset_operational_risk_to_dict(risk: RulesetOperationalRisk) -> dict[str, Any]:
     return {
         "solo_operation_review_required": risk.solo_operation_review_required,
+        "solo_approval_requirement_waived": risk.solo_approval_requirement_waived,
         "collaborator_count": risk.collaborator_count,
         "bypass_actor_count": risk.bypass_actor_count,
         "required_approving_review_count": risk.required_approving_review_count,

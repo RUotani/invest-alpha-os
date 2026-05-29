@@ -60,10 +60,21 @@ def build_github_settings_evidence_pack(
 
     protection = gh_api_json(f"repos/{owner}/{name}/branches/{default_branch}/protection")
     ruleset_payloads = fetch_ruleset_payloads(repo)
+    collaborator_count: int | None = None
+    if gh_api_status(f"repos/{owner}/{name}/collaborators") == 200:
+        collaborator_count = len(gh_api_list(f"repos/{owner}/{name}/collaborators"))
+    bypass_actor_count = 0
+    for payload in ruleset_payloads:
+        actors = payload.get("bypass_actors")
+        if isinstance(actors, list):
+            bypass_actor_count = len(actors)
+            break
     branch_evidence = evaluate_branch_protection_evidence(
         default_branch=default_branch,
         classic_protection=protection,
         ruleset_payloads=ruleset_payloads,
+        collaborator_count=collaborator_count,
+        bypass_actor_count=bypass_actor_count,
     )
     auto_evidence.append(
         {
