@@ -215,6 +215,12 @@ from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
     sync_post_contract_structural_v32_to_reports_repo,
     write_post_contract_structural_v32_outputs,
 )
+from invis_alpha_os.reports.manual_data_actual_import_v35 import (
+    build_investment_readiness_after_manual_import,
+    run_manual_import_v35,
+    sync_manual_import_v35_to_reports_repo,
+    write_manual_import_v35_outputs,
+)
 from invis_alpha_os.reports.stooq_manual_csv_ingest import (
     build_stooq_manual_csv_ingest_v34,
     sync_stooq_ingest_v34_to_reports_repo,
@@ -2514,6 +2520,64 @@ def weekly_candidate_brief_stooq_manual_csv_ingest_v34_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-stooq-manual-csv-ingest-v34: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-manual-import-v35")
+def weekly_candidate_brief_manual_import_v35_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets: str = typer.Option("5802,6645,285A,5803", "--targets"),
+    input_path: Optional[str] = typer.Option(
+        None,
+        "--input-path",
+        help="manual_jp_bars.csv path (default: dropzone).",
+    ),
+    execute_import: bool = typer.Option(
+        False,
+        "--execute-import",
+        help="Execute gated cache import (requires approval phrase in session).",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    dz = Path.home() / "Downloads" / "invest-alpha-os-manual-data-dropzone"
+    csv_path = Path(input_path).expanduser() if input_path else dz / "manual_jp_bars.csv"
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    backup_root = OUTPUTS_DIR / "manual_data" / "rollback_snapshots"
+    working_dir = out_root / "latest" / "v35_import_work"
+    working_dir.mkdir(parents=True, exist_ok=True)
+    result = run_manual_import_v35(
+        report_date=run_date,
+        csv_path=csv_path,
+        targets_csv=targets,
+        repo_root=ROOT_DIR,
+        backup_root=backup_root,
+        working_dir=working_dir,
+        env=dict(os.environ),
+        execute_import=execute_import,
+    )
+    paths = write_manual_import_v35_outputs(out_dir=out_root, report_date=run_date, result=result)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-manual-import-v35: {key}={p}")
+    typer.echo(
+        f"weekly-candidate-brief-manual-import-v35: pre_import_ready={result.pre_import.get('ready_for_import')}"
+    )
+    typer.echo(
+        "weekly-candidate-brief-manual-import-v35: "
+        f"actual_import_executed={result.execute_json.get('actual_import_executed')}"
+    )
+    if sync_github_reports_repo and reports_repo_path:
+        sync_paths = sync_manual_import_v35_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-manual-import-v35: {key}={p}")
+    if execute_import and not result.execute_json.get("actual_import_executed"):
+        raise typer.Exit(2)
     raise typer.Exit(0)
 
 
