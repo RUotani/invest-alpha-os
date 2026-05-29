@@ -189,6 +189,7 @@ from invis_alpha_os.reports.manual_csv_import_plan import build_manual_csv_impor
 from invis_alpha_os.reports.manual_csv_import_execute import build_manual_csv_import_execute
 from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discovery
 from invis_alpha_os.reports.manual_data_discovery import build_manual_data_discovery
+from invis_alpha_os.reports.manual_data_export_package import build_manual_data_export_package
 from invis_alpha_os.reports.manual_data_import_flow import build_manual_data_import_flow
 from invis_alpha_os.reports.manual_data_normalizer import build_manual_data_normalization
 from invis_alpha_os.reports.manual_csv_export_request import build_manual_csv_export_request
@@ -2187,6 +2188,62 @@ def weekly_candidate_brief_manual_csv_export_request_command(
         for key, p in sync_paths.items():
             if "manual_csv_export_request" in key:
                 typer.echo(f"weekly-candidate-brief-manual-csv-export-request: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-manual-data-export-package")
+def weekly_candidate_brief_manual_data_export_package_command(
+    targets: str = typer.Option("5802,6645,5801,285A,5803", "--targets", help="Comma-separated JP tickers."),
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    package = build_manual_data_export_package(targets_csv=targets, report_date=run_date)
+    context_md_text = "# Manual Data Export Package Report\n"
+    context_payload: dict[str, Any] = {"report_date": run_date, "source": "manual_data_export_package"}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+        manual_data_export_package_markdown=package.markdown_text,
+        manual_data_export_package_json_payload=package.json_payload,
+        manual_jp_bars_template_csv_text=package.template_csv_text,
+    )
+    for key, p in paths.items():
+        if "manual_data_export_package" in key or "manual_jp_bars_template" in key:
+            typer.echo(f"weekly-candidate-brief-manual-data-export-package: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-data-export-package: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload,
+            manual_data_export_package_markdown=package.markdown_text,
+            manual_data_export_package_json_payload=package.json_payload,
+            manual_jp_bars_template_csv_text=package.template_csv_text,
+        )
+        for key, p in sync_paths.items():
+            if "manual_data_export_package" in key or "manual_jp_bars_template" in key:
+                typer.echo(f"weekly-candidate-brief-manual-data-export-package: {key}={p}")
     raise typer.Exit(0)
 
 
