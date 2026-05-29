@@ -90,7 +90,7 @@ def test_cli_context_pack_writes_latest_and_archive(tmp_path: Path) -> None:
 def test_cli_context_pack_default_report_dir_without_name_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("invis_alpha_os.config.paths.ROOT_DIR", tmp_path)
+    monkeypatch.setattr("invis_alpha_os.cli.main.ROOT_DIR", tmp_path)
     report_dir = tmp_path / "reports" / "2026-05-27"
     _write_weekly_json(report_dir)
     out_dir = tmp_path / "outputs" / "chatgpt_context"
