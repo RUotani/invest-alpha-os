@@ -15,7 +15,7 @@ from invis_alpha_os.data.adapters.jquants_client import (
     _resolve_jquants_api_version,
     _truthy_flag,
 )
-from invis_alpha_os.reports.jquants_date_range import resolve_refresh_date_range
+from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env, resolve_refresh_date_range
 
 
 @dataclass(frozen=True)
@@ -100,6 +100,7 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
     base_url_diag = assess_jquants_base_url(values)
     endpoint_diag = assess_jquants_endpoint_contract(values)
     date_range_diag = resolve_refresh_date_range(values, allow_date_clamp=True).as_dict()
+    contract_diag = contract_dates_from_env(values)
     return {
         "jquants_enabled": jquants_enabled,
         "api_base_url_present": api_base_url_present,
@@ -112,6 +113,7 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
         "cache_write_executed": False,
         **base_url_diag,
         **endpoint_diag,
+        **contract_diag,
         **date_range_diag,
     }
 
