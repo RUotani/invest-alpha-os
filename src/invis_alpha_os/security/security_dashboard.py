@@ -35,16 +35,18 @@ def _resolve_grade(
     file_intake_status: str,
     manual_check_count: int,
     tracked_reports_count: int,
+    retained_secret_hit_count: int,
 ) -> str:
-    code_blockers = [
-        leakage_status in {"fail", "review_required"},
-        actions_status in {"fail", "review_required"},
-        file_intake_status == "rejected",
-    ]
-    if any(code_blockers):
+    if file_intake_status == "rejected" or retained_secret_hit_count > 0:
         return "review_required"
-    if manual_check_count > 0 or tracked_reports_count > 1:
-        return "pass_with_manual_checks"
+    if actions_status in {"fail", "review_required"}:
+        return "review_required"
+    if leakage_status == "fail":
+        return "review_required"
+    if tracked_reports_count > 1:
+        return "review_required"
+    if manual_check_count > 0:
+        return "review_required_manual_settings_only"
     if deps_status == "inventory_only":
         return "acceptable_with_notes"
     return "pass"
@@ -79,6 +81,10 @@ def build_security_dashboard(
 
     tracked_reports_count = int(tracking.json_payload.get("tracked_reports_count", 0))
     manual_check_count = int(settings.json_payload.get("manual_check_required_count", 0))
+    retained_secret_hits = len(leakage.json_payload.get("source_repo", {}).get("suspected_secret_hits", []))
+    suppressed_count = int(
+        leakage.json_payload.get("source_repo", {}).get("suppressed_false_positive_count", 0)
+    )
 
     grade = _resolve_grade(
         leakage_status=str(leakage.json_payload.get("overall_status", "")),
@@ -87,6 +93,7 @@ def build_security_dashboard(
         file_intake_status=file_intake_status,
         manual_check_count=manual_check_count,
         tracked_reports_count=tracked_reports_count,
+        retained_secret_hit_count=retained_secret_hits,
     )
 
     high_findings: list[dict[str, Any]] = []
@@ -125,7 +132,11 @@ def build_security_dashboard(
             "Place manual data files only in untracked paths",
         ],
         "github_browser_actions": settings.json_payload.get("checks", [])[:5],
-        "leakage_audit": {"overall_status": leakage.json_payload.get("overall_status")},
+        "leakage_audit": {
+            "overall_status": leakage.json_payload.get("overall_status"),
+            "retained_secret_hit_count": retained_secret_hits,
+            "suppressed_false_positive_count": suppressed_count,
+        },
         "github_actions_audit": {
             "overall_status": actions.json_payload.get("overall_status"),
             "schedule_findings": [
