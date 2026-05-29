@@ -52,6 +52,8 @@ def write_context_pack_outputs(
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
     manual_data_discovery_markdown: str | None = None,
     manual_data_discovery_json_payload: dict[str, Any] | None = None,
+    manual_data_normalization_markdown: str | None = None,
+    manual_data_normalization_json_payload: dict[str, Any] | None = None,
     manual_csv_normalization_markdown: str | None = None,
     manual_csv_normalization_json_payload: dict[str, Any] | None = None,
     manual_csv_import_flow_markdown: str | None = None,
@@ -244,6 +246,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["latest_manual_data_discovery_json"] = data_json
+        if manual_data_normalization_markdown is not None:
+            data_norm_md = latest / "manual_data_normalization.md"
+            data_norm_md.write_text(manual_data_normalization_markdown, encoding="utf-8")
+            paths["latest_manual_data_normalization_md"] = data_norm_md
+        if manual_data_normalization_json_payload is not None:
+            data_norm_json = latest / "manual_data_normalization.json"
+            data_norm_json.write_text(
+                json.dumps(manual_data_normalization_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["latest_manual_data_normalization_json"] = data_norm_json
         if manual_csv_normalization_markdown is not None:
             norm_md = latest / "manual_csv_normalization.md"
             norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
@@ -458,6 +471,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["archive_manual_data_discovery_json"] = data_json
+        if manual_data_normalization_markdown is not None:
+            data_norm_md = arc / "manual_data_normalization.md"
+            data_norm_md.write_text(manual_data_normalization_markdown, encoding="utf-8")
+            paths["archive_manual_data_normalization_md"] = data_norm_md
+        if manual_data_normalization_json_payload is not None:
+            data_norm_json = arc / "manual_data_normalization.json"
+            data_norm_json.write_text(
+                json.dumps(manual_data_normalization_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["archive_manual_data_normalization_json"] = data_norm_json
         if manual_csv_normalization_markdown is not None:
             norm_md = arc / "manual_csv_normalization.md"
             norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
@@ -551,6 +575,8 @@ def sync_to_reports_repo(
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
     manual_data_discovery_markdown: str | None = None,
     manual_data_discovery_json_payload: dict[str, Any] | None = None,
+    manual_data_normalization_markdown: str | None = None,
+    manual_data_normalization_json_payload: dict[str, Any] | None = None,
     manual_csv_normalization_markdown: str | None = None,
     manual_csv_normalization_json_payload: dict[str, Any] | None = None,
     manual_csv_import_flow_markdown: str | None = None,
@@ -882,6 +908,26 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_manual_data_discovery_json"] = latest_data_json
         paths["reports_weekly_manual_data_discovery_json"] = weekly_data_json
+    if manual_data_normalization_markdown is not None:
+        latest_data_norm_md = latest / "manual_data_normalization.md"
+        weekly_data_norm_md = weekly / "manual_data_normalization.md"
+        latest_data_norm_md.write_text(manual_data_normalization_markdown, encoding="utf-8")
+        weekly_data_norm_md.write_text(manual_data_normalization_markdown, encoding="utf-8")
+        paths["reports_latest_manual_data_normalization_md"] = latest_data_norm_md
+        paths["reports_weekly_manual_data_normalization_md"] = weekly_data_norm_md
+    if manual_data_normalization_json_payload is not None:
+        latest_data_norm_json = latest / "manual_data_normalization.json"
+        weekly_data_norm_json = weekly / "manual_data_normalization.json"
+        latest_data_norm_json.write_text(
+            json.dumps(manual_data_normalization_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        weekly_data_norm_json.write_text(
+            json.dumps(manual_data_normalization_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        paths["reports_latest_manual_data_normalization_json"] = latest_data_norm_json
+        paths["reports_weekly_manual_data_normalization_json"] = weekly_data_norm_json
     if manual_csv_normalization_markdown is not None:
         latest_norm_md = latest / "manual_csv_normalization.md"
         weekly_norm_md = weekly / "manual_csv_normalization.md"
