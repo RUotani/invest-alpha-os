@@ -52,6 +52,8 @@ def write_context_pack_outputs(
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
     manual_csv_normalization_markdown: str | None = None,
     manual_csv_normalization_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_flow_markdown: str | None = None,
+    manual_csv_import_flow_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -238,6 +240,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["latest_manual_csv_normalization_json"] = norm_json
+        if manual_csv_import_flow_markdown is not None:
+            flow_md = latest / "manual_csv_import_flow.md"
+            flow_md.write_text(manual_csv_import_flow_markdown, encoding="utf-8")
+            paths["latest_manual_csv_import_flow_md"] = flow_md
+        if manual_csv_import_flow_json_payload is not None:
+            flow_json = latest / "manual_csv_import_flow.json"
+            flow_json.write_text(
+                json.dumps(manual_csv_import_flow_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["latest_manual_csv_import_flow_json"] = flow_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -419,6 +432,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["archive_manual_csv_normalization_json"] = norm_json
+        if manual_csv_import_flow_markdown is not None:
+            flow_md = arc / "manual_csv_import_flow.md"
+            flow_md.write_text(manual_csv_import_flow_markdown, encoding="utf-8")
+            paths["archive_manual_csv_import_flow_md"] = flow_md
+        if manual_csv_import_flow_json_payload is not None:
+            flow_json = arc / "manual_csv_import_flow.json"
+            flow_json.write_text(
+                json.dumps(manual_csv_import_flow_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["archive_manual_csv_import_flow_json"] = flow_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -479,6 +503,8 @@ def sync_to_reports_repo(
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
     manual_csv_normalization_markdown: str | None = None,
     manual_csv_normalization_json_payload: dict[str, Any] | None = None,
+    manual_csv_import_flow_markdown: str | None = None,
+    manual_csv_import_flow_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -804,6 +830,26 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_manual_csv_normalization_json"] = latest_norm_json
         paths["reports_weekly_manual_csv_normalization_json"] = weekly_norm_json
+    if manual_csv_import_flow_markdown is not None:
+        latest_flow_md = latest / "manual_csv_import_flow.md"
+        weekly_flow_md = weekly / "manual_csv_import_flow.md"
+        latest_flow_md.write_text(manual_csv_import_flow_markdown, encoding="utf-8")
+        weekly_flow_md.write_text(manual_csv_import_flow_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_import_flow_md"] = latest_flow_md
+        paths["reports_weekly_manual_csv_import_flow_md"] = weekly_flow_md
+    if manual_csv_import_flow_json_payload is not None:
+        latest_flow_json = latest / "manual_csv_import_flow.json"
+        weekly_flow_json = weekly / "manual_csv_import_flow.json"
+        latest_flow_json.write_text(
+            json.dumps(manual_csv_import_flow_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        weekly_flow_json.write_text(
+            json.dumps(manual_csv_import_flow_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        paths["reports_latest_manual_csv_import_flow_json"] = latest_flow_json
+        paths["reports_weekly_manual_csv_import_flow_json"] = weekly_flow_json
     return paths
 
 
