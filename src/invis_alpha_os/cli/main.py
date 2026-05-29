@@ -207,8 +207,10 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
     write_investment_readiness_v31_outputs,
 )
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
+    build_ohlcv_provider_automation_core,
     build_ohlcv_provider_coverage_matrix,
     build_ohlcv_provider_registry_strategy,
+    write_ohlcv_provider_automation_core_outputs,
 )
 from invis_alpha_os.reports.post_contract_ohlcv_structural_analysis_v32 import (
     build_post_contract_structural_v32,
@@ -2520,6 +2522,28 @@ def weekly_candidate_brief_stooq_manual_csv_ingest_v34_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-stooq-manual-csv-ingest-v34: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-ohlcv-provider-automation-core")
+def weekly_candidate_brief_ohlcv_provider_automation_core_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    result = build_ohlcv_provider_automation_core(report_date=run_date)
+    paths = write_ohlcv_provider_automation_core_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-ohlcv-provider-automation-core: {key}={p}")
+    typer.echo(
+        "weekly-candidate-brief-ohlcv-provider-automation-core: "
+        "dry_run_only=true live_http_executed=false cache_write_executed=false"
+    )
     raise typer.Exit(0)
 
 
@@ -6874,4 +6898,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

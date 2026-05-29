@@ -17,6 +17,7 @@ from invis_alpha_os.reports.contract_env_status import (
 )
 from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
 from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
+from invis_alpha_os.reports.ohlcv_provider_registry_strategy import build_provider_context_pack_block
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -225,6 +226,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     queues = _build_priority_queues(top10)
     contract_env = build_contract_env_status()
     jp_env_gap = jp_stale_candidates_without_contract_env(top10)
+    provider_block = build_provider_context_pack_block(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -255,6 +257,12 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "data_insufficient": queues["data_insufficient"],
             "skip": queues["skip"],
         },
+        "provider_registry_status": provider_block["provider_registry_status"],
+        "provider_selection_policy": provider_block["provider_selection_policy"],
+        "latest_ohlcv_provider_by_ticker": provider_block["latest_ohlcv_provider_by_ticker"],
+        "fallback_required_tickers": provider_block["fallback_required_tickers"],
+        "approval_gate_status": provider_block["approval_gate_status"],
+        "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
             "up": ["未実装"],
@@ -385,6 +393,11 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "- stale: 候補ごとのデータ鮮度を参照",
             "- cache不足: missing_data_reasons を参照",
             "",
+            "## 6.5. OHLCV Provider Policy",
+            f"- provider_registry_status: {provider_block['provider_registry_status']}",
+            f"- manual_csv_is_fallback_not_primary: {str(provider_block['manual_csv_is_fallback_not_primary']).lower()}",
+            "- approval_gate_status: live_http=false, cache_write=false",
+            "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
             "- staleデータ銘柄を除いた場合の優先順位を提案してください。",
@@ -392,4 +405,3 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         ]
     )
     return ContextPackResult(markdown_text="\n".join(md_lines).rstrip() + "\n", json_payload=out_json)
-
