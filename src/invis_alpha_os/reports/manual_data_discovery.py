@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ EXACT_CANDIDATE_NAMES: tuple[str, ...] = (
     "manual_jp_bars.tsv",
     "manual_jp_bars.xlsx",
     "manual_jp_bars.txt",
+    "jp_bars_manual.csv",
     "jp_bars.csv",
     "jp_bars.tsv",
     "jp_daily_bars.csv",
@@ -93,6 +95,34 @@ def _matches_candidate_name(name: str) -> bool:
     return any(fnmatch.fnmatch(lowered, pattern.lower()) for pattern in GLOB_NAME_PATTERNS)
 
 
+def _redacted_header_summary_for_path(path: Path) -> str:
+    pii_payload = _pii_guard_for_data_file(path)
+    if path.suffix.lower() == ".xlsx":
+        headers, _ = _read_xlsx_headers(path)
+    elif path.suffix.lower() in {".csv", ".tsv", ".txt"}:
+        from invis_alpha_os.reports.manual_csv_pii_guard import read_csv_headers
+
+        headers, _ = read_csv_headers(path)
+    else:
+        headers = []
+    normalized = sorted(h.strip().lower() for h in headers if h and h.strip())
+    if not normalized:
+        return "cols=0"
+    digest = hashlib.sha256(",".join(normalized).encode("utf-8")).hexdigest()[:12]
+    return f"cols={len(normalized)};sha256_prefix={digest}"
+
+
+def _candidate_score(filename: str) -> int:
+    lowered = filename.lower()
+    if lowered in {n.lower() for n in EXACT_CANDIDATE_NAMES}:
+        return 100
+    if "manual_jp_bars" in lowered:
+        return 90
+    if "jp_bars" in lowered or "broker_jp_bars" in lowered:
+        return 70
+    return 40
+
+
 def _candidate_record(path: Path, *, repo_root: Path) -> dict[str, Any]:
     pii_payload = _pii_guard_for_data_file(path)
     tracked = is_git_tracked(path, repo_root)
@@ -106,11 +136,34 @@ def _candidate_record(path: Path, *, repo_root: Path) -> dict[str, Any]:
         and path.is_file()
         and not xlsx_blocked
     )
+    modified_at: str | None = None
+    file_size_bytes: int | None = None
+    try:
+        stat = path.stat()
+        modified_at = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        file_size_bytes = int(stat.st_size)
+    except OSError:
+        pass
+    safety_status = "pass" if safe else "reject"
+    reason = "safe_for_dry_run" if safe else "pii_or_tracked_or_unsupported"
+    if account_data:
+        reason = "account_data_detected"
+    elif tracked:
+        reason = "git_tracked_refused"
+    elif xlsx_blocked:
+        reason = "xlsx_not_supported"
     return {
         "filename": path.name,
         "extension": path.suffix.lower(),
         "path_redacted": True,
+        "directory_label": _location_label(path),
         "location_label": _location_label(path),
+        "file_size_bytes": file_size_bytes,
+        "modified_at": modified_at,
+        "candidate_score": _candidate_score(path.name),
+        "redacted_header_summary": _redacted_header_summary_for_path(path),
+        "safety_status": safety_status,
+        "reason": reason,
         "git_tracked": tracked,
         "pii_guard_status": pii_status,
         "account_data_detected": account_data,
@@ -155,7 +208,7 @@ def discover_manual_data_candidates(*, repo_root: Path) -> list[dict[str, Any]]:
                     found.append(_candidate_record(resolved, repo_root=repo_root))
         except OSError:
             continue
-    found.sort(key=lambda row: (not row["safe_to_parse"], row["filename"]))
+    found.sort(key=lambda row: (-int(row["safe_to_parse"]), -int(row["candidate_score"]), row["filename"]))
     return found
 
 
@@ -194,6 +247,8 @@ def build_manual_data_discovery(*, report_date: str, repo_root: Path) -> ManualD
     payload = _public_payload(candidates, selected)
     payload["report_date"] = report_date
     payload["generated_at"] = _now_iso()
+    payload["autopilot"] = True
+    payload["manual_file_detected"] = bool(selected and selected.get("safe_to_parse"))
     lines = [
         "# Manual Data Discovery",
         "",
