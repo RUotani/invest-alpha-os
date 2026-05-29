@@ -15,6 +15,7 @@ from invis_alpha_os.data.adapters.jquants_client import (
     _resolve_jquants_api_version,
     _truthy_flag,
 )
+from invis_alpha_os.reports.jquants_date_range import resolve_refresh_date_range
 
 
 @dataclass(frozen=True)
@@ -98,6 +99,7 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
     refresh_allowed = jquants_enabled and api_base_url_present and api_key_present
     base_url_diag = assess_jquants_base_url(values)
     endpoint_diag = assess_jquants_endpoint_contract(values)
+    date_range_diag = resolve_refresh_date_range(values, allow_date_clamp=True).as_dict()
     return {
         "jquants_enabled": jquants_enabled,
         "api_base_url_present": api_base_url_present,
@@ -110,6 +112,7 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
         "cache_write_executed": False,
         **base_url_diag,
         **endpoint_diag,
+        **date_range_diag,
     }
 
 
@@ -137,6 +140,11 @@ def build_jquants_preflight(
         f"- api_base_url_has_scheme: {str(diag['api_base_url_has_scheme']).lower()}",
         f"- api_base_url_host_present: {str(diag['api_base_url_host_present']).lower()}",
         f"- endpoint_path_configured: {str(diag['endpoint_path_configured']).lower()}",
+        f"- data_available_to_present: {str(diag.get('data_available_to_present', False)).lower()}",
+        f"- requested_to_date: {diag.get('requested_to_date', '-')}",
+        f"- requested_to_date_within_contract: {str(diag.get('requested_to_date_within_contract', False)).lower()}",
+        f"- date_range_clamp_required: {str(diag.get('date_range_clamp_required', False)).lower()}",
+        f"- clamped_to_date: {diag.get('clamped_to_date', '-')}",
         "- secrets_printed: false",
         "- live_http_executed: false",
         "- cache_write_executed: false",

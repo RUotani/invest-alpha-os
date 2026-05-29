@@ -14,6 +14,8 @@ JQUANTS_ENV_ALLOWLIST: frozenset[str] = frozenset(
         "JQUANTS_API_BASE_URL",
         "JQUANTS_API_KEY",
         "JQUANTS_ALLOW_LIVE_HTTP",
+        "JQUANTS_DATA_AVAILABLE_FROM",
+        "JQUANTS_DATA_AVAILABLE_TO",
     }
 )
 

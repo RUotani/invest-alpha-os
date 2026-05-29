@@ -1337,6 +1337,11 @@ def weekly_candidate_brief_cache_refresh_execute_command(
         "--env-file",
         help="Local env file path (J-Quants allowlisted keys only; values not printed).",
     ),
+    allow_date_clamp: bool = typer.Option(
+        False,
+        "--allow-date-clamp",
+        help="Clamp refresh date range to JQUANTS_DATA_AVAILABLE_* contract bounds.",
+    ),
     sync_github_reports_repo: bool = typer.Option(
         False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
     ),
@@ -1364,6 +1369,7 @@ def weekly_candidate_brief_cache_refresh_execute_command(
         targets_csv=targets,
         scope=scope,
         env=dict(os.environ),
+        allow_date_clamp=allow_date_clamp,
     )
     context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
     context_json_path = out_root / "latest" / "chatgpt_invest_context_pack.json"
