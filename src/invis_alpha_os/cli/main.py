@@ -184,6 +184,7 @@ from invis_alpha_os.reports.manual_csv_validation import validate_manual_csv_fil
 from invis_alpha_os.reports.manual_csv_import_plan import build_manual_csv_import_plan
 from invis_alpha_os.reports.manual_csv_import_execute import build_manual_csv_import_execute
 from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discovery
+from invis_alpha_os.reports.manual_csv_normalizer import build_manual_csv_normalization
 from invis_alpha_os.reports.manual_csv_template import build_manual_csv_template
 from invis_alpha_os.reports.cache_refresh_postcheck import build_cache_refresh_postcheck
 from invis_alpha_os.reports.gmail_delivery import (
@@ -2071,6 +2072,78 @@ def weekly_candidate_brief_manual_csv_discover_command(
             if "manual_csv_discovery" in key:
                 typer.echo(f"weekly-candidate-brief-manual-csv-discover: {key}={p}")
     raise typer.Exit(0 if discovery.json_payload.get("safe_to_validate") else 1)
+
+
+@app.command("weekly-candidate-brief-manual-csv-normalize")
+def weekly_candidate_brief_manual_csv_normalize_command(
+    csv_path: str = typer.Option(..., "--csv-path", help="Path to manual JP bars CSV (must not be git-tracked)."),
+    broker_format: str = typer.Option(
+        "generic_ohlcv",
+        "--broker-format",
+        help="Broker CSV format: generic_ohlcv, moomoo_jp, sbi_jp, rakuten_jp, manual_csv, auto.",
+    ),
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    try:
+        resolved_csv = resolve_manual_csv_path(csv_path, repo_root=ROOT_DIR)
+    except ManualCsvPathError as exc:
+        typer.echo(f"weekly-candidate-brief-manual-csv-normalize: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    norm_out = out_root / "latest" / "manual_csv_normalized_working.csv"
+    normalization = build_manual_csv_normalization(
+        csv_path=resolved_csv,
+        report_date=run_date,
+        broker_format=broker_format,
+        output_path=norm_out,
+    )
+    context_md_text = "# Manual CSV Normalization Report\n"
+    context_payload: dict[str, Any] = {"report_date": run_date, "source": "manual_csv_normalization"}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+        manual_csv_normalization_markdown=normalization.markdown_text,
+        manual_csv_normalization_json_payload=normalization.json_payload,
+    )
+    for key, p in paths.items():
+        if "manual_csv_normalization" in key:
+            typer.echo(f"weekly-candidate-brief-manual-csv-normalize: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-csv-normalize: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload,
+            manual_csv_normalization_markdown=normalization.markdown_text,
+            manual_csv_normalization_json_payload=normalization.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "manual_csv_normalization" in key:
+                typer.echo(f"weekly-candidate-brief-manual-csv-normalize: {key}={p}")
+    if not normalization.json_payload.get("ready_for_validation"):
+        raise typer.Exit(2)
+    raise typer.Exit(0)
 
 
 @app.command("weekly-candidate-brief-manual-csv-template")

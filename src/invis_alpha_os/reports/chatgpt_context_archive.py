@@ -50,6 +50,8 @@ def write_context_pack_outputs(
     manual_csv_template_csv_text: str | None = None,
     manual_csv_discovery_markdown: str | None = None,
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
+    manual_csv_normalization_markdown: str | None = None,
+    manual_csv_normalization_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -225,6 +227,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["latest_manual_csv_discovery_json"] = disc_json
+        if manual_csv_normalization_markdown is not None:
+            norm_md = latest / "manual_csv_normalization.md"
+            norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
+            paths["latest_manual_csv_normalization_md"] = norm_md
+        if manual_csv_normalization_json_payload is not None:
+            norm_json = latest / "manual_csv_normalization.json"
+            norm_json.write_text(
+                json.dumps(manual_csv_normalization_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["latest_manual_csv_normalization_json"] = norm_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -395,6 +408,17 @@ def write_context_pack_outputs(
                 encoding="utf-8",
             )
             paths["archive_manual_csv_discovery_json"] = disc_json
+        if manual_csv_normalization_markdown is not None:
+            norm_md = arc / "manual_csv_normalization.md"
+            norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
+            paths["archive_manual_csv_normalization_md"] = norm_md
+        if manual_csv_normalization_json_payload is not None:
+            norm_json = arc / "manual_csv_normalization.json"
+            norm_json.write_text(
+                json.dumps(manual_csv_normalization_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["archive_manual_csv_normalization_json"] = norm_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -453,6 +477,8 @@ def sync_to_reports_repo(
     manual_csv_template_csv_text: str | None = None,
     manual_csv_discovery_markdown: str | None = None,
     manual_csv_discovery_json_payload: dict[str, Any] | None = None,
+    manual_csv_normalization_markdown: str | None = None,
+    manual_csv_normalization_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -758,6 +784,26 @@ def sync_to_reports_repo(
         )
         paths["reports_latest_manual_csv_discovery_json"] = latest_disc_json
         paths["reports_weekly_manual_csv_discovery_json"] = weekly_disc_json
+    if manual_csv_normalization_markdown is not None:
+        latest_norm_md = latest / "manual_csv_normalization.md"
+        weekly_norm_md = weekly / "manual_csv_normalization.md"
+        latest_norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
+        weekly_norm_md.write_text(manual_csv_normalization_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_normalization_md"] = latest_norm_md
+        paths["reports_weekly_manual_csv_normalization_md"] = weekly_norm_md
+    if manual_csv_normalization_json_payload is not None:
+        latest_norm_json = latest / "manual_csv_normalization.json"
+        weekly_norm_json = weekly / "manual_csv_normalization.json"
+        latest_norm_json.write_text(
+            json.dumps(manual_csv_normalization_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        weekly_norm_json.write_text(
+            json.dumps(manual_csv_normalization_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        paths["reports_latest_manual_csv_normalization_json"] = latest_norm_json
+        paths["reports_weekly_manual_csv_normalization_json"] = weekly_norm_json
     return paths
 
 
