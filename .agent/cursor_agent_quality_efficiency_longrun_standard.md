@@ -10,7 +10,9 @@
 ## 0. Cursor Agentへ貼る短文
 
 ```markdown
-RULES.md、AGENTS.md、CLAUDE.md、STATE.md、docs/decisions/README.md、docs/decisions/2026-05-23_ssot_introduction.md を読み、このファイル `.agent/cursor_agent_quality_efficiency_longrun_standard.md` に従って開発してください。
+このタスクは細切れ実行ではなく、承認済み範囲内で本開発に直結する作業を最大限まとめて進めるロングランです。安全ゲートに触れない限り、調査・実装・テスト・CI・merge・main再生成・reports-private redacted sync・次approval package作成まで一気通貫で進めてください。Final ReportはワンクリックでコピペできるMarkdown形式で返してください。
+
+RULES.md、AGENTS.md、CLAUDE.md、STATE.md、docs/decisions/README.md、docs/decisions/2026-05-29_long_run_first_development_rule.md を読み、このファイル `.agent/cursor_agent_quality_efficiency_longrun_standard.md` に従って開発してください。
 
 あなたは、repo treeを自分で読み、必要なProduct作業を選び、設計・実装・テスト・自己修正・docs/STATE/decision更新・PR作成・merge queue・handoff作成までロングランで自走してください。
 
@@ -141,6 +143,7 @@ find .agent -maxdepth 2 -type f | sort || true
 ### 優先する
 
 ```text
+0. 投資判断AIの精度改善に直結するボトルネック（データ鮮度、候補精度、validation、context pack、実運用判断）
 1. signals / risk / portfolio のProduct本体
 2. observation_log / weekly / validation の運用品質
 3. forward validation / sample_quality / stale判定
@@ -171,6 +174,78 @@ find .agent -maxdepth 2 -type f | sort || true
 
 ---
 
+## 5A. Long-Run First Development Rule
+
+開発は、原則として **細切れの単発作業ではなく、本開発に直結する統合ロングラン** で進める。
+
+承認済みの安全範囲内では、ユーザーに追加確認や手作業を求める前に、以下を最大限まとめて実行する。
+
+```text
+1. 現状把握
+2. 優先順位付け
+3. 必要なsource実装
+4. tests追加・修正
+5. CI確認
+6. squash merge
+7. main基準の再生成
+8. reports-private redacted sync
+9. 次判断に必要なapproval package生成
+10. Final Report作成
+```
+
+### 承認ゲート
+
+危険操作は明示承認ゲートで止める。ただし、**承認済み範囲内**の調査・実装・dry-run・テスト・CI・merge・redacted reports同期は、ユーザー確認を挟まず一気通貫で進める。
+
+承認が必要な場合も、単に停止するのではなく、**承認後に何をどこまで実行するか**を approval package として準備する。
+
+### 人間作業最小化
+
+ターミナル操作・ファイル探索・ログ確認・手動整形を依頼する前に、以下を試す。
+
+```text
+1. 既存repo / reports / local filesから取得できないか
+2. read-only API / local cache / 既存CLIで代替できないか
+3. dropzone / helper / runnerで人間作業を1操作に圧縮できないか
+4. ファイル名・保存先がずれても自動探索できないか
+5. 人間に聞く場合は、次アクションを最大3つ（可能なら1つ）に絞る
+```
+
+### 並行と連続の区別
+
+```text
+同一repoの並行実装PR: 禁止（読み取り専用調査Agentのみ並行可）
+単一Agentのロングラン内連続処理: 推奨
+```
+
+### ロングランの良い例 / 悪い例
+
+良い例:
+
+```text
+J-Quants refresh承認後、
+refresh実行 → freshness検証 → context pack再生成 → cache readiness更新 → 必要PR → CI → merge → reports-private sync → approval package更新
+まで一気通貫
+```
+
+悪い例:
+
+```text
+refreshだけ実行して停止 → 次指示でfreshnessのみ → 次指示でcontext packのみ
+```
+
+### 停止してよい条件（これ以外は best effort で進める）
+
+```text
+1. 未承認の危険操作（live HTTP / cache write / actual import / GitHub settings / workflow・dependency / secrets / broker・manual raw commit）
+2. 既存テスト破壊で修正方針が複数ある
+3. 投資判断・実売買・証券口座操作
+4. ユーザー外部ログイン・2FA・手元ファイル取得が必須
+5. 方針選択でリスク許容度が大きく変わる
+```
+
+---
+
 ## 6. ロングラン方針
 
 Agentは、1PRごとに止まらず、可能な限りロングランで継続する。
@@ -195,9 +270,11 @@ max_prs: 10
 
 ### 停止すべき条件
 
+§5A「停止してよい条件」に加え、以下も停止理由とする。
+
 ```text
-- live HTTP/cache write/Gmailが必要
-- secrets/credentials/envが必要
+- 未承認の live HTTP / cache write / actual import / Gmail
+- secrets/credentials/env値の表示・commit
 - risk behaviorが曖昧
 - workflow/Makefile/pyproject変更が必要
 - operator/に逸れそう
@@ -206,9 +283,44 @@ max_prs: 10
 - test期待値合わせ疑惑
 ```
 
+承認済み範囲内（例: 「J-Quants gated refreshを実行してよい」）では、上記のうち該当ゲート以外は停止しない。
+
 ---
 
 ## 7. PR粒度
+
+PRは小さければよいのではなく、**目的単位で統合**する。
+
+旧方針（廃止）:
+
+```text
+単発大型PRではなく、小さなPRを直列で進める。
+```
+
+新方針:
+
+```text
+危険な巨大PRは避けるが、ユーザー価値に直結する範囲では、複数の関連変更を一つのロングラン内でまとめて進める。
+PRは「小さいこと」より「本開発のボトルネックを閉じること」を優先する。
+必要に応じて複数PRに分けてもよいが、同じロングラン内でCI確認・merge・main再生成・reports同期まで連続処理する。
+```
+
+### 良いPR粒度
+
+```text
+- 1つの投資判断上のボトルネックを解消するまとまり
+- 1つの運用フローを人間が使える状態にするまとまり
+- 1つの承認ゲート直前まで自動化するまとまり
+```
+
+### 悪いPR粒度（細切れ化）
+
+```text
+- 1ファイルだけ追加して停止
+- 1レポートだけ生成して停止
+- 1チェックだけ実装して停止
+- 次に何をするかをまたユーザーに聞く
+```
 
 ### 理想
 

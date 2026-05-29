@@ -1,6 +1,6 @@
 # AGENTS.md — 汎用 AI エージェント向け指示書(invest-alpha-os)
 
-版: v0.1 / 最終更新: 2026-05-23
+版: v0.2 / 最終更新: 2026-05-29
 
 このファイルは ChatGPT / Codex / Cursor が invest-alpha-os で作業する際の指示書。
 Claude Code 専用指示は `CLAUDE.md` を参照する。
@@ -27,6 +27,16 @@ Claude Code 専用指示は `CLAUDE.md` を参照する。
 - 進捗表示はドメイン別%で行う。単一の総合%は禁止。
 - ターミナルコマンドを出す場合は、コメント行なしの単一bashブロックにまとめる。
 - テスト実行は原則 `.venv/bin/python -m pytest` を使う。
+- Final ReportはワンクリックでコピペできるMarkdown形式で返す。長文はMDファイル化し、ChatGPT本文に全文を貼らない。
+
+## §2.5 Long-Run First 開発
+
+- 開発は原則 **細切れの単発作業ではなく、本開発に直結する統合ロングラン** で進める。
+- 危険な巨大PRは避けるが、ユーザー価値に直結する範囲では、**同一ロングラン内で** 調査・実装・テスト・CI・merge・main再生成・reports-private redacted sync・approval package 準備まで **一気通貫** で進める。
+- PR分割は安全性とCI安定性のために使うが、**作業自体を細切れに止めない**。
+- **承認済み範囲内**（例: gated refresh承認済み）では、未承認の危険操作に触れない限りユーザー確認を挟まず進める。未承認操作が必要な場合は停止し、**approval package** を用意する（単なる停止で終わらない）。
+- **同一repoの並行実装PRは禁止**。読み取り専用調査Agentのみ並行可。単一Agentがロングラン内で複数関連PRを連続処理することは推奨。
+- Cursor向け詳細: `.agent/cursor_agent_quality_efficiency_longrun_standard.md` および `docs/decisions/2026-05-29_long_run_first_development_rule.md`
 
 ## §3. ツール別の追加指示
 
@@ -47,7 +57,8 @@ Claude Code 専用指示は `CLAUDE.md` を参照する。
 ### Cursor(AUTO / Composer 2)
 
 - `.cursor/rules/main.mdc` を自動読み込みルールとして扱う。
-- **ロングラン自律開発**: `.agent/cursor_agent_quality_efficiency_longrun_standard.md` に従う（PR粒度・テスト標準・P10 preflight・Final Report 形式）。
+- **ロングラン自律開発（Long-Run First）**: `.agent/cursor_agent_quality_efficiency_longrun_standard.md` に従う。承認済み安全範囲内では細切れ停止せず、本開発ボトルネック解消まで一気通貫で進める。
+- Cursor向けタスク指示の冒頭に、Long-Run First 定型文（longrun標準 §0）を含める。
 - 多ファイル編集前に `git status --short` を確認する。
 - 未コミット変更がある場合は、作業開始前にユーザーへ報告する。
 - Composer 2 使用時は、事前に Settings → Billing で spend limit を確認する。
@@ -93,5 +104,6 @@ Claude Code 専用指示は `CLAUDE.md` を参照する。
 
 ## §7. このファイルへの追加履歴
 
+- 2026-05-29: Long-Run First 開発方針追加（`docs/decisions/2026-05-29_long_run_first_development_rule.md`）
 - 2026-05-24: Cursor longrun standard 参照追加（`.agent/cursor_agent_quality_efficiency_longrun_standard.md`）
 - 2026-05-23: 初版作成
