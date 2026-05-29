@@ -191,6 +191,11 @@ from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discove
 from invis_alpha_os.reports.manual_data_discovery import build_manual_data_discovery
 from invis_alpha_os.reports.report_dir_resolution import resolve_weekly_report_dir
 from invis_alpha_os.reports.manual_data_export_package import build_manual_data_export_package
+from invis_alpha_os.reports.jp_ohlcv_freshness_source_strategy import (
+    build_jp_ohlcv_freshness_source_strategy,
+    sync_jp_ohlcv_freshness_source_strategy_to_reports_repo,
+    write_jp_ohlcv_freshness_source_strategy_outputs,
+)
 from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
     build_manual_data_acquisition_ux_pack,
     sync_manual_data_acquisition_ux_to_reports_repo,
@@ -2257,6 +2262,61 @@ def weekly_candidate_brief_manual_data_acquisition_ux_pack_command(
     if not summary.get("manual_file_detected"):
         exit_code = 0
     raise typer.Exit(exit_code)
+
+
+@app.command("weekly-candidate-brief-jp-ohlcv-freshness-source-strategy")
+def weekly_candidate_brief_jp_ohlcv_freshness_source_strategy_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    report_dir: Optional[str] = typer.Option(None, "--report-dir"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    targets_csv: str = typer.Option(DEFAULT_TARGET_TICKERS_CSV, "--targets-csv"),
+    env_file: Optional[str] = typer.Option(None, "--env-file"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    resolution = resolve_weekly_report_dir(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=report_dir,
+    )
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-jp-ohlcv-freshness-source-strategy", env_file_meta)
+    if resolution.warning:
+        typer.echo(
+            f"weekly-candidate-brief-jp-ohlcv-freshness-source-strategy: {resolution.warning}",
+            err=True,
+        )
+    result = build_jp_ohlcv_freshness_source_strategy(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=resolution.path,
+        targets_csv=targets_csv,
+    )
+    paths = write_jp_ohlcv_freshness_source_strategy_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-jp-ohlcv-freshness-source-strategy: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-jp-ohlcv-freshness-source-strategy: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_jp_ohlcv_freshness_source_strategy_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-jp-ohlcv-freshness-source-strategy: {key}={p}")
+    raise typer.Exit(0)
 
 
 @app.command("weekly-candidate-brief-manual-csv-discover")

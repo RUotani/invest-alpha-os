@@ -22,6 +22,10 @@ def test_approval_package_ready() -> None:
         report_date="2026-05-29",
         discovery_payload={"selected_candidate": {"filename": "manual_jp_bars.csv", "directory_label": "Downloads/x"}},
         schema_payload={"schema_valid": True, "prohibited_columns_detected": False, "target_ticker_coverage": []},
-        dry_run_payload={"dry_run_status": "pass"},
+        dry_run_payload={
+            "dry_run_status": "pass",
+            "rows_newer_than_cache_total": 12,
+            "expected_freshness_improvement": "rows_newer_than_cache",
+        },
     )
     assert result.json_payload["package_status"] == "ready_for_user_approval"
