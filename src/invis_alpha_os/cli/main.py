@@ -196,6 +196,11 @@ from invis_alpha_os.reports.jp_ohlcv_freshness_source_strategy import (
     sync_jp_ohlcv_freshness_source_strategy_to_reports_repo,
     write_jp_ohlcv_freshness_source_strategy_outputs,
 )
+from invis_alpha_os.reports.jquants_env_preflight_refresh_pack import (
+    build_jquants_env_preflight_refresh_pack,
+    sync_jquants_env_preflight_refresh_pack_to_reports_repo,
+    write_jquants_env_preflight_refresh_pack_outputs,
+)
 from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
     build_manual_data_acquisition_ux_pack,
     sync_manual_data_acquisition_ux_to_reports_repo,
@@ -2316,6 +2321,56 @@ def weekly_candidate_brief_jp_ohlcv_freshness_source_strategy_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-jp-ohlcv-freshness-source-strategy: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-jquants-env-preflight-refresh-pack")
+def weekly_candidate_brief_jquants_env_preflight_refresh_pack_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets_csv: str = typer.Option(DEFAULT_TARGET_TICKERS_CSV, "--targets-csv"),
+    env_file: Optional[str] = typer.Option(None, "--env-file"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    env_path = Path(env_file).expanduser() if env_file else None
+    result = build_jquants_env_preflight_refresh_pack(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        targets_csv=targets_csv,
+        env_file=env_path,
+    )
+    paths = write_jquants_env_preflight_refresh_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-jquants-env-preflight-refresh-pack: {key}={p}")
+    typer.echo(
+        "weekly-candidate-brief-jquants-env-preflight-refresh-pack: "
+        f"selected_env_redacted={result.summary.get('selected_env_file_redacted')}"
+    )
+    typer.echo(
+        "weekly-candidate-brief-jquants-env-preflight-refresh-pack: "
+        f"refresh_recommended={result.summary.get('refresh_recommended')}"
+    )
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-jquants-env-preflight-refresh-pack: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_jquants_env_preflight_refresh_pack_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-jquants-env-preflight-refresh-pack: {key}={p}")
     raise typer.Exit(0)
 
 
