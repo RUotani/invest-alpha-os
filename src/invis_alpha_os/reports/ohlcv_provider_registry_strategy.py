@@ -13,6 +13,10 @@ from invis_alpha_os.data.ohlcv_provider_approval import (
     CACHE_WRITE_APPROVAL_PHRASE,
     build_default_provider_approval_package,
 )
+from invis_alpha_os.data.ohlcv_provider_execution import (
+    ProviderExecutionMode,
+    build_provider_safe_execution_harness,
+)
 from invis_alpha_os.data.ohlcv_provider_registry import (
     CANONICAL_OHLCV_COLUMNS,
     JQUANTS_APPROVAL_PHRASE,
@@ -264,7 +268,8 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     registry_md, registry_json = build_ohlcv_provider_registry_strategy(report_date=report_date)
     planner_md, planner_json = build_ohlcv_provider_selection_planner(report_date=report_date)
     approval_md, approval_json = build_ohlcv_provider_approval_package(report_date=report_date)
-    _ = registry_md, planner_md, approval_md
+    harness_md, harness_json = build_ohlcv_provider_safe_execution_harness(report_date=report_date)
+    _ = registry_md, planner_md, approval_md, harness_md
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -289,6 +294,18 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 req["gate"]
                 for req in approval_json["package"]["requirements"]
             ],
+        },
+        "provider_safe_execution_harness_status": {
+            "available": True,
+            "mode": harness_json["harness"]["result"]["mode"],
+            "dry_run_transcript_only": True,
+            "current_verdict": harness_json["harness"]["result"]["transcript"]["verdict"],
+            "hard_gates_unapproved": [
+                gate
+                for gate in harness_json["harness"]["result"]["required_gates"]
+                if gate not in harness_json["harness"]["result"]["approved_action"]["approved_gates"]
+            ],
+            "next_required_user_approval_phrase": PUBLIC_OHLCV_APPROVAL_PHRASE,
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -460,6 +477,132 @@ def build_ohlcv_provider_approval_package(*, report_date: str) -> tuple[str, dic
         ]
     )
     return "\n".join(lines), payload
+
+
+def build_ohlcv_provider_safe_execution_harness(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    harness = build_provider_safe_execution_harness(
+        report_date=report_date,
+        mode=ProviderExecutionMode.DRY_RUN_TRANSCRIPT,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_safe_execution_harness"),
+        "pack_version": "v41",
+        "harness": harness.to_dict(),
+    }
+    result = payload["harness"]["result"]
+    events = result["transcript"]["events"]
+    lines = [
+        "# OHLCV Provider Safe Execution Harness",
+        "",
+        "## Executive Summary",
+        "",
+        "- This harness is source-only and transcript-only.",
+        "- It consumes the v39 approval package model and validates gates without executing providers.",
+        "- No live HTTP, cache write, actual refresh/import, manual import, secret display, or raw data handling is executed.",
+        "",
+        "## Approval Package Input Summary",
+        "",
+        f"- report_date: {report_date}",
+        f"- requirements: {len(payload['harness']['approval_package']['requirements'])}",
+        f"- safety_summary.live_http_executed: {payload['harness']['approval_package']['safety_summary']['live_http_executed']}",
+        "",
+        "## Requested Execution Scenario",
+        "",
+        f"- mode: {result['mode']}",
+        f"- requested_action: {result['requested_action']}",
+        f"- required_gates: {', '.join(result['required_gates']) or '(none)'}",
+        "",
+        "## Gate Evaluation",
+        "",
+        "| gate | approved |",
+        "|---|---|",
+    ]
+    approved = set(result["approved_action"]["approved_gates"])
+    for gate in result["required_gates"]:
+        lines.append(f"| {gate} | {str(gate in approved).lower()} |")
+    if not result["required_gates"]:
+        lines.append("| (none) | true |")
+    lines.extend(
+        [
+            "",
+            "## Preflight Result",
+            "",
+            "| check | passed | status | notes |",
+            "|---|---|---|---|",
+        ]
+    )
+    for check in result["preflight"]:
+        lines.append(
+            f"| {check['name']} | {str(check['passed']).lower()} | {check['status']} | {', '.join(check['notes'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Dry-Run Transcript",
+            "",
+        ]
+    )
+    for event in events:
+        lines.extend([f"### {event['section']}", event["message"], ""])
+    lines.extend(["## Expected Artifacts", ""])
+    for item in result["artifact_plan"]["expected_outputs"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Verification Checklist", ""])
+    for item in result["verification_checklist"]["items"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Rollback Checklist", ""])
+    for item in result["rollback_checklist"]["items"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Stop Conditions", ""])
+    for item in result["stop_conditions"]:
+        lines.append(f"- {item['label']}: {item['description']}")
+    lines.extend(
+        [
+            "",
+            "## Safety Verdict",
+            "",
+            f"- {result['transcript']['verdict']}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "mode": result["mode"],
+                    "requested_action": result["requested_action"],
+                    "required_gates": result["required_gates"],
+                    "verdict": result["transcript"]["verdict"],
+                    "audit_summary": result["audit_summary"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
+def write_ohlcv_provider_safe_execution_harness_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "ohlcv_provider_safe_execution_harness.md"
+        json_path = root / "ohlcv_provider_safe_execution_harness.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_ohlcv_provider_safe_execution_harness_md"] = md_path
+        paths[f"{label}_ohlcv_provider_safe_execution_harness_json"] = json_path
+    return paths
 
 
 def write_ohlcv_provider_approval_package_outputs(

@@ -263,6 +263,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "fallback_required_tickers": provider_block["fallback_required_tickers"],
         "approval_gate_status": provider_block["approval_gate_status"],
         "provider_approval_package_status": provider_block["provider_approval_package_status"],
+        "provider_safe_execution_harness_status": provider_block["provider_safe_execution_harness_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -399,6 +400,8 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- manual_csv_is_fallback_not_primary: {str(provider_block['manual_csv_is_fallback_not_primary']).lower()}",
             "- approval_gate_status: live_http=false, cache_write=false",
             f"- provider_approval_package_available: {str(provider_block['provider_approval_package_status']['available']).lower()}",
+            f"- provider_safe_execution_harness_available: {str(provider_block['provider_safe_execution_harness_status']['available']).lower()}",
+            f"- provider_safe_execution_current_verdict: {provider_block['provider_safe_execution_harness_status']['current_verdict']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
