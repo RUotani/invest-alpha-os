@@ -17,6 +17,7 @@ from invis_alpha_os.reports.manual_csv_normalizer import (
 from invis_alpha_os.reports.manual_csv_pii_guard import _delimiter_for_path, run_manual_csv_pii_guard
 from invis_alpha_os.reports.manual_csv_schema import CANONICAL_COLUMNS
 from invis_alpha_os.reports.manual_data_discovery import _openpyxl_available
+from invis_alpha_os.reports.manual_file_security import scan_manual_file_security
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,22 @@ def build_manual_data_normalization(
     broker_format: str = BROKER_FORMAT_AUTO,
     output_path: Path | None = None,
 ) -> ManualDataNormalizationResult:
+    security = scan_manual_file_security(input_path)
+    if security.status != "passed":
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "ready_for_validation": False,
+            "security_scan": security.json_payload,
+            "errors": security.issues,
+            "contents_printed": False,
+        }
+        return ManualDataNormalizationResult(
+            markdown_text="# Manual Data Normalization Refused\n\n- security_scan_failed: true\n",
+            json_payload=payload,
+            normalized_path=None,
+        )
+
     input_type = detect_input_type(input_path)
     xlsx_supported = _openpyxl_available()
     pii = run_manual_csv_pii_guard(input_path) if input_type != "xlsx" else None

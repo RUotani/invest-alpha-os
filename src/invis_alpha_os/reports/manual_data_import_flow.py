@@ -12,6 +12,7 @@ from invis_alpha_os.reports.manual_csv_import_execute import build_manual_csv_im
 from invis_alpha_os.reports.manual_csv_import_plan import build_manual_csv_import_plan
 from invis_alpha_os.reports.manual_csv_normalizer import BROKER_FORMAT_AUTO
 from invis_alpha_os.reports.manual_csv_validation import validate_manual_csv_file
+from invis_alpha_os.reports.manual_file_security import scan_manual_file_security
 from invis_alpha_os.reports.manual_data_normalizer import build_manual_data_normalization
 
 
@@ -53,6 +54,24 @@ def build_manual_data_import_flow(
         }
         return ManualDataImportFlowResult(
             markdown_text="# Manual Data Import Flow Refused\n\n- path_refused: true\n",
+            json_payload=payload,
+        )
+
+    security = scan_manual_file_security(resolved)
+    steps["file_security"] = security.json_payload
+    if security.status != "passed":
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "overall_status": "security_rejected",
+            "steps": steps,
+            "next_required_action": "fix_file_security_issues",
+            "contents_printed": False,
+            "actual_import_executed": False,
+            "cache_write_executed": False,
+        }
+        return ManualDataImportFlowResult(
+            markdown_text="# Manual Data Import Flow Refused\n\n- security_rejected: true\n",
             json_payload=payload,
         )
 
