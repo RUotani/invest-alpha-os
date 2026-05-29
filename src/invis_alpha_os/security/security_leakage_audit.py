@@ -61,7 +61,11 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
         if suffix in BROKER_FILE_SUFFIXES and "fixtures" not in rel and "tests/" not in rel:
             if "manual" in name.lower() or "broker" in name.lower() or "jp_bars" in name.lower():
                 broker_files.append(rel)
-        if rel.startswith("outputs/") or rel.startswith("reports/") and rel.endswith((".json", ".md", ".csv")):
+        if rel.endswith(".gitkeep"):
+            pass
+        elif rel.startswith("reports/") and rel.endswith((".json", ".md", ".csv", ".eml", ".html")):
+            generated_artifacts.append(rel)
+        elif rel.startswith("outputs/") and not rel.endswith(".gitkeep"):
             generated_artifacts.append(rel)
 
         abs_path = repo_root / rel
