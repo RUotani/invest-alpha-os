@@ -1,233 +1,345 @@
-"""OHLCV provider registry strategy report (design; no live HTTP)."""
+"""OHLCV provider automation reports (design/dry-run only; no live HTTP)."""
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
-CONTRACT_DATA_TO = "2026-03-06"
-MANUAL_IMPORT_PHRASE = "manual JP bars actual importを実行してよい"
-PUBLIC_LIVE_PHRASE = "public OHLCV source live fetchを実行してよい"
-
-CANONICAL_EXTENDED_COLUMNS = (
-    "ticker",
-    "date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "volume",
-    "provider",
-    "adjustment",
-    "source_timestamp",
+from invis_alpha_os.data.ohlcv_provider_registry import (
+    CANONICAL_OHLCV_COLUMNS,
+    ProviderPriorityPolicy,
+    build_default_ohlcv_provider_registry,
+    build_provider_coverage_matrix,
+    score_provider_freshness,
 )
+
+CONTRACT_DATA_TO = "2026-03-06"
+JP_SAMPLE_TICKERS = ("285A", "5802", "5803", "6645", "5801")
+US_SAMPLE_TICKERS = ("NVDA", "MSFT", "AVGO", "TSLA", "MSTR", "COIN")
+
+
+@dataclass(frozen=True)
+class OhlcvProviderAutomationCoreResult:
+    reports: dict[str, tuple[str, dict[str, Any]]]
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def build_ohlcv_provider_registry_strategy(*, report_date: str) -> tuple[str, dict[str, Any]]:
-    providers: list[dict[str, Any]] = [
-        {
-            "id": "jquants",
-            "market": "JP",
-            "role": "primary",
-            "live_http": True,
-            "approval_gate": "J-Quants gated refreshを実行してよい",
-            "manual_fallback": False,
-            "notes": "Contract cap; cache-first",
-        },
-        {
-            "id": "stooq",
-            "market": "JP,US,global",
-            "role": "fallback",
-            "live_http": True,
-            "approval_gate": PUBLIC_LIVE_PHRASE,
-            "manual_fallback": True,
-            "notes": "Stooq CSV dropzone ingest (v34); gated live fetch",
-        },
-        {
-            "id": "yahoo_manual",
-            "market": "JP",
-            "role": "manual_fallback",
-            "live_http": False,
-            "approval_gate": MANUAL_IMPORT_PHRASE,
-            "manual_fallback": True,
-            "notes": "OHLCV-only CSV export",
-        },
-        {
-            "id": "alpha_vantage",
-            "market": "US,global",
-            "role": "fallback_candidate",
-            "live_http": True,
-            "approval_gate": PUBLIC_LIVE_PHRASE,
-            "manual_fallback": False,
-            "notes": "Quota/cost monitoring required",
-        },
-        {
-            "id": "tiingo",
-            "market": "US",
-            "role": "fallback_candidate",
-            "live_http": True,
-            "approval_gate": PUBLIC_LIVE_PHRASE,
-            "manual_fallback": False,
-            "notes": "EOD US",
-        },
-        {
-            "id": "polygon",
-            "market": "US",
-            "role": "primary_candidate",
-            "live_http": True,
-            "approval_gate": PUBLIC_LIVE_PHRASE,
-            "manual_fallback": False,
-            "notes": "Paid primary candidate",
-        },
-        {
-            "id": "eodhd",
-            "market": "global",
-            "role": "paid_fallback_candidate",
-            "live_http": True,
-            "approval_gate": PUBLIC_LIVE_PHRASE,
-            "manual_fallback": False,
-            "notes": "License/cost risk",
-        },
-    ]
-    payload: dict[str, Any] = {
+def _payload_base(report_date: str, *, name: str) -> dict[str, Any]:
+    return {
         "report_date": report_date,
         "generated_at": _now_iso(),
-        "pack_version": "v34",
-        "design_principles": [
-            "manual_csv_is_emergency_fallback_not_primary",
-            "jp_primary_jquants",
-            "jp_fallback_stooq_then_yahoo_manual",
-            "us_fallback_alpha_vantage_tiingo_polygon",
-            "all_providers_normalize_to_canonical_ohlcv",
-            "live_http_requires_explicit_approval_phrase",
-        ],
-        "canonical_columns": list(CANONICAL_EXTENDED_COLUMNS),
-        "contract_data_available_to": CONTRACT_DATA_TO,
-        "providers": providers,
-        "priority_jp": ["jquants", "stooq", "yahoo_manual"],
-        "priority_us": ["polygon", "tiingo", "alpha_vantage", "stooq"],
-        "evaluation_dimensions": [
-            "coverage",
-            "freshness",
-            "quota",
-            "cost",
-            "license_risk",
-        ],
+        "pack_version": "v36",
+        "report_name": name,
+        "dry_run_only": True,
+        "live_http_executed": False,
+        "cache_write_executed": False,
+        "actual_import_executed": False,
         "secrets_printed": False,
+        "broker_manual_raw_data_printed": False,
+    }
+
+
+def _registry() -> Any:
+    return build_default_ohlcv_provider_registry()
+
+
+def build_ohlcv_provider_registry_strategy(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    registry = _registry()
+    providers = [spec.to_dict() for spec in registry.list()]
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_registry_strategy"),
+        "canonical_columns": list(CANONICAL_OHLCV_COLUMNS),
+        "contract_data_available_to": CONTRACT_DATA_TO,
+        "provider_registry_status": "implemented_dry_run_core",
+        "provider_selection_policy": {
+            "JP": ["jquants", "stooq_manual", "yahoo_manual", "stooq_live_gated"],
+            "US": ["stooq_manual", "yahoo_manual", "stooq_live_gated", "alpha_vantage_gated", "tiingo_gated", "polygon_gated"],
+            "ETF": ["stooq_manual", "yahoo_manual", "stooq_live_gated", "alpha_vantage_gated", "tiingo_gated", "polygon_gated"],
+        },
+        "manual_csv_is_fallback_not_primary": True,
+        "providers": providers,
     }
     lines = [
         "# OHLCV Provider Registry Strategy",
         "",
-        "## Design principles",
+        "## 3行サマリー",
+        "- Provider registry core is implemented as dry-run planning only.",
+        "- Live providers are represented as gated specs; no HTTP/cache/import is executed.",
+        "- Manual CSV remains fallback, not primary automation.",
         "",
+        "## Canonical output",
+        f"- {', '.join(CANONICAL_OHLCV_COLUMNS)}",
+        "",
+        "## Providers",
+        "| provider | market | role | live_http | approval_required | recommendation |",
+        "|---|---|---|---|---|---|",
     ]
-    for p in payload["design_principles"]:
-        lines.append(f"- {p}")
-    lines.extend(
-        [
-            "",
-            "## JP priority",
-            "",
-            f"- {' > '.join(payload['priority_jp'])}",
-            "",
-            "## Canonical columns",
-            "",
-            f"- {', '.join(CANONICAL_EXTENDED_COLUMNS)}",
-            "",
-            "## Providers",
-            "",
-            "| id | market | role | live_http | approval_gate |",
-            "|---|---|---|---|---|",
-        ]
-    )
     for prov in providers:
-        gate = prov.get("approval_gate", "")
-        if len(gate) > 40:
-            gate = gate[:37] + "..."
         lines.append(
-            f"| {prov['id']} | {prov['market']} | {prov['role']} | "
-            f"{str(prov['live_http']).lower()} | {gate} |"
+            f"| {prov['provider']} | {','.join(prov['markets'])} | {prov['role']} | "
+            f"{str(prov['live_http']).lower()} | {str(prov['approval_required']).lower()} | {prov['recommendation']} |"
         )
     return "\n".join(lines), payload
 
 
 def build_ohlcv_provider_coverage_matrix(*, report_date: str) -> tuple[str, dict[str, Any]]:
-    rows = [
-        {
-            "provider": "jquants",
-            "market": "JP",
-            "role": "primary",
-            "live_http": True,
-            "cost_quota": "plan contract",
-            "freshness": f"capped_to_{CONTRACT_DATA_TO}",
-            "recommendation": "refresh_when_approved",
-        },
-        {
-            "provider": "stooq",
-            "market": "JP/US",
-            "role": "fallback",
-            "live_http": True,
-            "cost_quota": "free_tier_manual_csv",
-            "freshness": "dropzone_csv_or_gated_live",
-            "recommendation": "manual_csv_now_live_fetch_deferred",
-        },
-        {
-            "provider": "yahoo_manual",
-            "market": "JP",
-            "role": "manual_fallback",
-            "live_http": False,
-            "cost_quota": "user_export",
-            "freshness": "user_dependent",
-            "recommendation": "secondary_to_stooq_csv",
-        },
-        {
-            "provider": "alpha_vantage",
-            "market": "US",
-            "role": "fallback",
-            "live_http": True,
-            "cost_quota": "api_key_quota",
-            "freshness": "eod",
-            "recommendation": "evaluate_for_us_watchlist",
-        },
-        {
-            "provider": "tiingo",
-            "market": "US",
-            "role": "fallback",
-            "live_http": True,
-            "cost_quota": "paid_tier",
-            "freshness": "eod",
-            "recommendation": "candidate",
-        },
-        {
-            "provider": "polygon",
-            "market": "US",
-            "role": "primary_candidate",
-            "live_http": True,
-            "cost_quota": "paid",
-            "freshness": "intraday_eod",
-            "recommendation": "long_term_us_primary",
-        },
-    ]
+    matrix = build_provider_coverage_matrix(_registry())
     payload: dict[str, Any] = {
-        "report_date": report_date,
-        "generated_at": _now_iso(),
-        "pack_version": "v34",
-        "matrix": rows,
-        "secrets_printed": False,
+        **_payload_base(report_date, name="ohlcv_provider_coverage_matrix"),
+        "sample_tickers": {"JP": list(JP_SAMPLE_TICKERS), "US": list(US_SAMPLE_TICKERS)},
+        "matrix": matrix.to_dict()["rows"],
     }
     lines = [
         "# OHLCV Provider Coverage Matrix",
         "",
-        "| provider | market | role | live_http | cost/quota | recommendation |",
+        "## 3行サマリー",
+        "- Coverage is evaluated from static provider specs and existing dry-run assumptions.",
+        "- No provider fetch, cache write, or raw data read is performed.",
+        "- JP sample includes 285A to preserve alphanumeric ticker coverage.",
+        "",
+        "| provider | market | role | live_http | approval_required | recommendation |",
         "|---|---|---|---|---|---|",
     ]
-    for r in rows:
+    for row in payload["matrix"]:
         lines.append(
-            f"| {r['provider']} | {r['market']} | {r['role']} | "
-            f"{str(r['live_http']).lower()} | {r['cost_quota']} | {r['recommendation']} |"
+            f"| {row['provider']} | {row['market']} | {row['role']} | "
+            f"{str(row['live_http']).lower()} | {str(row['approval_required']).lower()} | {row['recommendation']} |"
         )
     return "\n".join(lines), payload
+
+
+def build_ohlcv_provider_freshness_strategy(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    scores = [
+        score_provider_freshness(
+            ticker=t,
+            market="JP",
+            provider="jquants",
+            latest_date=CONTRACT_DATA_TO,
+            reference_date=report_date,
+        ).to_dict()
+        for t in JP_SAMPLE_TICKERS
+    ]
+    scores.extend(
+        score_provider_freshness(
+            ticker=t,
+            market="US",
+            provider="us_daily_bars_cache",
+            latest_date=None,
+            reference_date=report_date,
+        ).to_dict()
+        for t in US_SAMPLE_TICKERS
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_freshness_strategy"),
+        "freshness_scores": scores,
+        "strategy": [
+            "Prefer existing sanitized cache first.",
+            "Use J-Quants only behind explicit gated refresh approval.",
+            "Use manual CSV only as fallback when provider automation is blocked.",
+            "Use public live providers only to generate approval packages until explicitly approved.",
+        ],
+    }
+    lines = [
+        "# OHLCV Provider Freshness Strategy",
+        "",
+        "## 3行サマリー",
+        "- Freshness strategy is cache/spec based and dry-run only.",
+        "- JP contract cap is represented explicitly as a strategy constraint.",
+        "- US rows stay unknown unless existing cache/report artifacts provide dates.",
+        "",
+        "| ticker | market | provider | latest_date | status | stale_days |",
+        "|---|---|---|---|---|---:|",
+    ]
+    for row in scores:
+        lines.append(
+            f"| {row['ticker']} | {row['market']} | {row['provider']} | {row['latest_date']} | "
+            f"{row['freshness_status']} | {row['stale_days']} |"
+        )
+    return "\n".join(lines), payload
+
+
+def build_ohlcv_provider_selection_planner(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    policy = ProviderPriorityPolicy(_registry())
+    cases = [
+        ("JP primary cache gap", "JP", "285A", False, False, True),
+        ("JP gated refresh approved later", "JP", "5802", True, False, True),
+        ("US live disabled", "US", "NVDA", False, False, True),
+        ("US public approval package", "US", "MSFT", True, False, True),
+    ]
+    selections = [
+        {
+            "use_case": name,
+            **policy.select(
+                market=market,
+                ticker=ticker,
+                required_date_from=CONTRACT_DATA_TO,
+                required_date_to=report_date,
+                freshness_required=freshness,
+                allow_live_http=allow_live,
+                allow_cache_write=allow_cache,
+            ).to_dict(),
+        }
+        for name, market, ticker, allow_live, allow_cache, freshness in cases
+    ]
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_selection_planner"),
+        "inputs_default": {
+            "freshness_required": True,
+            "allow_live_http": False,
+            "allow_cache_write": False,
+        },
+        "selections": selections,
+    }
+    lines = [
+        "# OHLCV Provider Selection Planner",
+        "",
+        "## 3行サマリー",
+        "- Planner returns provider choices and approval phrases without executing providers.",
+        "- `allow_live_http=false` blocks live providers and selects manual fallback when available.",
+        "- Cache write remains disabled in all v36 examples.",
+        "",
+        "| use_case | selected_provider | fallback | approval_required | reason |",
+        "|---|---|---|---|---|",
+    ]
+    for row in selections:
+        lines.append(
+            f"| {row['use_case']} | {row['selected_provider']} | {row['fallback_provider']} | "
+            f"{str(row['requires_approval']).lower()} | {row['reason']} |"
+        )
+    return "\n".join(lines), payload
+
+
+def build_stooq_manual_fallback_generalization(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="stooq_manual_fallback_generalization"),
+        "scope": [
+            "multi_file_csv_ingestion",
+            "filename_ticker_inference",
+            "header_normalization",
+            "prohibited_column_safety",
+            "provider_provenance_metadata",
+            "duplicate_handling",
+            "per_provider_adjustment_note",
+        ],
+        "status": "generalized_from_v34_v35_dropzone_flow",
+        "prohibited_columns": ["secret", "token", "credential", "account", "broker_account"],
+        "provider_metadata": {
+            "provider": "stooq_manual",
+            "adjustment": "provider_csv_as_supplied",
+            "source_timestamp": "manual_file_mtime_or_import_time",
+        },
+        "duplicate_policy": "ticker_date_duplicate_rows_are_rejected_or_deduped_before_cache_write_approval",
+    }
+    lines = [
+        "# Stooq Manual Fallback Generalization",
+        "",
+        "## 3行サマリー",
+        "- Stooq manual CSV is formalized as fallback, not primary automation.",
+        "- Filename ticker inference supports alphanumeric JP codes such as 285A.",
+        "- Raw manual/broker data is not printed by this report.",
+        "",
+        "| item | status |",
+        "|---|---|",
+    ]
+    for item in payload["scope"]:
+        lines.append(f"| {item} | covered_by_design |")
+    return "\n".join(lines), payload
+
+
+def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
+    registry_md, registry_json = build_ohlcv_provider_registry_strategy(report_date=report_date)
+    planner_md, planner_json = build_ohlcv_provider_selection_planner(report_date=report_date)
+    _ = registry_md, planner_md
+    return {
+        "provider_registry_status": registry_json["provider_registry_status"],
+        "provider_selection_policy": registry_json["provider_selection_policy"],
+        "latest_ohlcv_provider_by_ticker": {
+            **{ticker: "jquants_or_stooq_manual_fallback" for ticker in JP_SAMPLE_TICKERS},
+            **{ticker: "us_daily_bars_cache_or_stooq_manual_fallback" for ticker in US_SAMPLE_TICKERS},
+        },
+        "fallback_required_tickers": list(JP_SAMPLE_TICKERS),
+        "approval_gate_status": {
+            "allow_live_http": False,
+            "allow_cache_write": False,
+            "planner_examples_require_approval": [
+                row
+                for row in planner_json["selections"]
+                if row.get("requires_approval")
+            ],
+        },
+        "manual_csv_is_fallback_not_primary": True,
+    }
+
+
+def build_ohlcv_provider_automation_core(*, report_date: str) -> OhlcvProviderAutomationCoreResult:
+    reports = {
+        "ohlcv_provider_registry_strategy": build_ohlcv_provider_registry_strategy(report_date=report_date),
+        "ohlcv_provider_coverage_matrix": build_ohlcv_provider_coverage_matrix(report_date=report_date),
+        "ohlcv_provider_freshness_strategy": build_ohlcv_provider_freshness_strategy(report_date=report_date),
+        "ohlcv_provider_selection_planner": build_ohlcv_provider_selection_planner(report_date=report_date),
+        "stooq_manual_fallback_generalization": build_stooq_manual_fallback_generalization(report_date=report_date),
+    }
+    context_block = build_provider_context_pack_block(report_date=report_date)
+    context_md = "\n".join(
+        [
+            "# ChatGPT Context Pack Provider Block",
+            "",
+            "## 3行サマリー",
+            "- Provider registry status can be embedded into the context pack.",
+            "- Manual CSV is marked fallback, not primary.",
+            "- Approval gates remain false until Cursor/human approval.",
+            "",
+            f"- provider_registry_status: {context_block['provider_registry_status']}",
+            f"- manual_csv_is_fallback_not_primary: {str(context_block['manual_csv_is_fallback_not_primary']).lower()}",
+        ]
+    )
+    reports["chatgpt_invest_context_pack"] = (
+        context_md,
+        {**_payload_base(report_date, name="chatgpt_invest_context_pack_provider_block"), **context_block},
+    )
+    cache_md = "\n".join(
+        [
+            "# Cache Refresh Readiness",
+            "",
+            "## 3行サマリー",
+            "- v36 creates a readiness summary only.",
+            "- No live HTTP/cache write/actual import is executed.",
+            "- Cursor should generate real local reports after approval gates are set.",
+        ]
+    )
+    reports["cache_refresh_readiness"] = (
+        cache_md,
+        {
+            **_payload_base(report_date, name="cache_refresh_readiness_provider_gate_summary"),
+            "readiness": "approval_package_required_before_live_or_cache_write",
+        },
+    )
+    return OhlcvProviderAutomationCoreResult(reports=reports)
+
+
+def write_ohlcv_provider_automation_core_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    result: OhlcvProviderAutomationCoreResult,
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for stem, (markdown, payload) in result.reports.items():
+        for label, root in (("latest", latest), ("weekly", weekly)):
+            md_path = root / f"{stem}.md"
+            json_path = root / f"{stem}.json"
+            md_path.write_text(markdown.rstrip() + "\n", encoding="utf-8")
+            json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            paths[f"{label}_{stem}_md"] = md_path
+            paths[f"{label}_{stem}_json"] = json_path
+    return paths
