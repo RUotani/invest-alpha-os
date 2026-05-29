@@ -9,6 +9,7 @@ from typing import Any
 
 from invis_alpha_os.config.env_file_loader import is_git_tracked
 from invis_alpha_os.reports.manual_csv_pii_guard import run_manual_csv_pii_guard
+from invis_alpha_os.reports.manual_data_dropzone import manual_data_search_roots
 
 CANDIDATE_FILENAMES: tuple[str, ...] = (
     "manual_jp_bars.csv",
@@ -22,13 +23,7 @@ CANDIDATE_FILENAMES: tuple[str, ...] = (
 
 
 def _search_roots() -> list[Path]:
-    home = Path.home()
-    return [
-        home / "Desktop" / "chatgpt_invest_upload_latest",
-        home / "Desktop",
-        home / "Downloads",
-        home / "Documents",
-    ]
+    return manual_data_search_roots()
 
 
 def _location_label(path: Path) -> str:

@@ -12,6 +12,9 @@ from typing import Any
 from invis_alpha_os.config.env_file_loader import is_git_tracked
 from invis_alpha_os.reports.manual_csv_discovery import _location_label, _search_roots
 from invis_alpha_os.reports.manual_csv_pii_guard import run_manual_csv_pii_guard, scan_csv_headers_for_pii
+from invis_alpha_os.reports.manual_data_dropzone import is_excluded_manual_filename
+from invis_alpha_os.reports.manual_data_recent_candidates import scan_recent_ohlcv_candidates
+from invis_alpha_os.reports.manual_data_schema_probe import probe_path_ohlcv_schema
 
 SUPPORTED_EXTENSIONS: tuple[str, ...] = (".csv", ".tsv", ".txt", ".xlsx")
 
@@ -112,15 +115,18 @@ def _redacted_header_summary_for_path(path: Path) -> str:
     return f"cols={len(normalized)};sha256_prefix={digest}"
 
 
-def _candidate_score(filename: str) -> int:
+def _candidate_score(filename: str, *, schema_ohlcv: bool = False) -> int:
     lowered = filename.lower()
+    base = 40
     if lowered in {n.lower() for n in EXACT_CANDIDATE_NAMES}:
-        return 100
-    if "manual_jp_bars" in lowered:
-        return 90
-    if "jp_bars" in lowered or "broker_jp_bars" in lowered:
-        return 70
-    return 40
+        base = 100
+    elif "manual_jp_bars" in lowered:
+        base = 90
+    elif "jp_bars" in lowered or "broker_jp_bars" in lowered:
+        base = 70
+    if schema_ohlcv:
+        return max(base, 85)
+    return base
 
 
 def _candidate_record(path: Path, *, repo_root: Path) -> dict[str, Any]:
@@ -161,6 +167,8 @@ def _candidate_record(path: Path, *, repo_root: Path) -> dict[str, Any]:
         "file_size_bytes": file_size_bytes,
         "modified_at": modified_at,
         "candidate_score": _candidate_score(path.name),
+        "schema_ohlcv_candidate": False,
+        "recent_candidate": False,
         "redacted_header_summary": _redacted_header_summary_for_path(path),
         "safety_status": safety_status,
         "reason": reason,
@@ -184,10 +192,38 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def discover_manual_data_candidates(*, repo_root: Path) -> list[dict[str, Any]]:
+def _merge_candidate(
+    found: list[dict[str, Any]],
+    seen: set[Path],
+    path: Path,
+    *,
+    repo_root: Path,
+    schema_ohlcv: bool = False,
+    recent: bool = False,
+) -> None:
+    resolved = path.resolve()
+    if resolved in seen or not resolved.is_file():
+        return
+    if is_excluded_manual_filename(resolved.name):
+        return
+    seen.add(resolved)
+    record = _candidate_record(resolved, repo_root=repo_root)
+    record["schema_ohlcv_candidate"] = schema_ohlcv
+    record["recent_candidate"] = recent
+    record["candidate_score"] = _candidate_score(resolved.name, schema_ohlcv=schema_ohlcv)
+    found.append(record)
+
+
+def discover_manual_data_candidates(
+    *,
+    repo_root: Path,
+    extra_paths: list[Path] | None = None,
+    search_roots: list[Path] | None = None,
+) -> list[dict[str, Any]]:
     seen: set[Path] = set()
     found: list[dict[str, Any]] = []
-    for root in _search_roots():
+    roots = search_roots if search_roots is not None else _search_roots()
+    for root in roots:
         if not root.is_dir():
             continue
         for name in EXACT_CANDIDATE_NAMES:
@@ -208,7 +244,35 @@ def discover_manual_data_candidates(*, repo_root: Path) -> list[dict[str, Any]]:
                     found.append(_candidate_record(resolved, repo_root=repo_root))
         except OSError:
             continue
-    found.sort(key=lambda row: (-int(row["safe_to_parse"]), -int(row["candidate_score"]), row["filename"]))
+    for row in scan_recent_ohlcv_candidates(roots):
+        _merge_candidate(
+            found,
+            seen,
+            Path(str(row["resolved_path"])),
+            repo_root=repo_root,
+            schema_ohlcv=bool(row.get("schema_ohlcv_candidate")),
+            recent=True,
+        )
+    for extra in extra_paths or []:
+        if extra.is_file():
+            schema_ok, _ = probe_path_ohlcv_schema(extra)
+            _merge_candidate(found, seen, extra, repo_root=repo_root, schema_ohlcv=schema_ok)
+        elif extra.is_dir():
+            for name in EXACT_CANDIDATE_NAMES:
+                candidate = extra / name
+                if candidate.is_file():
+                    schema_ok, _ = probe_path_ohlcv_schema(candidate)
+                    _merge_candidate(
+                        found, seen, candidate, repo_root=repo_root, schema_ohlcv=schema_ok
+                    )
+    found.sort(
+        key=lambda row: (
+            -int(row["safe_to_parse"]),
+            -int(row.get("schema_ohlcv_candidate", False)),
+            -int(row["candidate_score"]),
+            row["filename"],
+        )
+    )
     return found
 
 
@@ -220,7 +284,10 @@ def _public_payload(candidates: list[dict[str, Any]], selected: dict[str, Any] |
     searched_roots = [root for root in _search_roots() if root.is_dir()]
     has_xlsx_candidate = any(row.get("extension") == ".xlsx" for row in candidates)
     xlsx_supported = _openpyxl_available()
-    next_action = "Place manual_jp_bars.csv/tsv/txt in Desktop or Downloads"
+    next_action = (
+        "Export OHLCV-only from broker and save as manual_jp_bars.csv in "
+        "~/Downloads/invest-alpha-os-manual-data-dropzone"
+    )
     if has_xlsx_candidate and not xlsx_supported:
         next_action = "Use CSV/TSV/TXT or install openpyxl locally for XLSX (not bundled in repo)"
     elif selected and selected.get("safe_to_parse"):
@@ -239,8 +306,17 @@ def _public_payload(candidates: list[dict[str, Any]], selected: dict[str, Any] |
     }
 
 
-def build_manual_data_discovery(*, report_date: str, repo_root: Path) -> ManualDataDiscoveryResult:
-    candidates = discover_manual_data_candidates(repo_root=repo_root)
+def build_manual_data_discovery(
+    *,
+    report_date: str,
+    repo_root: Path,
+    extra_paths: list[Path] | None = None,
+    paste_materialized_path: Path | None = None,
+) -> ManualDataDiscoveryResult:
+    extras = list(extra_paths or [])
+    if paste_materialized_path is not None:
+        extras.append(paste_materialized_path)
+    candidates = discover_manual_data_candidates(repo_root=repo_root, extra_paths=extras)
     selected = next((row for row in candidates if row.get("safe_to_parse")), None)
     if selected is None and candidates:
         selected = candidates[0]
@@ -249,6 +325,8 @@ def build_manual_data_discovery(*, report_date: str, repo_root: Path) -> ManualD
     payload["generated_at"] = _now_iso()
     payload["autopilot"] = True
     payload["manual_file_detected"] = bool(selected and selected.get("safe_to_parse"))
+    payload["schema_ohlcv_candidates"] = sum(1 for c in candidates if c.get("schema_ohlcv_candidate"))
+    payload["recent_candidates"] = sum(1 for c in candidates if c.get("recent_candidate"))
     lines = [
         "# Manual Data Discovery",
         "",

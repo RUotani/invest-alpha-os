@@ -191,6 +191,15 @@ from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discove
 from invis_alpha_os.reports.manual_data_discovery import build_manual_data_discovery
 from invis_alpha_os.reports.report_dir_resolution import resolve_weekly_report_dir
 from invis_alpha_os.reports.manual_data_export_package import build_manual_data_export_package
+from invis_alpha_os.reports.manual_data_acquisition_ux_pack import (
+    build_manual_data_acquisition_ux_pack,
+    sync_manual_data_acquisition_ux_to_reports_repo,
+    write_manual_data_acquisition_ux_outputs,
+)
+from invis_alpha_os.reports.manual_data_dropzone import (
+    build_manual_data_dropzone_status,
+    ensure_dropzone_assets,
+)
 from invis_alpha_os.reports.manual_data_freshness_pipeline import (
     build_manual_data_freshness_pipeline,
     sync_manual_data_freshness_to_reports_repo,
@@ -2163,6 +2172,86 @@ def weekly_candidate_brief_manual_data_freshness_pipeline_command(
         )
         for key, p in sync_paths.items():
             typer.echo(f"weekly-candidate-brief-manual-data-freshness-pipeline: {key}={p}")
+    summary = result.summary
+    exit_code = 0 if summary.get("dry_run_status") in {"pass", "not_run"} else 1
+    if not summary.get("manual_file_detected"):
+        exit_code = 0
+    raise typer.Exit(exit_code)
+
+
+@app.command("weekly-candidate-brief-manual-data-dropzone-helper")
+def weekly_candidate_brief_manual_data_dropzone_helper_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    asset_paths = ensure_dropzone_assets()
+    status = build_manual_data_dropzone_status(report_date=run_date)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    latest = out_root / "latest"
+    latest.mkdir(parents=True, exist_ok=True)
+    (latest / "manual_data_dropzone_status.md").write_text(status.markdown_text, encoding="utf-8")
+    (latest / "manual_data_dropzone_status.json").write_text(
+        json.dumps(status.json_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    typer.echo(f"weekly-candidate-brief-manual-data-dropzone-helper: dropzone={asset_paths['readme'].parent}")
+    typer.echo(f"weekly-candidate-brief-manual-data-dropzone-helper: next={status.json_payload.get('next_single_action')}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-manual-data-acquisition-ux-pack")
+def weekly_candidate_brief_manual_data_acquisition_ux_pack_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    report_dir: Optional[str] = typer.Option(None, "--report-dir"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    resolution = resolve_weekly_report_dir(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=report_dir,
+    )
+    if resolution.warning:
+        typer.echo(
+            f"weekly-candidate-brief-manual-data-acquisition-ux-pack: {resolution.warning}",
+            err=True,
+        )
+    result = build_manual_data_acquisition_ux_pack(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=resolution.path,
+    )
+    ux_paths = write_manual_data_acquisition_ux_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    pipeline_paths = write_manual_data_freshness_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result.pipeline,
+    )
+    for key, p in {**ux_paths, **pipeline_paths}.items():
+        typer.echo(f"weekly-candidate-brief-manual-data-acquisition-ux-pack: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-data-acquisition-ux-pack: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_manual_data_acquisition_ux_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            report_date=run_date,
+            result=result,
+            repo_root=ROOT_DIR,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-manual-data-acquisition-ux-pack: {key}={p}")
     summary = result.summary
     exit_code = 0 if summary.get("dry_run_status") in {"pass", "not_run"} else 1
     if not summary.get("manual_file_detected"):
