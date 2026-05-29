@@ -48,6 +48,8 @@ def write_context_pack_outputs(
     manual_csv_import_result_json_payload: dict[str, Any] | None = None,
     manual_csv_template_markdown: str | None = None,
     manual_csv_template_csv_text: str | None = None,
+    manual_csv_discovery_markdown: str | None = None,
+    manual_csv_discovery_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     yyyy = report_date[:4]
@@ -212,6 +214,17 @@ def write_context_pack_outputs(
             tpl_csv = latest / "manual_csv_template.csv"
             tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
             paths["latest_manual_csv_template_csv"] = tpl_csv
+        if manual_csv_discovery_markdown is not None:
+            disc_md = latest / "manual_csv_discovery.md"
+            disc_md.write_text(manual_csv_discovery_markdown, encoding="utf-8")
+            paths["latest_manual_csv_discovery_md"] = disc_md
+        if manual_csv_discovery_json_payload is not None:
+            disc_json = latest / "manual_csv_discovery.json"
+            disc_json.write_text(
+                json.dumps(manual_csv_discovery_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["latest_manual_csv_discovery_json"] = disc_json
     if write_archive:
         arc = out_dir / "archive" / yyyy / report_date
         arc.mkdir(parents=True, exist_ok=True)
@@ -371,6 +384,17 @@ def write_context_pack_outputs(
             tpl_csv = arc / "manual_csv_template.csv"
             tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
             paths["archive_manual_csv_template_csv"] = tpl_csv
+        if manual_csv_discovery_markdown is not None:
+            disc_md = arc / "manual_csv_discovery.md"
+            disc_md.write_text(manual_csv_discovery_markdown, encoding="utf-8")
+            paths["archive_manual_csv_discovery_md"] = disc_md
+        if manual_csv_discovery_json_payload is not None:
+            disc_json = arc / "manual_csv_discovery.json"
+            disc_json.write_text(
+                json.dumps(manual_csv_discovery_json_payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            paths["archive_manual_csv_discovery_json"] = disc_json
     if decision_seed_markdown is not None or decision_seed_json_payload is not None:
         seed = out_dir / "validation" / "seeds" / yyyy / report_date
         seed.mkdir(parents=True, exist_ok=True)
@@ -427,6 +451,8 @@ def sync_to_reports_repo(
     manual_csv_import_result_json_payload: dict[str, Any] | None = None,
     manual_csv_template_markdown: str | None = None,
     manual_csv_template_csv_text: str | None = None,
+    manual_csv_discovery_markdown: str | None = None,
+    manual_csv_discovery_json_payload: dict[str, Any] | None = None,
 ) -> dict[str, Path]:
     if reports_repo_path.resolve() == repo_root.resolve():
         raise ValueError("reports-repo-path が本体repoと同一です")
@@ -712,6 +738,26 @@ def sync_to_reports_repo(
         weekly_tpl_csv.write_text(manual_csv_template_csv_text, encoding="utf-8")
         paths["reports_latest_manual_csv_template_csv"] = latest_tpl_csv
         paths["reports_weekly_manual_csv_template_csv"] = weekly_tpl_csv
+    if manual_csv_discovery_markdown is not None:
+        latest_disc_md = latest / "manual_csv_discovery.md"
+        weekly_disc_md = weekly / "manual_csv_discovery.md"
+        latest_disc_md.write_text(manual_csv_discovery_markdown, encoding="utf-8")
+        weekly_disc_md.write_text(manual_csv_discovery_markdown, encoding="utf-8")
+        paths["reports_latest_manual_csv_discovery_md"] = latest_disc_md
+        paths["reports_weekly_manual_csv_discovery_md"] = weekly_disc_md
+    if manual_csv_discovery_json_payload is not None:
+        latest_disc_json = latest / "manual_csv_discovery.json"
+        weekly_disc_json = weekly / "manual_csv_discovery.json"
+        latest_disc_json.write_text(
+            json.dumps(manual_csv_discovery_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        weekly_disc_json.write_text(
+            json.dumps(manual_csv_discovery_json_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        paths["reports_latest_manual_csv_discovery_json"] = latest_disc_json
+        paths["reports_weekly_manual_csv_discovery_json"] = weekly_disc_json
     return paths
 
 
