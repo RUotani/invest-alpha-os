@@ -177,6 +177,7 @@ from invis_alpha_os.reports.cache_refresh_execution_plan import build_cache_refr
 from invis_alpha_os.reports.cache_refresh_execute import build_cache_refresh_execute
 from invis_alpha_os.reports.jp_cache_refresh_dry_run import build_jp_cache_refresh_dry_run
 from invis_alpha_os.reports.jquants_preflight import build_jquants_preflight
+from invis_alpha_os.reports.jp_alternative_provider_readiness import build_jp_alternative_provider_readiness
 from invis_alpha_os.reports.cache_refresh_postcheck import build_cache_refresh_postcheck
 from invis_alpha_os.reports.gmail_delivery import (
     GmailDeliveryError,
@@ -1629,6 +1630,89 @@ def weekly_candidate_brief_jquants_preflight_command(
         for key, p in sync_paths.items():
             if "jquants_preflight" in key:
                 typer.echo(f"weekly-candidate-brief-jquants-preflight: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-jp-alternative-provider-readiness")
+def weekly_candidate_brief_jp_alternative_provider_readiness_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date", help="ISO date label (default: today JST)."),
+    targets: str = typer.Option(
+        "5802,6645,5801,285A,5803",
+        "--targets",
+        help="Comma-separated JP tickers for contract-limit assessment.",
+    ),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir", help="Output root (default: outputs/chatgpt_context)."),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest", help="Write latest outputs."),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive", help="Write archive outputs."),
+    sync_github_reports_repo: bool = typer.Option(
+        False, "--sync-github-reports-repo", help="Copy outputs into reports repo clone path."
+    ),
+    reports_repo_path: Optional[str] = typer.Option(
+        None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
+    ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-jp-alternative-provider-readiness", env_file_meta)
+    readiness = build_jp_alternative_provider_readiness(
+        report_date=run_date,
+        targets_csv=targets,
+        repo_root=ROOT_DIR,
+        env=dict(os.environ),
+    )
+    context_md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
+    context_json_path = out_root / "latest" / "chatgpt_invest_context_pack.json"
+    context_md_text = (
+        context_md_path.read_text(encoding="utf-8")
+        if context_md_path.is_file()
+        else "# ChatGPT投資対話用Context Pack\n"
+    )
+    context_payload: dict[str, Any] = {}
+    if context_json_path.is_file():
+        try:
+            raw = json.loads(context_json_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                context_payload = raw
+        except json.JSONDecodeError:
+            context_payload = {}
+    paths = write_context_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=context_md_text,
+        json_payload=context_payload or {"report_date": run_date, "source": "jp_alternative_provider_readiness"},
+        write_latest=write_latest,
+        write_archive=write_archive,
+        jp_alternative_provider_readiness_markdown=readiness.markdown_text,
+        jp_alternative_provider_readiness_json_payload=readiness.json_payload,
+    )
+    for key, p in paths.items():
+        if "jp_alternative_provider_readiness" in key:
+            typer.echo(f"weekly-candidate-brief-jp-alternative-provider-readiness: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-jp-alternative-provider-readiness: --reports-repo-path is required with --sync-github-reports-repo",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            markdown_text=context_md_text,
+            json_payload=context_payload or {"report_date": run_date, "source": "jp_alternative_provider_readiness"},
+            jp_alternative_provider_readiness_markdown=readiness.markdown_text,
+            jp_alternative_provider_readiness_json_payload=readiness.json_payload,
+        )
+        for key, p in sync_paths.items():
+            if "jp_alternative_provider_readiness" in key:
+                typer.echo(f"weekly-candidate-brief-jp-alternative-provider-readiness: {key}={p}")
     raise typer.Exit(0)
 
 
