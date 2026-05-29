@@ -1,6 +1,6 @@
 # CLAUDE.md — Claude Code 専用指示書(invest-alpha-os)
 
-版: v0.1 / 最終更新: 2026-05-23
+版: v0.2 / 最終更新: 2026-05-29
 
 このファイルは Claude Code が invest-alpha-os の作業を始める際に最初に読むファイル。
 Anthropic の Claude Code 慣習に従い、リポジトリ直下に配置する。
@@ -25,6 +25,14 @@ Anthropic の Claude Code 慣習に従い、リポジトリ直下に配置する
 4. Cursor ロングラン作業時は `.agent/cursor_agent_quality_efficiency_longrun_standard.md` を読む。
 5. 「`RULES.md` と `STATE.md` を読みました」と宣言する。
 6. 作業範囲・禁止事項・変更予定ファイルを簡潔に提示してから着手する。
+
+## §2.5 Long-Run First 開発
+
+- 細切れの単発作業より、**本開発に直結する統合ロングラン** を優先する。
+- 承認済み安全範囲内では、調査・実装・テスト・CI・merge・main再生成・reports-private redacted sync・approval package 準備まで **一気通貫** で進める。
+- PRは「小さいこと」より **ボトルネック解消単位**。同一ロングラン内で複数PRの連続処理は推奨。
+- **同一repoの並行実装PRは禁止**（読み取り専用調査のみ並行可）。並行禁止 ≠ 細切れ停止。
+- 詳細: `docs/decisions/2026-05-29_long_run_first_development_rule.md`、`.agent/cursor_agent_quality_efficiency_longrun_standard.md`
 
 ## §3. 設計レビュー時の出力形式
 
@@ -96,4 +104,5 @@ Final Reportは単一Markdownコードブロックで返す。
 
 ## §8. このファイルへの追加履歴
 
+- 2026-05-29: Long-Run First 開発方針追加
 - 2026-05-23: 初版作成

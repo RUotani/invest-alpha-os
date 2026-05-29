@@ -7,7 +7,7 @@ alwaysApply: true
 
 # Cursor 用ルール(invest-alpha-os)
 
-版: v0.1 / 最終更新: 2026-05-23
+版: v0.2 / 最終更新: 2026-05-29
 
 ## 3行サマリー
 - 作業開始時に `RULES.md`、`STATE.md`、`AGENTS.md` を読む。
@@ -48,6 +48,8 @@ alwaysApply: true
 - Composer 2 使用時は Settings → Billing で spend limit を事前確認する。
 - AUTO mode中も `RULES.md` §1 の禁止事項を厳守する。
 - PR作成後に早期終了しない。Primary未達ならPRを作らず、途中報告MDを作成して停止する。
+- **Long-Run First**: 承認済み安全範囲内では細切れ停止せず、本開発ボトルネック解消まで一気通貫で進める（`docs/decisions/2026-05-29_long_run_first_development_rule.md`、`.agent/cursor_agent_quality_efficiency_longrun_standard.md` §0）。
+- 同一repoの並行実装PRは禁止。単一Agentのロングラン内連続処理は推奨。
 
 ## 出力形式
 
@@ -55,6 +57,7 @@ alwaysApply: true
 - 結論を先に、根拠と確度(%)を後に書く。
 - 反証セクションを含める。
 - 長文は `reports/YYYY-MM-DD/` 配下のMDファイルに出す。
+- Final ReportはワンクリックでコピペできるMarkdown形式で返す。
 - テストレポートはコピペ可能な形にする。
 - 進捗はドメイン別%で表示し、単一総合%は禁止する。
 
