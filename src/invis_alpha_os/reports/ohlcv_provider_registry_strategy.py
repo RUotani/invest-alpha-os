@@ -35,6 +35,9 @@ from invis_alpha_os.data.ohlcv_provider_registry import (
     build_provider_coverage_matrix,
     score_provider_freshness,
 )
+from invis_alpha_os.data.us_ohlcv_provider_selection import (
+    build_us_ohlcv_provider_selection_matrix,
+)
 
 CONTRACT_DATA_TO = "2026-03-06"
 JP_SAMPLE_TICKERS = ("285A", "5802", "5803", "6645", "5801")
@@ -279,7 +282,8 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     harness_md, harness_json = build_ohlcv_provider_safe_execution_harness(report_date=report_date)
     runbook_md, runbook_json = build_ohlcv_provider_approved_execution_runbook(report_date=report_date)
     request_md, request_json = build_ohlcv_provider_execution_approval_request(report_date=report_date)
-    _ = registry_md, planner_md, approval_md, harness_md, runbook_md, request_md
+    us_matrix_md, us_matrix_json = build_us_ohlcv_provider_selection_matrix_report(report_date=report_date)
+    _ = registry_md, planner_md, approval_md, harness_md, runbook_md, request_md, us_matrix_md
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -343,6 +347,18 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 item["scenario"]: item["primary_approval_phrase"]
                 for item in request_json["supported_scenarios"]
             },
+        },
+        "us_ohlcv_provider_selection_status": {
+            "provider_selected": False,
+            "selection_matrix_exists": True,
+            "recommended_first_pilot_provider": us_matrix_json["selection_matrix"]["ranking"]["best_first_pilot_provider"],
+            "recommended_production_candidate": us_matrix_json["selection_matrix"]["ranking"]["best_production_candidate"],
+            "recommended_free_fallback": us_matrix_json["selection_matrix"]["ranking"]["best_free_fallback"],
+            "pilot_universe": us_matrix_json["selection_matrix"]["pilot_design"]["pilot_universe"],
+            "pilot_date_range": us_matrix_json["selection_matrix"]["pilot_design"]["pilot_date_range"],
+            "hard_gates_for_live_test": us_matrix_json["selection_matrix"]["safety"]["hard_gates_required_for_live_test"],
+            "cache_write_approved": us_matrix_json["selection_matrix"]["pilot_design"]["cache_write_approved"],
+            "actual_import_approved": us_matrix_json["selection_matrix"]["pilot_design"]["actual_import_approved"],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -887,6 +903,160 @@ def build_ohlcv_provider_execution_approval_request(
         ]
     )
     return "\n".join(lines), payload
+
+
+def build_us_ohlcv_provider_selection_matrix_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    matrix = build_us_ohlcv_provider_selection_matrix(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="us_ohlcv_provider_selection_matrix"),
+        "pack_version": "v46",
+        "selection_matrix": matrix.to_dict(),
+    }
+    data = payload["selection_matrix"]
+    ranking = data["ranking"]
+    pilot = data["pilot_design"]
+    safety = data["safety"]
+    lines = [
+        "# US OHLCV Provider Selection Matrix",
+        "",
+        "## Executive Summary",
+        "",
+        "- US OHLCV provider is not yet selected.",
+        "- This matrix is source-only and does not validate provider data live.",
+        "- First pilot recommendation is based on planning criteria only; live testing requires explicit approval.",
+        "",
+        "## Why This Matters For Stock Recommendations",
+        "",
+        "- Broad US stock recommendations require reliable price, historical OHLCV, adjusted prices, volume, corporate actions, and broad universe coverage.",
+        "- Without provider validation, screening output can be stale, unadjusted, incomplete, or legally unsuitable for cache storage.",
+        "",
+        "## Provider Candidates",
+        "",
+    ]
+    for provider in data["providers"]:
+        lines.append(f"- {provider['provider']} ({provider['cost_tier']})")
+    lines.extend(["", "## Evaluation Criteria", ""])
+    for dimension in data["evaluation_dimensions"]:
+        lines.append(f"- {dimension}")
+    lines.extend(
+        [
+            "",
+            "## Provider Matrix",
+            "",
+            "| provider | cost_tier | pilot | production | fallback | rate_limit_risk | cache_terms_review |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
+    for provider in data["providers"]:
+        lines.append(
+            f"| {provider['provider']} | {provider['cost_tier']} | {provider['fit_for_pilot']} | "
+            f"{provider['fit_for_production']} | {provider['fit_for_fallback']} | {provider['rate_limit_risk']} | "
+            f"{str(provider['terms_cache_suitability_review_needed']).lower()} |"
+        )
+    lines.extend(["", "## Free / Low-Cost Options", ""])
+    for provider in data["providers"]:
+        if provider["cost_tier"] in {"free", "free_limited", "paid_low"}:
+            lines.append(f"- {provider['provider']}: {provider['notes']}")
+    lines.extend(["", "## Paid / Production Candidates", ""])
+    for provider in data["providers"]:
+        if provider["cost_tier"] in {"paid_low", "paid_mid", "paid_high"}:
+            lines.append(f"- {provider['provider']}: {provider['fit_for_production']}")
+    lines.extend(
+        [
+            "",
+            "## Recommended First Pilot",
+            "",
+            f"- {ranking['best_first_pilot_provider']}",
+            f"- production_candidate: {ranking['best_production_candidate']}",
+            f"- low_cost_candidate: {ranking['best_low_cost_candidate']}",
+            f"- free_fallback: {ranking['best_free_fallback']}",
+            "",
+            "## Pilot Universe",
+            "",
+            f"- {', '.join(pilot['pilot_universe'])}",
+            "",
+            "## Pilot Date Range",
+            "",
+            f"- {pilot['pilot_date_range']}",
+            "",
+            "## Success Criteria",
+            "",
+        ]
+    )
+    for item in pilot["success_criteria"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Failure Criteria", ""])
+    for item in pilot["failure_criteria"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Data Quality Checks", ""])
+    for group in ("data_quality_checks", "adjustment_checks", "volume_checks", "symbol_mapping_checks", "rate_limit_checks"):
+        lines.append(f"### {group}")
+        for item in pilot[group]:
+            lines.append(f"- {item}")
+        lines.append("")
+    lines.extend(["## Hard Gates Required For Live Testing", ""])
+    for gate in safety["hard_gates_required_for_live_test"]:
+        lines.append(f"- {gate}")
+    lines.extend(["", "## Explicitly Not Approved", ""])
+    for item in safety["explicitly_not_approved"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Missing Evidence", ""])
+    for item in data["missing_evidence"]:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Recommended Next Approval Request",
+            "",
+            f"- Generate v44 approval request for scenario `public_ohlcv` with provider candidates: {', '.join(pilot['provider_candidates_to_test'])}.",
+            "- Do not include cache write or actual import approval in the first pilot request.",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "provider_selected": False,
+                    "providers": [provider["provider"] for provider in data["providers"]],
+                    "recommended_first_pilot_provider": ranking["best_first_pilot_provider"],
+                    "recommended_production_candidate": ranking["best_production_candidate"],
+                    "recommended_free_fallback": ranking["best_free_fallback"],
+                    "pilot_universe": pilot["pilot_universe"],
+                    "pilot_date_range": pilot["pilot_date_range"],
+                    "hard_gates_required_for_live_test": safety["hard_gates_required_for_live_test"],
+                    "cache_write_approved": pilot["cache_write_approved"],
+                    "actual_import_approved": pilot["actual_import_approved"],
+                    "source_only": safety["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
+def write_us_ohlcv_provider_selection_matrix_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "us_ohlcv_provider_selection_matrix.md"
+        json_path = root / "us_ohlcv_provider_selection_matrix.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_us_ohlcv_provider_selection_matrix_md"] = md_path
+        paths[f"{label}_us_ohlcv_provider_selection_matrix_json"] = json_path
+    return paths
 
 
 def write_ohlcv_provider_execution_approval_request_outputs(

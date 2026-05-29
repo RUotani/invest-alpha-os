@@ -266,6 +266,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "provider_safe_execution_harness_status": provider_block["provider_safe_execution_harness_status"],
         "provider_approved_execution_runbook_status": provider_block["provider_approved_execution_runbook_status"],
         "provider_execution_approval_request_status": provider_block["provider_execution_approval_request_status"],
+        "us_ohlcv_provider_selection_status": provider_block["us_ohlcv_provider_selection_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -408,6 +409,10 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- provider_approved_execution_runbook_phase: {provider_block['provider_approved_execution_runbook_status']['current_phase']}",
             f"- provider_execution_approval_request_available: {str(provider_block['provider_execution_approval_request_status']['available']).lower()}",
             f"- provider_execution_approval_request_phase: {provider_block['provider_execution_approval_request_status']['current_phase']}",
+            f"- us_ohlcv_provider_selected: {str(provider_block['us_ohlcv_provider_selection_status']['provider_selected']).lower()}",
+            f"- us_ohlcv_selection_matrix_exists: {str(provider_block['us_ohlcv_provider_selection_status']['selection_matrix_exists']).lower()}",
+            f"- us_ohlcv_recommended_first_pilot_provider: {provider_block['us_ohlcv_provider_selection_status']['recommended_first_pilot_provider']}",
+            f"- us_ohlcv_recommended_free_fallback: {provider_block['us_ohlcv_provider_selection_status']['recommended_free_fallback']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
