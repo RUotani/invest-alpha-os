@@ -191,7 +191,13 @@ from invis_alpha_os.reports.manual_csv_discovery import build_manual_csv_discove
 from invis_alpha_os.reports.manual_data_discovery import build_manual_data_discovery
 from invis_alpha_os.reports.report_dir_resolution import resolve_weekly_report_dir
 from invis_alpha_os.reports.manual_data_export_package import build_manual_data_export_package
+from invis_alpha_os.reports.manual_data_freshness_pipeline import (
+    build_manual_data_freshness_pipeline,
+    sync_manual_data_freshness_to_reports_repo,
+    write_manual_data_freshness_outputs,
+)
 from invis_alpha_os.reports.manual_data_import_flow import build_manual_data_import_flow
+from invis_alpha_os.reports.manual_data_schema_guard import DEFAULT_TARGET_TICKERS_CSV
 from invis_alpha_os.reports.manual_data_normalizer import build_manual_data_normalization
 from invis_alpha_os.reports.manual_csv_export_request import build_manual_csv_export_request
 from invis_alpha_os.reports.manual_csv_import_flow import build_manual_csv_import_flow
@@ -2106,6 +2112,62 @@ def weekly_candidate_brief_manual_data_discover_command(
             if "manual_data_discovery" in key:
                 typer.echo(f"weekly-candidate-brief-manual-data-discover: {key}={p}")
     raise typer.Exit(0 if discovery.json_payload.get("safe_to_parse") else 1)
+
+
+@app.command("weekly-candidate-brief-manual-data-freshness-pipeline")
+def weekly_candidate_brief_manual_data_freshness_pipeline_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    report_dir: Optional[str] = typer.Option(None, "--report-dir"),
+    targets_csv: str = typer.Option(DEFAULT_TARGET_TICKERS_CSV, "--targets-csv"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    resolution = resolve_weekly_report_dir(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=report_dir,
+    )
+    if resolution.warning:
+        typer.echo(
+            f"weekly-candidate-brief-manual-data-freshness-pipeline: {resolution.warning}",
+            err=True,
+        )
+    result = build_manual_data_freshness_pipeline(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        report_dir=resolution.path,
+        targets_csv=targets_csv,
+    )
+    paths = write_manual_data_freshness_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        result=result,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-manual-data-freshness-pipeline: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-data-freshness-pipeline: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_manual_data_freshness_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            result=result,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-manual-data-freshness-pipeline: {key}={p}")
+    summary = result.summary
+    exit_code = 0 if summary.get("dry_run_status") in {"pass", "not_run"} else 1
+    if not summary.get("manual_file_detected"):
+        exit_code = 0
+    raise typer.Exit(exit_code)
 
 
 @app.command("weekly-candidate-brief-manual-csv-discover")
