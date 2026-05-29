@@ -1,13 +1,21 @@
 name: daily-report
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 22 * * 1-5"
+
+concurrency:
+  group: daily-report-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   run-daily:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -19,4 +27,3 @@ jobs:
           python -m pip install -e .
       - name: Generate daily report
         run: alpha-os daily
-
