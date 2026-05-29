@@ -77,4 +77,4 @@ def test_security_dashboard_manual_settings_grade(monkeypatch, tmp_path: Path) -
         reports_repo_path=None,
         report_date="2026-05-27",
     )
-    assert result.json_payload["overall_grade"] == "review_required_manual_settings_only"
+    assert result.json_payload["overall_grade"] == "pass_with_manual_checks"

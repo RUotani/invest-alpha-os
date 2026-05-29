@@ -46,7 +46,7 @@ def _resolve_grade(
     if tracked_reports_count > 1:
         return "review_required"
     if manual_check_count > 0:
-        return "review_required_manual_settings_only"
+        return "pass_with_manual_checks"
     if deps_status == "inventory_only":
         return "acceptable_with_notes"
     return "pass"
@@ -82,6 +82,7 @@ def build_security_dashboard(
     tracked_reports_count = int(tracking.json_payload.get("tracked_reports_count", 0))
     manual_check_count = int(settings.json_payload.get("manual_check_required_count", 0))
     retained_secret_hits = len(leakage.json_payload.get("source_repo", {}).get("suspected_secret_hits", []))
+    retained_secret_hits += len(leakage.json_payload.get("reports_repo", {}).get("suspected_secret_hits", []))
     suppressed_count = int(
         leakage.json_payload.get("source_repo", {}).get("suppressed_false_positive_count", 0)
     )

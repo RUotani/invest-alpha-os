@@ -7,19 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.security.secret_pattern_suppression import should_suppress_secret_hit
-from invis_alpha_os.security.security_leakage_audit import (
-    SECRET_PATTERNS,
-    _git_tracked_files,
-    build_security_leakage_audit,
+from invis_alpha_os.security.secret_pattern_suppression import (
+    classify_hit_category,
+    collect_pattern_hits,
 )
-
-
-@dataclass(frozen=True)
-class PatternHit:
-    pattern_label: str
-    line_number: int
-    line_text: str
+from invis_alpha_os.security.security_leakage_audit import _git_tracked_files, build_security_leakage_audit
 
 
 @dataclass(frozen=True)
@@ -42,31 +34,6 @@ def _redacted_excerpt(line: str) -> str:
     return text
 
 
-def _collect_pattern_hits(
-    *,
-    rel_path: str,
-    sample_text: str,
-) -> list[PatternHit]:
-    hits: list[PatternHit] = []
-    for line_number, line in enumerate(sample_text.splitlines(), start=1):
-        for label, pattern in SECRET_PATTERNS:
-            if pattern.search(line):
-                hits.append(PatternHit(pattern_label=label, line_number=line_number, line_text=line))
-    return hits
-
-
-def _classify_line(*, rel_path: str, pattern_label: str, line: str) -> tuple[str, str, bool]:
-    if should_suppress_secret_hit(
-        rel_path=rel_path,
-        pattern_label=pattern_label,
-        sample_text=line,
-    ):
-        return "documentation_reference", "documentation_suppression", True
-    if rel_path.startswith("tests/"):
-        return "test_fixture", "test_context", False
-    return "needs_human_review", "unclassified", False
-
-
 def _triage_path_hits(
     *,
     repo_root: Path,
@@ -82,11 +49,12 @@ def _triage_path_hits(
             sample = abs_path.read_text(encoding="utf-8", errors="ignore")
         except OSError:
             continue
-        for hit in _collect_pattern_hits(rel_path=rel, sample_text=sample):
-            category, reason, suppress = _classify_line(
+        for hit in collect_pattern_hits(rel_path=rel, sample_text=sample):
+            category, reason, suppress = classify_hit_category(
                 rel_path=rel,
                 pattern_label=hit.pattern_label,
                 line=hit.line_text,
+                line_number=hit.line_number,
             )
             items.append(
                 {

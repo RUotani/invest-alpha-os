@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import re
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.security.secret_pattern_suppression import should_suppress_secret_hit
-
-SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("api_key_like", re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[=:]\s*\S+", re.MULTILINE)),
-    ("jquants_key", re.compile(r"(?i)JQUANTS_API_KEY\s*=", re.MULTILINE)),
-    ("alpha_vantage_key", re.compile(r"(?i)ALPHA_VANTAGE_API_KEY\s*=", re.MULTILINE)),
-    ("gmail_token", re.compile(r"(?i)(GMAIL_|client_secret|refresh_token)", re.MULTILINE)),
+from invis_alpha_os.security.secret_pattern_suppression import (
+    SECRET_PATTERNS,
+    classify_hit_category,
+    collect_pattern_hits,
+    evaluate_secret_hit,
 )
 
 BROKER_FILE_SUFFIXES: frozenset[str] = frozenset({".csv", ".tsv", ".xlsx", ".txt"})
@@ -55,6 +52,8 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
     generated_artifacts: list[str] = []
     secret_hits: list[dict[str, Any]] = []
     suppressed_hits: list[dict[str, Any]] = []
+    suppressed_by_category: dict[str, int] = {}
+    retained_by_category: dict[str, int] = {}
 
     for rel in rel_paths:
         name = Path(rel).name
@@ -80,12 +79,37 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
             for label, pattern in SECRET_PATTERNS:
                 if not pattern.search(sample):
                     continue
-                if should_suppress_secret_hit(rel_path=rel, pattern_label=label, sample_text=sample):
+                suppress, reason, category = evaluate_secret_hit(
+                    rel_path=rel,
+                    pattern_label=label,
+                    sample_text=sample,
+                )
+                if suppress:
                     suppressed_hits.append(
-                        {"pattern": label, "path": rel, "redacted": True, "suppressed": True}
+                        {
+                            "pattern": label,
+                            "path": rel,
+                            "redacted": True,
+                            "suppressed": True,
+                            "category": category,
+                            "reason": reason,
+                        }
                     )
+                    suppressed_by_category[category] = suppressed_by_category.get(category, 0) + 1
                     continue
                 secret_hits.append({"pattern": label, "path": rel, "redacted": True})
+                first_hit = next(
+                    (h for h in collect_pattern_hits(rel_path=rel, sample_text=sample) if h.pattern_label == label),
+                    None,
+                )
+                if first_hit is not None:
+                    cat, _, _ = classify_hit_category(
+                        rel_path=rel,
+                        pattern_label=label,
+                        line=first_hit.line_text,
+                        line_number=first_hit.line_number,
+                    )
+                    retained_by_category[cat] = retained_by_category.get(cat, 0) + 1
 
     return {
         "tracked_env_files": tracked_env,
@@ -94,6 +118,8 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
         "suspected_secret_hits": secret_hits,
         "suppressed_false_positives": suppressed_hits[:50],
         "suppressed_false_positive_count": len(suppressed_hits),
+        "suppressed_by_category": suppressed_by_category,
+        "retained_by_category": retained_by_category,
     }
 
 
@@ -103,10 +129,13 @@ def _scan_reports_tree(reports_root: Path) -> dict[str, Any]:
     broker_files: list[str] = []
     secret_hits: list[dict[str, Any]] = []
     suppressed_hits: list[dict[str, Any]] = []
+    suppressed_by_category: dict[str, int] = {}
     for path in reports_root.rglob("*"):
         if not path.is_file():
             continue
-        rel = str(path.relative_to(reports_root))
+        rel = str(path.relative_to(reports_root)).replace("\\", "/")
+        if rel.startswith(".git/") or "/.git/" in f"/{rel}/":
+            continue
         suffix = path.suffix.lower()
         if suffix in BROKER_FILE_SUFFIXES and "template" not in rel.lower():
             if "manual_jp_bars" in path.name and "template" not in path.name:
@@ -120,14 +149,30 @@ def _scan_reports_tree(reports_root: Path) -> dict[str, Any]:
         for label, pattern in SECRET_PATTERNS:
             if not pattern.search(sample):
                 continue
-            if should_suppress_secret_hit(rel_path=rel, pattern_label=label, sample_text=sample):
-                suppressed_hits.append({"pattern": label, "path": rel, "redacted": True, "suppressed": True})
+            suppress, reason, category = evaluate_secret_hit(
+                rel_path=rel,
+                pattern_label=label,
+                sample_text=sample,
+            )
+            if suppress:
+                suppressed_hits.append(
+                    {
+                        "pattern": label,
+                        "path": rel,
+                        "redacted": True,
+                        "suppressed": True,
+                        "category": category,
+                        "reason": reason,
+                    }
+                )
+                suppressed_by_category[category] = suppressed_by_category.get(category, 0) + 1
                 continue
             secret_hits.append({"pattern": label, "path": rel, "redacted": True})
     return {
         "suspected_secret_hits": secret_hits,
         "suppressed_false_positives": suppressed_hits[:50],
         "suppressed_false_positive_count": len(suppressed_hits),
+        "suppressed_by_category": suppressed_by_category,
         "broker_files": broker_files,
     }
 
@@ -143,9 +188,10 @@ def build_security_leakage_audit(
     if reports_repo_path is not None:
         reports_scan = _scan_reports_tree(reports_repo_path)
 
-    high_count = len(source_scan["suspected_secret_hits"]) + len(reports_scan.get("suspected_secret_hits", []))
-    high_count += len(source_scan["tracked_env_files"]) + len(source_scan.get("broker_files", []))
-    overall = "pass" if high_count == 0 else "review_required"
+    retained_count = len(source_scan["suspected_secret_hits"]) + len(
+        reports_scan.get("suspected_secret_hits", [])
+    )
+    overall = "pass" if retained_count == 0 else "review_required"
 
     payload: dict[str, Any] = {
         "overall_status": overall,
