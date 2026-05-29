@@ -160,6 +160,71 @@ def test_execute_refresh_mocked_http_error_includes_redacted_diagnostics() -> No
     assert "http_401_unauthorized" in result.markdown_text
 
 
+def test_execute_refresh_rejects_out_of_contract_without_allow_clamp() -> None:
+    env = _full_gates_env()
+    env["JQUANTS_DATA_AVAILABLE_TO"] = "20260306"
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=True,
+        env=env,
+        allow_date_clamp=False,
+    )
+    assert result.json_payload["overall_status"] == "date_range_out_of_contract"
+    assert result.json_payload["http_prevented_by_date_validation"] is True
+
+
+def test_execute_refresh_uses_clamped_dates_in_provider_call(monkeypatch) -> None:
+    env = _full_gates_env()
+    env["JQUANTS_DATA_AVAILABLE_TO"] = "20260306"
+    captured: list[tuple[str, str, str]] = []
+
+    def _mock_refresh(code: str, from_date: str, to_date: str) -> dict:
+        captured.append((code, from_date, to_date))
+        return {
+            "ticker": code,
+            "status": "success",
+            "sanitized_bar_count": 10,
+            "cache_write_executed": True,
+            "live_http_executed": True,
+        }
+
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.cache_refresh_execute.latest_bar_dates_for_targets",
+        lambda _targets: {"5802": "2026-02-17", "6645": "2026-02-17", "5801": "2026-02-17"},
+    )
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=True,
+        env=env,
+        allow_date_clamp=True,
+        refresh_fn=_mock_refresh,
+    )
+    assert result.json_payload["overall_status"] == "success"
+    assert result.json_payload["clamped_to_date"] == "2026-03-06"
+    assert captured
+    assert all(item[2] == "2026-03-06" for item in captured)
+
+
+def test_execute_refresh_no_effective_range_skips_http(monkeypatch) -> None:
+    env = _full_gates_env()
+    env["JQUANTS_DATA_AVAILABLE_TO"] = "20260306"
+    monkeypatch.setattr(
+        "invis_alpha_os.reports.cache_refresh_execute.latest_bar_dates_for_targets",
+        lambda _targets: {"5802": "2026-03-06", "6645": "2026-03-06", "5801": "2026-03-06"},
+    )
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=True,
+        env=env,
+        allow_date_clamp=True,
+    )
+    assert result.json_payload["overall_status"] == "no_effective_refresh_range"
+    assert result.json_payload["live_http_executed"] is False
+
+
 def test_execute_refresh_accepts_provider_allow_yes_for_jquants_live_flag() -> None:
     env = _full_gates_env()
     env["JQUANTS_ALLOW_LIVE_HTTP"] = "yes"

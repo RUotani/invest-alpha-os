@@ -41,9 +41,12 @@ def test_assess_jquants_credentials_includes_redacted_contract_fields() -> None:
             "JQUANTS_API_BASE_URL": "https://example.test/v2/",
             "JQUANTS_API_KEY": "secret-value-not-in-output",
             "JQUANTS_ALLOW_LIVE_HTTP": "yes",
+            "JQUANTS_DATA_AVAILABLE_TO": "20260306",
         }
     )
     assert diag["refresh_allowed"] is True
+    assert diag["clamped_to_date"] == "2026-03-06"
+    assert diag["date_range_clamp_required"] is True
     assert diag["api_base_url_parseable"] is True
     assert diag["api_base_url_has_scheme"] is True
     assert diag["api_base_url_host_present"] is True

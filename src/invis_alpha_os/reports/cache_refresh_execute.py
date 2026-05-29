@@ -12,6 +12,11 @@ from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import save_jquants_daily_bars_cache, utc_now_iso
 from invis_alpha_os.config.env_bool import provider_allow_flag_truthy, strict_confirm_flag_truthy
 from invis_alpha_os.reports.cache_refresh_execution_plan import REQUIRED_GATES
+from invis_alpha_os.reports.jquants_date_range import (
+    is_effective_refresh_range,
+    latest_bar_dates_for_targets,
+    resolve_refresh_date_range,
+)
 from invis_alpha_os.reports.jquants_preflight import assess_jquants_credentials
 from invis_alpha_os.reports.provider_error_diagnostics import (
     ENDPOINT_CATEGORY_DAILY_BARS,
@@ -125,6 +130,9 @@ def normalize_target_status(raw: dict[str, Any]) -> dict[str, Any]:
     elif raw_status in {"validation_error"}:
         normalized = "target_mismatch"
         live = False
+    elif raw_status == "no_effective_refresh_range":
+        normalized = "no_effective_refresh_range"
+        live = False
     else:
         normalized = "provider_error"
         live = bool(raw.get("live_http_executed"))
@@ -168,6 +176,8 @@ def normalize_overall_status(
     statuses = [str(x.get("status", "")) for x in per_target]
     if all(s == "success" for s in statuses):
         return "success"
+    if all(s == "no_effective_refresh_range" for s in statuses):
+        return "no_effective_refresh_range"
     if any(s == "auth_missing" for s in statuses):
         return "auth_missing"
     if any(s == "provider_error" for s in statuses):
@@ -181,6 +191,8 @@ def next_required_action(overall_status: str) -> str:
         "gate_refused": "Set required CONFIRM/ALLOW gates and rerun once",
         "target_mismatch": "Fix targets/provider/scope to exact JP-only set",
         "provider_error": "Inspect provider error and retry once after fix",
+        "no_effective_refresh_range": "Contract-limited cache already current through clamped_to_date",
+        "date_range_out_of_contract": "Set JQUANTS_DATA_AVAILABLE_TO or pass --allow-date-clamp",
         "partial_failure": "Review per-target results and rerun once if needed",
         "success": "Run postcheck and regenerate Context Pack",
         "planned_dry_run_only": "Review dry-run output then execute once with gates",
@@ -195,6 +207,8 @@ def retry_safe(overall_status: str) -> bool:
         "provider_error",
         "partial_failure",
         "planned_dry_run_only",
+        "date_range_out_of_contract",
+        "no_effective_refresh_range",
     }
 
 
@@ -275,10 +289,29 @@ def execute_jp_targets(
     from_date: str,
     to_date: str,
     refresh_fn: RefreshSymbolFn | None = None,
+    latest_bar_dates: dict[str, str | None] | None = None,
 ) -> list[dict[str, Any]]:
     fn = refresh_fn or refresh_jp_symbol_live
     ordered = [t for t in ("5802", "6645", "5801") if t in targets]
-    return [fn(t, from_date, to_date) for t in ordered]
+    bar_dates = latest_bar_dates or {}
+    results: list[dict[str, Any]] = []
+    for ticker in ordered:
+        latest = bar_dates.get(ticker)
+        if not is_effective_refresh_range(to_date, latest):
+            results.append(
+                {
+                    "ticker": ticker,
+                    "status": "no_effective_refresh_range",
+                    "reason": "clamped_to_date not newer than latest_bar_date",
+                    "latest_bar_date": latest,
+                    "clamped_to_date": to_date,
+                    "live_http_executed": False,
+                    "cache_write_executed": False,
+                }
+            )
+            continue
+        results.append(fn(ticker, from_date, to_date))
+    return results
 
 
 def build_cache_refresh_execute(
@@ -291,6 +324,7 @@ def build_cache_refresh_execute(
     scope: str = REQUIRED_SCOPE,
     env: dict[str, str] | None = None,
     refresh_fn: RefreshSymbolFn | None = None,
+    allow_date_clamp: bool = False,
 ) -> CacheRefreshExecuteResult:
     env_map = env or {}
     targets = parse_targets_csv(targets_csv)
@@ -310,7 +344,16 @@ def build_cache_refresh_execute(
         if str(row.get("provider", "")).strip() == REQUIRED_PROVIDER
         and str(row.get("ticker", "")).strip() in JP_ALLOWED_TARGETS
     ]
-    from_date, to_date = default_refresh_date_range()
+    latest_dates = latest_bar_dates_for_targets(targets) if execute_refresh else None
+    date_range = resolve_refresh_date_range(
+        env_map,
+        allow_date_clamp=allow_date_clamp,
+        latest_bar_dates=latest_dates,
+        check_effective_range=execute_refresh,
+    )
+    date_fields = date_range.as_dict()
+    from_date = date_range.clamped_from_date
+    to_date = date_range.clamped_to_date
     if gate_status != "ok":
         overall = _map_gate_status(gate_status)
         payload: dict[str, Any] = {
@@ -368,7 +411,39 @@ def build_cache_refresh_execute(
             provider=provider,
             scope=scope,
             filtered_rows=filtered_rows,
+            allow_date_clamp=allow_date_clamp,
+            date_range=date_range,
         )
+
+    if date_range.validation_status == "date_range_out_of_contract":
+        overall = "date_range_out_of_contract"
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "dry_run_only": False,
+            "live_http_executed": False,
+            "cache_write_executed": False,
+            "actual_refresh_executed": False,
+            "status": overall,
+            "overall_status": overall,
+            "provider": provider,
+            "scope": scope,
+            "targets": targets,
+            "per_target_results": [],
+            "retry_safe": retry_safe(overall),
+            "next_required_action": next_required_action(overall),
+            "secrets_printed": False,
+            **date_fields,
+        }
+        lines = [
+            "# Cache Refresh Execute Refused",
+            "",
+            f"- overall_status: {overall}",
+            f"- clamped_to_date: {date_range.clamped_to_date}",
+            f"- next_required_action: {payload['next_required_action']}",
+            "",
+        ]
+        return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload, is_result=True)
 
     auth_diag = assess_jquants_credentials(env_map)
     if not auth_diag.get("refresh_allowed"):
@@ -402,9 +477,53 @@ def build_cache_refresh_execute(
             "retry_safe": True,
             "next_required_action": next_required_action(overall),
             "secrets_printed": False,
+            **date_fields,
+        }
+    elif date_range.validation_status == "no_effective_refresh_range":
+        per_target = [
+            normalize_target_status(
+                {
+                    "ticker": t,
+                    "status": "no_effective_refresh_range",
+                    "reason": "clamped_to_date not newer than latest_bar_date",
+                    "latest_bar_date": latest_dates.get(t) if latest_dates else None,
+                    "clamped_to_date": to_date,
+                    "live_http_executed": False,
+                    "cache_write_executed": False,
+                }
+            )
+            for t in targets
+        ]
+        overall = "no_effective_refresh_range"
+        payload = {
+            "report_date": report_date,
+            "generated_at": _now_iso(),
+            "dry_run_only": False,
+            "live_http_executed": False,
+            "cache_write_executed": False,
+            "actual_refresh_executed": False,
+            "status": overall,
+            "overall_status": overall,
+            "provider": provider,
+            "scope": scope,
+            "targets": targets,
+            "from_date": from_date,
+            "to_date": to_date,
+            "symbol_results": [],
+            "per_target_results": per_target,
+            "retry_safe": retry_safe(overall),
+            "next_required_action": next_required_action(overall),
+            "secrets_printed": False,
+            **date_fields,
         }
     else:
-        symbol_results = execute_jp_targets(targets, from_date=from_date, to_date=to_date, refresh_fn=refresh_fn)
+        symbol_results = execute_jp_targets(
+            targets,
+            from_date=from_date,
+            to_date=to_date,
+            refresh_fn=refresh_fn,
+            latest_bar_dates=latest_dates,
+        )
         per_target = [normalize_target_status(row) for row in symbol_results]
         overall = normalize_overall_status(
             gate_status=gate_status,
@@ -431,6 +550,7 @@ def build_cache_refresh_execute(
             "retry_safe": retry_safe(overall),
             "next_required_action": next_required_action(overall),
             "secrets_printed": False,
+            **date_fields,
         }
     lines = [
         "# Cache Refresh Execute Result",
@@ -446,6 +566,9 @@ def build_cache_refresh_execute(
         f"- overall_status: {payload.get('overall_status', payload['status'])}",
         f"- retry_safe: {str(payload.get('retry_safe', False)).lower()}",
         f"- next_required_action: {payload.get('next_required_action', '')}",
+        f"- requested_to_date: {payload.get('requested_to_date', '-')}",
+        f"- clamped_to_date: {payload.get('clamped_to_date', '-')}",
+        f"- date_range_clamped: {str(payload.get('date_range_clamped', False)).lower()}",
         f"- provider: {provider}",
         f"- scope: {scope}",
         "",
@@ -491,6 +614,8 @@ def build_cache_refresh_execute_dry_run(
     provider: str = REQUIRED_PROVIDER,
     scope: str = REQUIRED_SCOPE,
     filtered_rows: list[dict[str, Any]] | None = None,
+    allow_date_clamp: bool = False,
+    date_range: Any | None = None,
 ) -> CacheRefreshExecuteResult:
     plan = plan_json_payload if isinstance(plan_json_payload, dict) else {}
     rows = filtered_rows
@@ -507,6 +632,10 @@ def build_cache_refresh_execute_dry_run(
         execute_refresh=False,
     )
     from_date, to_date = default_refresh_date_range()
+    resolved = date_range or resolve_refresh_date_range(env or {}, allow_date_clamp=allow_date_clamp)
+    from_date = resolved.clamped_from_date
+    to_date = resolved.clamped_to_date
+    date_fields = resolved.as_dict()
     payload = {
         "report_date": report_date,
         "generated_at": _now_iso(),
@@ -523,6 +652,7 @@ def build_cache_refresh_execute_dry_run(
         "gate_detail": gate_detail,
         "plan_targets": rows,
         "secrets_printed": False,
+        **date_fields,
     }
     lines = [
         "# Cache Refresh Execute Dry-Run",
@@ -540,6 +670,9 @@ def build_cache_refresh_execute_dry_run(
         f"- targets: {', '.join(target_list)}",
         f"- from_date: {from_date}",
         f"- to_date: {to_date}",
+        f"- requested_to_date: {payload.get('requested_to_date', '-')}",
+        f"- clamped_to_date: {payload.get('clamped_to_date', '-')}",
+        f"- date_range_clamped: {str(payload.get('date_range_clamped', False)).lower()}",
         "",
         "## 対象",
         "| ticker | market | provider | priority | plan_status |",
