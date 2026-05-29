@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,6 +124,24 @@ def build_security_dashboard(
         remaining_risks.append("GitHub manual evidence template has unchecked items")
     elif manual_check_count > 0:
         remaining_risks.append("GitHub UI settings require manual verification")
+    codeql_section: dict[str, Any] = {}
+    ruleset_risk_section: dict[str, Any] = {}
+    branch_bp_section: dict[str, Any] = {}
+    if manual_evidence is not None and manual_evidence.source_path:
+        try:
+            raw = json.loads(Path(manual_evidence.source_path).read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                codeql_section = raw.get("codeql_status_evidence") or {}
+                ruleset_risk_section = raw.get("ruleset_operational_risk") or {}
+                branch_bp_section = raw.get("branch_protection_evidence") or {}
+        except (OSError, json.JSONDecodeError):
+            pass
+    if ruleset_risk_section.get("solo_operation_review_required"):
+        remaining_risks.append(
+            "Solo-operation ruleset risk: required PR approvals with single collaborator and no bypass actors"
+        )
+    if codeql_section.get("evidence_state") == "analysis_pending":
+        remaining_risks.append("CodeQL default setup configured; first analysis run still pending")
     if tracked_reports_count > 1:
         remaining_risks.append("Multiple tracked reports remain in source repo")
     if not discovery.json_payload.get("safe_to_parse"):
@@ -192,6 +211,9 @@ def build_security_dashboard(
             "targets_count": len(export_pkg.json_payload.get("required_targets", [])),
         },
         "manual_file_intake": {"status": file_intake_status},
+        "branch_protection_evidence": branch_bp_section,
+        "codeql_status_evidence": codeql_section,
+        "ruleset_operational_risk": ruleset_risk_section,
     }
     lines = [
         "# Security Dashboard",
@@ -202,6 +224,19 @@ def build_security_dashboard(
         f"- actions_status: {actions.json_payload.get('overall_status')}",
         f"- tracked_reports_count: {tracked_reports_count}",
         f"- manual_check_required_count: {manual_check_count}",
+        "",
+        "## Branch protection (ruleset-aware)",
+        "",
+        f"- verdict: {branch_bp_section.get('verdict', 'n/a')}",
+        "",
+        "## CodeQL follow-up",
+        "",
+        f"- evidence_state: {codeql_section.get('evidence_state', 'n/a')}",
+        f"- analyses_available: {codeql_section.get('analyses_available', 'n/a')}",
+        "",
+        "## Ruleset operational risk",
+        "",
+        f"- solo_operation_review_required: {ruleset_risk_section.get('solo_operation_review_required', 'n/a')}",
         "",
         "## Remaining risks",
         "",

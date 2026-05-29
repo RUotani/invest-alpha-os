@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.security.github_settings_manual_evidence_template import MANUAL_CHECK_IDS
+from invis_alpha_os.security.github_settings_manual_check_ids import MANUAL_CHECK_IDS
 
 MANUAL_CHECK_STATUS_VALUES: frozenset[str] = frozenset(
     {
