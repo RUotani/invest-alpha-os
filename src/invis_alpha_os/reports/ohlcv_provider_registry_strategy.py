@@ -17,6 +17,10 @@ from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
 )
+from invis_alpha_os.data.ohlcv_provider_runbook import (
+    ProviderApprovedExecutionScenario,
+    build_provider_approved_execution_runbook,
+)
 from invis_alpha_os.data.ohlcv_provider_registry import (
     CANONICAL_OHLCV_COLUMNS,
     JQUANTS_APPROVAL_PHRASE,
@@ -269,7 +273,8 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     planner_md, planner_json = build_ohlcv_provider_selection_planner(report_date=report_date)
     approval_md, approval_json = build_ohlcv_provider_approval_package(report_date=report_date)
     harness_md, harness_json = build_ohlcv_provider_safe_execution_harness(report_date=report_date)
-    _ = registry_md, planner_md, approval_md, harness_md
+    runbook_md, runbook_json = build_ohlcv_provider_approved_execution_runbook(report_date=report_date)
+    _ = registry_md, planner_md, approval_md, harness_md, runbook_md
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -306,6 +311,19 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 if gate not in harness_json["harness"]["result"]["approved_action"]["approved_gates"]
             ],
             "next_required_user_approval_phrase": PUBLIC_OHLCV_APPROVAL_PHRASE,
+        },
+        "provider_approved_execution_runbook_status": {
+            "available": True,
+            "source_only": runbook_json["runbook"]["decision_record"]["source_only"],
+            "current_phase": "no_live_no_cache_no_import",
+            "scenario": runbook_json["runbook"]["scope"]["scenario"],
+            "operator_runbook_exists": True,
+            "approval_package_exists": True,
+            "safe_execution_harness_exists": True,
+            "next_required_approval_phrase_by_scenario": {
+                item["scenario"]: item["required_approval_phrase"]
+                for item in runbook_json["supported_scenarios"]
+            },
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -581,6 +599,149 @@ def build_ohlcv_provider_safe_execution_harness(*, report_date: str) -> tuple[st
         ]
     )
     return "\n".join(lines), payload
+
+
+def build_ohlcv_provider_approved_execution_runbook(
+    *,
+    report_date: str,
+    scenario: ProviderApprovedExecutionScenario = ProviderApprovedExecutionScenario.PUBLIC_OHLCV,
+) -> tuple[str, dict[str, Any]]:
+    runbook = build_provider_approved_execution_runbook(report_date=report_date, scenario=scenario)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="ohlcv_provider_approved_execution_runbook"),
+        "pack_version": "v43",
+        "supported_scenarios": [
+            {
+                "scenario": item.value,
+                "required_approval_phrase": build_provider_approved_execution_runbook(
+                    report_date=report_date,
+                    scenario=item,
+                ).approval_requirement.phrase,
+            }
+            for item in ProviderApprovedExecutionScenario
+        ],
+        "runbook": runbook.to_dict(),
+    }
+    rb = payload["runbook"]
+    scope = rb["scope"]
+    approval = rb["approval_requirement"]
+    checklist = rb["checklist"]
+    command_plan = rb["command_plan"]
+    decision = rb["decision_record"]
+    lines = [
+        "# OHLCV Provider Approved Execution Runbook",
+        "",
+        "## Executive Summary",
+        "",
+        "- This operator runbook is source-only.",
+        "- It bridges the v39 approval package and v41 safe execution harness to a future separately approved operation.",
+        "- Commands below are plans only and are not executed by this report.",
+        "",
+        "## Execution Scope",
+        "",
+        f"- scenario: {scope['scenario']}",
+        f"- requested_operation: {scope['requested_operation']}",
+        f"- provider_action: {scope['provider_action']}",
+        f"- provider_candidates: {', '.join(scope['provider_candidates'])}",
+        f"- tickers: {', '.join(scope['tickers'])}",
+        f"- date_range: {scope['date_range']}",
+        "",
+        "## Required Approval Phrase",
+        "",
+        f"- {approval['phrase']}",
+        f"- approval_status: {approval['approval_status']}",
+        f"- required_gates: {', '.join(approval['required_gates']) or '(none)'}",
+        "",
+        "## Explicitly Not Approved",
+        "",
+    ]
+    for item in scope["remains_unapproved"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Operator Preconditions", ""])
+    for step in checklist["preconditions"]:
+        lines.append(f"- {step['title']}: {step['detail']}")
+    lines.extend(["", "## Commands To Run Later", ""])
+    for command in command_plan["commands"]:
+        lines.append(f"```bash\n{command}\n```")
+    lines.extend(["", "## Expected Artifacts", ""])
+    for artifact in checklist["artifacts"]:
+        lines.append(f"- {artifact}")
+    lines.extend(["", "## Preflight Checklist", ""])
+    for step in checklist["preflight"]:
+        lines.append(f"- {step['title']}: {step['detail']}")
+    lines.extend(["", "## Verification Checklist", ""])
+    for step in checklist["verification"]:
+        lines.append(f"- {step['title']}: {step['detail']}")
+    lines.extend(["", "## Rollback Runbook", ""])
+    for step in checklist["rollback"]:
+        lines.append(f"- {step['title']}: {step['detail']}")
+    lines.extend(["", "## Stop Conditions", ""])
+    for condition in checklist["stop_conditions"]:
+        lines.append(f"- {condition}")
+    lines.extend(
+        [
+            "",
+            "## Audit Notes",
+            "",
+            f"- source_only: {str(decision['source_only']).lower()}",
+            f"- approved_in_this_runbook: {str(decision['approved_in_this_runbook']).lower()}",
+        ]
+    )
+    for key, value in decision["audit_flags"].items():
+        lines.append(f"- {key}: {str(value).lower()}")
+    lines.extend(
+        [
+            "",
+            "## Handoff To Cursor",
+            "",
+            "- Use this runbook only after a separate explicit approval task exists.",
+            "- Confirm scenario, approval phrase, ticker scope, and date range before running any future command.",
+            "- Stop if any command would reveal secrets, raw provider/manual data, or touch reports-private from Codex.",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "scenario": scope["scenario"],
+                    "required_approval_phrase": approval["phrase"],
+                    "source_only": decision["source_only"],
+                    "commands_marked_not_executed": all(
+                        command.startswith(command_plan["not_executed_marker"]) or command_plan["not_executed_marker"] in command
+                        for command in command_plan["commands"]
+                    ),
+                    "audit_flags": decision["audit_flags"],
+                    "stop_conditions": checklist["stop_conditions"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
+def write_ohlcv_provider_approved_execution_runbook_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "ohlcv_provider_approved_execution_runbook.md"
+        json_path = root / "ohlcv_provider_approved_execution_runbook.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_ohlcv_provider_approved_execution_runbook_md"] = md_path
+        paths[f"{label}_ohlcv_provider_approved_execution_runbook_json"] = json_path
+    return paths
 
 
 def write_ohlcv_provider_safe_execution_harness_outputs(
