@@ -12,6 +12,11 @@ from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
 from invis_alpha_os.data.jquants_daily_bars_cache import save_jquants_daily_bars_cache, utc_now_iso
 from invis_alpha_os.reports.cache_refresh_execution_plan import REQUIRED_GATES
 from invis_alpha_os.reports.jquants_preflight import assess_jquants_credentials
+from invis_alpha_os.reports.provider_error_diagnostics import (
+    ENDPOINT_CATEGORY_DAILY_BARS,
+    REQUEST_PHASE_DAILY_QUOTES_FETCH,
+    build_redacted_provider_diagnostics,
+)
 
 JP_ALLOWED_TARGETS: frozenset[str] = frozenset({"5802", "6645", "5801"})
 REQUIRED_PROVIDER = "jquants"
@@ -123,7 +128,7 @@ def normalize_target_status(raw: dict[str, Any]) -> dict[str, Any]:
     else:
         normalized = "provider_error"
         live = bool(raw.get("live_http_executed"))
-    return {
+    row: dict[str, Any] = {
         "ticker": raw.get("ticker", ""),
         "status": normalized,
         "raw_status": raw_status,
@@ -132,6 +137,17 @@ def normalize_target_status(raw: dict[str, Any]) -> dict[str, Any]:
         "cache_write_executed": bool(raw.get("cache_write_executed")),
         "sanitized_bar_count": raw.get("sanitized_bar_count"),
     }
+    if normalized == "provider_error":
+        row.update(
+            build_redacted_provider_diagnostics(
+                {
+                    **raw,
+                    "request_phase": raw.get("request_phase", REQUEST_PHASE_DAILY_QUOTES_FETCH),
+                    "endpoint_category": raw.get("endpoint_category", ENDPOINT_CATEGORY_DAILY_BARS),
+                }
+            )
+        )
+    return row
 
 
 def normalize_overall_status(
@@ -220,6 +236,12 @@ def refresh_jp_symbol_live(
             "reason": str(result.get("reason", result.get("hint", st))),
             "live_http_executed": attempted_live,
             "cache_write_executed": False,
+            "http_status": result.get("http_status"),
+            "endpoint_path": result.get("endpoint_path"),
+            "endpoint_url_without_query": result.get("endpoint_url_without_query"),
+            "error_body_preview": result.get("error_body_preview"),
+            "request_phase": REQUEST_PHASE_DAILY_QUOTES_FETCH,
+            "endpoint_category": ENDPOINT_CATEGORY_DAILY_BARS,
         }
     bars = result.get("sanitized_bars")
     if not isinstance(bars, list) or not bars:
@@ -428,15 +450,34 @@ def build_cache_refresh_execute(
         f"- scope: {scope}",
         "",
         "## 対象結果",
-        "| ticker | status | sanitized_bar_count | cache_written |",
-        "| --- | --- | ---: | --- |",
+        "| ticker | status | provider_error_class | http_status | sanitized_bar_count | cache_written |",
+        "| --- | --- | --- | ---: | ---: | --- |",
     ]
     for row in payload.get("per_target_results") or []:
         lines.append(
-            f"| {row.get('ticker', '')} | {row.get('status', '')} | {row.get('sanitized_bar_count', '-')} | "
+            f"| {row.get('ticker', '')} | {row.get('status', '')} | "
+            f"{row.get('provider_error_class', '-')} | {row.get('http_status', '-')} | "
+            f"{row.get('sanitized_bar_count', '-')} | "
             f"{'yes' if row.get('cache_write_executed') else 'no'} |"
         )
-    lines.append("")
+    lines.extend(["", "## Provider diagnostics"])
+    for row in payload.get("per_target_results") or []:
+        if row.get("status") != "provider_error":
+            continue
+        lines.extend(
+            [
+                f"### {row.get('ticker', '')}",
+                f"- provider_error_class: {row.get('provider_error_class', '-')}",
+                f"- http_status: {row.get('http_status', '-')}",
+                f"- request_phase: {row.get('request_phase', '-')}",
+                f"- endpoint_category: {row.get('endpoint_category', '-')}",
+                f"- retry_safe: {str(row.get('retry_safe', False)).lower()}",
+                f"- next_required_action: {row.get('next_required_action', '-')}",
+                "- response_body_redacted: true",
+                "- secrets_printed: false",
+                "",
+            ]
+        )
     return CacheRefreshExecuteResult(markdown_text="\n".join(lines), json_payload=payload, is_result=True)
 
 

@@ -127,3 +127,34 @@ def test_build_cache_refresh_execute_dry_run_legacy_helper() -> None:
         env={},
     )
     assert result.json_payload["dry_run_only"] is True
+
+
+def test_execute_refresh_mocked_http_error_includes_redacted_diagnostics() -> None:
+    def _mock_refresh(code: str, _from: str, _to: str) -> dict:
+        return {
+            "ticker": code,
+            "status": "http_error",
+            "http_status": 401,
+            "reason": "http_error",
+            "live_http_executed": True,
+            "cache_write_executed": False,
+            "request_phase": "daily_quotes_fetch",
+            "endpoint_category": "daily_bars",
+        }
+
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=True,
+        env=_full_gates_env(),
+        refresh_fn=_mock_refresh,
+    )
+    assert result.json_payload["overall_status"] == "provider_error"
+    row = result.json_payload["per_target_results"][0]
+    assert row["provider_error_class"] == "http_401_unauthorized"
+    assert row["http_status"] == 401
+    assert row["retry_safe"] is False
+    assert "API key" in row["next_required_action"]
+    assert row["secrets_printed"] is False
+    assert "401" in result.markdown_text
+    assert "http_401_unauthorized" in result.markdown_text
