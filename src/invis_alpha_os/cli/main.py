@@ -257,6 +257,16 @@ def _apply_optional_jquants_env_file(env_file: str | None) -> dict[str, object] 
     return env_file_load_metadata(result)
 
 
+def _echo_env_file_meta(command: str, env_file_meta: dict[str, object] | None) -> None:
+    if not env_file_meta:
+        return
+    loaded = env_file_meta.get("keys_loaded_from_file") or []
+    skipped = env_file_meta.get("keys_skipped_existing") or []
+    typer.echo(
+        f"{command}: env_file_used=true keys_loaded_count={len(loaded)} keys_skipped_existing_count={len(skipped)}"
+    )
+
+
 def _jp_watchlist_count(jp_rows: object) -> int:
     if not isinstance(jp_rows, list):
         return 0
@@ -835,6 +845,11 @@ def weekly_candidate_brief_chatgpt_context_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     base = Path(report_dir) if report_dir else REPORT_DIR / "reports" / run_date
@@ -843,6 +858,8 @@ def weekly_candidate_brief_chatgpt_context_command(
     if fmt_norm not in ("markdown", "json", "both"):
         typer.echo("weekly-candidate-brief-chatgpt-context: --format must be markdown/json/both", err=True)
         raise typer.Exit(2)
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-chatgpt-context", env_file_meta)
     try:
         pack = build_chatgpt_context_pack(report_date=run_date, report_dir=base)
     except (FileNotFoundError, ValueError, json.JSONDecodeError) as e:
@@ -1009,11 +1026,18 @@ def weekly_candidate_brief_chatgpt_enrich_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
     json_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
     md_path = out_root / "latest" / "chatgpt_invest_context_pack.md"
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-chatgpt-enrich", env_file_meta)
     try:
         context_payload = json.loads(json_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -1169,11 +1193,18 @@ def weekly_candidate_brief_cache_refresh_readiness_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
     context_path = Path(context_json) if context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
     trap_path = Path(trap_json) if trap_json else out_root / "latest" / "trap_analysis.json"
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-cache-refresh-readiness", env_file_meta)
     context_payload: dict[str, Any] = {}
     trap_payload: dict[str, Any] | None = None
     if context_path.is_file():
@@ -1252,10 +1283,17 @@ def weekly_candidate_brief_cache_refresh_plan_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
     readiness_path = Path(readiness_json) if readiness_json else out_root / "latest" / "cache_refresh_readiness.json"
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-cache-refresh-plan", env_file_meta)
     readiness_payload: dict[str, Any] = {}
     if readiness_path.is_file():
         try:
@@ -1618,9 +1656,16 @@ def weekly_candidate_brief_cache_refresh_postcheck_command(
     reports_repo_path: Optional[str] = typer.Option(
         None, "--reports-repo-path", help="Path to invest-alpha-os-reports-private local clone."
     ),
+    env_file: Optional[str] = typer.Option(
+        None,
+        "--env-file",
+        help="Local env file path (J-Quants allowlisted keys only; values not printed).",
+    ),
 ) -> None:
     run_date = report_date or today_jst_iso()
     out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    env_file_meta = _apply_optional_jquants_env_file(env_file)
+    _echo_env_file_meta("weekly-candidate-brief-cache-refresh-postcheck", env_file_meta)
     after_context_path = Path(after_context_json) if after_context_json else out_root / "latest" / "chatgpt_invest_context_pack.json"
     after_readiness_path = Path(after_readiness_json) if after_readiness_json else out_root / "latest" / "cache_refresh_readiness.json"
     after_plan_path = Path(after_plan_json) if after_plan_json else out_root / "latest" / "cache_refresh_execution_plan.json"

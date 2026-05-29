@@ -593,3 +593,30 @@ def test_cli_cache_refresh_postcheck_writes_outputs(tmp_path: Path) -> None:
     assert r.exit_code == 0, r.stdout + r.stderr
     assert (out_dir / "latest" / "cache_refresh_postcheck.md").is_file()
     assert (out_dir / "latest" / "cache_refresh_postcheck.json").is_file()
+
+
+def test_cli_context_pack_env_file_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("JQUANTS_DATA_AVAILABLE_TO", raising=False)
+    report_dir = tmp_path / "reports" / "2026-05-27"
+    _write_weekly_json(report_dir)
+    out_dir = tmp_path / "outputs" / "chatgpt_context"
+    env_file = tmp_path / "local.env"
+    env_file.write_text("JQUANTS_DATA_AVAILABLE_TO=20260306\n", encoding="utf-8")
+    r = runner.invoke(
+        app,
+        [
+            "weekly-candidate-brief-chatgpt-context",
+            "--report-date",
+            "2026-05-27",
+            "--report-dir",
+            str(report_dir),
+            "--out-dir",
+            str(out_dir),
+            "--env-file",
+            str(env_file),
+        ],
+    )
+    assert r.exit_code == 0, r.stdout + r.stderr
+    assert "env_file_used=true" in r.stdout
+    payload = json.loads((out_dir / "latest" / "chatgpt_invest_context_pack.json").read_text(encoding="utf-8"))
+    assert payload["contract_env"]["jquants_contract_env_loaded"] is True
