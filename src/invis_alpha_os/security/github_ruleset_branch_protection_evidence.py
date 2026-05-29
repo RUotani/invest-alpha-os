@@ -9,6 +9,11 @@ from invis_alpha_os.security.github_gh_client import gh_api_json, gh_api_list, o
 
 BranchProtectionVerdict = Literal["checked_pass", "checked_fail", "not_checked"]
 
+SOLO_SAFE_BRANCH_PROTECTION_NOTE = (
+    "solo-safe ruleset: approval requirement waived because repo has one collaborator "
+    "and strong CI/ruleset controls"
+)
+
 
 @dataclass(frozen=True)
 class ParsedRuleset:
@@ -35,6 +40,8 @@ class BranchProtectionEvidence:
     failure_reasons: tuple[str, ...]
     warnings: tuple[str, ...]
     notes_redacted: str
+    solo_approval_requirement_waived: bool
+    branch_protection_note: str
 
 
 def ruleset_applies_to_default_branch(conditions: dict[str, Any] | None) -> bool:
@@ -98,7 +105,7 @@ def parse_ruleset_payload(ruleset: dict[str, Any]) -> ParsedRuleset | None:
     )
 
 
-def ruleset_meets_pass_criteria(ruleset: ParsedRuleset, *, default_branch: str) -> tuple[bool, list[str]]:
+def _ruleset_core_failures(ruleset: ParsedRuleset, *, default_branch: str) -> list[str]:
     failures: list[str] = []
     if default_branch != "main":
         failures.append("default_branch_not_main")
@@ -108,8 +115,6 @@ def ruleset_meets_pass_criteria(ruleset: ParsedRuleset, *, default_branch: str) 
         failures.append("ruleset_not_on_default_branch")
     if "pull_request" not in ruleset.rule_types:
         failures.append("missing_pull_request_rule")
-    if ruleset.required_approving_review_count < 1:
-        failures.append("required_approvals_below_1")
     if "required_status_checks" not in ruleset.rule_types:
         failures.append("missing_required_status_checks")
     if not ruleset.required_status_check_contexts:
@@ -120,6 +125,28 @@ def ruleset_meets_pass_criteria(ruleset: ParsedRuleset, *, default_branch: str) 
         failures.append("missing_non_fast_forward")
     if "deletion" not in ruleset.rule_types:
         failures.append("missing_deletion_rule")
+    return failures
+
+
+def ruleset_meets_pass_criteria(ruleset: ParsedRuleset, *, default_branch: str) -> tuple[bool, list[str]]:
+    failures = _ruleset_core_failures(ruleset, default_branch=default_branch)
+    if ruleset.required_approving_review_count < 1:
+        failures.append("required_approvals_below_1")
+    return len(failures) == 0, failures
+
+
+def ruleset_meets_solo_safe_criteria(
+    ruleset: ParsedRuleset,
+    *,
+    default_branch: str,
+    collaborator_count: int | None,
+    bypass_actor_count: int,
+) -> tuple[bool, list[str]]:
+    if collaborator_count != 1 or bypass_actor_count != 0:
+        return False, ["solo_safe_not_applicable"]
+    if ruleset.required_approving_review_count != 0:
+        return False, ["solo_safe_requires_zero_approvals"]
+    failures = _ruleset_core_failures(ruleset, default_branch=default_branch)
     return len(failures) == 0, failures
 
 
@@ -141,6 +168,8 @@ def evaluate_branch_protection_evidence(
     default_branch: str,
     classic_protection: dict[str, Any] | None,
     ruleset_payloads: list[dict[str, Any]],
+    collaborator_count: int | None = None,
+    bypass_actor_count: int = 0,
 ) -> BranchProtectionEvidence:
     classic_present = classic_protection is not None
     classic_ok = classic_protection_sufficient(classic_protection)
@@ -159,6 +188,7 @@ def evaluate_branch_protection_evidence(
     ]
     qualifying: ParsedRuleset | None = None
     ruleset_pass = False
+    solo_waived = False
     all_failures: list[str] = []
     for candidate in active_on_main:
         ok, failures = ruleset_meets_pass_criteria(candidate, default_branch=default_branch)
@@ -166,7 +196,18 @@ def evaluate_branch_protection_evidence(
             qualifying = candidate
             ruleset_pass = True
             break
-        all_failures = failures
+        ok_solo, solo_failures = ruleset_meets_solo_safe_criteria(
+            candidate,
+            default_branch=default_branch,
+            collaborator_count=collaborator_count,
+            bypass_actor_count=bypass_actor_count,
+        )
+        if ok_solo:
+            qualifying = candidate
+            ruleset_pass = True
+            solo_waived = True
+            break
+        all_failures = failures or solo_failures
 
     warnings: list[str] = []
     if classic_present and ruleset_pass and qualifying is not None:
@@ -198,6 +239,10 @@ def evaluate_branch_protection_evidence(
         note_parts.append("no_active_ruleset_on_default_branch")
     if warnings:
         note_parts.append(f"warnings={','.join(warnings)}")
+    branch_note = ""
+    if solo_waived:
+        branch_note = SOLO_SAFE_BRANCH_PROTECTION_NOTE
+        note_parts.append("solo_approval_requirement_waived=true")
 
     return BranchProtectionEvidence(
         default_branch=default_branch,
@@ -210,6 +255,8 @@ def evaluate_branch_protection_evidence(
         failure_reasons=tuple(all_failures),
         warnings=tuple(warnings),
         notes_redacted="; ".join(note_parts),
+        solo_approval_requirement_waived=solo_waived,
+        branch_protection_note=branch_note,
     )
 
 
@@ -250,4 +297,6 @@ def branch_protection_evidence_to_dict(evidence: BranchProtectionEvidence) -> di
             else None
         ),
         "active_ruleset_count_on_main": len(evidence.active_rulesets),
+        "solo_approval_requirement_waived": evidence.solo_approval_requirement_waived,
+        "branch_protection_note": evidence.branch_protection_note,
     }

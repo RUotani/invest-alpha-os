@@ -10,7 +10,18 @@ def test_solo_operation_review_required() -> None:
         required_approving_review_count=1,
     )
     assert risk.solo_operation_review_required is True
+    assert risk.solo_approval_requirement_waived is False
     assert len(risk.manual_notes) >= 1
+
+
+def test_solo_approval_requirement_waived() -> None:
+    risk = assess_ruleset_operational_risk(
+        collaborator_count=1,
+        bypass_actors=[],
+        required_approving_review_count=0,
+    )
+    assert risk.solo_operation_review_required is False
+    assert risk.solo_approval_requirement_waived is True
 
 
 def test_not_solo_when_multiple_collaborators() -> None:

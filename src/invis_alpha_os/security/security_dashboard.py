@@ -136,7 +136,9 @@ def build_security_dashboard(
                 branch_bp_section = raw.get("branch_protection_evidence") or {}
         except (OSError, json.JSONDecodeError):
             pass
-    if ruleset_risk_section.get("solo_operation_review_required"):
+    if ruleset_risk_section.get("solo_operation_review_required") and not ruleset_risk_section.get(
+        "solo_approval_requirement_waived"
+    ):
         remaining_risks.append(
             "Solo-operation ruleset risk: required PR approvals with single collaborator and no bypass actors"
         )

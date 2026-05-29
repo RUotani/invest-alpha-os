@@ -75,10 +75,25 @@ def build_github_manual_evidence_auto_judge(
 
     classic = gh_api_json(f"repos/{o}/{n}/branches/{default_branch}/protection")
     ruleset_payloads = fetch_ruleset_payloads(repo)
+
+    collab_status = gh_api_status(f"repos/{o}/{n}/collaborators")
+    collaborator_count: int | None = None
+    if collab_status == 200:
+        collaborator_count = len(gh_api_list(f"repos/{o}/{n}/collaborators"))
+
+    bypass_actor_count = 0
+    for payload in ruleset_payloads:
+        actors = payload.get("bypass_actors")
+        if isinstance(actors, list):
+            bypass_actor_count = len(actors)
+            break
+
     branch_evidence = evaluate_branch_protection_evidence(
         default_branch=default_branch,
         classic_protection=classic,
         ruleset_payloads=ruleset_payloads,
+        collaborator_count=collaborator_count,
+        bypass_actor_count=bypass_actor_count,
     )
 
     security = repo_meta.get("security_and_analysis") if repo_meta else None
@@ -125,12 +140,6 @@ def build_github_manual_evidence_auto_judge(
         if detail and isinstance(detail.get("bypass_actors"), list):
             bypass_actors = [a for a in detail["bypass_actors"] if isinstance(a, dict)]
 
-    collab_status = gh_api_status(f"repos/{o}/{n}/collaborators")
-    collaborator_count: int | None = None
-    if collab_status == 200:
-        collaborators = gh_api_list(f"repos/{o}/{n}/collaborators")
-        collaborator_count = len(collaborators)
-
     operational_risk = assess_ruleset_operational_risk(
         collaborator_count=collaborator_count,
         bypass_actors=bypass_actors,
@@ -140,9 +149,10 @@ def build_github_manual_evidence_auto_judge(
     checks: list[dict[str, Any]] = []
     for check_id in MANUAL_CHECK_IDS:
         if check_id == "branch_protection":
-            checks.append(
-                _check(check_id, branch_evidence.verdict, branch_evidence.notes_redacted)
-            )
+            bp_note = branch_evidence.notes_redacted
+            if branch_evidence.branch_protection_note:
+                bp_note = f"{bp_note}; {branch_evidence.branch_protection_note}"
+            checks.append(_check(check_id, branch_evidence.verdict, bp_note))
         elif check_id == "secret_scanning":
             st = "checked_pass" if secret_status == "enabled" else "checked_fail"
             checks.append(_check(check_id, st, f"secret_scanning.status={secret_status or 'unknown'}"))
@@ -192,7 +202,7 @@ def build_github_manual_evidence_auto_judge(
         branch_protection=branch_evidence,
         codeql_status=codeql,
         ruleset_operational_risk=operational_risk,
-        auto_judgement_source="gh_api_read_only_ruleset_aware_v18",
+        auto_judgement_source="gh_api_read_only_ruleset_aware_v20_solo_safe",
     )
 
 
@@ -220,5 +230,7 @@ def build_manual_evidence_json_payload(
         "branch_protection_evidence": branch_protection_evidence_to_dict(judged.branch_protection),
         "codeql_status_evidence": codeql_status_to_dict(judged.codeql_status),
         "ruleset_operational_risk": ruleset_operational_risk_to_dict(judged.ruleset_operational_risk),
+        "solo_operation_review_required": judged.ruleset_operational_risk.solo_operation_review_required,
+        "solo_approval_requirement_waived": judged.ruleset_operational_risk.solo_approval_requirement_waived,
         "evidence_pack_summary": evidence_pack_summary,
     }

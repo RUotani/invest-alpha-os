@@ -76,14 +76,26 @@ def test_ruleset_pass_when_classic_missing() -> None:
     assert evidence.qualifying_ruleset is not None
 
 
-def test_ruleset_fail_when_approvals_zero() -> None:
+def test_ruleset_fail_when_approvals_zero_without_solo_context() -> None:
     evidence = evaluate_branch_protection_evidence(
         default_branch="main",
         classic_protection=None,
         ruleset_payloads=[_ruleset_payload(approvals=0)],
     )
     assert evidence.verdict == "checked_fail"
-    assert "required_approvals_below_1" in evidence.failure_reasons
+
+
+def test_ruleset_solo_safe_pass_when_approvals_zero() -> None:
+    evidence = evaluate_branch_protection_evidence(
+        default_branch="main",
+        classic_protection=None,
+        ruleset_payloads=[_ruleset_payload(approvals=0)],
+        collaborator_count=1,
+        bypass_actor_count=0,
+    )
+    assert evidence.verdict == "checked_pass"
+    assert evidence.solo_approval_requirement_waived is True
+    assert evidence.branch_protection_note
 
 
 def test_ruleset_fail_when_no_status_checks() -> None:
