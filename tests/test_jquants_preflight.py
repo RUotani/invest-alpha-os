@@ -32,3 +32,21 @@ def test_build_jquants_preflight_markdown() -> None:
     result = build_jquants_preflight(report_date="2026-05-27", env={})
     assert "J-Quants Preflight" in result.markdown_text
     assert result.json_payload["refresh_allowed"] is False
+
+
+def test_assess_jquants_credentials_includes_redacted_contract_fields() -> None:
+    diag = assess_jquants_credentials(
+        {
+            "JQUANTS_ENABLED": "true",
+            "JQUANTS_API_BASE_URL": "https://example.test/v2/",
+            "JQUANTS_API_KEY": "secret-value-not-in-output",
+            "JQUANTS_ALLOW_LIVE_HTTP": "yes",
+        }
+    )
+    assert diag["refresh_allowed"] is True
+    assert diag["api_base_url_parseable"] is True
+    assert diag["api_base_url_has_scheme"] is True
+    assert diag["api_base_url_host_present"] is True
+    assert diag["endpoint_path_configured"] is True
+    assert diag["jquants_allow_live_http"] is True
+    assert "secret-value-not-in-output" not in str(diag)

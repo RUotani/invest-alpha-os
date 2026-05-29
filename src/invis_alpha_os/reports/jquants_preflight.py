@@ -6,6 +6,15 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
+
+from invis_alpha_os.config.env_bool import general_env_truthy, provider_allow_flag_truthy
+from invis_alpha_os.data.adapters.jquants_client import (
+    JQuantsClient,
+    _blank_to_none,
+    _resolve_jquants_api_version,
+    _truthy_flag,
+)
 
 
 @dataclass(frozen=True)
@@ -22,16 +31,63 @@ def _env_present(env: dict[str, str], key: str) -> bool:
     return bool(str(env.get(key, "")).strip())
 
 
-def _env_truthy(env: dict[str, str], key: str) -> bool:
-    return str(env.get(key, "")).strip().lower() in {"1", "true", "yes"}
+def assess_jquants_base_url(env: dict[str, str]) -> dict[str, Any]:
+    raw = str(env.get("JQUANTS_API_BASE_URL", "")).strip()
+    present = bool(raw)
+    parseable = False
+    has_scheme = False
+    host_present = False
+    if present:
+        parsed = urlparse(raw)
+        parseable = True
+        has_scheme = parsed.scheme in {"http", "https"}
+        host_present = bool(parsed.netloc)
+    return {
+        "api_base_url_parseable": parseable,
+        "api_base_url_has_scheme": has_scheme,
+        "api_base_url_host_present": host_present,
+        "api_base_url_redacted": True,
+    }
+
+
+def build_jquants_client_from_env_map(env: dict[str, str]) -> JQuantsClient:
+    api_disp, api_eff = _resolve_jquants_api_version(env.get("JQUANTS_API_VERSION"))
+    return JQuantsClient(
+        base_url=_blank_to_none(env.get("JQUANTS_API_BASE_URL")),
+        api_version=api_disp,
+        api_version_effective=api_eff,
+        enabled=_truthy_flag(env.get("JQUANTS_ENABLED"), default="false"),
+        api_key=_blank_to_none(env.get("JQUANTS_API_KEY")),
+        email=_blank_to_none(env.get("JQUANTS_EMAIL")),
+        password=_blank_to_none(env.get("JQUANTS_PASSWORD")),
+        refresh_token=_blank_to_none(env.get("JQUANTS_REFRESH_TOKEN")),
+        id_token=_blank_to_none(env.get("JQUANTS_ID_TOKEN")),
+    )
+
+
+def assess_jquants_endpoint_contract(env: dict[str, str]) -> dict[str, Any]:
+    client = build_jquants_client_from_env_map(env)
+    endpoint_path_configured = False
+    if client.api_version_effective == "v2" and client.has_base_url():
+        preview = client.build_v2_daily_bars_request_preview(
+            "5802",
+            from_date="2026-01-02",
+            to_date="2026-01-03",
+        )
+        endpoint_path_configured = preview.get("status") == "ok"
+    return {
+        "endpoint_category": "daily_bars",
+        "endpoint_path_configured": endpoint_path_configured,
+        "endpoint_path_redacted": True,
+    }
 
 
 def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, Any]:
     values = dict(os.environ) if env is None else env
-    jquants_enabled = _env_truthy(values, "JQUANTS_ENABLED")
+    jquants_enabled = general_env_truthy(values.get("JQUANTS_ENABLED"))
     api_base_url_present = _env_present(values, "JQUANTS_API_BASE_URL")
     api_key_present = _env_present(values, "JQUANTS_API_KEY")
-    allow_live_http = _env_truthy(values, "JQUANTS_ALLOW_LIVE_HTTP")
+    allow_live_http = provider_allow_flag_truthy(values.get("JQUANTS_ALLOW_LIVE_HTTP"))
     missing_env: list[str] = []
     if not jquants_enabled:
         missing_env.append("JQUANTS_ENABLED")
@@ -40,6 +96,8 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
     if not api_key_present:
         missing_env.append("JQUANTS_API_KEY")
     refresh_allowed = jquants_enabled and api_base_url_present and api_key_present
+    base_url_diag = assess_jquants_base_url(values)
+    endpoint_diag = assess_jquants_endpoint_contract(values)
     return {
         "jquants_enabled": jquants_enabled,
         "api_base_url_present": api_base_url_present,
@@ -50,6 +108,8 @@ def assess_jquants_credentials(env: dict[str, str] | None = None) -> dict[str, A
         "secrets_printed": False,
         "live_http_executed": False,
         "cache_write_executed": False,
+        **base_url_diag,
+        **endpoint_diag,
     }
 
 
@@ -73,6 +133,10 @@ def build_jquants_preflight(
         f"- api_base_url_present: {str(diag['api_base_url_present']).lower()}",
         f"- api_key_present: {str(diag['api_key_present']).lower()}",
         f"- refresh_allowed: {str(diag['refresh_allowed']).lower()}",
+        f"- api_base_url_parseable: {str(diag['api_base_url_parseable']).lower()}",
+        f"- api_base_url_has_scheme: {str(diag['api_base_url_has_scheme']).lower()}",
+        f"- api_base_url_host_present: {str(diag['api_base_url_host_present']).lower()}",
+        f"- endpoint_path_configured: {str(diag['endpoint_path_configured']).lower()}",
         "- secrets_printed: false",
         "- live_http_executed: false",
         "- cache_write_executed: false",
