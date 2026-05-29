@@ -5947,6 +5947,109 @@ def dependency_security_audit_command(
     raise typer.Exit(0)
 
 
+@app.command("github-settings-evidence-pack")
+def github_settings_evidence_pack_command(
+    repo: str = typer.Option("RUotani/invest-alpha-os", "--repo"),
+    source_repo_path: Optional[str] = typer.Option(None, "--source-repo-path"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    from invis_alpha_os.security.github_settings_evidence_pack import build_github_settings_evidence_pack
+    from invis_alpha_os.security.security_outputs import (
+        sync_security_outputs_to_reports_repo,
+        write_security_outputs,
+    )
+
+    run_date = report_date or today_jst_iso()
+    root = Path(source_repo_path) if source_repo_path else ROOT_DIR
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "security"
+    result = build_github_settings_evidence_pack(repo=repo, repo_root=root)
+    paths = write_security_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        basename="github_settings_evidence_pack",
+        markdown_text=result.markdown_text,
+        json_payload=result.json_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"github-settings-evidence-pack: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo("github-settings-evidence-pack: --reports-repo-path required with sync", err=True)
+            raise typer.Exit(2)
+        sync_paths = sync_security_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            basename="github_settings_evidence_pack",
+            markdown_text=result.markdown_text,
+            json_payload=result.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"github-settings-evidence-pack: {key}={p}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-manual-data-dry-run-readiness")
+def weekly_candidate_brief_manual_data_dry_run_readiness_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    targets: str = typer.Option("5802,6645,5801,285A,5803", "--targets"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    from invis_alpha_os.reports.manual_data_dry_run_readiness import build_manual_data_dry_run_readiness
+    from invis_alpha_os.security.security_outputs import (
+        sync_security_outputs_to_reports_repo,
+        write_security_outputs,
+    )
+
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    result = build_manual_data_dry_run_readiness(
+        report_date=run_date,
+        repo_root=ROOT_DIR,
+        targets_csv=targets,
+    )
+    paths = write_security_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        basename="manual_data_dry_run_readiness",
+        markdown_text=result.markdown_text,
+        json_payload=result.json_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-manual-data-dry-run-readiness: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo(
+                "weekly-candidate-brief-manual-data-dry-run-readiness: --reports-repo-path required",
+                err=True,
+            )
+            raise typer.Exit(2)
+        sync_paths = sync_security_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            basename="manual_data_dry_run_readiness",
+            markdown_text=result.markdown_text,
+            json_payload=result.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"weekly-candidate-brief-manual-data-dry-run-readiness: {key}={p}")
+    raise typer.Exit(0)
+
+
 @app.command("github-repo-settings-checklist")
 def github_repo_settings_checklist_command(
     repo: str = typer.Option("RUotani/invest-alpha-os", "--repo"),
