@@ -5853,6 +5853,57 @@ def leakage_retained_hit_triage_command(
     raise typer.Exit(0)
 
 
+@app.command("github-settings-manual-evidence-template")
+def github_settings_manual_evidence_template_command(
+    repo: str = typer.Option("RUotani/invest-alpha-os", "--repo"),
+    source_repo_path: Optional[str] = typer.Option(None, "--source-repo-path"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    from invis_alpha_os.security.github_settings_manual_evidence_template import (
+        build_github_settings_manual_evidence_template,
+    )
+    from invis_alpha_os.security.security_outputs import (
+        sync_security_outputs_to_reports_repo,
+        write_security_outputs,
+    )
+
+    run_date = report_date or today_jst_iso()
+    root = Path(source_repo_path) if source_repo_path else ROOT_DIR
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "security"
+    result = build_github_settings_manual_evidence_template(repo=repo, repo_root=root)
+    paths = write_security_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        basename="github_settings_manual_evidence_template",
+        markdown_text=result.markdown_text,
+        json_payload=result.json_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"github-settings-manual-evidence-template: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo("github-settings-manual-evidence-template: --reports-repo-path required", err=True)
+            raise typer.Exit(2)
+        sync_paths = sync_security_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            basename="github_settings_manual_evidence_template",
+            markdown_text=result.markdown_text,
+            json_payload=result.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"github-settings-manual-evidence-template: {key}={p}")
+    raise typer.Exit(0)
+
+
 @app.command("security-leakage-audit")
 def security_leakage_audit_command(
     source_repo_path: Optional[str] = typer.Option(None, "--source-repo-path", help="Source repo root."),
