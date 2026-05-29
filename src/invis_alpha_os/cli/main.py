@@ -5805,6 +5805,54 @@ def security_leakage_audit_command(
     raise typer.Exit(0 if result.json_payload.get("overall_status") == "pass" else 1)
 
 
+@app.command("github-actions-security-audit")
+def github_actions_security_audit_command(
+    repo_path: Optional[str] = typer.Option(None, "--repo-path", help="Repo root for workflow scan."),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    write_latest: bool = typer.Option(True, "--write-latest/--no-write-latest"),
+    write_archive: bool = typer.Option(True, "--write-archive/--no-write-archive"),
+    sync_github_reports_repo: bool = typer.Option(False, "--sync-github-reports-repo"),
+    reports_repo_path: Optional[str] = typer.Option(None, "--reports-repo-path"),
+) -> None:
+    from invis_alpha_os.security.github_actions_security_audit import build_github_actions_security_audit
+    from invis_alpha_os.security.security_outputs import (
+        sync_security_outputs_to_reports_repo,
+        write_security_outputs,
+    )
+
+    run_date = report_date or today_jst_iso()
+    repo = Path(repo_path) if repo_path else ROOT_DIR
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "security"
+    result = build_github_actions_security_audit(repo_path=repo)
+    paths = write_security_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        basename="github_actions_security_audit",
+        markdown_text=result.markdown_text,
+        json_payload=result.json_payload,
+        write_latest=write_latest,
+        write_archive=write_archive,
+    )
+    for key, p in paths.items():
+        typer.echo(f"github-actions-security-audit: {key}={p}")
+    if sync_github_reports_repo:
+        if not reports_repo_path:
+            typer.echo("github-actions-security-audit: --reports-repo-path required with sync", err=True)
+            raise typer.Exit(2)
+        sync_paths = sync_security_outputs_to_reports_repo(
+            reports_repo_path=Path(reports_repo_path),
+            repo_root=ROOT_DIR,
+            report_date=run_date,
+            basename="github_actions_security_audit",
+            markdown_text=result.markdown_text,
+            json_payload=result.json_payload,
+        )
+        for key, p in sync_paths.items():
+            typer.echo(f"github-actions-security-audit: {key}={p}")
+    raise typer.Exit(0)
+
+
 def main() -> None:
     app()
 
