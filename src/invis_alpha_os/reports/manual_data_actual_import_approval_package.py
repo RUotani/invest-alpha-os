@@ -32,7 +32,22 @@ def build_manual_data_actual_import_approval_package(
     dry_pass = dry.get("dry_run_status") == "pass"
     schema_valid = bool(schema.get("schema_valid"))
     prohibited = bool(schema.get("prohibited_columns_detected"))
-    ready = dry_pass and schema_valid and not prohibited
+    rows_newer = int(dry.get("rows_newer_than_cache_total") or 0)
+    expected_freshness = str(dry.get("expected_freshness_improvement") or "")
+    no_freshness_gain = rows_newer == 0 or expected_freshness == "none_identified"
+    ready = dry_pass and schema_valid and not prohibited and not no_freshness_gain
+    if dry_pass and schema_valid and not prohibited and no_freshness_gain:
+        import_benefit = "low"
+        actual_import_recommended = False
+        defer_reason = "no_rows_newer_than_cache"
+    elif ready:
+        import_benefit = "high" if rows_newer > 10 else "medium"
+        actual_import_recommended = True
+        defer_reason = None
+    else:
+        import_benefit = "none"
+        actual_import_recommended = False
+        defer_reason = "dry_run_or_schema_not_pass"
 
     coverage = schema.get("target_ticker_coverage") or []
     date_range: dict[str, Any] = {}
@@ -51,11 +66,23 @@ def build_manual_data_actual_import_approval_package(
     missing_tickers = [c["ticker"] for c in coverage if c.get("status") == "missing"]
     if missing_tickers:
         risks.append(f"missing_tickers:{','.join(missing_tickers)}")
+    if no_freshness_gain and dry_pass:
+        risks.append("no_rows_newer_than_cache")
+
+    package_status = "not_ready"
+    if ready:
+        package_status = "ready_for_user_approval"
+    elif dry_pass and schema_valid and no_freshness_gain:
+        package_status = "defer_import_low_benefit"
 
     payload: dict[str, Any] = {
         "report_date": report_date,
         "generated_at": _now_iso(),
-        "package_status": "ready_for_user_approval" if ready else "not_ready",
+        "package_status": package_status,
+        "import_benefit": import_benefit,
+        "actual_import_recommended": actual_import_recommended,
+        "defer_reason": defer_reason,
+        "rows_newer_than_cache_total": rows_newer,
         "selected_file": {
             "filename": selected.get("filename"),
             "directory_label": selected.get("directory_label"),
@@ -70,9 +97,9 @@ def build_manual_data_actual_import_approval_package(
         "target_ticker_coverage": coverage,
         "date_range": date_range,
         "expected_freshness_improvement": (
-            "JP watchlist bars may move from cache_missing/stale toward data_present after approved import"
-            if ready
-            else "unknown until schema validation and dry-run pass"
+            "rows_newer_than_cache"
+            if rows_newer > 0
+            else "none_identified"
         ),
         "actual_import_command_candidate": (
             ".venv/bin/python -m invis_alpha_os.cli.main "
@@ -103,6 +130,9 @@ def build_manual_data_actual_import_approval_package(
         "# Manual Data Actual Import Approval Package",
         "",
         f"- package_status: {payload['package_status']}",
+        f"- import_benefit: {import_benefit}",
+        f"- actual_import_recommended: {str(actual_import_recommended).lower()}",
+        f"- rows_newer_than_cache_total: {rows_newer}",
         f"- schema_valid: {str(schema_valid).lower()}",
         f"- prohibited_columns_detected: {str(prohibited).lower()}",
         f"- dry_run_status: {payload['dry_run_status']}",

@@ -5,11 +5,18 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_manual_freshness_context_block(pipeline: dict[str, Any]) -> dict[str, Any]:
+def build_manual_freshness_context_block(
+    pipeline: dict[str, Any],
+    *,
+    freshness_source_strategy: dict[str, Any] | None = None,
+    approval_package: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     discovery = pipeline.get("discovery") or {}
     schema = pipeline.get("schema_validation") or {}
     dry_run = pipeline.get("import_flow_dry_run") or {}
     assistant = pipeline.get("export_assistant") or {}
+    strategy = freshness_source_strategy or {}
+    approval = approval_package or {}
     return {
         "manual_data_detected": bool(discovery.get("manual_file_detected")),
         "schema_status": schema.get("overall_status", "not_run"),
@@ -23,20 +30,38 @@ def build_manual_freshness_context_block(pipeline: dict[str, Any]) -> dict[str, 
         "export_assistant_generated": bool(assistant.get("template_generated")),
         "next_action": pipeline.get("next_action", "review_manual_data_pipeline"),
         "solo_approval_requirement_waived": None,
+        "import_benefit": approval.get("import_benefit"),
+        "actual_import_recommended": approval.get("actual_import_recommended"),
+        "rows_newer_than_cache_total": approval.get("rows_newer_than_cache_total"),
+        "freshness_source_strategy": strategy.get("next_best_ohlcv_source"),
+        "next_best_ohlcv_source": strategy.get("next_best_ohlcv_source"),
+        "jquants_refresh_recommended": strategy.get("jquants_refresh_recommended"),
     }
 
 
-def apply_manual_freshness_to_context(context_payload: dict[str, Any], pipeline: dict[str, Any]) -> dict[str, Any]:
+def apply_manual_freshness_to_context(
+    context_payload: dict[str, Any],
+    pipeline: dict[str, Any],
+    *,
+    freshness_source_strategy: dict[str, Any] | None = None,
+    approval_package: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     out = dict(context_payload)
-    block = build_manual_freshness_context_block(pipeline)
+    block = build_manual_freshness_context_block(
+        pipeline,
+        freshness_source_strategy=freshness_source_strategy,
+        approval_package=approval_package,
+    )
     out["manual_data_freshness"] = block
     notes = list(out.get("notes") or []) if isinstance(out.get("notes"), list) else []
     if not block["manual_data_detected"]:
         notes.append("manual JP bars file not detected; export assistant available")
     elif not block["schema_valid"]:
         notes.append("manual JP bars file detected but schema validation not pass")
+    elif block["dry_run_status"] == "pass" and block.get("actual_import_recommended"):
+        notes.append("manual JP bars dry-run pass; actual import may help if user approves")
     elif block["dry_run_status"] == "pass":
-        notes.append("manual JP bars dry-run import flow pass; actual import still gated")
+        notes.append("manual JP bars dry-run pass but import_benefit low (cache-export CSV)")
     out["notes"] = notes
     return out
 
@@ -44,15 +69,26 @@ def apply_manual_freshness_to_context(context_payload: dict[str, Any], pipeline:
 def apply_manual_freshness_to_cache_readiness(
     readiness_payload: dict[str, Any],
     pipeline: dict[str, Any],
+    *,
+    freshness_source_strategy: dict[str, Any] | None = None,
+    approval_package: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     out = dict(readiness_payload)
-    block = build_manual_freshness_context_block(pipeline)
+    block = build_manual_freshness_context_block(
+        pipeline,
+        freshness_source_strategy=freshness_source_strategy,
+        approval_package=approval_package,
+    )
     out["manual_data_freshness"] = block
     notes = list(out.get("notes") or [])
     if not block["manual_data_detected"]:
         notes.append("Manual data required: place manual_jp_bars.csv on Desktop/Downloads")
+    elif block.get("actual_import_recommended"):
+        notes.append("Manual data dry-run complete; actual import may add rows newer than cache")
     elif block["actual_import_gate_status"] == "pending_user_approval":
-        notes.append("Manual data dry-run complete; await explicit actual import approval")
+        notes.append("Manual data present; prefer fresher OHLCV source before actual import")
+    if block.get("next_best_ohlcv_source"):
+        notes.append(f"Next best OHLCV source: {block['next_best_ohlcv_source']}")
     out["notes"] = notes
     out["manual_data_required"] = not block["manual_data_detected"]
     return out
