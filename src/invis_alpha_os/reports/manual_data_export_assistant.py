@@ -10,14 +10,15 @@ from invis_alpha_os.reports.manual_csv_schema import CANONICAL_COLUMNS
 from invis_alpha_os.reports.manual_data_schema_guard import DEFAULT_TARGET_TICKERS_CSV
 
 PLACEMENT_HINTS: tuple[str, ...] = (
+    "~/Downloads/invest-alpha-os-manual-data-dropzone/manual_jp_bars.csv",
+    "~/Downloads/invest-alpha-os-manual-data-dropzone/paste_ohlcv_here.tsv",
     "~/Downloads/manual_jp_bars.csv",
     "~/Desktop/manual_jp_bars.csv",
-    "~/Documents/manual_jp_bars.csv",
 )
 
 HUMAN_STEPS: tuple[str, ...] = (
     "Export OHLCV-only daily bars from your broker (no account/name/position columns).",
-    "Save as manual_jp_bars.csv on Downloads or Desktop.",
+    "Save as manual_jp_bars.csv in the dropzone, or paste OHLCV into paste_ohlcv_here.tsv.",
     "Re-run weekly-candidate-brief-manual-data-freshness-pipeline (dry-run only).",
 )
 

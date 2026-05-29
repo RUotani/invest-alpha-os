@@ -45,11 +45,18 @@ def build_manual_data_freshness_pipeline(
     report_dir: Path,
     targets_csv: str = DEFAULT_TARGET_TICKERS_CSV,
     working_dir: Path | None = None,
+    extra_discovery_paths: list[Path] | None = None,
+    paste_materialized_path: Path | None = None,
 ) -> ManualDataFreshnessPipelineResult:
     work = working_dir or (repo_root / "outputs" / "manual_data" / "working" / report_date)
     work.mkdir(parents=True, exist_ok=True)
 
-    discovery = build_manual_data_discovery(report_date=report_date, repo_root=repo_root)
+    discovery = build_manual_data_discovery(
+        report_date=report_date,
+        repo_root=repo_root,
+        extra_paths=extra_discovery_paths,
+        paste_materialized_path=paste_materialized_path,
+    )
     schema_result = None
     dry_run_result = None
     export_reason = "manual_file_not_found"
@@ -130,7 +137,7 @@ def build_manual_data_freshness_pipeline(
         "template_generated": True,
         "actual_import_gate_status": "pending_user_approval",
         "next_action": pipeline_payload.get("next_action"),
-        "pipeline_version": "v23_bt_bx",
+        "pipeline_version": "v25_acquisition_ux",
     }
 
     return ManualDataFreshnessPipelineResult(
