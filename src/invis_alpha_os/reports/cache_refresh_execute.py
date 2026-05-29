@@ -354,8 +354,23 @@ def build_cache_refresh_execute(
     date_fields = date_range.as_dict()
     from_date = date_range.clamped_from_date
     to_date = date_range.clamped_to_date
+    if not execute_refresh and gate_status == "planned_dry_run_only":
+        return build_cache_refresh_execute_dry_run(
+            report_date=report_date,
+            plan_json_payload=plan,
+            execute_refresh=False,
+            env=env_map,
+            targets=targets,
+            provider=provider,
+            scope=scope,
+            filtered_rows=filtered_rows,
+            allow_date_clamp=allow_date_clamp,
+            date_range=date_range,
+        )
+
     if gate_status != "ok":
         overall = _map_gate_status(gate_status)
+        no_effective = date_range.validation_status == "no_effective_refresh_range"
         payload: dict[str, Any] = {
             "report_date": report_date,
             "generated_at": _now_iso(),
@@ -368,6 +383,9 @@ def build_cache_refresh_execute(
             "provider": provider,
             "scope": scope,
             "targets": targets,
+            "from_date": from_date,
+            "to_date": to_date,
+            "no_effective_refresh_range": no_effective,
             "required_gates": list(REQUIRED_GATES)
             + ["CONFIRM_TARGETS", "CONFIRM_PROVIDER", "CONFIRM_SCOPE", "JQUANTS_ALLOW_LIVE_HTTP"],
             "gate_detail": gate_detail,
@@ -376,6 +394,7 @@ def build_cache_refresh_execute(
             "retry_safe": retry_safe(overall),
             "next_required_action": next_required_action(overall),
             "secrets_printed": False,
+            **date_fields,
         }
         title = "# Cache Refresh Execute Dry-Run"
         if execute_refresh:
@@ -394,6 +413,13 @@ def build_cache_refresh_execute(
             f"- provider: {provider}",
             f"- scope: {scope}",
             f"- targets: {', '.join(targets)}",
+            f"- requested_from_date: {payload.get('requested_from_date', '-')}",
+            f"- requested_to_date: {payload.get('requested_to_date', '-')}",
+            f"- clamped_from_date: {payload.get('clamped_from_date', '-')}",
+            f"- clamped_to_date: {payload.get('clamped_to_date', '-')}",
+            f"- date_range_clamped: {str(payload.get('date_range_clamped', False)).lower()}",
+            f"- date_range_validated_before_http: {str(payload.get('date_range_validated_before_http', False)).lower()}",
+            f"- no_effective_refresh_range: {str(no_effective).lower()}",
             "",
         ]
         if gate_detail:
@@ -636,6 +662,7 @@ def build_cache_refresh_execute_dry_run(
     from_date = resolved.clamped_from_date
     to_date = resolved.clamped_to_date
     date_fields = resolved.as_dict()
+    no_effective = resolved.validation_status == "no_effective_refresh_range"
     payload = {
         "report_date": report_date,
         "generated_at": _now_iso(),
@@ -644,11 +671,13 @@ def build_cache_refresh_execute_dry_run(
         "cache_write_executed": False,
         "actual_refresh_executed": False,
         "status": gate_status,
+        "overall_status": gate_status,
         "provider": provider,
         "scope": scope,
         "targets": target_list,
         "from_date": from_date,
         "to_date": to_date,
+        "no_effective_refresh_range": no_effective,
         "gate_detail": gate_detail,
         "plan_targets": rows,
         "secrets_printed": False,
@@ -673,6 +702,8 @@ def build_cache_refresh_execute_dry_run(
         f"- requested_to_date: {payload.get('requested_to_date', '-')}",
         f"- clamped_to_date: {payload.get('clamped_to_date', '-')}",
         f"- date_range_clamped: {str(payload.get('date_range_clamped', False)).lower()}",
+        f"- date_range_validated_before_http: {str(payload.get('date_range_validated_before_http', False)).lower()}",
+        f"- no_effective_refresh_range: {str(no_effective).lower()}",
         "",
         "## 対象",
         "| ticker | market | provider | priority | plan_status |",

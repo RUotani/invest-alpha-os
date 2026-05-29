@@ -58,6 +58,12 @@ def test_execute_dry_run_success_without_live_or_cache_write() -> None:
     assert result.json_payload["live_http_executed"] is False
     assert result.json_payload["actual_refresh_executed"] is False
     assert result.json_payload["status"] == "planned_dry_run_only"
+    assert result.json_payload["requested_from_date"]
+    assert result.json_payload["requested_to_date"]
+    assert result.json_payload["clamped_from_date"]
+    assert result.json_payload["clamped_to_date"]
+    assert "date_range_validated_before_http" in result.json_payload
+    assert "no_effective_refresh_range" in result.json_payload
 
 
 def test_execute_refresh_rejected_without_gates() -> None:
@@ -70,6 +76,21 @@ def test_execute_refresh_rejected_without_gates() -> None:
     assert result.json_payload["overall_status"] == "gate_refused"
     assert result.json_payload["actual_refresh_executed"] is False
     assert result.json_payload["retry_safe"] is True
+    assert result.json_payload["clamped_to_date"]
+    assert result.json_payload["requested_to_date"]
+
+
+def test_execute_dry_run_refused_target_mismatch_includes_date_fields() -> None:
+    result = build_cache_refresh_execute(
+        report_date="2026-05-27",
+        plan_json_payload=_plan_payload(),
+        execute_refresh=False,
+        targets_csv="5802,6645",
+        env={},
+    )
+    assert result.json_payload["overall_status"] == "target_mismatch"
+    assert result.json_payload["clamped_to_date"]
+    assert result.json_payload["requested_to_date"]
 
 
 def test_execute_refresh_auth_missing_with_gates_only() -> None:
