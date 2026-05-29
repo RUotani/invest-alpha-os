@@ -46,13 +46,19 @@ def build_cache_refresh_execution_plan(
             "provider": provider,
             "priority": str(row.get("refresh_priority", "")).strip() or "unknown",
             "stale_days": row.get("stale_days"),
+            "latest_bar_date": row.get("latest_bar_date"),
             "plan_status": "planned_dry_run_only",
             "reason": str(row.get("reason", "")).strip() or "stale candidate",
+            "data_contract_limited": bool(row.get("data_contract_limited")),
+            "provider_plan_upgrade_required": bool(row.get("provider_plan_upgrade_required")),
+            "alternative_provider_required": bool(row.get("alternative_provider_required")),
+            "data_contract_limit_reason": row.get("data_contract_limit_reason"),
         }
         normalized.append(item)
         grp = provider_groups.setdefault(provider, {"tickers": [], "required_gates": list(REQUIRED_GATES), "execute_refresh": False})
         if ticker not in grp["tickers"]:
             grp["tickers"].append(ticker)
+    contract_limited = [x["ticker"] for x in normalized if x.get("data_contract_limited")]
     payload = {
         "report_date": report_date,
         "generated_at": _now_iso(),
@@ -62,6 +68,7 @@ def build_cache_refresh_execution_plan(
         "actual_refresh_executed": False,
         "targets": normalized,
         "provider_groups": provider_groups,
+        "data_contract_limited_targets": contract_limited,
     }
     lines = [
         "# Cache Refresh Execution Plan",
@@ -75,15 +82,18 @@ def build_cache_refresh_execution_plan(
         "- actual_refresh_executed: false",
         "",
         "## 対象",
-        "| ticker | market | provider | priority | stale_days | plan_status | reason |",
-        "| --- | --- | --- | --- | ---: | --- | --- |",
+        "| ticker | market | provider | priority | stale_days | data_contract_limited | plan_status | reason |",
+        "| --- | --- | --- | --- | ---: | --- | --- | --- |",
     ]
     if not normalized:
-        lines.append("| (none) | - | - | - | - | planned_dry_run_only | readinessに対象なし |")
+        lines.append("| (none) | - | - | - | - | - | planned_dry_run_only | readinessに対象なし |")
     for item in normalized:
         lines.append(
-            f"| {item['ticker']} | {item['market']} | {item['provider']} | {item['priority']} | {item['stale_days']} | {item['plan_status']} | {item['reason']} |"
+            f"| {item['ticker']} | {item['market']} | {item['provider']} | {item['priority']} | {item['stale_days']} | "
+            f"{str(item.get('data_contract_limited', False)).lower()} | {item['plan_status']} | {item['reason']} |"
         )
+    if contract_limited:
+        lines.extend(["", "## 契約上限", f"- data_contract_limited_targets: {', '.join(contract_limited)}", ""])
     lines.append("")
     lines.append("## Provider別計画")
     for provider, grp in provider_groups.items():
