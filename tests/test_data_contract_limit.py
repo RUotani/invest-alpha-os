@@ -15,9 +15,19 @@ def test_assess_data_contract_limit_when_at_contract_end_but_stale() -> None:
     assert diag["alternative_provider_required"] is True
 
 
+def test_assess_data_contract_limit_false_when_latest_after_contract_end() -> None:
+    diag = assess_data_contract_limit(
+        latest_bar_date="2026-05-18",
+        report_date="2026-05-27",
+        contract_to="2026-03-06",
+        freshness_classification="stale",
+    )
+    assert diag["data_contract_limited"] is False
+
+
 def test_assess_data_contract_limit_false_when_fresh() -> None:
     diag = assess_data_contract_limit(
-        latest_bar_date="2026-05-26",
+        latest_bar_date="2026-03-06",
         report_date="2026-05-27",
         contract_to="2026-03-06",
         freshness_classification="fresh",
