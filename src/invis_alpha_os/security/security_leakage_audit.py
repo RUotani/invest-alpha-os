@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from invis_alpha_os.security.secret_pattern_suppression import should_suppress_secret_hit
+
 SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("api_key_like", re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[=:]\s*\S+", re.MULTILINE)),
     ("jquants_key", re.compile(r"(?i)JQUANTS_API_KEY\s*=", re.MULTILINE)),
@@ -52,6 +54,7 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
     broker_files: list[str] = []
     generated_artifacts: list[str] = []
     secret_hits: list[dict[str, Any]] = []
+    suppressed_hits: list[dict[str, Any]] = []
 
     for rel in rel_paths:
         name = Path(rel).name
@@ -75,14 +78,22 @@ def _scan_tracked_paths(repo_root: Path, rel_paths: list[str]) -> dict[str, Any]
             except OSError:
                 continue
             for label, pattern in SECRET_PATTERNS:
-                if pattern.search(sample):
-                    secret_hits.append({"pattern": label, "path": rel, "redacted": True})
+                if not pattern.search(sample):
+                    continue
+                if should_suppress_secret_hit(rel_path=rel, pattern_label=label, sample_text=sample):
+                    suppressed_hits.append(
+                        {"pattern": label, "path": rel, "redacted": True, "suppressed": True}
+                    )
+                    continue
+                secret_hits.append({"pattern": label, "path": rel, "redacted": True})
 
     return {
         "tracked_env_files": tracked_env,
         "tracked_broker_files": broker_files,
         "tracked_generated_artifacts": generated_artifacts[:50],
         "suspected_secret_hits": secret_hits,
+        "suppressed_false_positives": suppressed_hits[:50],
+        "suppressed_false_positive_count": len(suppressed_hits),
     }
 
 
@@ -91,6 +102,7 @@ def _scan_reports_tree(reports_root: Path) -> dict[str, Any]:
         return {"suspected_secret_hits": [], "broker_files": [], "missing": True}
     broker_files: list[str] = []
     secret_hits: list[dict[str, Any]] = []
+    suppressed_hits: list[dict[str, Any]] = []
     for path in reports_root.rglob("*"):
         if not path.is_file():
             continue
@@ -106,10 +118,16 @@ def _scan_reports_tree(reports_root: Path) -> dict[str, Any]:
         except OSError:
             continue
         for label, pattern in SECRET_PATTERNS:
-            if pattern.search(sample):
-                secret_hits.append({"pattern": label, "path": rel, "redacted": True})
+            if not pattern.search(sample):
+                continue
+            if should_suppress_secret_hit(rel_path=rel, pattern_label=label, sample_text=sample):
+                suppressed_hits.append({"pattern": label, "path": rel, "redacted": True, "suppressed": True})
+                continue
+            secret_hits.append({"pattern": label, "path": rel, "redacted": True})
     return {
         "suspected_secret_hits": secret_hits,
+        "suppressed_false_positives": suppressed_hits[:50],
+        "suppressed_false_positive_count": len(suppressed_hits),
         "broker_files": broker_files,
     }
 
@@ -143,6 +161,7 @@ def build_security_leakage_audit(
         f"- secrets_printed: false",
         f"- source_tracked_env_count: {len(source_scan['tracked_env_files'])}",
         f"- source_secret_hit_count: {len(source_scan['suspected_secret_hits'])}",
+        f"- suppressed_false_positive_count: {source_scan.get('suppressed_false_positive_count', 0)}",
         "",
     ]
     return SecurityLeakageAuditResult(markdown_text="\n".join(lines), json_payload=payload)
