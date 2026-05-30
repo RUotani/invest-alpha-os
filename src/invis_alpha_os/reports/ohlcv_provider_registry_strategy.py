@@ -22,6 +22,9 @@ from invis_alpha_os.data.cross_provider_validation_result_review import (
 from invis_alpha_os.data.cache_write_readiness_gate import (
     build_cache_write_readiness_gate,
 )
+from invis_alpha_os.data.cache_write_operator_signoff_sheet import (
+    build_cache_write_operator_signoff_sheet,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -315,6 +318,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     cross_provider_md, cross_provider_json = build_cross_provider_validation_runbook_report(report_date=report_date)
     result_review_md, result_review_json = build_cross_provider_validation_result_review_report(report_date=report_date)
     cache_gate_md, cache_gate_json = build_cache_write_readiness_gate_report(report_date=report_date)
+    operator_sheet_md, operator_sheet_json = build_cache_write_operator_signoff_sheet_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -331,6 +335,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         cross_provider_md,
         result_review_md,
         cache_gate_md,
+        operator_sheet_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -619,6 +624,40 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             ]["recommended_first_subset"],
             "next_cursor_handoff_status": cache_gate_json["cache_write_readiness_gate"]["next_cursor_handoff"][
                 "handoff_status"
+            ],
+        },
+        "cache_write_operator_signoff_sheet_status": {
+            "sheet_exists": True,
+            "source_only": operator_sheet_json["cache_write_operator_signoff_sheet"]["safety_flags"]["source_only"],
+            "operator_signoff_status": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "readiness_verdict"
+            ]["operator_signoff_status"],
+            "overall_readiness": operator_sheet_json["cache_write_operator_signoff_sheet"]["readiness_verdict"][
+                "overall_readiness"
+            ],
+            "cache_write_approval_status": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "readiness_verdict"
+            ]["cache_write_approval_status"],
+            "cache_write_execution_status": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "readiness_verdict"
+            ]["cache_write_execution_status"],
+            "actual_import_approval_status": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "readiness_verdict"
+            ]["actual_import_approval_status"],
+            "actual_import_execution_status": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "readiness_verdict"
+            ]["actual_import_execution_status"],
+            "cache_path_proposed": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "cache_location_checklist"
+            ]["cache_path_proposed"],
+            "cache_path_unset_blocks_readiness": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "cache_location_checklist"
+            ]["cache_path_unset_blocks_readiness"],
+            "approval_phrase_issued": operator_sheet_json["cache_write_operator_signoff_sheet"][
+                "approval_phrase_boundary"
+            ]["cache_write_approval_phrase_issued"],
+            "next_task": operator_sheet_json["cache_write_operator_signoff_sheet"]["next_cursor_handoff_draft"][
+                "next_task"
             ],
         },
         "manual_csv_is_fallback_not_primary": True,
@@ -2639,6 +2678,176 @@ def build_cache_write_readiness_gate_report(*, report_date: str) -> tuple[str, d
     return "\n".join(lines), payload
 
 
+def build_cache_write_operator_signoff_sheet_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    sheet = build_cache_write_operator_signoff_sheet(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_write_operator_signoff_sheet"),
+        "pack_version": "v68",
+        "cache_write_operator_signoff_sheet": sheet.to_dict(),
+    }
+    data = payload["cache_write_operator_signoff_sheet"]
+    review = data["operator_review"]
+    operation = data["proposed_future_operation"]
+    location = data["cache_location_checklist"]
+    phrase = data["approval_phrase_boundary"]
+    boundary = data["execution_boundary"]
+    verdict = data["readiness_verdict"]
+    lines = [
+        "# v68 Cache-Write Operator Signoff Sheet",
+        "",
+        "## Verdict",
+        "",
+        f"- operator_signoff_status: {verdict['operator_signoff_status']}",
+        f"- cache_write_approval_status: {verdict['cache_write_approval_status']}",
+        f"- cache_write_execution_status: {verdict['cache_write_execution_status']}",
+        f"- actual_import_approval_status: {verdict['actual_import_approval_status']}",
+        f"- actual_import_execution_status: {verdict['actual_import_execution_status']}",
+        f"- overall_readiness: {verdict['overall_readiness']}",
+        "",
+        "## Operator Review Fields",
+        "",
+    ]
+    for key, value in review.items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## Proposed Future Operation",
+            "",
+            f"- operation_name: {operation['operation_name']}",
+            f"- provider: {operation['provider']}",
+            f"- symbols: {', '.join(operation['symbols'])}",
+            f"- date_range: {operation['date_range']}",
+            f"- data_type: {operation['data_type']}",
+            f"- raw_data_expected: {str(operation['raw_data_expected']).lower()}",
+            f"- adjusted_fields_expected: {str(operation['adjusted_fields_expected']).lower()}",
+            f"- cache_write_scope: {operation['cache_write_scope']}",
+            f"- actual_import_scope: {operation['actual_import_scope']}",
+            f"- trading_scope: {operation['trading_scope']}",
+            "",
+            "## Cache Location Checklist",
+            "",
+        ]
+    )
+    for key, value in location.items():
+        lines.append(f"- {key}: {str(value).lower() if isinstance(value, bool) else value}")
+    lines.extend(
+        [
+            "",
+            "## Forbidden Raw Data Locations",
+            "",
+            "| item_id | current_status | blocks_cache_write | label |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in data["forbidden_raw_data_locations"]:
+        lines.append(
+            f"| {row['item_id']} | {row['current_status']} | "
+            f"{str(row['blocks_cache_write_if_unconfirmed']).lower()} | {row['label']} |"
+        )
+    for section_title, section_key in (
+        ("Retention / Inventory Checklist", "retention_inventory_checklist"),
+        ("Purge / Rollback Checklist", "purge_rollback_checklist"),
+        ("Data Quality Preconditions", "data_quality_preconditions"),
+    ):
+        lines.extend(
+            [
+                "",
+                f"## {section_title}",
+                "",
+                "| item_id | current_status | required_answer | label |",
+                "|---|---|---|---|",
+            ]
+        )
+        for row in data[section_key]:
+            lines.append(f"| {row['item_id']} | {row['current_status']} | {row['required_answer']} | {row['label']} |")
+    lines.extend(
+        [
+            "",
+            "## Approval Phrase Boundary",
+            "",
+            f"- cache_write_approval_phrase_required: {str(phrase['cache_write_approval_phrase_required']).lower()}",
+            f"- cache_write_approval_phrase: {phrase['cache_write_approval_phrase']}",
+            f"- cache_write_approval_phrase_issued: {str(phrase['cache_write_approval_phrase_issued']).lower()}",
+            f"- actual_import_approval_phrase_required: {str(phrase['actual_import_approval_phrase_required']).lower()}",
+            f"- actual_import_approval_phrase: {phrase['actual_import_approval_phrase']}",
+            f"- actual_import_approval_phrase_issued: {str(phrase['actual_import_approval_phrase_issued']).lower()}",
+            "- placeholder_phrase_is_not_runtime_approval: "
+            f"{str(phrase['placeholder_phrase_is_not_runtime_approval']).lower()}",
+            "",
+            "## Execution Boundary",
+            "",
+        ]
+    )
+    for key, value in boundary.items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## What Is Still Not Approved",
+            "",
+            "- provider live access",
+            "- public OHLCV source live fetch",
+            "- Tiingo API call",
+            "- cache write",
+            "- actual refresh/import",
+            "- manual actual import",
+            "- raw OHLCV persistence",
+            "- raw API response persistence",
+            "- reports-private raw data write",
+            "- env/secret display",
+            "- broker/manual raw data handling",
+            "- trading action",
+            "",
+            "## Next Human Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in data["next_human_actions"])
+    handoff = data["next_cursor_handoff_draft"]
+    lines.extend(
+        [
+            "",
+            "## Next Cursor Handoff Draft",
+            "",
+            f"- handoff_status: {handoff['handoff_status']}",
+            f"- next_task: {handoff['next_task']}",
+        ]
+    )
+    lines.extend(f"- must_not_execute: {item}" for item in handoff["must_not_execute"])
+    lines.extend(f"- required_before_future_execution: {item}" for item in handoff["required_before_future_execution"])
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "operator_signoff_status": verdict["operator_signoff_status"],
+                    "cache_write_approval_status": verdict["cache_write_approval_status"],
+                    "cache_write_execution_status": verdict["cache_write_execution_status"],
+                    "actual_import_approval_status": verdict["actual_import_approval_status"],
+                    "actual_import_execution_status": verdict["actual_import_execution_status"],
+                    "overall_readiness": verdict["overall_readiness"],
+                    "cache_path_proposed": location["cache_path_proposed"],
+                    "cache_path_unset_blocks_readiness": location["cache_path_unset_blocks_readiness"],
+                    "cache_write_approval_phrase_issued": phrase["cache_write_approval_phrase_issued"],
+                    "actual_import_approval_phrase_issued": phrase["actual_import_approval_phrase_issued"],
+                    "source_only": data["safety_flags"]["source_only"],
+                    "cache_write_executed": data["safety_flags"]["cache_write_executed"],
+                    "actual_refresh_import_executed": data["safety_flags"]["actual_refresh_import_executed"],
+                    "raw_ohlcv_persisted": data["safety_flags"]["raw_ohlcv_persisted"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -2790,6 +2999,28 @@ def write_cache_write_readiness_gate_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_write_readiness_gate_md"] = md_path
         paths[f"{label}_cache_write_readiness_gate_json"] = json_path
+    return paths
+
+
+def write_cache_write_operator_signoff_sheet_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_write_operator_signoff_sheet.md"
+        json_path = root / "cache_write_operator_signoff_sheet.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_write_operator_signoff_sheet_md"] = md_path
+        paths[f"{label}_cache_write_operator_signoff_sheet_json"] = json_path
     return paths
 
 
