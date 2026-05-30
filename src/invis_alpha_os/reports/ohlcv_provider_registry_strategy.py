@@ -38,6 +38,9 @@ from invis_alpha_os.data.ohlcv_provider_registry import (
 from invis_alpha_os.data.us_ohlcv_provider_selection import (
     build_us_ohlcv_provider_selection_matrix,
 )
+from invis_alpha_os.data.us_provider_current_evidence import (
+    build_us_provider_current_evidence_pack,
+)
 
 CONTRACT_DATA_TO = "2026-03-06"
 JP_SAMPLE_TICKERS = ("285A", "5802", "5803", "6645", "5801")
@@ -283,7 +286,8 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     runbook_md, runbook_json = build_ohlcv_provider_approved_execution_runbook(report_date=report_date)
     request_md, request_json = build_ohlcv_provider_execution_approval_request(report_date=report_date)
     us_matrix_md, us_matrix_json = build_us_ohlcv_provider_selection_matrix_report(report_date=report_date)
-    _ = registry_md, planner_md, approval_md, harness_md, runbook_md, request_md, us_matrix_md
+    current_evidence_md, current_evidence_json = build_us_provider_current_evidence_pack_report(report_date=report_date)
+    _ = registry_md, planner_md, approval_md, harness_md, runbook_md, request_md, us_matrix_md, current_evidence_md
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -359,6 +363,24 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             "hard_gates_for_live_test": us_matrix_json["selection_matrix"]["safety"]["hard_gates_required_for_live_test"],
             "cache_write_approved": us_matrix_json["selection_matrix"]["pilot_design"]["cache_write_approved"],
             "actual_import_approved": us_matrix_json["selection_matrix"]["pilot_design"]["actual_import_approved"],
+        },
+        "us_provider_current_evidence_status": {
+            "current_evidence_pack_exists": True,
+            "source_only": current_evidence_json["current_evidence_pack"]["safety"]["source_only"],
+            "source_accessed_live": False,
+            "evidence_confidence": "seed_only / manual_recheck_required",
+            "providers": [
+                row["provider"]
+                for row in current_evidence_json["current_evidence_pack"]["providers"]
+            ],
+            "evidence_gaps": current_evidence_json["current_evidence_pack"]["evidence_gaps"],
+            "needs_current_recheck": True,
+            "recommended_first_pilot_recheck": current_evidence_json["current_evidence_pack"][
+                "recommended_first_pilot_recheck"
+            ],
+            "explicitly_not_approved": current_evidence_json["current_evidence_pack"]["safety"][
+                "explicitly_not_approved"
+            ],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -1037,6 +1059,127 @@ def build_us_ohlcv_provider_selection_matrix_report(*, report_date: str) -> tupl
     return "\n".join(lines), payload
 
 
+def build_us_provider_current_evidence_pack_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    pack = build_us_provider_current_evidence_pack(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="us_provider_current_evidence_pack"),
+        "pack_version": "v48",
+        "current_evidence_pack": pack.to_dict(),
+    }
+    data = payload["current_evidence_pack"]
+    safety = data["safety"]
+    providers = data["providers"]
+    lines = [
+        "# US OHLCV Provider Current Evidence Pack",
+        "",
+        "## Executive Summary",
+        "",
+        "- This pack converts v46 missing evidence into source-only review evidence.",
+        "- All provider evidence is seed-only and requires manual current recheck before any live testing.",
+        "- Tiingo remains the first pilot candidate; Polygon.io remains the production candidate; Stooq remains fallback only.",
+        "",
+        "## Evidence Date",
+        "",
+        f"- report_date: {data['report_date']}",
+        f"- evidence_date: {data['evidence_date']}",
+        "- source_accessed_live: false",
+        "- evidence_confidence: seed_only / manual_recheck_required",
+        "",
+        "## Why This Evidence Pack Exists",
+        "",
+        "- v46 intentionally left current pricing/terms, cache suitability, adjusted price method, ADR/delisted coverage, and bulk throughput unverified.",
+        "- Live HTTP and provider live access are not approved in this task, so current evidence is represented as recheck requirements, not as verified live facts.",
+        "- This prevents a source-only selection matrix from being mistaken for production provider approval.",
+        "",
+        "## Current v46 Recommendation",
+        "",
+    ]
+    for key, value in data["current_v46_recommendation"].items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## Provider Evidence Table",
+            "",
+            "| provider | role | needs_current_recheck | evidence_confidence | source_accessed_live | pilot_readiness |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for provider in providers:
+        lines.append(
+            f"| {provider['provider']} | {provider['recommended_role']} | "
+            f"{str(provider['needs_current_recheck']).lower()} | {provider['evidence_confidence']} | "
+            f"{str(provider['source_accessed_live']).lower()} | {provider['pilot_readiness']} |"
+        )
+    section_map = (
+        ("Pricing / Plan Evidence", "current_pricing_terms"),
+        ("Historical OHLCV Evidence", "notes"),
+        ("Adjusted Price / Corporate Action Evidence", "adjusted_price_method"),
+        ("Coverage / Universe Evidence", "adr_delisted_coverage"),
+        ("Bulk / Rate Limit Evidence", "bulk_throughput"),
+        ("Terms / Cache Suitability Evidence", "cache_suitability"),
+    )
+    for heading, key in section_map:
+        lines.extend(["", f"## {heading}", ""])
+        for provider in providers:
+            lines.append(f"- {provider['provider']}: {provider[key]}")
+    lines.extend(["", "## Evidence Gaps", ""])
+    for gap in data["evidence_gaps"]:
+        lines.append(f"- {gap}: needs_current_recheck=true; source_accessed_live=false")
+    lines.extend(
+        [
+            "",
+            "## Pilot Readiness Verdict",
+            "",
+            "- not_approved_for_live_testing",
+            "- Tiingo is the first manual recheck target, not an approved live provider.",
+            "- Polygon.io remains the production-style candidate, not an approved production source.",
+            "- Stooq remains fallback evidence only, not primary production.",
+            "",
+            "## Recommended First Pilot Recheck",
+            "",
+        ]
+    )
+    for item in data["recommended_first_pilot_recheck"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Hard Gates Required For Live Testing", ""])
+    for gate in safety["hard_gates_required_for_live_testing"]:
+        lines.append(f"- {gate}")
+    lines.extend(["", "## Explicitly Not Approved", ""])
+    for item in safety["explicitly_not_approved"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Next Approval Request Draft", ""])
+    for item in data["next_approval_request_draft"]:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "provider_selected": False,
+                    "providers": [provider["provider"] for provider in providers],
+                    "needs_current_recheck": True,
+                    "evidence_confidence": "seed_only / manual_recheck_required",
+                    "source_accessed_live": False,
+                    "recommended_first_pilot_candidate": data["current_v46_recommendation"]["first_pilot_candidate"],
+                    "production_candidate": data["current_v46_recommendation"]["production_candidate"],
+                    "free_fallback": data["current_v46_recommendation"]["free_fallback"],
+                    "hard_gates_required_for_live_testing": safety["hard_gates_required_for_live_testing"],
+                    "explicitly_not_approved": safety["explicitly_not_approved"],
+                    "source_only": safety["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1056,6 +1199,28 @@ def write_us_ohlcv_provider_selection_matrix_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_us_ohlcv_provider_selection_matrix_md"] = md_path
         paths[f"{label}_us_ohlcv_provider_selection_matrix_json"] = json_path
+    return paths
+
+
+def write_us_provider_current_evidence_pack_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "us_provider_current_evidence_pack.md"
+        json_path = root / "us_provider_current_evidence_pack.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_us_provider_current_evidence_pack_md"] = md_path
+        paths[f"{label}_us_provider_current_evidence_pack_json"] = json_path
     return paths
 
 
