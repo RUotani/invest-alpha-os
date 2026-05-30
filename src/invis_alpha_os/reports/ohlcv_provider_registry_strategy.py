@@ -38,6 +38,9 @@ from invis_alpha_os.data.ohlcv_provider_registry import (
 from invis_alpha_os.data.tiingo_current_docs_recheck import (
     build_tiingo_current_docs_recheck_pack,
 )
+from invis_alpha_os.data.tiingo_manual_signoff_ledger import (
+    build_tiingo_manual_signoff_ledger,
+)
 from invis_alpha_os.data.us_ohlcv_provider_selection import (
     build_us_ohlcv_provider_selection_matrix,
 )
@@ -295,6 +298,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     current_evidence_md, current_evidence_json = build_us_provider_current_evidence_pack_report(report_date=report_date)
     pilot_bundle_md, pilot_bundle_json = build_us_ohlcv_pilot_approval_bundle_report(report_date=report_date)
     tiingo_recheck_md, tiingo_recheck_json = build_tiingo_current_docs_recheck_pack_report(report_date=report_date)
+    tiingo_ledger_md, tiingo_ledger_json = build_tiingo_manual_signoff_ledger_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -306,6 +310,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         current_evidence_md,
         pilot_bundle_md,
         tiingo_recheck_md,
+        tiingo_ledger_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -427,6 +432,19 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             "readiness_verdict": tiingo_recheck_json["tiingo_current_docs_recheck_pack"][
                 "readiness_verdict"
             ],
+        },
+        "tiingo_manual_signoff_ledger_status": {
+            "manual_signoff_ledger_exists": True,
+            "all_items_default_unreviewed": True,
+            "source_only": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["safety"]["source_only"],
+            "live_fetch_approved": False,
+            "cache_write_approved": False,
+            "actual_import_approved": False,
+            "primary_blocker": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["evidence_summary"][
+                "primary_blocker"
+            ],
+            "next_action": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["next_human_action"],
+            "final_verdict": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["final_verdict"],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -1499,6 +1517,145 @@ def build_tiingo_current_docs_recheck_pack_report(*, report_date: str) -> tuple[
     return "\n".join(lines), payload
 
 
+def build_tiingo_manual_signoff_ledger_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    ledger = build_tiingo_manual_signoff_ledger(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="tiingo_manual_signoff_ledger"),
+        "pack_version": "v54",
+        "tiingo_manual_signoff_ledger": ledger.to_dict(),
+    }
+    data = payload["tiingo_manual_signoff_ledger"]
+    summary = data["evidence_summary"]
+    safety = data["safety"]
+
+    def section_lines(sections: tuple[str, ...]) -> list[str]:
+        rows: list[str] = []
+        for item in data["signoff_items"]:
+            if item["section"] in sections:
+                rows.append(
+                    f"| {item['item_id']} | {item['question']} | {item['operator_signoff_status']} | "
+                    f"{str(item['blocking_if_unanswered']).lower()} | {item['operator_answer_placeholder']} |"
+                )
+        return rows
+
+    lines = [
+        "# Tiingo Manual Signoff Review Sheet",
+        "",
+        "## Executive Summary",
+        "",
+        "- This ledger is source-only and creates human-fillable signoff fields before any Tiingo live-fetch-only pilot.",
+        "- All signoff items default to unreviewed and block live fetch until reviewed.",
+        "- Live fetch, cache write, actual import, and trading action remain not approved.",
+        "",
+        "## Current Pilot Candidate",
+        "",
+        f"- provider: {data['provider']}",
+        f"- scenario: {data['scenario']}",
+        f"- pilot_date_range: {data['pilot_date_range']}",
+        f"- pilot_universe: {', '.join(data['pilot_universe'])}",
+        "",
+        "## Current Approval Status",
+        "",
+        f"- live_fetch_approved: {str(summary['live_fetch_approved']).lower()}",
+        f"- cache_write_approved: {str(summary['cache_write_approved']).lower()}",
+        f"- actual_import_approved: {str(summary['actual_import_approved']).lower()}",
+        f"- primary_blocker: {summary['primary_blocker']}",
+        "",
+        "## How To Use This Review Sheet",
+        "",
+        "- Fill `operator_answer_placeholder` with the current manual evidence summary.",
+        "- Change status only after human review; default source output remains unreviewed.",
+        "- Do not treat this ledger as approval to run Tiingo or write cache/import artifacts.",
+        "",
+        "## Signoff Status Summary",
+        "",
+        f"- total_items: {summary['total_items']}",
+        f"- unreviewed_items: {summary['unreviewed_items']}",
+        f"- default_status: {summary['default_status']}",
+        "",
+        "## Blocking Items Before Live Fetch",
+        "",
+        f"- blocking_live_fetch_items: {summary['blocking_live_fetch_items']}",
+        f"- blocking_cache_write_items: {summary['blocking_cache_write_items']}",
+        f"- blocking_actual_import_items: {summary['blocking_actual_import_items']}",
+    ]
+    section_groups = (
+        ("Pricing / Plan Signoff", ("pricing_plan", "subscription_entitlement")),
+        ("Terms / Redistribution / Attribution Signoff", ("terms_of_use", "redistribution_attribution")),
+        ("API Limits / Throughput Signoff", ("api_limits_request_limits", "unique_symbol_universe_limits")),
+        ("EOD Historical OHLCV Signoff", ("eod_historical_ohlcv_endpoint",)),
+        ("Adjusted Price Method Signoff", ("adjusted_price_methodology",)),
+        (
+            "Split / Dividend / Corporate Action Signoff",
+            ("split_handling", "dividend_handling", "corporate_actions"),
+        ),
+        (
+            "Coverage Signoff",
+            ("etf_coverage", "adr_coverage", "mutual_fund_coverage", "delisted_coverage"),
+        ),
+        ("Cache Suitability Signoff", ("cache_suitability_local_storage",)),
+        ("Pilot Scope Signoff", ("pilot_universe_compatibility", "pilot_date_range_compatibility")),
+        (
+            "Secret / Redaction / No-Write Discipline",
+            ("secret_handling", "redaction_handling", "no_write_discipline", "rollback_cleanup_expectations"),
+        ),
+        ("Verification Criteria", ("verification_criteria", "python_implementation_path")),
+    )
+    for heading, sections in section_groups:
+        lines.extend(["", f"## {heading}", ""])
+        lines.extend(["| item_id | question | status | blocking | operator_answer |", "|---|---|---|---|---|"])
+        lines.extend(section_lines(sections))
+    lines.extend(["", "## Operator Signoff Fields", ""])
+    lines.extend(
+        [
+            "| item_id | section | required_evidence | blocks_live_fetch | blocks_cache_write | blocks_actual_import |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for item in data["signoff_items"]:
+        lines.append(
+            f"| {item['item_id']} | {item['section']} | {item['required_evidence']} | "
+            f"{str(item['blocks_live_fetch']).lower()} | {str(item['blocks_cache_write']).lower()} | "
+            f"{str(item['blocks_actual_import']).lower()} |"
+        )
+    lines.extend(["", "## Explicitly Not Approved", ""])
+    for item in data["explicitly_not_approved"]:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Final Readiness Verdict",
+            "",
+            f"- {data['final_verdict']}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "provider": data["provider"],
+                    "scenario": data["scenario"],
+                    "total_items": summary["total_items"],
+                    "default_status": summary["default_status"],
+                    "live_fetch_approved": summary["live_fetch_approved"],
+                    "cache_write_approved": summary["cache_write_approved"],
+                    "actual_import_approved": summary["actual_import_approved"],
+                    "primary_blocker": summary["primary_blocker"],
+                    "source_only": safety["source_only"],
+                    "tiingo_api_called": safety["tiingo_api_called"],
+                    "cache_write_executed": safety["cache_write_executed"],
+                    "actual_refresh_import_executed": safety["actual_refresh_import_executed"],
+                    "final_verdict": data["final_verdict"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1540,6 +1697,28 @@ def write_tiingo_current_docs_recheck_pack_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_tiingo_current_docs_recheck_pack_md"] = md_path
         paths[f"{label}_tiingo_current_docs_recheck_pack_json"] = json_path
+    return paths
+
+
+def write_tiingo_manual_signoff_ledger_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "tiingo_manual_signoff_ledger.md"
+        json_path = root / "tiingo_manual_signoff_ledger.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_tiingo_manual_signoff_ledger_md"] = md_path
+        paths[f"{label}_tiingo_manual_signoff_ledger_json"] = json_path
     return paths
 
 
