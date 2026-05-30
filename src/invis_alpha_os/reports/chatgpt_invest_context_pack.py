@@ -270,6 +270,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "us_provider_current_evidence_status": provider_block["us_provider_current_evidence_status"],
         "us_ohlcv_pilot_approval_bundle_status": provider_block["us_ohlcv_pilot_approval_bundle_status"],
         "tiingo_current_docs_recheck_status": provider_block["tiingo_current_docs_recheck_status"],
+        "tiingo_manual_signoff_ledger_status": provider_block["tiingo_manual_signoff_ledger_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -429,6 +430,10 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- tiingo_pricing_terms_cache_adjustment_rate_limit_signoff_required: {str(provider_block['tiingo_current_docs_recheck_status']['pricing_terms_cache_adjustment_rate_limit_signoff_required']).lower()}",
             f"- tiingo_pilot_approved: {str(provider_block['tiingo_current_docs_recheck_status']['pilot_approved']).lower()}",
             f"- tiingo_recheck_next_action: {provider_block['tiingo_current_docs_recheck_status']['next_action']}",
+            f"- tiingo_manual_signoff_ledger_exists: {str(provider_block['tiingo_manual_signoff_ledger_status']['manual_signoff_ledger_exists']).lower()}",
+            f"- tiingo_manual_signoff_all_items_default_unreviewed: {str(provider_block['tiingo_manual_signoff_ledger_status']['all_items_default_unreviewed']).lower()}",
+            f"- tiingo_manual_signoff_primary_blocker: {provider_block['tiingo_manual_signoff_ledger_status']['primary_blocker']}",
+            f"- tiingo_manual_signoff_next_action: {provider_block['tiingo_manual_signoff_ledger_status']['next_action']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
