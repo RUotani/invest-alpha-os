@@ -13,6 +13,9 @@ from invis_alpha_os.data.ohlcv_provider_approval import (
     CACHE_WRITE_APPROVAL_PHRASE,
     build_default_provider_approval_package,
 )
+from invis_alpha_os.data.cross_provider_validation_runbook import (
+    build_cross_provider_validation_runbook_pack,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -303,6 +306,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     tiingo_recheck_md, tiingo_recheck_json = build_tiingo_current_docs_recheck_pack_report(report_date=report_date)
     tiingo_ledger_md, tiingo_ledger_json = build_tiingo_manual_signoff_ledger_report(report_date=report_date)
     tiingo_result_md, tiingo_result_json = build_tiingo_live_fetch_result_review_report(report_date=report_date)
+    cross_provider_md, cross_provider_json = build_cross_provider_validation_runbook_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -316,6 +320,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         tiingo_recheck_md,
         tiingo_ledger_md,
         tiingo_result_md,
+        cross_provider_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -484,6 +489,43 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             ],
             "cache_write_readiness": tiingo_result_json["tiingo_live_fetch_result_review"]["verdict"][
                 "cache_write_readiness"
+            ],
+        },
+        "cross_provider_validation_runbook_status": {
+            "runbook_pack_exists": True,
+            "source_only": cross_provider_json["cross_provider_validation_runbook"]["safety_controls"]["source_only"],
+            "package_status": cross_provider_json["cross_provider_validation_runbook"]["approval_package"][
+                "package_status"
+            ],
+            "operation": cross_provider_json["cross_provider_validation_runbook"]["approval_package"]["operation"],
+            "providers": cross_provider_json["cross_provider_validation_runbook"]["approval_package"]["providers"],
+            "optional_providers": cross_provider_json["cross_provider_validation_runbook"]["approval_package"][
+                "optional_providers"
+            ],
+            "universe_count": len(cross_provider_json["cross_provider_validation_runbook"]["universe"]["symbols"]),
+            "approval_phrase_issued": cross_provider_json["cross_provider_validation_runbook"]["approval_package"][
+                "approval_phrase_issued"
+            ],
+            "separate_explicit_approval_required": cross_provider_json["cross_provider_validation_runbook"][
+                "approval_package"
+            ]["separate_explicit_approval_required"],
+            "raw_data_persistence_allowed": cross_provider_json["cross_provider_validation_runbook"][
+                "approval_package"
+            ]["raw_data_persistence_allowed"],
+            "cache_write_approved": cross_provider_json["cross_provider_validation_runbook"]["approval_package"][
+                "cache_write_approved"
+            ],
+            "actual_import_approved": cross_provider_json["cross_provider_validation_runbook"]["approval_package"][
+                "actual_import_approved"
+            ],
+            "readiness_verdict": cross_provider_json["cross_provider_validation_runbook"]["readiness_verdict"][
+                "cross_provider_validation_execution_readiness"
+            ],
+            "cache_write_readiness": cross_provider_json["cross_provider_validation_runbook"]["readiness_verdict"][
+                "cache_write_readiness"
+            ],
+            "cursor_handoff_status": cross_provider_json["cross_provider_validation_runbook"]["cursor_handoff"][
+                "handoff_status"
             ],
         },
         "manual_csv_is_fallback_not_primary": True,
@@ -1888,6 +1930,237 @@ def build_tiingo_live_fetch_result_review_report(*, report_date: str) -> tuple[s
     return "\n".join(lines), payload
 
 
+def build_cross_provider_validation_runbook_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    pack = build_cross_provider_validation_runbook_pack(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cross_provider_validation_runbook"),
+        "pack_version": "v64B",
+        "cross_provider_validation_runbook": pack.to_dict(),
+    }
+    data = payload["cross_provider_validation_runbook"]
+    scope = data["provider_scope"]
+    universe = data["universe"]
+    tolerance = data["tolerance_policy"]
+    schema = data["redacted_output_schema"]
+    safety = data["safety_controls"]
+    approval = data["approval_package"]
+    runbook = data["runbook"]
+    verdict = data["readiness_verdict"]
+    handoff = data["cursor_handoff"]
+    lines = [
+        "# Cross-Provider Data Quality Validation Approval & Runbook Pack",
+        "",
+        "## Executive Summary",
+        "",
+        "- This pack prepares the next no-write cross-provider data-quality validation task.",
+        "- It is a source-only approval/runbook draft and does not access Tiingo, Stooq, Yahoo/yfinance, or Polygon.",
+        "- The approval phrase is documented for a future task but is not issued by this pack.",
+        "- Cache write and actual import remain not ready and not approved.",
+        "",
+        "## Why This Pack Exists",
+        "",
+        "- v63B/v64 proved Tiingo live-fetch viability for the 14-symbol pilot universe.",
+        "- Price accuracy, adjusted calculation correctness, and cross-provider consistency remain unproven.",
+        "- A no-write validation runbook is required before any cache/database readiness decision.",
+        "",
+        "## Current State After v63B/v64",
+        "",
+    ]
+    for key, value in data["current_state"].items():
+        if isinstance(value, list):
+            lines.append(f"- {key}: {', '.join(value)}")
+        else:
+            lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## Provider Scope",
+            "",
+            f"- required_providers: {', '.join(scope['required_providers'])}",
+            f"- optional_providers: {', '.join(scope['optional_providers'])}",
+            f"- provider_live_access_executed_by_this_pack: {str(scope['provider_live_access_executed_by_this_pack']).lower()}",
+            "",
+            "| provider | role |",
+            "|---|---|",
+        ]
+    )
+    for provider, role in scope["provider_roles"].items():
+        lines.append(f"| {provider} | {role} |")
+    lines.extend(
+        [
+            "",
+            "## Universe",
+            "",
+            f"- symbols_count: {len(universe['symbols'])}",
+            f"- symbols: {', '.join(universe['symbols'])}",
+            "",
+            "| sample_group | symbols |",
+            "|---|---|",
+        ]
+    )
+    for group, symbols in universe["sample_groups"].items():
+        lines.append(f"| {group} | {', '.join(symbols)} |")
+    lines.extend(
+        [
+            "",
+            "## Future Date Range",
+            "",
+            f"- {universe['date_range']}",
+            "",
+            "## Validation Checks",
+            "",
+            "| check_id | category | compute_now | blocks_cache_import | description |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for check in data["validation_checks"]:
+        lines.append(
+            f"| {check['check_id']} | {check['category']} | {str(check['compute_now']).lower()} | "
+            f"{str(check['blocks_cache_import_on_major_disagreement']).lower()} | {check['description']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Tolerance Policy",
+            "",
+            f"- row_count_tolerance_days: {tolerance['row_count_tolerance_days']}",
+            f"- date_range_tolerance_days: {tolerance['date_range_tolerance_days']}",
+            f"- close_relative_tolerance: {tolerance['close_relative_tolerance_pct']}%",
+            f"- adjusted_close_relative_tolerance: {tolerance['adjusted_close_relative_tolerance_pct']}%",
+            f"- volume_relative_tolerance: {tolerance['volume_relative_tolerance_pct']}%",
+            f"- split_sensitive_requires_manual_review: {str(tolerance['split_sensitive_requires_manual_review']).lower()}",
+            f"- missing_day_requires_investigation: {str(tolerance['missing_day_requires_investigation']).lower()}",
+            f"- provider_disagreement_requires_no_cache_import: {str(tolerance['provider_disagreement_requires_no_cache_import']).lower()}",
+            f"- policy_note: {tolerance['policy_note']}",
+            "",
+            "## Redacted Output Schema",
+            "",
+            "- allowed_fields:",
+        ]
+    )
+    lines.extend(f"  - {item}" for item in schema["allowed_fields"])
+    lines.append("- forbidden_fields:")
+    lines.extend(f"  - {item}" for item in schema["forbidden_fields"])
+    lines.extend(
+        [
+            f"- reports_private_raw_data_forbidden: {str(schema['reports_private_raw_data_forbidden']).lower()}",
+            f"- raw_ohlcv_rows_allowed: {str(schema['raw_ohlcv_rows_allowed']).lower()}",
+            f"- raw_provider_responses_allowed: {str(schema['raw_provider_responses_allowed']).lower()}",
+            "",
+            "## No-Write / No-Import Safety Controls",
+            "",
+        ]
+    )
+    for key, value in safety.items():
+        lines.append(f"- {key}: {str(value).lower()}")
+    lines.extend(["", "## Stop Conditions", ""])
+    for condition in data["stop_conditions"]:
+        lines.append(f"- {condition['label']}: {condition['description']}")
+    lines.extend(
+        [
+            "",
+            "## Approval Package Draft",
+            "",
+            f"- package_status: {approval['package_status']}",
+            f"- operation: {approval['operation']}",
+            f"- providers: {', '.join(approval['providers'])}",
+            f"- optional_providers: {', '.join(approval['optional_providers'])}",
+            f"- universe_count: {len(approval['universe'])}",
+            f"- date_range: {approval['date_range']}",
+            f"- future_approval_phrase: {approval['future_approval_phrase']}",
+            f"- approval_phrase_issued: {str(approval['approval_phrase_issued']).lower()}",
+            f"- separate_explicit_approval_required: {str(approval['separate_explicit_approval_required']).lower()}",
+            f"- raw_data_persistence_allowed: {str(approval['raw_data_persistence_allowed']).lower()}",
+            f"- cache_write_approved: {str(approval['cache_write_approved']).lower()}",
+            f"- actual_import_approved: {str(approval['actual_import_approved']).lower()}",
+            f"- manual_import_approved: {str(approval['manual_import_approved']).lower()}",
+            f"- trading_action_approved: {str(approval['trading_action_approved']).lower()}",
+            "",
+            "## Operator Runbook",
+            "",
+            "### Preconditions",
+        ]
+    )
+    lines.extend(f"- {item}" for item in runbook["preconditions"])
+    lines.extend(["", "### Operator Steps"])
+    lines.extend(f"- {item}" for item in runbook["operator_steps"])
+    lines.extend(["", "### Verification Steps"])
+    lines.extend(f"- {item}" for item in runbook["verification_steps"])
+    lines.extend(["", "### Cleanup Verification"])
+    lines.extend(f"- {item}" for item in runbook["cleanup_verification"])
+    lines.extend(
+        [
+            "",
+            "## Readiness Verdict",
+            "",
+            f"- cross_provider_validation_execution_readiness: {verdict['cross_provider_validation_execution_readiness']}",
+            f"- cache_write_readiness: {verdict['cache_write_readiness']}",
+            f"- actual_import_readiness: {verdict['actual_import_readiness']}",
+        ]
+    )
+    lines.extend(f"- rationale: {item}" for item in verdict["rationale"])
+    lines.extend(["", "## Explicitly Not Approved", ""])
+    for item in (
+        "provider_live_access",
+        "public_ohlcv_source_live_fetch_by_this_pack",
+        "tiingo_api_call",
+        "stooq_live_fetch",
+        "yahoo_yfinance_live_fetch",
+        "polygon_live_fetch",
+        "cache_write",
+        "actual_refresh_import",
+        "manual_actual_import",
+        "env_secret_display",
+        "broker_manual_raw_data",
+        "reports_private_change",
+        "trading_action",
+    ):
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Next Cursor Handoff",
+            "",
+            f"- handoff_status: {handoff['handoff_status']}",
+            f"- required_approval_phrase: {handoff['required_approval_phrase']}",
+            f"- execution_scope: {handoff['execution_scope']}",
+            "- no_write_rules:",
+        ]
+    )
+    lines.extend(f"  - {item}" for item in handoff["no_write_rules"])
+    lines.append("- output_rules:")
+    lines.extend(f"  - {item}" for item in handoff["output_rules"])
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "package_status": approval["package_status"],
+                    "operation": approval["operation"],
+                    "providers": approval["providers"],
+                    "optional_providers": approval["optional_providers"],
+                    "universe_count": len(approval["universe"]),
+                    "approval_phrase_issued": approval["approval_phrase_issued"],
+                    "raw_data_persistence_allowed": approval["raw_data_persistence_allowed"],
+                    "cache_write_approved": approval["cache_write_approved"],
+                    "actual_import_approved": approval["actual_import_approved"],
+                    "readiness_verdict": verdict["cross_provider_validation_execution_readiness"],
+                    "cache_write_readiness": verdict["cache_write_readiness"],
+                    "actual_import_readiness": verdict["actual_import_readiness"],
+                    "source_only": safety["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1973,6 +2246,28 @@ def write_tiingo_live_fetch_result_review_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_tiingo_live_fetch_result_review_md"] = md_path
         paths[f"{label}_tiingo_live_fetch_result_review_json"] = json_path
+    return paths
+
+
+def write_cross_provider_validation_runbook_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cross_provider_validation_runbook.md"
+        json_path = root / "cross_provider_validation_runbook.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cross_provider_validation_runbook_md"] = md_path
+        paths[f"{label}_cross_provider_validation_runbook_json"] = json_path
     return paths
 
 
