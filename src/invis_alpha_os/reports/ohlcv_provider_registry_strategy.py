@@ -35,6 +35,9 @@ from invis_alpha_os.data.ohlcv_provider_registry import (
     build_provider_coverage_matrix,
     score_provider_freshness,
 )
+from invis_alpha_os.data.tiingo_current_docs_recheck import (
+    build_tiingo_current_docs_recheck_pack,
+)
 from invis_alpha_os.data.us_ohlcv_provider_selection import (
     build_us_ohlcv_provider_selection_matrix,
 )
@@ -291,6 +294,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     us_matrix_md, us_matrix_json = build_us_ohlcv_provider_selection_matrix_report(report_date=report_date)
     current_evidence_md, current_evidence_json = build_us_provider_current_evidence_pack_report(report_date=report_date)
     pilot_bundle_md, pilot_bundle_json = build_us_ohlcv_pilot_approval_bundle_report(report_date=report_date)
+    tiingo_recheck_md, tiingo_recheck_json = build_tiingo_current_docs_recheck_pack_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -301,6 +305,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         us_matrix_md,
         current_evidence_md,
         pilot_bundle_md,
+        tiingo_recheck_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -409,6 +414,19 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             "actual_import_approved": False,
             "next_step_requires_explicit_human_approval": True,
             "readiness_verdict": pilot_bundle_json["pilot_approval_bundle"]["final_readiness_verdict"],
+        },
+        "tiingo_current_docs_recheck_status": {
+            "recheck_pack_exists": True,
+            "source_only": tiingo_recheck_json["tiingo_current_docs_recheck_pack"]["safety"]["source_only"],
+            "manual_recheck_required_before_live_fetch": True,
+            "pricing_terms_cache_adjustment_rate_limit_signoff_required": True,
+            "pilot_approved": False,
+            "cache_write_approved": False,
+            "actual_import_approved": False,
+            "next_action": "manual_recheck_or_explicit_approval_after_recheck",
+            "readiness_verdict": tiingo_recheck_json["tiingo_current_docs_recheck_pack"][
+                "readiness_verdict"
+            ],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -1350,6 +1368,137 @@ def build_us_ohlcv_pilot_approval_bundle_report(
     return "\n".join(lines), payload
 
 
+def build_tiingo_current_docs_recheck_pack_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    pack = build_tiingo_current_docs_recheck_pack(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="tiingo_current_docs_recheck_pack"),
+        "pack_version": "v52",
+        "tiingo_current_docs_recheck_pack": pack.to_dict(),
+    }
+    data = payload["tiingo_current_docs_recheck_pack"]
+    safety = data["safety"]
+    checklist = data["checklist_items"]
+
+    def lines_for_categories(categories: tuple[str, ...]) -> list[str]:
+        rows: list[str] = []
+        for item in checklist:
+            if item["category"] in categories:
+                rows.append(
+                    f"- {item['category']}: {item['operator_question']} "
+                    f"(signoff: {item['required_signoff']})"
+                )
+        return rows
+
+    lines = [
+        "# Tiingo Current Docs Manual Recheck Pack",
+        "",
+        "## Executive Summary",
+        "",
+        "- This pack is source-only and prepares manual Tiingo docs recheck before any live fetch.",
+        "- All evidence items require manual recheck; no Tiingo API call or provider live access is performed.",
+        "- The default verdict remains manual_recheck_required_before_live_fetch.",
+        "",
+        "## Why This Pack Exists",
+        "",
+        "- v49 made Tiingo the first live-fetch-only pilot candidate, but current docs evidence remains unverified.",
+        "- Pricing, terms, redistribution, limits, adjustment method, coverage, and cache suitability can change.",
+        "- This pack creates operator signoff fields without approving or executing the pilot.",
+        "",
+        "## Current Pilot Candidate",
+        "",
+        f"- provider: {data['provider']}",
+        f"- scenario: {data['scenario']}",
+        f"- pilot_date_range: {data['pilot_date_range']}",
+        f"- pilot_universe: {', '.join(data['pilot_universe'])}",
+        "",
+        "## Official Source References",
+        "",
+        "| label | reference | needs_manual_recheck | seed_summary |",
+        "|---|---|---|---|",
+    ]
+    for ref in data["official_references"]:
+        lines.append(
+            f"| {ref['label']} | {ref['url_or_reference']} | "
+            f"{str(ref['needs_manual_recheck']).lower()} | {ref['seed_summary']} |"
+        )
+    section_categories = (
+        ("Pricing / Plan Recheck", ("pricing_plan",)),
+        (
+            "API Limits / Throughput Recheck",
+            ("api_limits_unique_symbol_limits_request_limits",),
+        ),
+        (
+            "Terms / Redistribution / Attribution Recheck",
+            ("terms_of_use", "redistribution_attribution"),
+        ),
+        ("Cache Suitability Recheck", ("local_cache_internal_storage_suitability",)),
+        ("EOD Coverage Recheck", ("eod_endpoint_coverage",)),
+        (
+            "Adjusted Price Method Recheck",
+            ("adjusted_close_adjusted_ohlc_availability",),
+        ),
+        (
+            "Split / Dividend / Corporate Action Recheck",
+            ("split_handling", "dividend_handling"),
+        ),
+        (
+            "ETF / ADR / Mutual Fund / Delisted Coverage Recheck",
+            ("etf_coverage", "adr_coverage", "mutual_fund_coverage", "delisted_coverage"),
+        ),
+        ("Python Implementation Notes", ("python_implementation_approach",)),
+        ("Pilot Universe Compatibility", ("pilot_universe_compatibility",)),
+    )
+    for heading, categories in section_categories:
+        lines.extend(["", f"## {heading}", ""])
+        lines.extend(lines_for_categories(categories))
+        if heading == "Python Implementation Notes":
+            for note in data["python_implementation_notes"]:
+                lines.append(f"- implementation_note: {note}")
+        if heading == "Pilot Universe Compatibility":
+            for note in data["pilot_universe_compatibility_notes"]:
+                lines.append(f"- compatibility_note: {note}")
+    lines.extend(["", "## Manual Sign-off Checklist", ""])
+    for item in data["manual_signoff_checklist"]:
+        lines.append(f"- [ ] {item}")
+    lines.extend(["", "## Blocking Questions Before Live Fetch", ""])
+    for item in data["blocking_questions_before_live_fetch"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Explicitly Not Approved", ""])
+    for item in safety["explicitly_not_approved"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Next Approval Decision", ""])
+    for item in data["next_approval_decision"]:
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "provider": data["provider"],
+                    "scenario": data["scenario"],
+                    "readiness_verdict": data["readiness_verdict"],
+                    "needs_manual_recheck": True,
+                    "source_accessed_live": False,
+                    "api_called": False,
+                    "cache_written": False,
+                    "pilot_approved": False,
+                    "cache_write_approved": False,
+                    "actual_import_approved": False,
+                    "checklist_categories": [item["category"] for item in checklist],
+                    "manual_signoff_checklist": data["manual_signoff_checklist"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1369,6 +1518,28 @@ def write_us_ohlcv_provider_selection_matrix_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_us_ohlcv_provider_selection_matrix_md"] = md_path
         paths[f"{label}_us_ohlcv_provider_selection_matrix_json"] = json_path
+    return paths
+
+
+def write_tiingo_current_docs_recheck_pack_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "tiingo_current_docs_recheck_pack.md"
+        json_path = root / "tiingo_current_docs_recheck_pack.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_tiingo_current_docs_recheck_pack_md"] = md_path
+        paths[f"{label}_tiingo_current_docs_recheck_pack_json"] = json_path
     return paths
 
 
