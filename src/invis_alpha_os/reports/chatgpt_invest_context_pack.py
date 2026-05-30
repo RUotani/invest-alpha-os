@@ -276,6 +276,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "cross_provider_validation_result_review_status": provider_block[
             "cross_provider_validation_result_review_status"
         ],
+        "cache_write_readiness_gate_status": provider_block["cache_write_readiness_gate_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -465,6 +466,16 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cross_provider_nvda_avgo_warning_interpretation: {provider_block['cross_provider_validation_result_review_status']['nvda_avgo_warning_interpretation']}",
             f"- cross_provider_tiingo_adjusted_series_confidence: {provider_block['cross_provider_validation_result_review_status']['tiingo_adjusted_series_confidence']}",
             f"- cross_provider_v66_next_task: {provider_block['cross_provider_validation_result_review_status']['next_recommended_task']}",
+            f"- cache_write_readiness_gate_exists: {str(provider_block['cache_write_readiness_gate_status']['gate_exists']).lower()}",
+            f"- cache_write_readiness_gate_status: {provider_block['cache_write_readiness_gate_status']['gate_status']}",
+            f"- cache_write_signoff16_status: {provider_block['cache_write_readiness_gate_status']['signoff16_status']}",
+            f"- cache_write_gate_cache_write_approved: {str(provider_block['cache_write_readiness_gate_status']['cache_write_approved']).lower()}",
+            f"- cache_write_gate_actual_import_approved: {str(provider_block['cache_write_readiness_gate_status']['actual_import_approved']).lower()}",
+            f"- cache_write_gate_approval_phrase_issued: {str(provider_block['cache_write_readiness_gate_status']['approval_phrase_issued']).lower()}",
+            f"- cache_write_gate_cache_location: {provider_block['cache_write_readiness_gate_status']['cache_location']}",
+            f"- cache_write_gate_raw_data_git_allowed: {str(provider_block['cache_write_readiness_gate_status']['raw_data_git_allowed']).lower()}",
+            f"- cache_write_gate_raw_data_reports_private_allowed: {str(provider_block['cache_write_readiness_gate_status']['raw_data_reports_private_allowed']).lower()}",
+            f"- cache_write_gate_future_pilot_subset: {', '.join(provider_block['cache_write_readiness_gate_status']['future_cache_write_pilot_subset'])}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
