@@ -41,6 +41,9 @@ from invis_alpha_os.data.tiingo_current_docs_recheck import (
 from invis_alpha_os.data.tiingo_manual_signoff_ledger import (
     build_tiingo_manual_signoff_ledger,
 )
+from invis_alpha_os.data.tiingo_live_fetch_result_review import (
+    build_tiingo_live_fetch_result_review_pack,
+)
 from invis_alpha_os.data.us_ohlcv_provider_selection import (
     build_us_ohlcv_provider_selection_matrix,
 )
@@ -299,6 +302,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     pilot_bundle_md, pilot_bundle_json = build_us_ohlcv_pilot_approval_bundle_report(report_date=report_date)
     tiingo_recheck_md, tiingo_recheck_json = build_tiingo_current_docs_recheck_pack_report(report_date=report_date)
     tiingo_ledger_md, tiingo_ledger_json = build_tiingo_manual_signoff_ledger_report(report_date=report_date)
+    tiingo_result_md, tiingo_result_json = build_tiingo_live_fetch_result_review_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -311,6 +315,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         pilot_bundle_md,
         tiingo_recheck_md,
         tiingo_ledger_md,
+        tiingo_result_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -445,6 +450,41 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             ],
             "next_action": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["next_human_action"],
             "final_verdict": tiingo_ledger_json["tiingo_manual_signoff_ledger"]["final_verdict"],
+        },
+        "tiingo_live_fetch_result_review_status": {
+            "result_review_pack_exists": True,
+            "source_only": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"]["safety"][
+                "source_only"
+            ],
+            "v63b_result_status": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"][
+                "result_status"
+            ],
+            "symbols_total": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"]["symbols_total"],
+            "symbols_success": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"][
+                "symbols_success"
+            ],
+            "symbols_failed": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"]["symbols_failed"],
+            "base_fields_all_present": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"][
+                "field_summary"
+            ]["base_fields_all_present"],
+            "adjusted_fields_all_present": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"][
+                "field_summary"
+            ]["adjusted_fields_all_present"],
+            "raw_data_persisted": tiingo_result_json["tiingo_live_fetch_result_review"]["pilot_result"]["safety"][
+                "raw_data_persisted"
+            ],
+            "cache_write_approved": tiingo_result_json["tiingo_live_fetch_result_review"][
+                "cache_write_readiness_assessment"
+            ]["cache_write_approved"],
+            "actual_import_approved": tiingo_result_json["tiingo_live_fetch_result_review"][
+                "cache_write_readiness_assessment"
+            ]["actual_import_approved"],
+            "next_recommended_task": tiingo_result_json["tiingo_live_fetch_result_review"]["next_step"][
+                "recommended_task"
+            ],
+            "cache_write_readiness": tiingo_result_json["tiingo_live_fetch_result_review"]["verdict"][
+                "cache_write_readiness"
+            ],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -1656,6 +1696,198 @@ def build_tiingo_manual_signoff_ledger_report(*, report_date: str) -> tuple[str,
     return "\n".join(lines), payload
 
 
+def build_tiingo_live_fetch_result_review_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    pack = build_tiingo_live_fetch_result_review_pack(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="tiingo_live_fetch_result_review"),
+        "pack_version": "v64",
+        "tiingo_live_fetch_result_review": pack.to_dict(),
+    }
+    data = payload["tiingo_live_fetch_result_review"]
+    pilot = data["pilot_result"]
+    field_summary = pilot["field_summary"]
+    safety = pilot["safety"]
+    verdict = data["verdict"]
+    validation_plan = data["data_quality_validation_plan"]
+    readiness = data["cache_write_readiness_assessment"]
+    next_step = data["next_step"]
+
+    lines = [
+        "# Tiingo Live Fetch Result Review & Data Quality Validation Pack",
+        "",
+        "## Executive Summary",
+        "",
+        "- v63B Tiingo live-fetch-only pilot is recorded as passed from the redacted result summary.",
+        "- The pilot proves fetch viability and field presence, not price accuracy or adjustment correctness.",
+        "- Cache write and actual import remain not ready and not approved.",
+        "- Next recommended task is a separate no-write cross-provider data-quality validation pilot.",
+        "",
+        "## v63B Pilot Result",
+        "",
+        f"- v63B_result_status: {pilot['result_status']}",
+        f"- provider: {pilot['provider']}",
+        f"- scenario: {pilot['scenario']}",
+        f"- operation: {pilot['operation']}",
+        f"- date_range: {pilot['date_range']}",
+        f"- symbols_total: {pilot['symbols_total']}",
+        f"- symbols_success: {pilot['symbols_success']}",
+        f"- symbols_failed: {pilot['symbols_failed']}",
+        f"- row_count_per_symbol: {pilot['row_count_per_symbol']}",
+        f"- provider_request_count: {pilot['provider_request_count']}",
+        f"- provider_total_seconds_approx: {pilot['provider_total_seconds_approx']}",
+        f"- provider_avg_ms_per_request_approx: {pilot['provider_avg_ms_per_request_approx']}",
+        "",
+        "## What The Pilot Proved",
+        "",
+    ]
+    lines.extend(f"- {item}" for item in verdict["what_was_proven"])
+    lines.extend(["", "## What The Pilot Did Not Prove", ""])
+    lines.extend(f"- {item}" for item in verdict["what_was_not_proven"])
+    lines.extend(
+        [
+            "",
+            "## Symbol-Level Summary",
+            "",
+            "| symbol | status | row_count | base_fields | adjusted_fields | raw_data_persisted |",
+            "|---|---|---:|---|---|---|",
+        ]
+    )
+    for row in pilot["symbol_summaries"]:
+        lines.append(
+            f"| {row['symbol']} | {row['status']} | {row['row_count']} | "
+            f"{str(row['base_fields_present']).lower()} | {str(row['adjusted_fields_present']).lower()} | "
+            f"{str(row['raw_data_persisted']).lower()} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Field Availability Summary",
+            "",
+            f"- base_fields_all_present: {str(field_summary['base_fields_all_present']).lower()}",
+            f"- base_fields: {', '.join(field_summary['base_fields'])}",
+            f"- raw_price_accuracy_proven: {str(field_summary['raw_price_accuracy_proven']).lower()}",
+            "",
+            "## Adjusted Field Presence Summary",
+            "",
+            f"- adjusted_fields_all_present: {str(field_summary['adjusted_fields_all_present']).lower()}",
+            f"- adjusted_fields: {', '.join(field_summary['adjusted_fields'])}",
+            "- adjusted field presence is not the same as adjusted calculation correctness.",
+            f"- adjusted_calculation_correctness_proven: {str(field_summary['adjusted_calculation_correctness_proven']).lower()}",
+            "",
+            "## No-Write / No-Import Verification",
+            "",
+            f"- raw_data_persisted: {str(safety['raw_data_persisted']).lower()}",
+            f"- reports_private_raw_data_written: {str(safety['reports_private_raw_data_written']).lower()}",
+            f"- cache_write_executed: {str(safety['cache_write_executed']).lower()}",
+            f"- actual_import_executed: {str(safety['actual_import_executed']).lower()}",
+            f"- manual_actual_import_executed: {str(safety['manual_actual_import_executed']).lower()}",
+            f"- env_secret_displayed: {str(safety['env_secret_displayed']).lower()}",
+            f"- trading_action_executed: {str(safety['trading_action_executed']).lower()}",
+            f"- tiingo_api_called_by_this_pack: {str(safety['tiingo_api_called_by_this_pack']).lower()}",
+            f"- stooq_yahoo_polygon_live_fetch_executed_by_this_pack: {str(safety['stooq_yahoo_polygon_live_fetch_executed_by_this_pack']).lower()}",
+            "",
+            "## Data Quality Validation Plan",
+            "",
+            f"- package_status: {validation_plan['package_status']}",
+            f"- operation: {validation_plan['operation']}",
+            f"- providers: {', '.join(validation_plan['providers'])}",
+            f"- universe: {', '.join(validation_plan['universe'])}",
+            f"- date_range: {validation_plan['date_range']}",
+            f"- required_approval_phrase: {validation_plan['required_approval_phrase']}",
+            f"- next_recommended_execution: {validation_plan['next_recommended_execution']}",
+            f"- raw_data_persistence_allowed: {str(validation_plan['raw_data_persistence_allowed']).lower()}",
+            f"- cache_write_approved: {str(validation_plan['cache_write_approved']).lower()}",
+            f"- actual_import_approved: {str(validation_plan['actual_import_approved']).lower()}",
+            "",
+            "## Cross-Provider Validation Matrix",
+            "",
+            "| check_id | category | providers | universe_slice | tolerance_policy |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for check in validation_plan["checks"]:
+        lines.append(
+            f"| {check['check_id']} | {check['category']} | {', '.join(check['providers'])} | "
+            f"{', '.join(check['universe_slice'])} | {check['tolerance_policy']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Cache-Write Readiness Assessment",
+            "",
+            f"- cache_write_readiness: {readiness['cache_write_readiness']}",
+            f"- cache_write_approved: {str(readiness['cache_write_approved']).lower()}",
+            f"- next_approval_package_needed: {readiness['next_approval_package_needed']}",
+            "",
+            "| prerequisite_id | status | blocks_cache_write | description |",
+            "|---|---|---|---|",
+        ]
+    )
+    for item in readiness["prerequisites"]:
+        lines.append(
+            f"| {item['prerequisite_id']} | {item['status']} | "
+            f"{str(item['blocks_cache_write']).lower()} | {item['description']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Actual Import Readiness Assessment",
+            "",
+            f"- actual_import_readiness: {readiness['actual_import_readiness']}",
+            f"- actual_import_approved: {str(readiness['actual_import_approved']).lower()}",
+            "- actual import remains downstream of cache-write readiness and explicit approval.",
+            "",
+            "## Risk Register",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in data["risk_register"])
+    lines.extend(
+        [
+            "",
+            "## Recommended Next Task",
+            "",
+            f"- recommended_task: {next_step['recommended_task']}",
+            f"- approval_phrase_required: {next_step['approval_phrase_required']}",
+            "- run only as a future no-write validation task after explicit approval.",
+            "",
+            "## Explicitly Not Approved",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in next_step["explicitly_not_approved"])
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "v63B_result_status": pilot["result_status"],
+                    "symbols_total": pilot["symbols_total"],
+                    "symbols_success": pilot["symbols_success"],
+                    "symbols_failed": pilot["symbols_failed"],
+                    "base_fields_all_present": field_summary["base_fields_all_present"],
+                    "adjusted_fields_all_present": field_summary["adjusted_fields_all_present"],
+                    "row_count_per_symbol": pilot["row_count_per_symbol"],
+                    "raw_data_persisted": safety["raw_data_persisted"],
+                    "cache_write_executed": safety["cache_write_executed"],
+                    "actual_import_executed": safety["actual_import_executed"],
+                    "trading_action_executed": safety["trading_action_executed"],
+                    "cache_write_readiness": readiness["cache_write_readiness"],
+                    "actual_import_readiness": readiness["actual_import_readiness"],
+                    "next_recommended_execution": validation_plan["next_recommended_execution"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1719,6 +1951,28 @@ def write_tiingo_manual_signoff_ledger_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_tiingo_manual_signoff_ledger_md"] = md_path
         paths[f"{label}_tiingo_manual_signoff_ledger_json"] = json_path
+    return paths
+
+
+def write_tiingo_live_fetch_result_review_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "tiingo_live_fetch_result_review.md"
+        json_path = root / "tiingo_live_fetch_result_review.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_tiingo_live_fetch_result_review_md"] = md_path
+        paths[f"{label}_tiingo_live_fetch_result_review_json"] = json_path
     return paths
 
 

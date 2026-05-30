@@ -208,6 +208,7 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
 )
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     build_tiingo_current_docs_recheck_pack_report,
+    build_tiingo_live_fetch_result_review_report,
     build_tiingo_manual_signoff_ledger_report,
     build_ohlcv_provider_automation_core,
     build_ohlcv_provider_approval_package,
@@ -225,6 +226,7 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     write_ohlcv_provider_execution_approval_request_outputs,
     write_ohlcv_provider_safe_execution_harness_outputs,
     write_tiingo_current_docs_recheck_pack_outputs,
+    write_tiingo_live_fetch_result_review_outputs,
     write_tiingo_manual_signoff_ledger_outputs,
     write_us_ohlcv_pilot_approval_bundle_outputs,
     write_us_ohlcv_provider_selection_matrix_outputs,
@@ -2877,6 +2879,38 @@ def weekly_candidate_brief_tiingo_manual_signoff_ledger_command(
     typer.echo(
         "weekly-candidate-brief-tiingo-manual-signoff-ledger: "
         "source_only=true manual_signoff_ledger_only=true live_http_executed=false tiingo_api_called=false provider_live_access_executed=false public_ohlcv_source_live_fetch_executed=false cache_write_executed=false actual_refresh_import_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-tiingo-live-fetch-result-review")
+def weekly_candidate_brief_tiingo_live_fetch_result_review_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-tiingo-live-fetch-result-review: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    markdown_text, json_payload = build_tiingo_live_fetch_result_review_report(report_date=run_date)
+    paths = write_tiingo_live_fetch_result_review_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=json_payload,
+    )
+    if fmt == "json":
+        typer.echo(json.dumps(json_payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-tiingo-live-fetch-result-review: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-tiingo-live-fetch-result-review: "
+        "source_only=true result_review_only=true live_http_executed_by_this_pack=false tiingo_api_called_by_this_pack=false provider_live_access_executed_by_this_pack=false public_ohlcv_source_live_fetch_executed_by_this_pack=false stooq_yahoo_polygon_live_fetch_executed_by_this_pack=false cache_write_executed=false actual_import_executed=false",
         err=True,
     )
     raise typer.Exit(0)
