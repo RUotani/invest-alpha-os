@@ -273,6 +273,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "tiingo_manual_signoff_ledger_status": provider_block["tiingo_manual_signoff_ledger_status"],
         "tiingo_live_fetch_result_review_status": provider_block["tiingo_live_fetch_result_review_status"],
         "cross_provider_validation_runbook_status": provider_block["cross_provider_validation_runbook_status"],
+        "cross_provider_validation_result_review_status": provider_block[
+            "cross_provider_validation_result_review_status"
+        ],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -454,6 +457,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cross_provider_validation_raw_data_persistence_allowed: {str(provider_block['cross_provider_validation_runbook_status']['raw_data_persistence_allowed']).lower()}",
             f"- cross_provider_validation_cache_write_approved: {str(provider_block['cross_provider_validation_runbook_status']['cache_write_approved']).lower()}",
             f"- cross_provider_validation_actual_import_approved: {str(provider_block['cross_provider_validation_runbook_status']['actual_import_approved']).lower()}",
+            f"- cross_provider_v65_result_review_exists: {str(provider_block['cross_provider_validation_result_review_status']['result_review_pack_exists']).lower()}",
+            f"- cross_provider_v65_verdict: {provider_block['cross_provider_validation_result_review_status']['v65_verdict']}",
+            f"- cross_provider_v65_required_provider_symbols_success: {provider_block['cross_provider_validation_result_review_status']['required_provider_symbols_success']}",
+            f"- cross_provider_tiingo_yahoo_adjusted_close_consistency: {provider_block['cross_provider_validation_result_review_status']['tiingo_yahoo_adjusted_close_consistency']}",
+            f"- cross_provider_stooq_adjusted_comparison_suitability: {provider_block['cross_provider_validation_result_review_status']['stooq_adjusted_comparison_suitability']}",
+            f"- cross_provider_nvda_avgo_warning_interpretation: {provider_block['cross_provider_validation_result_review_status']['nvda_avgo_warning_interpretation']}",
+            f"- cross_provider_tiingo_adjusted_series_confidence: {provider_block['cross_provider_validation_result_review_status']['tiingo_adjusted_series_confidence']}",
+            f"- cross_provider_v66_next_task: {provider_block['cross_provider_validation_result_review_status']['next_recommended_task']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
