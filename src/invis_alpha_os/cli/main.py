@@ -214,6 +214,7 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     build_ohlcv_provider_safe_execution_harness,
     build_ohlcv_provider_coverage_matrix,
     build_ohlcv_provider_registry_strategy,
+    build_us_ohlcv_pilot_approval_bundle_report,
     build_us_ohlcv_provider_selection_matrix_report,
     build_us_provider_current_evidence_pack_report,
     write_ohlcv_provider_automation_core_outputs,
@@ -221,6 +222,7 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     write_ohlcv_provider_approved_execution_runbook_outputs,
     write_ohlcv_provider_execution_approval_request_outputs,
     write_ohlcv_provider_safe_execution_harness_outputs,
+    write_us_ohlcv_pilot_approval_bundle_outputs,
     write_us_ohlcv_provider_selection_matrix_outputs,
     write_us_provider_current_evidence_pack_outputs,
 )
@@ -2765,6 +2767,48 @@ def weekly_candidate_brief_us_provider_current_evidence_pack_command(
     typer.echo(
         "weekly-candidate-brief-us-provider-current-evidence-pack: "
         "source_only=true current_evidence_only=true live_http_executed=false provider_live_access_executed=false cache_write_executed=false actual_refresh_import_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-us-ohlcv-pilot-approval-bundle")
+def weekly_candidate_brief_us_ohlcv_pilot_approval_bundle_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+    provider: str = typer.Option("tiingo", "--provider", help="Modeled provider; default tiingo."),
+    scenario: str = typer.Option("public_ohlcv", "--scenario", help="Modeled scenario; public_ohlcv only."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-us-ohlcv-pilot-approval-bundle: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    try:
+        markdown_text, json_payload = build_us_ohlcv_pilot_approval_bundle_report(
+            report_date=run_date,
+            provider=provider,
+            scenario=scenario,
+        )
+    except ValueError as exc:
+        typer.echo(f"weekly-candidate-brief-us-ohlcv-pilot-approval-bundle: {exc}", err=True)
+        raise typer.Exit(2) from exc
+    paths = write_us_ohlcv_pilot_approval_bundle_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=json_payload,
+    )
+    if fmt == "json":
+        typer.echo(json.dumps(json_payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-us-ohlcv-pilot-approval-bundle: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-us-ohlcv-pilot-approval-bundle: "
+        "source_only=true pilot_approval_bundle_only=true commands_executed=false live_http_executed=false public_ohlcv_source_live_fetch_executed=false provider_live_access_executed=false cache_write_executed=false actual_refresh_import_executed=false",
         err=True,
     )
     raise typer.Exit(0)
