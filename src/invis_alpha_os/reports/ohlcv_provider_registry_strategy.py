@@ -19,6 +19,9 @@ from invis_alpha_os.data.cross_provider_validation_runbook import (
 from invis_alpha_os.data.cross_provider_validation_result_review import (
     build_cross_provider_validation_result_review,
 )
+from invis_alpha_os.data.cache_write_readiness_gate import (
+    build_cache_write_readiness_gate,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -311,6 +314,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     tiingo_result_md, tiingo_result_json = build_tiingo_live_fetch_result_review_report(report_date=report_date)
     cross_provider_md, cross_provider_json = build_cross_provider_validation_runbook_report(report_date=report_date)
     result_review_md, result_review_json = build_cross_provider_validation_result_review_report(report_date=report_date)
+    cache_gate_md, cache_gate_json = build_cache_write_readiness_gate_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -326,6 +330,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         tiingo_result_md,
         cross_provider_md,
         result_review_md,
+        cache_gate_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -569,6 +574,51 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             ]["actual_import_readiness"],
             "next_recommended_task": result_review_json["cross_provider_validation_result_review"]["next_step"][
                 "recommended_next_step"
+            ],
+        },
+        "cache_write_readiness_gate_status": {
+            "gate_exists": True,
+            "source_only": cache_gate_json["cache_write_readiness_gate"]["safety_flags"]["source_only"],
+            "gate_status": cache_gate_json["cache_write_readiness_gate"]["gate_status"],
+            "signoff16_status": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "signoff16_status"
+            ],
+            "cache_write_approved": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "cache_write_approved"
+            ],
+            "actual_import_approved": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "actual_import_approved"
+            ],
+            "trading_action_approved": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "trading_action_approved"
+            ],
+            "approval_phrase_issued": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "approval_phrase_issued"
+            ],
+            "cache_write_readiness": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "cache_write_readiness"
+            ],
+            "actual_import_readiness": cache_gate_json["cache_write_readiness_gate"]["readiness_verdict"][
+                "actual_import_readiness"
+            ],
+            "cache_location": cache_gate_json["cache_write_readiness_gate"]["storage_policy"]["cache_location"],
+            "raw_data_git_allowed": cache_gate_json["cache_write_readiness_gate"]["storage_policy"][
+                "raw_data_git_allowed"
+            ],
+            "raw_data_reports_private_allowed": cache_gate_json["cache_write_readiness_gate"]["storage_policy"][
+                "raw_data_reports_private_allowed"
+            ],
+            "redacted_summary_reports_private_allowed": cache_gate_json["cache_write_readiness_gate"][
+                "storage_policy"
+            ]["redacted_summary_reports_private_allowed"],
+            "future_cache_write_pilot_status": cache_gate_json["cache_write_readiness_gate"][
+                "future_cache_write_pilot"
+            ]["package_status"],
+            "future_cache_write_pilot_subset": cache_gate_json["cache_write_readiness_gate"][
+                "future_cache_write_pilot"
+            ]["recommended_first_subset"],
+            "next_cursor_handoff_status": cache_gate_json["cache_write_readiness_gate"]["next_cursor_handoff"][
+                "handoff_status"
             ],
         },
         "manual_csv_is_fallback_not_primary": True,
@@ -2382,6 +2432,213 @@ def build_cross_provider_validation_result_review_report(*, report_date: str) ->
     return "\n".join(lines), payload
 
 
+def build_cache_write_readiness_gate_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    gate = build_cache_write_readiness_gate(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_write_readiness_gate"),
+        "pack_version": "v67",
+        "cache_write_readiness_gate": gate.to_dict(),
+    }
+    data = payload["cache_write_readiness_gate"]
+    storage = data["storage_policy"]
+    retention = data["retention_policy"]
+    purge = data["purge_rollback_policy"]
+    acknowledgement = data["terms_cache_acknowledgement"]
+    cache_boundary = data["cache_write_approval_boundary"]
+    import_boundary = data["actual_import_boundary"]
+    pilot = data["future_cache_write_pilot"]
+    verdict = data["readiness_verdict"]
+    lines = [
+        "# Cache-Write Readiness Gate Draft",
+        "",
+        "## Executive Summary",
+        "",
+        "- This pack is source-only and prepares cache-write readiness requirements without writing cache.",
+        "- SIGNOFF-16 remains unresolved and required before any Tiingo private/local cache-write pilot.",
+        "- Raw OHLCV remains forbidden in Git, reports-private, ChatGPT/Cursor paste, public outputs, and artifacts.",
+        "- Cache write, actual import, and trading action remain not approved.",
+        "",
+        "## Current State After v63B/v65/v66",
+        "",
+    ]
+    for key, value in data["current_state"].items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## SIGNOFF-16 Requirements",
+            "",
+            "| requirement_id | status | required | description |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in data["signoff16_requirements"]:
+        lines.append(
+            f"| {row['requirement_id']} | {row['status']} | "
+            f"{str(row['required_before_cache_write']).lower()} | {row['description']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Private/Local Cache Storage Policy",
+            "",
+            f"- policy_status: {storage['policy_status']}",
+            f"- cache_location: {storage['cache_location']}",
+            f"- raw_data_git_allowed: {str(storage['raw_data_git_allowed']).lower()}",
+            f"- raw_data_reports_private_allowed: {str(storage['raw_data_reports_private_allowed']).lower()}",
+            "- redacted_summary_reports_private_allowed: "
+            f"{str(storage['redacted_summary_reports_private_allowed']).lower()}",
+            "",
+            "| location_id | allowed_after_future_approval | description | required_controls |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in storage["allowed_candidates"]:
+        lines.append(
+            f"| {row['location_id']} | {str(row['allowed_only_after_future_approval']).lower()} | "
+            f"{row['description']} | {', '.join(row['required_controls'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Forbidden Raw Data Locations",
+            "",
+            "| location_id | description | reason |",
+            "|---|---|---|",
+        ]
+    )
+    for row in storage["forbidden_locations"]:
+        lines.append(f"| {row['location_id']} | {row['description']} | {row['reason']} |")
+    lines.extend(
+        [
+            "",
+            "## Retention Policy Draft",
+            "",
+            f"- retention_period_initial_pilot: {retention['retention_period_initial_pilot']}",
+            f"- retention_owner_required: {str(retention['retention_owner_required']).lower()}",
+            f"- raw_file_inventory_required: {str(retention['raw_file_inventory_required']).lower()}",
+            f"- redacted_summary_required: {str(retention['redacted_summary_required']).lower()}",
+            f"- no_orphan_raw_files_required: {str(retention['no_orphan_raw_files_required']).lower()}",
+            "",
+            "## Purge / Rollback Policy Draft",
+            "",
+            f"- cache_purge_command_required: {str(purge['cache_purge_command_required']).lower()}",
+            f"- rollback_checklist_required: {str(purge['rollback_checklist_required']).lower()}",
+            f"- purge_dry_run_required: {str(purge['purge_dry_run_required']).lower()}",
+            f"- post_purge_verification_required: {str(purge['post_purge_verification_required']).lower()}",
+        ]
+    )
+    lines.extend(f"- future_checklist: {item}" for item in purge["future_checklist"])
+    lines.extend(
+        [
+            "",
+            "## Terms / Cache Acknowledgement",
+            "",
+            f"- acknowledgement_status: {acknowledgement['acknowledgement_status']}",
+            f"- operator_signoff_required: {str(acknowledgement['operator_signoff_required']).lower()}",
+        ]
+    )
+    lines.extend(f"- required_statement: {item}" for item in acknowledgement["required_statements"])
+    lines.extend(
+        [
+            "",
+            "## Cache-Write Approval Boundary",
+            "",
+            f"- future_cache_write_approval_phrase: {cache_boundary['future_cache_write_approval_phrase']}",
+            f"- cache_write_approved: {str(cache_boundary['cache_write_approved']).lower()}",
+            f"- approval_phrase_issued: {str(cache_boundary['approval_phrase_issued']).lower()}",
+            "- separate_explicit_approval_required: "
+            f"{str(cache_boundary['separate_explicit_approval_required']).lower()}",
+            f"- trading_action_approved: {str(cache_boundary['trading_action_approved']).lower()}",
+            "",
+            "## Actual Import Boundary",
+            "",
+            f"- future_actual_import_approval_phrase: {import_boundary['future_actual_import_approval_phrase']}",
+            f"- actual_import_approved: {str(import_boundary['actual_import_approved']).lower()}",
+            f"- approval_phrase_issued: {str(import_boundary['approval_phrase_issued']).lower()}",
+            f"- remains_separate_from_cache_write: {str(import_boundary['remains_separate_from_cache_write']).lower()}",
+            "",
+            "## Future Cache-Write Pilot Draft",
+            "",
+            f"- package_status: {pilot['package_status']}",
+            f"- operation: {pilot['operation']}",
+            f"- provider: {pilot['provider']}",
+            f"- universe_count: {len(pilot['universe'])}",
+            f"- recommended_first_subset: {', '.join(pilot['recommended_first_subset'])}",
+            f"- first_subset_reason: {pilot['first_subset_reason']}",
+            f"- date_range: {pilot['date_range']}",
+            f"- cache_location: {pilot['cache_location']}",
+            f"- raw_data_git_allowed: {str(pilot['raw_data_git_allowed']).lower()}",
+            f"- raw_data_reports_private_allowed: {str(pilot['raw_data_reports_private_allowed']).lower()}",
+            "- redacted_summary_reports_private_allowed: "
+            f"{str(pilot['redacted_summary_reports_private_allowed']).lower()}",
+            f"- approval_phrase_issued: {str(pilot['approval_phrase_issued']).lower()}",
+            "- separate_explicit_approval_required: "
+            f"{str(pilot['separate_explicit_approval_required']).lower()}",
+            "",
+            "## Readiness Verdict",
+            "",
+            f"- signoff16_status: {verdict['signoff16_status']}",
+            f"- cache_write_readiness: {verdict['cache_write_readiness']}",
+            f"- actual_import_readiness: {verdict['actual_import_readiness']}",
+            f"- cache_write_approved: {str(verdict['cache_write_approved']).lower()}",
+            f"- actual_import_approved: {str(verdict['actual_import_approved']).lower()}",
+            f"- trading_action_approved: {str(verdict['trading_action_approved']).lower()}",
+            f"- approval_phrase_issued: {str(verdict['approval_phrase_issued']).lower()}",
+            "",
+            "## Explicitly Not Approved",
+            "",
+        ]
+    )
+    for item in (
+        "tiingo_api_call",
+        "stooq_live_fetch",
+        "yahoo_yfinance_live_fetch",
+        "polygon_live_fetch",
+        "provider_live_access",
+        "public_ohlcv_source_live_fetch",
+        "cache_write",
+        "actual_refresh_import",
+        "manual_actual_import",
+        "env_secret_display",
+        "broker_manual_raw_data",
+        "workflow_dependency_pyproject_change",
+        "reports_private_change",
+        "trading_action",
+    ):
+        lines.append(f"- {item}")
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "gate_status": data["gate_status"],
+                    "signoff16_status": verdict["signoff16_status"],
+                    "cache_write_approved": verdict["cache_write_approved"],
+                    "actual_import_approved": verdict["actual_import_approved"],
+                    "trading_action_approved": verdict["trading_action_approved"],
+                    "approval_phrase_issued": verdict["approval_phrase_issued"],
+                    "cache_location": storage["cache_location"],
+                    "raw_data_git_allowed": storage["raw_data_git_allowed"],
+                    "raw_data_reports_private_allowed": storage["raw_data_reports_private_allowed"],
+                    "retention_period_initial_pilot": retention["retention_period_initial_pilot"],
+                    "cache_purge_command_required": purge["cache_purge_command_required"],
+                    "future_cache_write_pilot_status": pilot["package_status"],
+                    "future_cache_write_pilot_subset": pilot["recommended_first_subset"],
+                    "source_only": data["safety_flags"]["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -2511,6 +2768,28 @@ def write_cross_provider_validation_result_review_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cross_provider_validation_result_review_md"] = md_path
         paths[f"{label}_cross_provider_validation_result_review_json"] = json_path
+    return paths
+
+
+def write_cache_write_readiness_gate_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_write_readiness_gate.md"
+        json_path = root / "cache_write_readiness_gate.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_write_readiness_gate_md"] = md_path
+        paths[f"{label}_cache_write_readiness_gate_json"] = json_path
     return paths
 
 
