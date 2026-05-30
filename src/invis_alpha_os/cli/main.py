@@ -207,6 +207,7 @@ from invis_alpha_os.reports.investment_readiness_after_jquants_refresh import (
     write_investment_readiness_v31_outputs,
 )
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
+    build_cache_write_operator_signoff_sheet_report,
     build_cache_write_readiness_gate_report,
     build_cross_provider_validation_result_review_report,
     build_cross_provider_validation_runbook_report,
@@ -228,6 +229,7 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import (
     write_ohlcv_provider_approved_execution_runbook_outputs,
     write_ohlcv_provider_execution_approval_request_outputs,
     write_ohlcv_provider_safe_execution_harness_outputs,
+    write_cache_write_operator_signoff_sheet_outputs,
     write_cache_write_readiness_gate_outputs,
     write_cross_provider_validation_result_review_outputs,
     write_cross_provider_validation_runbook_outputs,
@@ -3016,6 +3018,41 @@ def weekly_candidate_brief_cache_write_readiness_gate_command(
     typer.echo(
         "weekly-candidate-brief-cache-write-readiness-gate: "
         "source_only=true cache_write_gate_only=true tiingo_api_call_executed=false stooq_live_fetch_executed=false yahoo_yfinance_live_fetch_executed=false polygon_live_fetch_executed=false provider_live_access_executed=false public_ohlcv_source_live_fetch_executed=false cache_write_executed=false actual_refresh_import_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-cache-write-operator-signoff-sheet")
+def weekly_candidate_brief_cache_write_operator_signoff_sheet_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo(
+            "weekly-candidate-brief-cache-write-operator-signoff-sheet: --format must be markdown or json",
+            err=True,
+        )
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    markdown_text, json_payload = build_cache_write_operator_signoff_sheet_report(report_date=run_date)
+    paths = write_cache_write_operator_signoff_sheet_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=json_payload,
+    )
+    if fmt == "json":
+        typer.echo(json.dumps(json_payload, ensure_ascii=False, indent=2))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-cache-write-operator-signoff-sheet: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-cache-write-operator-signoff-sheet: "
+        "source_only=true operator_signoff_sheet_only=true tiingo_api_call_executed=false stooq_live_fetch_executed=false yahoo_yfinance_live_fetch_executed=false polygon_live_fetch_executed=false provider_live_access_executed=false public_ohlcv_source_live_fetch_executed=false cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persisted=false",
         err=True,
     )
     raise typer.Exit(0)

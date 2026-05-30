@@ -277,6 +277,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "cross_provider_validation_result_review_status"
         ],
         "cache_write_readiness_gate_status": provider_block["cache_write_readiness_gate_status"],
+        "cache_write_operator_signoff_sheet_status": provider_block["cache_write_operator_signoff_sheet_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -476,6 +477,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_write_gate_raw_data_git_allowed: {str(provider_block['cache_write_readiness_gate_status']['raw_data_git_allowed']).lower()}",
             f"- cache_write_gate_raw_data_reports_private_allowed: {str(provider_block['cache_write_readiness_gate_status']['raw_data_reports_private_allowed']).lower()}",
             f"- cache_write_gate_future_pilot_subset: {', '.join(provider_block['cache_write_readiness_gate_status']['future_cache_write_pilot_subset'])}",
+            f"- cache_write_operator_signoff_sheet_exists: {str(provider_block['cache_write_operator_signoff_sheet_status']['sheet_exists']).lower()}",
+            f"- cache_write_operator_signoff_status: {provider_block['cache_write_operator_signoff_sheet_status']['operator_signoff_status']}",
+            f"- cache_write_operator_overall_readiness: {provider_block['cache_write_operator_signoff_sheet_status']['overall_readiness']}",
+            f"- cache_write_operator_cache_path_proposed: {provider_block['cache_write_operator_signoff_sheet_status']['cache_path_proposed']}",
+            f"- cache_write_operator_cache_write_approval_status: {provider_block['cache_write_operator_signoff_sheet_status']['cache_write_approval_status']}",
+            f"- cache_write_operator_actual_import_approval_status: {provider_block['cache_write_operator_signoff_sheet_status']['actual_import_approval_status']}",
+            f"- cache_write_operator_approval_phrase_issued: {str(provider_block['cache_write_operator_signoff_sheet_status']['approval_phrase_issued']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
