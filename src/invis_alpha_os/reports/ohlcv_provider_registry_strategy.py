@@ -38,6 +38,9 @@ from invis_alpha_os.data.ohlcv_provider_registry import (
 from invis_alpha_os.data.us_ohlcv_provider_selection import (
     build_us_ohlcv_provider_selection_matrix,
 )
+from invis_alpha_os.data.us_ohlcv_pilot_approval_bundle import (
+    build_us_ohlcv_pilot_approval_bundle,
+)
 from invis_alpha_os.data.us_provider_current_evidence import (
     build_us_provider_current_evidence_pack,
 )
@@ -287,7 +290,18 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     request_md, request_json = build_ohlcv_provider_execution_approval_request(report_date=report_date)
     us_matrix_md, us_matrix_json = build_us_ohlcv_provider_selection_matrix_report(report_date=report_date)
     current_evidence_md, current_evidence_json = build_us_provider_current_evidence_pack_report(report_date=report_date)
-    _ = registry_md, planner_md, approval_md, harness_md, runbook_md, request_md, us_matrix_md, current_evidence_md
+    pilot_bundle_md, pilot_bundle_json = build_us_ohlcv_pilot_approval_bundle_report(report_date=report_date)
+    _ = (
+        registry_md,
+        planner_md,
+        approval_md,
+        harness_md,
+        runbook_md,
+        request_md,
+        us_matrix_md,
+        current_evidence_md,
+        pilot_bundle_md,
+    )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
         "provider_selection_policy": registry_json["provider_selection_policy"],
@@ -381,6 +395,20 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             "explicitly_not_approved": current_evidence_json["current_evidence_pack"]["safety"][
                 "explicitly_not_approved"
             ],
+        },
+        "us_ohlcv_pilot_approval_bundle_status": {
+            "pilot_approval_bundle_exists": True,
+            "source_only": pilot_bundle_json["pilot_approval_bundle"]["safety"]["source_only"],
+            "commands_executed": pilot_bundle_json["pilot_approval_bundle"]["safety"]["commands_executed"],
+            "recommended_first_pilot_provider": pilot_bundle_json["pilot_approval_bundle"]["candidate"]["provider"],
+            "scenario": pilot_bundle_json["pilot_approval_bundle"]["candidate"]["scenario"],
+            "approval_phrase_required": pilot_bundle_json["pilot_approval_bundle"]["candidate"][
+                "primary_approval_phrase"
+            ],
+            "cache_write_approved": False,
+            "actual_import_approved": False,
+            "next_step_requires_explicit_human_approval": True,
+            "readiness_verdict": pilot_bundle_json["pilot_approval_bundle"]["final_readiness_verdict"],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -1180,6 +1208,148 @@ def build_us_provider_current_evidence_pack_report(*, report_date: str) -> tuple
     return "\n".join(lines), payload
 
 
+def build_us_ohlcv_pilot_approval_bundle_report(
+    *,
+    report_date: str,
+    provider: str = "tiingo",
+    scenario: str = "public_ohlcv",
+) -> tuple[str, dict[str, Any]]:
+    bundle = build_us_ohlcv_pilot_approval_bundle(
+        report_date=report_date,
+        provider=provider,
+        scenario=scenario,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="us_ohlcv_pilot_approval_bundle"),
+        "pack_version": "v49",
+        "pilot_approval_bundle": bundle.to_dict(),
+    }
+    data = payload["pilot_approval_bundle"]
+    candidate = data["candidate"]
+    evidence = data["evidence_summary"]
+    safety = data["safety"]
+    lines = [
+        "# US OHLCV Pilot Approval Bundle",
+        "",
+        "## Executive Summary",
+        "",
+        "- This is a source-only approval bundle for a future US OHLCV first pilot.",
+        "- Tiingo is the default first pilot candidate, but no live fetch is executed here.",
+        "- Cache write, actual import, manual import, J-Quants refresh, and trading action remain explicitly not approved.",
+        "",
+        "## First Pilot Candidate",
+        "",
+        f"- provider: {candidate['provider']}",
+        f"- scenario: {candidate['scenario']}",
+        f"- operation: {candidate['operation']}",
+        f"- approval_phrase_status: {candidate['approval_phrase_status']}",
+        "",
+        "## Why Tiingo Is The First Pilot Candidate",
+        "",
+        "- v46 ranks Tiingo as the first pilot candidate because it balances paid-provider quality, implementation effort, and low-cost pilot fit.",
+        "- v48 keeps Tiingo as first pilot candidate while requiring manual current recheck before execution.",
+        "- Polygon.io remains the production-style candidate; Stooq remains fallback only.",
+        "",
+        "## Evidence From Provider Selection Matrix",
+        "",
+    ]
+    for key, value in evidence["provider_selection_matrix"].items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(["", "## Evidence From Current Evidence Pack", ""])
+    for key, value in evidence["current_evidence_pack"].items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(
+        [
+            "",
+            "## Pilot Universe",
+            "",
+            f"- {', '.join(candidate['universe'])}",
+            "",
+            "## Pilot Date Range",
+            "",
+            f"- {candidate['date_range']}",
+            "",
+            "## Required Human Approval Phrase",
+            "",
+            f"- {candidate['primary_approval_phrase']}",
+            "",
+            "## Explicitly Not Approved",
+            "",
+        ]
+    )
+    for item in safety["explicitly_not_approved"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Commands Planned But Not Executed", ""])
+    for command in data["commands_planned_but_not_executed"]:
+        lines.extend(["```bash", command, "```"])
+    lines.extend(["", "## Preflight Checklist", ""])
+    for item in data["preflight_checklist"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Redaction / Secret Handling Checklist", ""])
+    for item in data["redaction_secret_handling_checklist"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Expected Outputs", ""])
+    for item in data["expected_outputs"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Verification Plan", ""])
+    for item in data["verification_plan"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Rollback / No-Write Discipline", ""])
+    for item in data["rollback_no_write_discipline"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Stop Conditions", ""])
+    for item in data["stop_conditions"]:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Risk Register", ""])
+    lines.extend(["| risk | mitigation | status |", "|---|---|---|"])
+    for item in data["risk_register"]:
+        lines.append(f"| {item['risk']} | {item['mitigation']} | {item['status']} |")
+    lines.extend(["", "## Evidence Gap Closure Checklist", ""])
+    lines.extend(["| gap | manual_recheck | operator_signoff |", "|---|---|---|"])
+    for item in data["evidence_gap_closure_checklist"]:
+        lines.append(f"| {item['gap']} | {item['manual_recheck']} | {item['operator_signoff']} |")
+    lines.extend(
+        [
+            "",
+            "## Cursor Handoff Draft",
+            "",
+            "DRAFT ONLY - DO NOT RUN UNTIL HUMAN APPROVAL PHRASE IS PROVIDED",
+            "",
+            "```text",
+            data["cursor_handoff_draft"],
+            "```",
+            "",
+            "## Final Readiness Verdict",
+            "",
+            f"- {data['final_readiness_verdict']}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "provider": candidate["provider"],
+                    "scenario": candidate["scenario"],
+                    "pilot_universe": candidate["universe"],
+                    "pilot_date_range": candidate["date_range"],
+                    "primary_approval_phrase": candidate["primary_approval_phrase"],
+                    "primary_approval_phrase_count": 1,
+                    "source_only": safety["source_only"],
+                    "commands_executed": safety["commands_executed"],
+                    "cache_write_approved": False,
+                    "actual_import_approved": False,
+                    "manual_actual_import_approved": False,
+                    "readiness_verdict": data["final_readiness_verdict"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -1199,6 +1369,28 @@ def write_us_ohlcv_provider_selection_matrix_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_us_ohlcv_provider_selection_matrix_md"] = md_path
         paths[f"{label}_us_ohlcv_provider_selection_matrix_json"] = json_path
+    return paths
+
+
+def write_us_ohlcv_pilot_approval_bundle_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "us_ohlcv_pilot_approval_bundle.md"
+        json_path = root / "us_ohlcv_pilot_approval_bundle.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_us_ohlcv_pilot_approval_bundle_md"] = md_path
+        paths[f"{label}_us_ohlcv_pilot_approval_bundle_json"] = json_path
     return paths
 
 
