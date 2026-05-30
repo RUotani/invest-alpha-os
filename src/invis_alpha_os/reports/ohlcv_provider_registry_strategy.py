@@ -16,6 +16,9 @@ from invis_alpha_os.data.ohlcv_provider_approval import (
 from invis_alpha_os.data.cross_provider_validation_runbook import (
     build_cross_provider_validation_runbook_pack,
 )
+from invis_alpha_os.data.cross_provider_validation_result_review import (
+    build_cross_provider_validation_result_review,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -307,6 +310,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     tiingo_ledger_md, tiingo_ledger_json = build_tiingo_manual_signoff_ledger_report(report_date=report_date)
     tiingo_result_md, tiingo_result_json = build_tiingo_live_fetch_result_review_report(report_date=report_date)
     cross_provider_md, cross_provider_json = build_cross_provider_validation_runbook_report(report_date=report_date)
+    result_review_md, result_review_json = build_cross_provider_validation_result_review_report(report_date=report_date)
     _ = (
         registry_md,
         planner_md,
@@ -321,6 +325,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         tiingo_ledger_md,
         tiingo_result_md,
         cross_provider_md,
+        result_review_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -526,6 +531,44 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             ],
             "cursor_handoff_status": cross_provider_json["cross_provider_validation_runbook"]["cursor_handoff"][
                 "handoff_status"
+            ],
+        },
+        "cross_provider_validation_result_review_status": {
+            "result_review_pack_exists": True,
+            "source_only": True,
+            "v65_verdict": result_review_json["cross_provider_validation_result_review"]["result_summary"][
+                "verdict"
+            ],
+            "required_providers_available": result_review_json["cross_provider_validation_result_review"][
+                "result_summary"
+            ]["required_providers_available"],
+            "required_provider_symbols_success": result_review_json["cross_provider_validation_result_review"][
+                "result_summary"
+            ]["required_provider_symbols_success"],
+            "tiingo_yahoo_adjusted_close_consistency": result_review_json[
+                "cross_provider_validation_result_review"
+            ]["result_summary"]["tiingo_yahoo_adjusted_close_consistency"],
+            "stooq_adjusted_comparison_suitability": result_review_json[
+                "cross_provider_validation_result_review"
+            ]["result_summary"]["stooq_adjusted_comparison_suitability"],
+            "stooq_base_close_comparison_suitability": result_review_json[
+                "cross_provider_validation_result_review"
+            ]["result_summary"]["stooq_base_close_comparison_suitability"],
+            "nvda_avgo_warning_interpretation": "likely_stooq_series_definition_mismatch_not_tiingo_failure_by_default",
+            "tiingo_provider_viability": result_review_json["cross_provider_validation_result_review"][
+                "cache_write_readiness"
+            ]["live_fetch_provider_viability"],
+            "tiingo_adjusted_series_confidence": result_review_json["cross_provider_validation_result_review"][
+                "cache_write_readiness"
+            ]["tiingo_adjusted_series_confidence"],
+            "cache_write_readiness": result_review_json["cross_provider_validation_result_review"][
+                "cache_write_readiness"
+            ]["cache_write_readiness"],
+            "actual_import_readiness": result_review_json["cross_provider_validation_result_review"][
+                "cache_write_readiness"
+            ]["actual_import_readiness"],
+            "next_recommended_task": result_review_json["cross_provider_validation_result_review"]["next_step"][
+                "recommended_next_step"
             ],
         },
         "manual_csv_is_fallback_not_primary": True,
@@ -2161,6 +2204,184 @@ def build_cross_provider_validation_runbook_report(*, report_date: str) -> tuple
     return "\n".join(lines), payload
 
 
+def build_cross_provider_validation_result_review_report(*, report_date: str) -> tuple[str, dict[str, Any]]:
+    review = build_cross_provider_validation_result_review(report_date=report_date)
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cross_provider_validation_result_review"),
+        "pack_version": "v66",
+        "cross_provider_validation_result_review": review.to_dict(),
+    }
+    data = payload["cross_provider_validation_result_review"]
+    summary = data["result_summary"]
+    stooq_policy = data["stooq_adjustment_policy"]
+    readiness = data["cache_write_readiness"]
+    next_step = data["next_step"]
+    lines = [
+        "# Cross-Provider Validation Result Review & Adjustment Policy Pack",
+        "",
+        "## Executive Summary",
+        "",
+        "- v65 completed as no-write cross-provider validation and returned warn_manual_review_required.",
+        "- Required providers all succeeded for 14/14 symbols with consistent row counts.",
+        "- Tiingo/Yahoo adjusted close agreement passed and is the stronger adjusted-series signal.",
+        "- Stooq lacks adjusted close and must not be used as an adjusted-series oracle.",
+        "- Cache write and actual import remain not ready and not approved.",
+        "",
+        "## v65 Result Summary",
+        "",
+        f"- v65_verdict: {summary['verdict']}",
+        f"- operation: {summary['operation']}",
+        f"- providers_executed: {', '.join(summary['providers_executed'])}",
+        f"- polygon_status: {summary['polygon_status']}",
+        f"- universe_count: {len(summary['universe'])}",
+        f"- date_range: {summary['date_range']}",
+        f"- required_providers_available: {str(summary['required_providers_available']).lower()}",
+        f"- required_provider_symbols_success: {summary['required_provider_symbols_success']}",
+        f"- row_count_per_symbol: {summary['row_count_per_symbol']}",
+        f"- row_count_consistent: {str(summary['row_count_consistent']).lower()}",
+        f"- date_range_consistent: {str(summary['date_range_consistent']).lower()}",
+        f"- tolerance_breaches_total: {summary['tolerance_breaches_total']}",
+        f"- close_breaches: {summary['close_breaches']}",
+        f"- volume_breaches: {summary['volume_breaches']}",
+        "",
+        "## Warning Interpretation",
+        "",
+        "- NVDA/AVGO large close/volume deviations should not be treated as Tiingo failure by default.",
+        "- The likely cause is Stooq non-adjusted/base series compared against adjusted or differently adjusted series.",
+        "- Stooq should not be used as adjusted-close oracle unless explicit adjusted series becomes available.",
+        "- Tiingo vs Yahoo adjusted close agreement is the stronger validation signal for adjusted series.",
+        "",
+        "## Provider-Pair Comparison Policy",
+        "",
+        "| pair | role | series_type | suitability | status_after_v65 | policy |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in data["provider_pair_policy"]:
+        lines.append(
+            f"| {row['pair']} | {row['role']} | {row['series_type']} | {row['suitability']} | "
+            f"{row['status_after_v65']} | {row['policy']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Stooq Adjustment Policy",
+            "",
+            f"- has_adjusted_close: {str(stooq_policy['has_adjusted_close']).lower()}",
+            f"- adjusted_series_oracle: {str(stooq_policy['adjusted_series_oracle']).lower()}",
+            f"- base_close_role: {stooq_policy['base_close_role']}",
+            f"- coverage_role: {stooq_policy['coverage_role']}",
+            f"- fallback_role: {stooq_policy['fallback_role']}",
+            f"- split_sensitive_warning_interpretation: {stooq_policy['split_sensitive_warning_interpretation']}",
+            "- disable_adjusted_comparison_unless_adjusted_series_available: "
+            f"{str(stooq_policy['disable_adjusted_comparison_unless_adjusted_series_available']).lower()}",
+            "",
+            "## Tolerance Policy Refinement",
+            "",
+            "| tolerance_id | name | providers | tolerance | policy |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in data["tolerance_policy_refinement"]:
+        lines.append(
+            f"| {row['tolerance_id']} | {row['name']} | {', '.join(row['providers'])} | "
+            f"{row['tolerance']} | {row['policy']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Tiingo/Yahoo Agreement Assessment",
+            "",
+            f"- tiingo_yahoo_adjusted_close_consistency: {summary['tiingo_yahoo_adjusted_close_consistency']}",
+            "- adjusted_close_tiingo_yahoo_max_deviation_approx_pct: "
+            f"{summary['adjusted_close_tiingo_yahoo_max_deviation_approx_pct']}",
+            f"- tiingo_adjusted_series_confidence: {readiness['tiingo_adjusted_series_confidence']}",
+            "",
+            "## Impact on Tiingo Provider Viability",
+            "",
+            f"- live_fetch_provider_viability: {readiness['live_fetch_provider_viability']}",
+            f"- cross_provider_validation_result: {readiness['cross_provider_validation_result']}",
+            "- Tiingo remains viable as first private/local cache candidate after policy refinement.",
+            "",
+            "## Cache-Write Readiness Assessment",
+            "",
+            f"- cache_write_readiness: {readiness['cache_write_readiness']}",
+            f"- cache_write_approved: {str(readiness['cache_write_approved']).lower()}",
+            "",
+            "| prerequisite_id | status | blocks_cache_write | description |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in readiness["prerequisites"]:
+        lines.append(
+            f"| {row['prerequisite_id']} | {row['status']} | "
+            f"{str(row['blocks_cache_write']).lower()} | {row['description']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Actual Import Readiness Assessment",
+            "",
+            f"- actual_import_readiness: {readiness['actual_import_readiness']}",
+            f"- actual_import_approved: {str(readiness['actual_import_approved']).lower()}",
+            "- Actual import remains downstream of cache-write readiness and separate approval.",
+            "",
+            "## Risk Register",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in data["risk_register"])
+    lines.extend(
+        [
+            "",
+            "## Recommended Next Step",
+            "",
+            f"- recommended_next_step: {next_step['recommended_next_step']}",
+            f"- rationale: {next_step['rationale']}",
+            f"- approval_phrase_issued: {str(next_step['approval_phrase_issued']).lower()}",
+            "",
+            "## Explicitly Not Approved",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in next_step["explicitly_not_approved"])
+    lines.extend(
+        [
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "v65_verdict": summary["verdict"],
+                    "required_providers_available": summary["required_providers_available"],
+                    "required_provider_symbols_success": summary["required_provider_symbols_success"],
+                    "tiingo_yahoo_adjusted_close_consistency": summary[
+                        "tiingo_yahoo_adjusted_close_consistency"
+                    ],
+                    "stooq_adjusted_comparison_suitability": summary[
+                        "stooq_adjusted_comparison_suitability"
+                    ],
+                    "stooq_base_close_comparison_suitability": summary[
+                        "stooq_base_close_comparison_suitability"
+                    ],
+                    "polygon_status": summary["polygon_status"],
+                    "raw_data_persisted": summary["raw_data_persisted"],
+                    "cache_write_executed": summary["cache_write_executed"],
+                    "actual_import_executed": summary["actual_import_executed"],
+                    "trading_action_executed": summary["trading_action_executed"],
+                    "cache_write_readiness": readiness["cache_write_readiness"],
+                    "actual_import_readiness": readiness["actual_import_readiness"],
+                    "next_recommended_task": next_step["recommended_next_step"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -2268,6 +2489,28 @@ def write_cross_provider_validation_runbook_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cross_provider_validation_runbook_md"] = md_path
         paths[f"{label}_cross_provider_validation_runbook_json"] = json_path
+    return paths
+
+
+def write_cross_provider_validation_result_review_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cross_provider_validation_result_review.md"
+        json_path = root / "cross_provider_validation_result_review.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cross_provider_validation_result_review_md"] = md_path
+        paths[f"{label}_cross_provider_validation_result_review_json"] = json_path
     return paths
 
 
