@@ -215,6 +215,12 @@ from invis_alpha_os.reports.weekly_report_manual_backfill_command_pack import (
     format_weekly_report_manual_backfill_command_pack_markdown,
     write_weekly_report_manual_backfill_command_pack_outputs,
 )
+from invis_alpha_os.reports.scheduled_report_failure_triage_matrix import (
+    build_scheduled_report_failure_triage_matrix,
+    format_scheduled_report_failure_triage_matrix_json,
+    format_scheduled_report_failure_triage_matrix_markdown,
+    write_scheduled_report_failure_triage_matrix_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1384,6 +1390,42 @@ def weekly_candidate_brief_manual_backfill_command_pack_command(
         "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
         "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false workflow_files_modified=false "
         "gmail_send_executed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-scheduled-report-failure-triage")
+def weekly_candidate_brief_scheduled_report_failure_triage_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    expected_cron_utc: str = typer.Option("0 22 * * 5", "--expected-cron-utc"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-scheduled-report-failure-triage: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_scheduled_report_failure_triage_matrix(report_date=run_date, expected_cron_utc=expected_cron_utc)
+    markdown_text = format_scheduled_report_failure_triage_matrix_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_scheduled_report_failure_triage_matrix_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_scheduled_report_failure_triage_matrix_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-scheduled-report-failure-triage: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-scheduled-report-failure-triage: "
+        "source_only=true triage_matrix_only=true provider_live_access_executed=false live_http_executed=false "
+        "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)
