@@ -221,6 +221,12 @@ from invis_alpha_os.reports.scheduled_report_failure_triage_matrix import (
     format_scheduled_report_failure_triage_matrix_markdown,
     write_scheduled_report_failure_triage_matrix_outputs,
 )
+from invis_alpha_os.reports.long_run_development_progress_snapshot import (
+    build_long_run_development_progress_snapshot,
+    format_long_run_development_progress_snapshot_json,
+    format_long_run_development_progress_snapshot_markdown,
+    write_long_run_development_progress_snapshot_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1426,6 +1432,42 @@ def weekly_candidate_brief_scheduled_report_failure_triage_command(
         "source_only=true triage_matrix_only=true provider_live_access_executed=false live_http_executed=false "
         "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-long-run-progress-snapshot")
+def weekly_candidate_brief_long_run_progress_snapshot_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-long-run-progress-snapshot: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_long_run_development_progress_snapshot(report_date=run_date)
+    markdown_text = format_long_run_development_progress_snapshot_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_long_run_development_progress_snapshot_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_long_run_development_progress_snapshot_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-long-run-progress-snapshot: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-long-run-progress-snapshot: "
+        "source_only=true progress_snapshot_only=true single_overall_percent_allowed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "workflow_files_modified=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)
