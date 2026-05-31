@@ -191,6 +191,12 @@ from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import 
     format_weekly_report_local_dryrun_backfill_contract_markdown,
     write_weekly_report_local_dryrun_backfill_contract_outputs,
 )
+from invis_alpha_os.reports.long_run_operator_preflight import (
+    build_long_run_operator_preflight_pack,
+    format_long_run_operator_preflight_pack_json,
+    format_long_run_operator_preflight_pack_markdown,
+    write_long_run_operator_preflight_pack_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1193,6 +1199,42 @@ def weekly_candidate_brief_local_dryrun_backfill_contract_command(
         "manual_backfill_executed=false provider_live_access_executed=false live_http_executed=false "
         "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "workflow_files_modified=false gmail_send_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-long-run-operator-preflight")
+def weekly_candidate_brief_long_run_operator_preflight_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-long-run-operator-preflight: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_long_run_operator_preflight_pack(report_date=run_date)
+    markdown_text = format_long_run_operator_preflight_pack_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_long_run_operator_preflight_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_long_run_operator_preflight_pack_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-long-run-operator-preflight: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-long-run-operator-preflight: "
+        "source_only=true sleep_guard_pack_only=true macos_system_settings_changed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "workflow_files_modified=false dependency_pyproject_changed=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)
