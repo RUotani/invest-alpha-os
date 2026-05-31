@@ -38,6 +38,9 @@ from invis_alpha_os.data.cache_write_pilot_approval_packet import (
 from invis_alpha_os.data.cache_write_pilot_result_review_gate import (
     build_cache_write_pilot_result_review_gate,
 )
+from invis_alpha_os.data.actual_import_readiness_boundary import (
+    build_actual_import_readiness_boundary,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -348,6 +351,10 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         report_date=report_date,
         candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
     )
+    actual_import_boundary_md, actual_import_boundary_json = build_actual_import_readiness_boundary_report(
+        report_date=report_date,
+        candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
+    )
     _ = (
         registry_md,
         planner_md,
@@ -369,6 +376,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         purge_contract_md,
         pilot_packet_md,
         result_review_gate_md,
+        actual_import_boundary_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -816,6 +824,40 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 "raw_ohlcv_emitted"
             ],
             "next_task": result_review_gate_json["cache_write_pilot_result_review_gate"]["context_summary"][
+                "next_task"
+            ],
+        },
+        "actual_import_readiness_boundary_status": {
+            "boundary_exists": True,
+            "source_only": actual_import_boundary_json["actual_import_readiness_boundary"]["safety_flags"][
+                "source_only"
+            ],
+            "boundary_status": actual_import_boundary_json["actual_import_readiness_boundary"]["boundary_status"],
+            "actual_import_readiness": actual_import_boundary_json["actual_import_readiness_boundary"][
+                "readiness_verdict"
+            ]["actual_import_readiness"],
+            "cache_write_pilot_readiness": actual_import_boundary_json["actual_import_readiness_boundary"][
+                "readiness_verdict"
+            ]["cache_write_pilot_readiness"],
+            "cache_write_pilot_result_review_readiness": actual_import_boundary_json[
+                "actual_import_readiness_boundary"
+            ]["readiness_verdict"]["cache_write_pilot_result_review_readiness"],
+            "cache_write_approval_does_not_imply_actual_import": actual_import_boundary_json[
+                "actual_import_readiness_boundary"
+            ]["approval_phrase_boundary"]["cache_write_approval_does_not_imply_actual_import"],
+            "result_review_pass_not_sufficient_for_actual_import": actual_import_boundary_json[
+                "actual_import_readiness_boundary"
+            ]["approval_phrase_boundary"]["result_review_pass_not_sufficient_for_actual_import"],
+            "actual_import_approval_phrase_issued": actual_import_boundary_json[
+                "actual_import_readiness_boundary"
+            ]["approval_phrase_boundary"]["actual_import_approval_phrase_issued"],
+            "actual_import_execution_allowed_now": actual_import_boundary_json["actual_import_readiness_boundary"][
+                "readiness_verdict"
+            ]["actual_import_execution_allowed_now"],
+            "trading_readiness": actual_import_boundary_json["actual_import_readiness_boundary"][
+                "readiness_verdict"
+            ]["trading_readiness"],
+            "next_task": actual_import_boundary_json["actual_import_readiness_boundary"]["context_summary"][
                 "next_task"
             ],
         },
@@ -3558,6 +3600,142 @@ def build_cache_write_pilot_result_review_gate_report(
     return "\n".join(lines), payload
 
 
+def build_actual_import_readiness_boundary_report(
+    *,
+    report_date: str,
+    candidate_cache_path: str,
+) -> tuple[str, dict[str, Any]]:
+    boundary = build_actual_import_readiness_boundary(
+        report_date=report_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="actual_import_readiness_boundary"),
+        "pack_version": "v70C",
+        "actual_import_readiness_boundary": boundary.to_dict(),
+    }
+    data = payload["actual_import_readiness_boundary"]
+    verdict = data["readiness_verdict"]
+    phrase = data["approval_phrase_boundary"]
+    lines = [
+        "# v70C Actual Import Separation / Quarantine Boundary / Readiness Matrix",
+        "",
+        "## Verdict",
+        "",
+        f"- cache_write_pilot_readiness: {verdict['cache_write_pilot_readiness']}",
+        f"- cache_write_pilot_result_review_readiness: {verdict['cache_write_pilot_result_review_readiness']}",
+        f"- actual_import_readiness: {verdict['actual_import_readiness']}",
+        f"- manual_actual_import_readiness: {verdict['manual_actual_import_readiness']}",
+        f"- trading_readiness: {verdict['trading_readiness']}",
+        f"- cache_write_execution_allowed_now: {str(verdict['cache_write_execution_allowed_now']).lower()}",
+        f"- actual_import_execution_allowed_now: {str(verdict['actual_import_execution_allowed_now']).lower()}",
+        f"- trading_action_allowed_now: {str(verdict['trading_action_allowed_now']).lower()}",
+        "",
+        "## Cache Pilot Scope",
+        "",
+    ]
+    for key, value in data["cache_pilot_scope"].items():
+        lines.append(f"- {key}: {', '.join(value) if isinstance(value, list) else value}")
+    lines.extend(
+        [
+            "",
+            "## Quarantine Boundary",
+            "",
+        ]
+    )
+    for key, value in data["quarantine_boundary"].items():
+        lines.append(f"- {key}: {str(value).lower() if isinstance(value, bool) else value}")
+    lines.extend(
+        [
+            "",
+            "## Readiness Matrix",
+            "",
+            "| area | current_status | approval_phrase_issued | execution_allowed_now | notes |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in data["readiness_matrix"]:
+        lines.append(
+            f"| {row['area']} | {row['current_status']} | "
+            f"{str(row['approval_phrase_issued']).lower()} | {str(row['execution_allowed_now']).lower()} | "
+            f"{row['notes']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Actual Import Prerequisites",
+            "",
+            "| area | current_status | execution_allowed_now | notes |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in data["actual_import_prerequisites"]:
+        lines.append(
+            f"| {row['area']} | {row['current_status']} | "
+            f"{str(row['execution_allowed_now']).lower()} | {row['notes']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Approval Phrase Boundary",
+            "",
+            f"- cache_write_approval_phrase: {phrase['cache_write_approval_phrase']}",
+            f"- cache_write_approval_phrase_issued: {str(phrase['cache_write_approval_phrase_issued']).lower()}",
+            "- cache_write_approval_does_not_imply_actual_import: "
+            f"{str(phrase['cache_write_approval_does_not_imply_actual_import']).lower()}",
+            "- result_review_pass_required_for_actual_import_discussion: "
+            f"{str(phrase['result_review_pass_required_for_actual_import_discussion']).lower()}",
+            "- result_review_pass_not_sufficient_for_actual_import: "
+            f"{str(phrase['result_review_pass_not_sufficient_for_actual_import']).lower()}",
+            f"- actual_import_approval_phrase: {phrase['actual_import_approval_phrase']}",
+            f"- actual_import_approval_phrase_issued: {str(phrase['actual_import_approval_phrase_issued']).lower()}",
+            "- actual_import_approval_phrase_required_separately: "
+            f"{str(phrase['actual_import_approval_phrase_required_separately']).lower()}",
+            f"- trading_action_approval_in_scope: {str(phrase['trading_action_approval_in_scope']).lower()}",
+            "",
+            "## What Is Still Not Approved",
+            "",
+            "- provider live access",
+            "- live HTTP",
+            "- Tiingo API call",
+            "- cache write",
+            "- actual refresh/import",
+            "- manual actual import",
+            "- raw OHLCV persistence",
+            "- raw API response persistence",
+            "- reports-private raw data write",
+            "- Git-tracked raw data write",
+            "- env/secret display",
+            "- broker/manual raw data handling",
+            "- trading action",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "actual_import_readiness": verdict["actual_import_readiness"],
+                    "cache_write_approval_does_not_imply_actual_import": phrase[
+                        "cache_write_approval_does_not_imply_actual_import"
+                    ],
+                    "result_review_pass_not_sufficient_for_actual_import": phrase[
+                        "result_review_pass_not_sufficient_for_actual_import"
+                    ],
+                    "actual_import_execution_allowed_now": verdict["actual_import_execution_allowed_now"],
+                    "trading_action_allowed_now": verdict["trading_action_allowed_now"],
+                    "source_only": data["safety_flags"]["source_only"],
+                    "cache_write_executed": data["safety_flags"]["cache_write_executed"],
+                    "actual_refresh_import_executed": data["safety_flags"]["actual_refresh_import_executed"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -3819,6 +3997,28 @@ def write_cache_write_pilot_result_review_gate_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_write_pilot_result_review_gate_md"] = md_path
         paths[f"{label}_cache_write_pilot_result_review_gate_json"] = json_path
+    return paths
+
+
+def write_actual_import_readiness_boundary_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "actual_import_readiness_boundary.md"
+        json_path = root / "actual_import_readiness_boundary.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_actual_import_readiness_boundary_md"] = md_path
+        paths[f"{label}_actual_import_readiness_boundary_json"] = json_path
     return paths
 
 
