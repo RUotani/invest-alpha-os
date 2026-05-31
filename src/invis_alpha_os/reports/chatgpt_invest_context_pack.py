@@ -27,6 +27,7 @@ from invis_alpha_os.reports.weekly_report_workflow_approval_package import (
 from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import (
     build_weekly_report_local_dryrun_backfill_contract,
 )
+from invis_alpha_os.reports.long_run_operator_preflight import build_long_run_operator_preflight_pack
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -241,6 +242,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     recovery_runbook = build_weekly_report_recovery_runbook(missed_report_date="2026-05-30")
     workflow_approval = build_weekly_report_workflow_approval_package(report_date=report_date)
     local_dryrun_contract = build_weekly_report_local_dryrun_backfill_contract(report_date=report_date)
+    long_run_preflight = build_long_run_operator_preflight_pack(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -361,6 +363,20 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             ],
             "workflow_files_modified": local_dryrun_contract["safety_summary"]["workflow_files_modified"],
             "next_task": local_dryrun_contract["next_task"],
+        },
+        "long_run_operator_preflight_sleep_guard_status": {
+            "pack_exists": True,
+            "readiness_verdict": long_run_preflight["readiness_verdict"],
+            "recommended_command": long_run_preflight["sleep_prevention"]["recommended_command"],
+            "future_long_run_max_instructions_include_sleep_guard": long_run_preflight[
+                "handoff_inclusion_contract"
+            ]["future_long_run_max_instructions_include_sleep_guard"],
+            "future_cursor_handoffs_include_sleep_guard": long_run_preflight["handoff_inclusion_contract"][
+                "future_cursor_handoffs_include_sleep_guard"
+            ],
+            "macos_system_settings_changed": long_run_preflight["safety_summary"]["macos_system_settings_changed"],
+            "workflow_files_modified": long_run_preflight["safety_summary"]["workflow_files_modified"],
+            "next_task": long_run_preflight["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -640,6 +656,12 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_manual_backfill_execution_approved: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['manual_backfill_execution_approved_by_this_pack']).lower()}",
             f"- weekly_report_local_dryrun_raw_ohlcv_persistence_executed: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['raw_ohlcv_persistence_executed']).lower()}",
             f"- weekly_report_local_dryrun_workflow_files_modified: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['workflow_files_modified']).lower()}",
+            f"- long_run_operator_preflight_sleep_guard_exists: {str(out_json['long_run_operator_preflight_sleep_guard_status']['pack_exists']).lower()}",
+            f"- long_run_operator_preflight_verdict: {out_json['long_run_operator_preflight_sleep_guard_status']['readiness_verdict']}",
+            f"- long_run_operator_preflight_caffeinate_command: {out_json['long_run_operator_preflight_sleep_guard_status']['recommended_command']}",
+            f"- long_run_operator_preflight_future_long_run_include_sleep_guard: {str(out_json['long_run_operator_preflight_sleep_guard_status']['future_long_run_max_instructions_include_sleep_guard']).lower()}",
+            f"- long_run_operator_preflight_macos_settings_changed: {str(out_json['long_run_operator_preflight_sleep_guard_status']['macos_system_settings_changed']).lower()}",
+            f"- long_run_operator_preflight_workflow_files_modified: {str(out_json['long_run_operator_preflight_sleep_guard_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
