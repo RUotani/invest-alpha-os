@@ -28,6 +28,7 @@ from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import 
     build_weekly_report_local_dryrun_backfill_contract,
 )
 from invis_alpha_os.reports.long_run_operator_preflight import build_long_run_operator_preflight_pack
+from invis_alpha_os.reports.scheduled_report_assurance_snapshot import build_scheduled_report_assurance_snapshot
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -243,6 +244,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     workflow_approval = build_weekly_report_workflow_approval_package(report_date=report_date)
     local_dryrun_contract = build_weekly_report_local_dryrun_backfill_contract(report_date=report_date)
     long_run_preflight = build_long_run_operator_preflight_pack(report_date=report_date)
+    assurance_snapshot = build_scheduled_report_assurance_snapshot(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -377,6 +379,16 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "macos_system_settings_changed": long_run_preflight["safety_summary"]["macos_system_settings_changed"],
             "workflow_files_modified": long_run_preflight["safety_summary"]["workflow_files_modified"],
             "next_task": long_run_preflight["next_task"],
+        },
+        "scheduled_report_assurance_snapshot_status": {
+            "snapshot_exists": True,
+            "readiness_verdict": assurance_snapshot["readiness_verdict"],
+            "next_run_date_jst": assurance_snapshot["next_run_target"]["next_run_date_jst"],
+            "next_run_local_time": assurance_snapshot["next_run_target"]["next_run_local_time"],
+            "github_actions_cron_utc": assurance_snapshot["next_run_target"]["github_actions_cron_utc"],
+            "next_scheduled_report_confidence": assurance_snapshot["next_scheduled_report_confidence"],
+            "workflow_files_modified": assurance_snapshot["safety_summary"]["workflow_files_modified"],
+            "gmail_send_executed": assurance_snapshot["safety_summary"]["gmail_send_executed"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -662,6 +674,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- long_run_operator_preflight_future_long_run_include_sleep_guard: {str(out_json['long_run_operator_preflight_sleep_guard_status']['future_long_run_max_instructions_include_sleep_guard']).lower()}",
             f"- long_run_operator_preflight_macos_settings_changed: {str(out_json['long_run_operator_preflight_sleep_guard_status']['macos_system_settings_changed']).lower()}",
             f"- long_run_operator_preflight_workflow_files_modified: {str(out_json['long_run_operator_preflight_sleep_guard_status']['workflow_files_modified']).lower()}",
+            f"- scheduled_report_assurance_snapshot_exists: {str(out_json['scheduled_report_assurance_snapshot_status']['snapshot_exists']).lower()}",
+            f"- scheduled_report_assurance_verdict: {out_json['scheduled_report_assurance_snapshot_status']['readiness_verdict']}",
+            f"- scheduled_report_assurance_next_run_date_jst: {out_json['scheduled_report_assurance_snapshot_status']['next_run_date_jst']}",
+            f"- scheduled_report_assurance_next_run_local_time: {out_json['scheduled_report_assurance_snapshot_status']['next_run_local_time']}",
+            f"- scheduled_report_assurance_cron_utc: {out_json['scheduled_report_assurance_snapshot_status']['github_actions_cron_utc']}",
+            f"- scheduled_report_assurance_confidence: {out_json['scheduled_report_assurance_snapshot_status']['next_scheduled_report_confidence']}",
+            f"- scheduled_report_assurance_workflow_files_modified: {str(out_json['scheduled_report_assurance_snapshot_status']['workflow_files_modified']).lower()}",
+            f"- scheduled_report_assurance_gmail_send_executed: {str(out_json['scheduled_report_assurance_snapshot_status']['gmail_send_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
