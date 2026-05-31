@@ -35,6 +35,9 @@ from invis_alpha_os.reports.weekly_report_workflow_patch_review_gate import (
 from invis_alpha_os.reports.weekly_report_manual_backfill_command_pack import (
     build_weekly_report_manual_backfill_command_pack,
 )
+from invis_alpha_os.reports.scheduled_report_failure_triage_matrix import (
+    build_scheduled_report_failure_triage_matrix,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -253,6 +256,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     assurance_snapshot = build_scheduled_report_assurance_snapshot(report_date=report_date)
     workflow_patch_review_gate = build_weekly_report_workflow_patch_review_gate(report_date=report_date)
     manual_backfill_command_pack = build_weekly_report_manual_backfill_command_pack(report_date=report_date)
+    failure_triage = build_scheduled_report_failure_triage_matrix(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -425,6 +429,17 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "workflow_files_modified": manual_backfill_command_pack["safety_summary"]["workflow_files_modified"],
             "gmail_send_executed": manual_backfill_command_pack["safety_summary"]["gmail_send_executed"],
             "next_task": manual_backfill_command_pack["next_task"],
+        },
+        "scheduled_report_failure_triage_matrix_status": {
+            "matrix_exists": True,
+            "readiness_verdict": failure_triage["readiness_verdict"],
+            "failure_classes": [row["failure_class"] for row in failure_triage["triage_matrix"]],
+            "utc_cron_expression": failure_triage["expected_schedule"]["utc_cron_expression"],
+            "secret_values_may_be_displayed": failure_triage["evidence_boundaries"][
+                "secret_values_may_be_displayed"
+            ],
+            "workflow_files_modified": failure_triage["safety_summary"]["workflow_files_modified"],
+            "next_task": failure_triage["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -733,6 +748,12 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_manual_backfill_raw_data_outputs_allowed: {str(out_json['weekly_report_manual_backfill_command_pack_status']['raw_data_outputs_allowed']).lower()}",
             f"- weekly_report_manual_backfill_workflow_files_modified: {str(out_json['weekly_report_manual_backfill_command_pack_status']['workflow_files_modified']).lower()}",
             f"- weekly_report_manual_backfill_gmail_send_executed: {str(out_json['weekly_report_manual_backfill_command_pack_status']['gmail_send_executed']).lower()}",
+            f"- scheduled_report_failure_triage_matrix_exists: {str(out_json['scheduled_report_failure_triage_matrix_status']['matrix_exists']).lower()}",
+            f"- scheduled_report_failure_triage_verdict: {out_json['scheduled_report_failure_triage_matrix_status']['readiness_verdict']}",
+            f"- scheduled_report_failure_triage_classes: {', '.join(out_json['scheduled_report_failure_triage_matrix_status']['failure_classes'])}",
+            f"- scheduled_report_failure_triage_utc_cron: {out_json['scheduled_report_failure_triage_matrix_status']['utc_cron_expression']}",
+            f"- scheduled_report_failure_triage_secret_values_may_be_displayed: {str(out_json['scheduled_report_failure_triage_matrix_status']['secret_values_may_be_displayed']).lower()}",
+            f"- scheduled_report_failure_triage_workflow_files_modified: {str(out_json['scheduled_report_failure_triage_matrix_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
