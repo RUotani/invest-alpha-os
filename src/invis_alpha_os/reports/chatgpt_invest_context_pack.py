@@ -20,6 +20,7 @@ from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import build_provider_context_pack_block
 from invis_alpha_os.reports.scheduled_report_observability import build_scheduled_report_observability
 from invis_alpha_os.reports.weekly_report_schedule_diagnostic import build_weekly_report_schedule_diagnostic
+from invis_alpha_os.reports.weekly_report_recovery_runbook import build_weekly_report_recovery_runbook
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -231,6 +232,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     provider_block = build_provider_context_pack_block(report_date=report_date)
     weekly_schedule = build_weekly_report_schedule_diagnostic(observed_missing_date="2026-05-30")
     scheduled_observability = build_scheduled_report_observability(as_of_date=report_date)
+    recovery_runbook = build_weekly_report_recovery_runbook(missed_report_date="2026-05-30")
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -313,6 +315,19 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "raw_market_data_read": scheduled_observability["evidence_inputs"]["raw_market_data_read"],
             "workflow_files_modified": scheduled_observability["safety_summary"]["workflow_files_modified"],
             "gmail_send_executed": scheduled_observability["safety_summary"]["gmail_send_executed"],
+        },
+        "weekly_report_recovery_runbook_status": {
+            "runbook_exists": True,
+            "missed_report_date": recovery_runbook["missed_report_context"]["missed_report_date"],
+            "this_pack_approves_backfill_execution": recovery_runbook["backfill_approval_boundary"][
+                "this_pack_approves_backfill_execution"
+            ],
+            "manual_backfill_requires_human_choice": recovery_runbook["backfill_approval_boundary"][
+                "manual_backfill_requires_human_choice"
+            ],
+            "workflow_files_modified": recovery_runbook["safety_summary"]["workflow_files_modified"],
+            "gmail_send_executed": recovery_runbook["safety_summary"]["gmail_send_executed"],
+            "provider_live_access_executed": recovery_runbook["safety_summary"]["provider_live_access_executed"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -572,6 +587,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- scheduled_report_raw_market_data_read: {str(out_json['scheduled_report_observability_status']['raw_market_data_read']).lower()}",
             f"- scheduled_report_workflow_files_modified: {str(out_json['scheduled_report_observability_status']['workflow_files_modified']).lower()}",
             f"- scheduled_report_gmail_send_executed: {str(out_json['scheduled_report_observability_status']['gmail_send_executed']).lower()}",
+            f"- weekly_report_recovery_runbook_exists: {str(out_json['weekly_report_recovery_runbook_status']['runbook_exists']).lower()}",
+            f"- weekly_report_recovery_missed_report_date: {out_json['weekly_report_recovery_runbook_status']['missed_report_date']}",
+            f"- weekly_report_recovery_pack_approves_backfill: {str(out_json['weekly_report_recovery_runbook_status']['this_pack_approves_backfill_execution']).lower()}",
+            f"- weekly_report_recovery_manual_backfill_requires_human_choice: {str(out_json['weekly_report_recovery_runbook_status']['manual_backfill_requires_human_choice']).lower()}",
+            f"- weekly_report_recovery_workflow_files_modified: {str(out_json['weekly_report_recovery_runbook_status']['workflow_files_modified']).lower()}",
+            f"- weekly_report_recovery_gmail_send_executed: {str(out_json['weekly_report_recovery_runbook_status']['gmail_send_executed']).lower()}",
+            f"- weekly_report_recovery_provider_live_access_executed: {str(out_json['weekly_report_recovery_runbook_status']['provider_live_access_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
