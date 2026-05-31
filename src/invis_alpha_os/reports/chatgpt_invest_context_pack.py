@@ -18,6 +18,7 @@ from invis_alpha_os.reports.contract_env_status import (
 from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
 from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import build_provider_context_pack_block
+from invis_alpha_os.reports.scheduled_report_observability import build_scheduled_report_observability
 from invis_alpha_os.reports.weekly_report_schedule_diagnostic import build_weekly_report_schedule_diagnostic
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
@@ -229,6 +230,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     jp_env_gap = jp_stale_candidates_without_contract_env(top10)
     provider_block = build_provider_context_pack_block(report_date=report_date)
     weekly_schedule = build_weekly_report_schedule_diagnostic(observed_missing_date="2026-05-30")
+    scheduled_observability = build_scheduled_report_observability(as_of_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -302,6 +304,15 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "workflow_change_required": weekly_schedule["workflow_change_required"],
             "next_scheduled_report_confidence": weekly_schedule["next_scheduled_report_confidence"],
             "workflow_files_modified": weekly_schedule["safety_summary"]["workflow_files_modified"],
+        },
+        "scheduled_report_observability_status": {
+            "sentinel_exists": True,
+            "expected_date": scheduled_observability["last_expected_occurrence"]["expected_date"],
+            "missing_report_verdict": scheduled_observability["missing_report_verdict"],
+            "github_actions_cron_utc": scheduled_observability["expected_schedule"]["github_actions_cron_utc"],
+            "raw_market_data_read": scheduled_observability["evidence_inputs"]["raw_market_data_read"],
+            "workflow_files_modified": scheduled_observability["safety_summary"]["workflow_files_modified"],
+            "gmail_send_executed": scheduled_observability["safety_summary"]["gmail_send_executed"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -554,6 +565,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_workflow_change_required: {out_json['weekly_report_schedule_diagnostic_status']['workflow_change_required']}",
             f"- weekly_report_next_scheduled_report_confidence: {out_json['weekly_report_schedule_diagnostic_status']['next_scheduled_report_confidence']}",
             f"- weekly_report_workflow_files_modified: {str(out_json['weekly_report_schedule_diagnostic_status']['workflow_files_modified']).lower()}",
+            f"- scheduled_report_observability_exists: {str(out_json['scheduled_report_observability_status']['sentinel_exists']).lower()}",
+            f"- scheduled_report_expected_date: {out_json['scheduled_report_observability_status']['expected_date']}",
+            f"- scheduled_report_missing_verdict: {out_json['scheduled_report_observability_status']['missing_report_verdict']}",
+            f"- scheduled_report_github_actions_cron_utc: {out_json['scheduled_report_observability_status']['github_actions_cron_utc']}",
+            f"- scheduled_report_raw_market_data_read: {str(out_json['scheduled_report_observability_status']['raw_market_data_read']).lower()}",
+            f"- scheduled_report_workflow_files_modified: {str(out_json['scheduled_report_observability_status']['workflow_files_modified']).lower()}",
+            f"- scheduled_report_gmail_send_executed: {str(out_json['scheduled_report_observability_status']['gmail_send_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
