@@ -203,6 +203,12 @@ from invis_alpha_os.reports.scheduled_report_assurance_snapshot import (
     format_scheduled_report_assurance_snapshot_markdown,
     write_scheduled_report_assurance_snapshot_outputs,
 )
+from invis_alpha_os.reports.weekly_report_workflow_patch_review_gate import (
+    build_weekly_report_workflow_patch_review_gate,
+    format_weekly_report_workflow_patch_review_gate_json,
+    format_weekly_report_workflow_patch_review_gate_markdown,
+    write_weekly_report_workflow_patch_review_gate_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1282,6 +1288,51 @@ def weekly_candidate_brief_scheduled_report_assurance_snapshot_command(
         "source_only=true assurance_snapshot_only=true provider_live_access_executed=false "
         "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
         "raw_ohlcv_persistence_executed=false workflow_files_modified=false gmail_send_executed=false "
+        "dependency_pyproject_changed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-workflow-patch-review-gate")
+def weekly_candidate_brief_workflow_patch_review_gate_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    target_timezone: str = typer.Option("Asia/Tokyo", "--target-timezone"),
+    target_weekday: str = typer.Option("Saturday", "--target-weekday"),
+    target_local_hour: int = typer.Option(7, "--target-local-hour"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-workflow-patch-review-gate: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_weekly_report_workflow_patch_review_gate(
+        report_date=run_date,
+        target_timezone=target_timezone,
+        target_weekday=target_weekday,
+        target_local_hour=target_local_hour,
+        repo_root=ROOT_DIR,
+    )
+    markdown_text = format_weekly_report_workflow_patch_review_gate_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_report_workflow_patch_review_gate_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_report_workflow_patch_review_gate_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-workflow-patch-review-gate: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-workflow-patch-review-gate: "
+        "source_only=true workflow_patch_review_only=true workflow_files_modified=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "dependency_pyproject_changed=false trading_action_executed=false",
         err=True,
     )

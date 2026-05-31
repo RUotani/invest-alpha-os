@@ -29,6 +29,9 @@ from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import 
 )
 from invis_alpha_os.reports.long_run_operator_preflight import build_long_run_operator_preflight_pack
 from invis_alpha_os.reports.scheduled_report_assurance_snapshot import build_scheduled_report_assurance_snapshot
+from invis_alpha_os.reports.weekly_report_workflow_patch_review_gate import (
+    build_weekly_report_workflow_patch_review_gate,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -245,6 +248,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     local_dryrun_contract = build_weekly_report_local_dryrun_backfill_contract(report_date=report_date)
     long_run_preflight = build_long_run_operator_preflight_pack(report_date=report_date)
     assurance_snapshot = build_scheduled_report_assurance_snapshot(report_date=report_date)
+    workflow_patch_review_gate = build_weekly_report_workflow_patch_review_gate(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -389,6 +393,19 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "next_scheduled_report_confidence": assurance_snapshot["next_scheduled_report_confidence"],
             "workflow_files_modified": assurance_snapshot["safety_summary"]["workflow_files_modified"],
             "gmail_send_executed": assurance_snapshot["safety_summary"]["gmail_send_executed"],
+        },
+        "weekly_report_workflow_patch_review_gate_status": {
+            "gate_exists": True,
+            "readiness_verdict": workflow_patch_review_gate["readiness_verdict"],
+            "workflow_patch_required": workflow_patch_review_gate["approval_gate"]["workflow_patch_required"],
+            "human_approval_required": workflow_patch_review_gate["approval_gate"]["human_approval_required"],
+            "utc_cron_expression": workflow_patch_review_gate["schedule"]["utc_cron_expression"],
+            "corresponding_jst_schedule": workflow_patch_review_gate["schedule"]["corresponding_jst_schedule"],
+            "manual_workflow_dispatch_required": workflow_patch_review_gate["schedule"][
+                "manual_workflow_dispatch_required"
+            ],
+            "workflow_files_modified": workflow_patch_review_gate["safety_summary"]["workflow_files_modified"],
+            "next_task": workflow_patch_review_gate["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -682,6 +699,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- scheduled_report_assurance_confidence: {out_json['scheduled_report_assurance_snapshot_status']['next_scheduled_report_confidence']}",
             f"- scheduled_report_assurance_workflow_files_modified: {str(out_json['scheduled_report_assurance_snapshot_status']['workflow_files_modified']).lower()}",
             f"- scheduled_report_assurance_gmail_send_executed: {str(out_json['scheduled_report_assurance_snapshot_status']['gmail_send_executed']).lower()}",
+            f"- weekly_report_workflow_patch_review_gate_exists: {str(out_json['weekly_report_workflow_patch_review_gate_status']['gate_exists']).lower()}",
+            f"- weekly_report_workflow_patch_review_verdict: {out_json['weekly_report_workflow_patch_review_gate_status']['readiness_verdict']}",
+            f"- weekly_report_workflow_patch_review_human_approval_required: {str(out_json['weekly_report_workflow_patch_review_gate_status']['human_approval_required']).lower()}",
+            f"- weekly_report_workflow_patch_review_utc_cron: {out_json['weekly_report_workflow_patch_review_gate_status']['utc_cron_expression']}",
+            f"- weekly_report_workflow_patch_review_jst_schedule: {out_json['weekly_report_workflow_patch_review_gate_status']['corresponding_jst_schedule']}",
+            f"- weekly_report_workflow_patch_review_manual_dispatch_required: {str(out_json['weekly_report_workflow_patch_review_gate_status']['manual_workflow_dispatch_required']).lower()}",
+            f"- weekly_report_workflow_patch_review_workflow_files_modified: {str(out_json['weekly_report_workflow_patch_review_gate_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
