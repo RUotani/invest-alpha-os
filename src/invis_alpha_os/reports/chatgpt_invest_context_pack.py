@@ -21,6 +21,9 @@ from invis_alpha_os.reports.ohlcv_provider_registry_strategy import build_provid
 from invis_alpha_os.reports.scheduled_report_observability import build_scheduled_report_observability
 from invis_alpha_os.reports.weekly_report_schedule_diagnostic import build_weekly_report_schedule_diagnostic
 from invis_alpha_os.reports.weekly_report_recovery_runbook import build_weekly_report_recovery_runbook
+from invis_alpha_os.reports.weekly_report_workflow_approval_package import (
+    build_weekly_report_workflow_approval_package,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -233,6 +236,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     weekly_schedule = build_weekly_report_schedule_diagnostic(observed_missing_date="2026-05-30")
     scheduled_observability = build_scheduled_report_observability(as_of_date=report_date)
     recovery_runbook = build_weekly_report_recovery_runbook(missed_report_date="2026-05-30")
+    workflow_approval = build_weekly_report_workflow_approval_package(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -328,6 +332,15 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "workflow_files_modified": recovery_runbook["safety_summary"]["workflow_files_modified"],
             "gmail_send_executed": recovery_runbook["safety_summary"]["gmail_send_executed"],
             "provider_live_access_executed": recovery_runbook["safety_summary"]["provider_live_access_executed"],
+        },
+        "weekly_report_workflow_approval_package_status": {
+            "package_exists": True,
+            "readiness_verdict": workflow_approval["readiness_verdict"],
+            "workflow_patch_required": workflow_approval["current_scheduler_assessment"]["workflow_patch_required"],
+            "wrong_cron_detected": workflow_approval["current_scheduler_assessment"]["wrong_cron_detected"],
+            "github_actions_cron_utc": workflow_approval["target_schedule"]["github_actions_cron_utc"],
+            "workflow_files_modified": workflow_approval["safety_summary"]["workflow_files_modified"],
+            "next_task": workflow_approval["context_summary"]["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -594,6 +607,12 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_recovery_workflow_files_modified: {str(out_json['weekly_report_recovery_runbook_status']['workflow_files_modified']).lower()}",
             f"- weekly_report_recovery_gmail_send_executed: {str(out_json['weekly_report_recovery_runbook_status']['gmail_send_executed']).lower()}",
             f"- weekly_report_recovery_provider_live_access_executed: {str(out_json['weekly_report_recovery_runbook_status']['provider_live_access_executed']).lower()}",
+            f"- weekly_report_workflow_approval_package_exists: {str(out_json['weekly_report_workflow_approval_package_status']['package_exists']).lower()}",
+            f"- weekly_report_workflow_approval_verdict: {out_json['weekly_report_workflow_approval_package_status']['readiness_verdict']}",
+            f"- weekly_report_workflow_patch_required: {str(out_json['weekly_report_workflow_approval_package_status']['workflow_patch_required']).lower()}",
+            f"- weekly_report_workflow_wrong_cron_detected: {str(out_json['weekly_report_workflow_approval_package_status']['wrong_cron_detected']).lower()}",
+            f"- weekly_report_workflow_github_actions_cron_utc: {out_json['weekly_report_workflow_approval_package_status']['github_actions_cron_utc']}",
+            f"- weekly_report_workflow_files_modified: {str(out_json['weekly_report_workflow_approval_package_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",

@@ -179,6 +179,12 @@ from invis_alpha_os.reports.weekly_report_recovery_runbook import (
     format_weekly_report_recovery_runbook_markdown,
     write_weekly_report_recovery_runbook_outputs,
 )
+from invis_alpha_os.reports.weekly_report_workflow_approval_package import (
+    build_weekly_report_workflow_approval_package,
+    format_weekly_report_workflow_approval_package_json,
+    format_weekly_report_workflow_approval_package_markdown,
+    write_weekly_report_workflow_approval_package_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1095,6 +1101,52 @@ def weekly_candidate_brief_recovery_runbook_command(
     typer.echo(
         "weekly-candidate-brief-recovery-runbook: "
         "source_only=true recovery_runbook_only=true backfill_executed=false workflow_files_modified=false gmail_send_executed=false provider_live_access_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-workflow-approval-package")
+def weekly_candidate_brief_workflow_approval_package_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    target_timezone: str = typer.Option("Asia/Tokyo", "--target-timezone"),
+    target_weekday: str = typer.Option("Saturday", "--target-weekday"),
+    target_local_hour: int = typer.Option(7, "--target-local-hour"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-workflow-approval-package: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    try:
+        payload = build_weekly_report_workflow_approval_package(
+            report_date=run_date,
+            target_timezone=target_timezone,
+            target_weekday=target_weekday,
+            target_local_hour=target_local_hour,
+            repo_root=ROOT_DIR,
+        )
+    except ValueError as e:
+        typer.echo(f"weekly-candidate-brief-workflow-approval-package: {e}", err=True)
+        raise typer.Exit(2) from e
+    markdown_text = format_weekly_report_workflow_approval_package_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_report_workflow_approval_package_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_report_workflow_approval_package_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-workflow-approval-package: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-workflow-approval-package: "
+        "source_only=true workflow_patch_package_only=true workflow_files_modified=false provider_live_access_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false",
         err=True,
     )
     raise typer.Exit(0)
