@@ -25,6 +25,10 @@ from invis_alpha_os.data.cache_write_readiness_gate import (
 from invis_alpha_os.data.cache_write_operator_signoff_sheet import (
     build_cache_write_operator_signoff_sheet,
 )
+from invis_alpha_os.data.cache_path_preflight_approval_package import (
+    DEFAULT_CANDIDATE_CACHE_PATH,
+    build_cache_path_preflight_approval_package,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -319,6 +323,10 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
     result_review_md, result_review_json = build_cross_provider_validation_result_review_report(report_date=report_date)
     cache_gate_md, cache_gate_json = build_cache_write_readiness_gate_report(report_date=report_date)
     operator_sheet_md, operator_sheet_json = build_cache_write_operator_signoff_sheet_report(report_date=report_date)
+    path_preflight_md, path_preflight_json = build_cache_path_preflight_approval_package_report(
+        report_date=report_date,
+        candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
+    )
     _ = (
         registry_md,
         planner_md,
@@ -336,6 +344,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         result_review_md,
         cache_gate_md,
         operator_sheet_md,
+        path_preflight_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -657,6 +666,43 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 "approval_phrase_boundary"
             ]["cache_write_approval_phrase_issued"],
             "next_task": operator_sheet_json["cache_write_operator_signoff_sheet"]["next_cursor_handoff_draft"][
+                "next_task"
+            ],
+        },
+        "cache_path_preflight_approval_package_status": {
+            "package_exists": True,
+            "source_only": path_preflight_json["cache_path_preflight_approval_package"]["safety_flags"][
+                "source_only"
+            ],
+            "package_status": path_preflight_json["cache_path_preflight_approval_package"]["package_status"],
+            "preflight_verdict": path_preflight_json["cache_path_preflight_approval_package"][
+                "readiness_verdict"
+            ]["preflight_verdict"],
+            "all_structural_checks_pass": path_preflight_json["cache_path_preflight_approval_package"][
+                "readiness_verdict"
+            ]["all_structural_checks_pass"],
+            "candidate_cache_path": path_preflight_json["cache_path_preflight_approval_package"][
+                "cache_path_preflight"
+            ]["candidate_cache_path"],
+            "path_expansion_performed": path_preflight_json["cache_path_preflight_approval_package"][
+                "cache_path_preflight"
+            ]["path_expansion_performed"],
+            "filesystem_probe_performed": path_preflight_json["cache_path_preflight_approval_package"][
+                "cache_path_preflight"
+            ]["filesystem_probe_performed"],
+            "directory_created": path_preflight_json["cache_path_preflight_approval_package"][
+                "cache_path_preflight"
+            ]["directory_created"],
+            "cache_write_approval_status": path_preflight_json["cache_path_preflight_approval_package"][
+                "readiness_verdict"
+            ]["cache_write_approval_status"],
+            "actual_import_approval_status": path_preflight_json["cache_path_preflight_approval_package"][
+                "readiness_verdict"
+            ]["actual_import_approval_status"],
+            "approval_phrase_issued": path_preflight_json["cache_path_preflight_approval_package"][
+                "readiness_verdict"
+            ]["approval_phrase_issued"],
+            "next_task": path_preflight_json["cache_path_preflight_approval_package"]["context_summary"][
                 "next_task"
             ],
         },
@@ -2848,6 +2894,166 @@ def build_cache_write_operator_signoff_sheet_report(*, report_date: str) -> tupl
     return "\n".join(lines), payload
 
 
+def build_cache_path_preflight_approval_package_report(
+    *,
+    report_date: str,
+    candidate_cache_path: str,
+) -> tuple[str, dict[str, Any]]:
+    package = build_cache_path_preflight_approval_package(
+        report_date=report_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_path_preflight_approval_package"),
+        "pack_version": "v69",
+        "cache_path_preflight_approval_package": package.to_dict(),
+    }
+    data = payload["cache_path_preflight_approval_package"]
+    preflight = data["cache_path_preflight"]
+    pilot = data["pilot_approval_package"]
+    verdict = data["readiness_verdict"]
+    lines = [
+        "# v69 Cache Path Preflight / Cache-Write Pilot Approval Package",
+        "",
+        "## Verdict",
+        "",
+        f"- preflight_verdict: {verdict['preflight_verdict']}",
+        f"- all_structural_checks_pass: {str(verdict['all_structural_checks_pass']).lower()}",
+        f"- cache_write_approval_status: {verdict['cache_write_approval_status']}",
+        f"- cache_write_execution_status: {verdict['cache_write_execution_status']}",
+        f"- actual_import_approval_status: {verdict['actual_import_approval_status']}",
+        f"- actual_import_execution_status: {verdict['actual_import_execution_status']}",
+        f"- provider_live_access_status: {verdict['provider_live_access_status']}",
+        f"- raw_ohlcv_persistence_status: {verdict['raw_ohlcv_persistence_status']}",
+        "",
+        "## Candidate Cache Path",
+        "",
+        f"- candidate_cache_path: {preflight['candidate_cache_path']}",
+        f"- path_input_source: {preflight['path_input_source']}",
+        f"- path_expansion_performed: {str(preflight['path_expansion_performed']).lower()}",
+        f"- filesystem_probe_performed: {str(preflight['filesystem_probe_performed']).lower()}",
+        f"- directory_created: {str(preflight['directory_created']).lower()}",
+        "",
+        "## Structural Preflight Checks",
+        "",
+        "| check_id | status | blocks_future_cache_write | description | evidence |",
+        "|---|---|---|---|---|",
+    ]
+    for row in preflight["structural_checks"]:
+        lines.append(
+            f"| {row['check_id']} | {row['status']} | "
+            f"{str(row['blocks_future_cache_write_if_failed']).lower()} | {row['description']} | {row['evidence']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Path Classification",
+            "",
+        ]
+    )
+    for key, value in preflight["path_classification"].items():
+        lines.append(f"- {key}: {str(value).lower() if isinstance(value, bool) else value}")
+    lines.extend(
+        [
+            "",
+            "## Future Pilot Approval Package",
+            "",
+            f"- package_status: {pilot['package_status']}",
+            f"- operation_name: {pilot['operation_name']}",
+            f"- provider: {pilot['provider']}",
+            f"- symbols: {', '.join(pilot['symbols'])}",
+            f"- candidate_cache_path: {pilot['candidate_cache_path']}",
+            f"- cache_write_scope: {pilot['cache_write_scope']}",
+            f"- actual_import_scope: {pilot['actual_import_scope']}",
+            f"- trading_scope: {pilot['trading_scope']}",
+            "",
+            "## Raw Data Handling Boundary",
+            "",
+        ]
+    )
+    for key, value in pilot["raw_data_handling"].items():
+        lines.append(f"- {key}: {str(value).lower() if isinstance(value, bool) else value}")
+    lines.extend(
+        [
+            "",
+            "## Required Operator Confirmations",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in pilot["required_operator_confirmations"])
+    phrase = pilot["approval_phrase_boundary"]
+    lines.extend(
+        [
+            "",
+            "## Approval Phrase Boundary",
+            "",
+            f"- cache_write_approval_phrase_required: {str(phrase['cache_write_approval_phrase_required']).lower()}",
+            f"- cache_write_approval_phrase: {phrase['cache_write_approval_phrase']}",
+            f"- cache_write_approval_phrase_issued: {str(phrase['cache_write_approval_phrase_issued']).lower()}",
+            f"- actual_import_approval_phrase_required: {str(phrase['actual_import_approval_phrase_required']).lower()}",
+            f"- actual_import_approval_phrase: {phrase['actual_import_approval_phrase']}",
+            f"- actual_import_approval_phrase_issued: {str(phrase['actual_import_approval_phrase_issued']).lower()}",
+            "- placeholder_phrase_is_not_runtime_approval: "
+            f"{str(phrase['placeholder_phrase_is_not_runtime_approval']).lower()}",
+            "",
+            "## Stop Conditions",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in pilot["stop_conditions"])
+    lines.extend(
+        [
+            "",
+            "## What Is Still Not Approved",
+            "",
+            "- provider live access",
+            "- live HTTP",
+            "- Tiingo API call",
+            "- Stooq / Yahoo / Polygon live fetch",
+            "- cache write",
+            "- actual refresh/import",
+            "- manual actual import",
+            "- raw OHLCV persistence",
+            "- raw API response persistence",
+            "- reports-private raw data write",
+            "- Git-tracked raw data write",
+            "- env/secret display",
+            "- broker/manual raw data handling",
+            "- trading action",
+            "",
+            "## Next Source-Only Handoff",
+            "",
+            f"- handoff_status: {data['next_cursor_handoff']['handoff_status']}",
+            f"- recommended_next_source_only_task: {data['next_cursor_handoff']['recommended_next_source_only_task']}",
+            f"- future_execution_task: {data['next_cursor_handoff']['future_execution_task']}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "preflight_verdict": verdict["preflight_verdict"],
+                    "candidate_cache_path": preflight["candidate_cache_path"],
+                    "all_structural_checks_pass": verdict["all_structural_checks_pass"],
+                    "path_expansion_performed": preflight["path_expansion_performed"],
+                    "filesystem_probe_performed": preflight["filesystem_probe_performed"],
+                    "directory_created": preflight["directory_created"],
+                    "cache_write_approval_status": verdict["cache_write_approval_status"],
+                    "actual_import_approval_status": verdict["actual_import_approval_status"],
+                    "approval_phrase_issued": verdict["approval_phrase_issued"],
+                    "source_only": data["safety_flags"]["source_only"],
+                    "cache_write_executed": data["safety_flags"]["cache_write_executed"],
+                    "raw_ohlcv_persisted": data["safety_flags"]["raw_ohlcv_persisted"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -3021,6 +3227,28 @@ def write_cache_write_operator_signoff_sheet_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_write_operator_signoff_sheet_md"] = md_path
         paths[f"{label}_cache_write_operator_signoff_sheet_json"] = json_path
+    return paths
+
+
+def write_cache_path_preflight_approval_package_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_path_preflight_approval_package.md"
+        json_path = root / "cache_path_preflight_approval_package.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_path_preflight_approval_package_md"] = md_path
+        paths[f"{label}_cache_path_preflight_approval_package_json"] = json_path
     return paths
 
 

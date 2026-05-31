@@ -278,6 +278,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         ],
         "cache_write_readiness_gate_status": provider_block["cache_write_readiness_gate_status"],
         "cache_write_operator_signoff_sheet_status": provider_block["cache_write_operator_signoff_sheet_status"],
+        "cache_path_preflight_approval_package_status": provider_block[
+            "cache_path_preflight_approval_package_status"
+        ],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -484,6 +487,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_write_operator_cache_write_approval_status: {provider_block['cache_write_operator_signoff_sheet_status']['cache_write_approval_status']}",
             f"- cache_write_operator_actual_import_approval_status: {provider_block['cache_write_operator_signoff_sheet_status']['actual_import_approval_status']}",
             f"- cache_write_operator_approval_phrase_issued: {str(provider_block['cache_write_operator_signoff_sheet_status']['approval_phrase_issued']).lower()}",
+            f"- cache_path_preflight_package_exists: {str(provider_block['cache_path_preflight_approval_package_status']['package_exists']).lower()}",
+            f"- cache_path_preflight_verdict: {provider_block['cache_path_preflight_approval_package_status']['preflight_verdict']}",
+            f"- cache_path_preflight_candidate_path: {provider_block['cache_path_preflight_approval_package_status']['candidate_cache_path']}",
+            f"- cache_path_preflight_filesystem_probe_performed: {str(provider_block['cache_path_preflight_approval_package_status']['filesystem_probe_performed']).lower()}",
+            f"- cache_path_preflight_directory_created: {str(provider_block['cache_path_preflight_approval_package_status']['directory_created']).lower()}",
+            f"- cache_path_preflight_cache_write_approval_status: {provider_block['cache_path_preflight_approval_package_status']['cache_write_approval_status']}",
+            f"- cache_path_preflight_actual_import_approval_status: {provider_block['cache_path_preflight_approval_package_status']['actual_import_approval_status']}",
+            f"- cache_path_preflight_approval_phrase_issued: {str(provider_block['cache_path_preflight_approval_package_status']['approval_phrase_issued']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
