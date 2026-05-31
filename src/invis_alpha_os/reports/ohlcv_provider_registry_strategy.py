@@ -32,6 +32,9 @@ from invis_alpha_os.data.cache_path_preflight_approval_package import (
 from invis_alpha_os.data.cache_purge_inventory_dryrun_contract import (
     build_cache_purge_inventory_dryrun_contract,
 )
+from invis_alpha_os.data.cache_write_pilot_approval_packet import (
+    build_cache_write_pilot_approval_packet,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -334,6 +337,10 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         report_date=report_date,
         candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
     )
+    pilot_packet_md, pilot_packet_json = build_cache_write_pilot_approval_packet_report(
+        report_date=report_date,
+        candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
+    )
     _ = (
         registry_md,
         planner_md,
@@ -353,6 +360,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         operator_sheet_md,
         path_preflight_md,
         purge_contract_md,
+        pilot_packet_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -747,6 +755,36 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
             "next_task": purge_contract_json["cache_purge_inventory_dryrun_contract"]["context_summary"][
                 "next_task"
             ],
+        },
+        "cache_write_pilot_approval_packet_status": {
+            "packet_exists": True,
+            "source_only": pilot_packet_json["cache_write_pilot_approval_packet"]["safety_flags"]["source_only"],
+            "packet_status": pilot_packet_json["cache_write_pilot_approval_packet"]["packet_status"],
+            "packet_verdict": pilot_packet_json["cache_write_pilot_approval_packet"]["readiness_verdict"][
+                "packet_verdict"
+            ],
+            "provider": pilot_packet_json["cache_write_pilot_approval_packet"]["future_pilot_identity"][
+                "provider"
+            ],
+            "first_subset": pilot_packet_json["cache_write_pilot_approval_packet"]["future_pilot_identity"][
+                "first_subset"
+            ],
+            "candidate_cache_path": pilot_packet_json["cache_write_pilot_approval_packet"][
+                "future_pilot_identity"
+            ]["candidate_cache_path"],
+            "cache_write_approval_status": pilot_packet_json["cache_write_pilot_approval_packet"][
+                "readiness_verdict"
+            ]["cache_write_approval_status"],
+            "actual_import_approval_status": pilot_packet_json["cache_write_pilot_approval_packet"][
+                "readiness_verdict"
+            ]["actual_import_approval_status"],
+            "approval_phrase_issued": pilot_packet_json["cache_write_pilot_approval_packet"][
+                "readiness_verdict"
+            ]["approval_phrase_issued"],
+            "raw_ohlcv_persisted": pilot_packet_json["cache_write_pilot_approval_packet"]["safety_flags"][
+                "raw_ohlcv_persisted"
+            ],
+            "next_task": pilot_packet_json["cache_write_pilot_approval_packet"]["context_summary"]["next_task"],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -3247,6 +3285,147 @@ def build_cache_purge_inventory_dryrun_contract_report(
     return "\n".join(lines), payload
 
 
+def build_cache_write_pilot_approval_packet_report(
+    *,
+    report_date: str,
+    candidate_cache_path: str,
+) -> tuple[str, dict[str, Any]]:
+    packet = build_cache_write_pilot_approval_packet(
+        report_date=report_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_write_pilot_approval_packet"),
+        "pack_version": "v70",
+        "cache_write_pilot_approval_packet": packet.to_dict(),
+    }
+    data = payload["cache_write_pilot_approval_packet"]
+    identity = data["future_pilot_identity"]
+    verdict = data["readiness_verdict"]
+    phrase = data["approval_phrase_boundary"]
+    lines = [
+        "# v70 Cache-Write Pilot Execution Runbook / Operator Approval Packet",
+        "",
+        "## Verdict",
+        "",
+        f"- packet_verdict: {verdict['packet_verdict']}",
+        f"- cache_write_approval_status: {verdict['cache_write_approval_status']}",
+        f"- cache_write_execution_status: {verdict['cache_write_execution_status']}",
+        f"- actual_import_approval_status: {verdict['actual_import_approval_status']}",
+        f"- actual_import_execution_status: {verdict['actual_import_execution_status']}",
+        f"- trading_action_status: {verdict['trading_action_status']}",
+        f"- raw_ohlcv_persistence_status: {verdict['raw_ohlcv_persistence_status']}",
+        f"- provider_live_access_status: {verdict['provider_live_access_status']}",
+        "",
+        "## Future Pilot Identity",
+        "",
+        f"- provider: {identity['provider']}",
+        f"- operation: {identity['operation']}",
+        f"- first_subset: {', '.join(identity['first_subset'])}",
+        f"- candidate_cache_path: {identity['candidate_cache_path']}",
+        f"- data_type: {identity['data_type']}",
+        f"- storage: {identity['storage']}",
+        f"- v69_preflight_verdict: {identity['v69_preflight_verdict']}",
+        f"- v69b_contract_verdict: {identity['v69b_contract_verdict']}",
+        "",
+        "## Required Preconditions",
+        "",
+        "| item_id | current_status | blocks_execution | description |",
+        "|---|---|---|---|",
+    ]
+    for row in data["required_preconditions"]:
+        lines.append(
+            f"| {row['item_id']} | {row['current_status']} | "
+            f"{str(row['blocks_execution_if_unmet']).lower()} | {row['description']} |"
+        )
+    for title, key in (
+        ("Required Operator Fields", "required_operator_fields"),
+        ("Forbidden Operations", "forbidden_operations"),
+        ("Execution Runbook", "execution_runbook"),
+    ):
+        lines.extend(
+            [
+                "",
+                f"## {title}",
+                "",
+                "| item_id | current_status | required | description |",
+                "|---|---|---|---|",
+            ]
+        )
+        for row in data[key]:
+            lines.append(
+                f"| {row['item_id']} | {row['current_status']} | {str(row['required']).lower()} | "
+                f"{row['description']} |"
+            )
+    constraints = data["output_constraints"]
+    lines.extend(
+        [
+            "",
+            "## Output Constraints",
+            "",
+            f"- allowed_outputs: {', '.join(constraints['allowed_outputs'])}",
+            f"- forbidden_outputs: {', '.join(constraints['forbidden_outputs'])}",
+            f"- reports_private_raw_data_allowed: {str(constraints['reports_private_raw_data_allowed']).lower()}",
+            f"- git_tracked_raw_data_allowed: {str(constraints['git_tracked_raw_data_allowed']).lower()}",
+            f"- chatgpt_cursor_raw_paste_allowed: {str(constraints['chatgpt_cursor_raw_paste_allowed']).lower()}",
+            "",
+            "## Approval Phrase Boundary",
+            "",
+            f"- this_package_approves_cache_write: {str(phrase['this_package_approves_cache_write']).lower()}",
+            f"- cache_write_approval_phrase_required: {str(phrase['cache_write_approval_phrase_required']).lower()}",
+            f"- cache_write_approval_phrase: {phrase['cache_write_approval_phrase']}",
+            f"- cache_write_approval_phrase_issued: {str(phrase['cache_write_approval_phrase_issued']).lower()}",
+            f"- future_phrase_scope: {phrase['future_phrase_scope']}",
+            f"- actual_import_approval_phrase_required: {str(phrase['actual_import_approval_phrase_required']).lower()}",
+            f"- actual_import_approval_phrase: {phrase['actual_import_approval_phrase']}",
+            f"- actual_import_approval_phrase_issued: {str(phrase['actual_import_approval_phrase_issued']).lower()}",
+            "- cache_write_does_not_approve_actual_import: "
+            f"{str(phrase['cache_write_does_not_approve_actual_import']).lower()}",
+            f"- cache_write_does_not_approve_trading: {str(phrase['cache_write_does_not_approve_trading']).lower()}",
+            "- cache_write_does_not_approve_raw_data_in_git_reports_private_or_chat: "
+            f"{str(phrase['cache_write_does_not_approve_raw_data_in_git_reports_private_or_chat']).lower()}",
+            "",
+            "## What Is Still Not Approved",
+            "",
+            "- provider live access",
+            "- live HTTP",
+            "- Tiingo API call",
+            "- cache write",
+            "- actual refresh/import",
+            "- manual actual import",
+            "- raw OHLCV persistence",
+            "- raw API response persistence",
+            "- reports-private raw data write",
+            "- Git-tracked raw data write",
+            "- env/secret display",
+            "- broker/manual raw data handling",
+            "- trading action",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "packet_verdict": verdict["packet_verdict"],
+                    "provider": identity["provider"],
+                    "first_subset": identity["first_subset"],
+                    "candidate_cache_path": identity["candidate_cache_path"],
+                    "cache_write_approval_status": verdict["cache_write_approval_status"],
+                    "actual_import_approval_status": verdict["actual_import_approval_status"],
+                    "approval_phrase_issued": verdict["approval_phrase_issued"],
+                    "source_only": data["safety_flags"]["source_only"],
+                    "cache_write_executed": data["safety_flags"]["cache_write_executed"],
+                    "raw_ohlcv_persisted": data["safety_flags"]["raw_ohlcv_persisted"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -3464,6 +3643,28 @@ def write_cache_purge_inventory_dryrun_contract_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_purge_inventory_dryrun_contract_md"] = md_path
         paths[f"{label}_cache_purge_inventory_dryrun_contract_json"] = json_path
+    return paths
+
+
+def write_cache_write_pilot_approval_packet_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_write_pilot_approval_packet.md"
+        json_path = root / "cache_write_pilot_approval_packet.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_write_pilot_approval_packet_md"] = md_path
+        paths[f"{label}_cache_write_pilot_approval_packet_json"] = json_path
     return paths
 
 

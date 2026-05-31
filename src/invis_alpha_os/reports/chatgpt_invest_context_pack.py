@@ -284,6 +284,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "cache_purge_inventory_dryrun_contract_status": provider_block[
             "cache_purge_inventory_dryrun_contract_status"
         ],
+        "cache_write_pilot_approval_packet_status": provider_block["cache_write_pilot_approval_packet_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -504,6 +505,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_purge_inventory_purge_execution_status: {provider_block['cache_purge_inventory_dryrun_contract_status']['purge_execution_status']}",
             f"- cache_purge_inventory_file_deletion_executed: {str(provider_block['cache_purge_inventory_dryrun_contract_status']['file_deletion_executed']).lower()}",
             f"- cache_purge_inventory_raw_ohlcv_read: {str(provider_block['cache_purge_inventory_dryrun_contract_status']['raw_ohlcv_read']).lower()}",
+            f"- cache_write_pilot_approval_packet_exists: {str(provider_block['cache_write_pilot_approval_packet_status']['packet_exists']).lower()}",
+            f"- cache_write_pilot_packet_verdict: {provider_block['cache_write_pilot_approval_packet_status']['packet_verdict']}",
+            f"- cache_write_pilot_provider: {provider_block['cache_write_pilot_approval_packet_status']['provider']}",
+            f"- cache_write_pilot_first_subset: {', '.join(provider_block['cache_write_pilot_approval_packet_status']['first_subset'])}",
+            f"- cache_write_pilot_candidate_path: {provider_block['cache_write_pilot_approval_packet_status']['candidate_cache_path']}",
+            f"- cache_write_pilot_cache_write_approval_status: {provider_block['cache_write_pilot_approval_packet_status']['cache_write_approval_status']}",
+            f"- cache_write_pilot_actual_import_approval_status: {provider_block['cache_write_pilot_approval_packet_status']['actual_import_approval_status']}",
+            f"- cache_write_pilot_approval_phrase_issued: {str(provider_block['cache_write_pilot_approval_packet_status']['approval_phrase_issued']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
