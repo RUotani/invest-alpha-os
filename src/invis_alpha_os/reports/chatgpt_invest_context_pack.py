@@ -281,6 +281,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "cache_path_preflight_approval_package_status": provider_block[
             "cache_path_preflight_approval_package_status"
         ],
+        "cache_purge_inventory_dryrun_contract_status": provider_block[
+            "cache_purge_inventory_dryrun_contract_status"
+        ],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -495,6 +498,12 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_path_preflight_cache_write_approval_status: {provider_block['cache_path_preflight_approval_package_status']['cache_write_approval_status']}",
             f"- cache_path_preflight_actual_import_approval_status: {provider_block['cache_path_preflight_approval_package_status']['actual_import_approval_status']}",
             f"- cache_path_preflight_approval_phrase_issued: {str(provider_block['cache_path_preflight_approval_package_status']['approval_phrase_issued']).lower()}",
+            f"- cache_purge_inventory_dryrun_contract_exists: {str(provider_block['cache_purge_inventory_dryrun_contract_status']['contract_exists']).lower()}",
+            f"- cache_purge_inventory_contract_verdict: {provider_block['cache_purge_inventory_dryrun_contract_status']['contract_verdict']}",
+            f"- cache_purge_inventory_redacted_manifest_schema_status: {provider_block['cache_purge_inventory_dryrun_contract_status']['redacted_manifest_schema_status']}",
+            f"- cache_purge_inventory_purge_execution_status: {provider_block['cache_purge_inventory_dryrun_contract_status']['purge_execution_status']}",
+            f"- cache_purge_inventory_file_deletion_executed: {str(provider_block['cache_purge_inventory_dryrun_contract_status']['file_deletion_executed']).lower()}",
+            f"- cache_purge_inventory_raw_ohlcv_read: {str(provider_block['cache_purge_inventory_dryrun_contract_status']['raw_ohlcv_read']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",

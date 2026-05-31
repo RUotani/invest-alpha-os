@@ -29,6 +29,9 @@ from invis_alpha_os.data.cache_path_preflight_approval_package import (
     DEFAULT_CANDIDATE_CACHE_PATH,
     build_cache_path_preflight_approval_package,
 )
+from invis_alpha_os.data.cache_purge_inventory_dryrun_contract import (
+    build_cache_purge_inventory_dryrun_contract,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -327,6 +330,10 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         report_date=report_date,
         candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
     )
+    purge_contract_md, purge_contract_json = build_cache_purge_inventory_dryrun_contract_report(
+        report_date=report_date,
+        candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
+    )
     _ = (
         registry_md,
         planner_md,
@@ -345,6 +352,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         cache_gate_md,
         operator_sheet_md,
         path_preflight_md,
+        purge_contract_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -703,6 +711,40 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 "readiness_verdict"
             ]["approval_phrase_issued"],
             "next_task": path_preflight_json["cache_path_preflight_approval_package"]["context_summary"][
+                "next_task"
+            ],
+        },
+        "cache_purge_inventory_dryrun_contract_status": {
+            "contract_exists": True,
+            "source_only": purge_contract_json["cache_purge_inventory_dryrun_contract"]["safety_flags"][
+                "source_only"
+            ],
+            "contract_status": purge_contract_json["cache_purge_inventory_dryrun_contract"]["contract_status"],
+            "contract_verdict": purge_contract_json["cache_purge_inventory_dryrun_contract"]["readiness_verdict"][
+                "contract_verdict"
+            ],
+            "candidate_cache_path": purge_contract_json["cache_purge_inventory_dryrun_contract"][
+                "candidate_cache_path"
+            ],
+            "redacted_manifest_schema_status": purge_contract_json["cache_purge_inventory_dryrun_contract"][
+                "readiness_verdict"
+            ]["redacted_manifest_schema_status"],
+            "purge_execution_status": purge_contract_json["cache_purge_inventory_dryrun_contract"][
+                "readiness_verdict"
+            ]["purge_execution_status"],
+            "cache_write_approval_status": purge_contract_json["cache_purge_inventory_dryrun_contract"][
+                "readiness_verdict"
+            ]["cache_write_approval_status"],
+            "actual_import_approval_status": purge_contract_json["cache_purge_inventory_dryrun_contract"][
+                "readiness_verdict"
+            ]["actual_import_approval_status"],
+            "file_deletion_executed": purge_contract_json["cache_purge_inventory_dryrun_contract"]["safety_flags"][
+                "file_deletion_executed"
+            ],
+            "raw_ohlcv_read": purge_contract_json["cache_purge_inventory_dryrun_contract"]["safety_flags"][
+                "raw_ohlcv_read"
+            ],
+            "next_task": purge_contract_json["cache_purge_inventory_dryrun_contract"]["context_summary"][
                 "next_task"
             ],
         },
@@ -3054,6 +3096,157 @@ def build_cache_path_preflight_approval_package_report(
     return "\n".join(lines), payload
 
 
+def build_cache_purge_inventory_dryrun_contract_report(
+    *,
+    report_date: str,
+    candidate_cache_path: str,
+) -> tuple[str, dict[str, Any]]:
+    contract = build_cache_purge_inventory_dryrun_contract(
+        report_date=report_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_purge_inventory_dryrun_contract"),
+        "pack_version": "v69B",
+        "cache_purge_inventory_dryrun_contract": contract.to_dict(),
+    }
+    data = payload["cache_purge_inventory_dryrun_contract"]
+    verdict = data["readiness_verdict"]
+    semantics = data["dryrun_semantics"]
+    lines = [
+        "# v69B Cache Purge / Inventory Dry-Run Contract & Redacted Manifest Schema",
+        "",
+        "## Verdict",
+        "",
+        f"- contract_verdict: {verdict['contract_verdict']}",
+        f"- v69_preflight_verdict: {verdict['v69_preflight_verdict']}",
+        f"- cache_write_approval_status: {verdict['cache_write_approval_status']}",
+        f"- cache_write_execution_status: {verdict['cache_write_execution_status']}",
+        f"- actual_import_approval_status: {verdict['actual_import_approval_status']}",
+        f"- actual_import_execution_status: {verdict['actual_import_execution_status']}",
+        f"- purge_execution_status: {verdict['purge_execution_status']}",
+        f"- destructive_purge_approval_status: {verdict['destructive_purge_approval_status']}",
+        f"- redacted_manifest_schema_status: {verdict['redacted_manifest_schema_status']}",
+        "",
+        "## Candidate Cache Path",
+        "",
+        f"- candidate_cache_path: {data['candidate_cache_path']}",
+        f"- contract_status: {data['contract_status']}",
+        "",
+        "## Dry-Run Semantics",
+        "",
+    ]
+    for key, value in semantics.items():
+        lines.append(f"- {key}: {str(value).lower() if isinstance(value, bool) else value}")
+    lines.extend(
+        [
+            "",
+            "## Allowed Redacted Manifest Fields",
+            "",
+            "| field_name | field_type | allowed | reason |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in data["redacted_manifest_allowed_fields"]:
+        lines.append(f"| {row['field_name']} | {row['field_type']} | {str(row['allowed']).lower()} | {row['reason']} |")
+    lines.extend(
+        [
+            "",
+            "## Forbidden Manifest Fields",
+            "",
+            "| field_name | field_type | allowed | reason |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in data["redacted_manifest_forbidden_fields"]:
+        lines.append(f"| {row['field_name']} | {row['field_type']} | {str(row['allowed']).lower()} | {row['reason']} |")
+    lines.extend(
+        [
+            "",
+            "## Cache File Classification Contract",
+            "",
+            "| classification_id | label | selection_mode | raw_read_allowed | delete_allowed |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in data["cache_file_classification"]:
+        lines.append(
+            f"| {row['classification_id']} | {row['label']} | {row['selection_mode']} | "
+            f"{str(row['raw_read_allowed']).lower()} | {str(row['delete_allowed']).lower()} |"
+        )
+    for title, key in (
+        ("Purge Target Selection Semantics", "purge_target_selection_semantics"),
+        ("Orphan Raw File Check Semantics", "orphan_raw_file_check_semantics"),
+        ("Post-Purge Verification Checklist", "post_purge_verification_checklist"),
+        ("Rollback Checklist", "rollback_checklist"),
+    ):
+        lines.extend(
+            [
+                "",
+                f"## {title}",
+                "",
+                "| step_id | execution_mode | destructive_action_allowed | raw_ohlcv_read_allowed | description |",
+                "|---|---|---|---|---|",
+            ]
+        )
+        for row in data[key]:
+            lines.append(
+                f"| {row['step_id']} | {row['execution_mode']} | "
+                f"{str(row['destructive_action_allowed']).lower()} | "
+                f"{str(row['raw_ohlcv_read_allowed']).lower()} | {row['description']} |"
+            )
+    lines.extend(
+        [
+            "",
+            "## What Is Still Not Approved",
+            "",
+            "- provider live access",
+            "- live HTTP",
+            "- Tiingo API call",
+            "- Stooq / Yahoo / Polygon live fetch",
+            "- cache write",
+            "- actual refresh/import",
+            "- manual actual import",
+            "- raw OHLCV read or persistence",
+            "- raw API response persistence",
+            "- reports-private raw data write",
+            "- Git-tracked raw data write",
+            "- destructive purge / file deletion",
+            "- env/secret display",
+            "- broker/manual raw data handling",
+            "- trading action",
+            "",
+            "## Next Source-Only Handoff",
+            "",
+            f"- handoff_status: {data['next_cursor_handoff']['handoff_status']}",
+            f"- recommended_next_task: {data['next_cursor_handoff']['recommended_next_task']}",
+            "- do_not_start_without_future_approval_phrase: "
+            f"{str(data['next_cursor_handoff']['do_not_start_without_future_approval_phrase']).lower()}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "contract_verdict": verdict["contract_verdict"],
+                    "candidate_cache_path": data["candidate_cache_path"],
+                    "redacted_manifest_schema_status": verdict["redacted_manifest_schema_status"],
+                    "purge_execution_status": verdict["purge_execution_status"],
+                    "cache_write_approval_status": verdict["cache_write_approval_status"],
+                    "actual_import_approval_status": verdict["actual_import_approval_status"],
+                    "no_file_deletion_executed": semantics["no_file_deletion_executed"],
+                    "no_raw_ohlcv_read": semantics["no_raw_ohlcv_read"],
+                    "source_only": data["safety_flags"]["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -3249,6 +3442,28 @@ def write_cache_path_preflight_approval_package_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_path_preflight_approval_package_md"] = md_path
         paths[f"{label}_cache_path_preflight_approval_package_json"] = json_path
+    return paths
+
+
+def write_cache_purge_inventory_dryrun_contract_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_purge_inventory_dryrun_contract.md"
+        json_path = root / "cache_purge_inventory_dryrun_contract.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_purge_inventory_dryrun_contract_md"] = md_path
+        paths[f"{label}_cache_purge_inventory_dryrun_contract_json"] = json_path
     return paths
 
 
