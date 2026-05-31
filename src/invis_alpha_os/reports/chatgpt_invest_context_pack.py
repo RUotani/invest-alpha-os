@@ -288,6 +288,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         "cache_write_pilot_result_review_gate_status": provider_block[
             "cache_write_pilot_result_review_gate_status"
         ],
+        "actual_import_readiness_boundary_status": provider_block["actual_import_readiness_boundary_status"],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -521,6 +522,16 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_write_pilot_result_review_pilot_has_run: {str(provider_block['cache_write_pilot_result_review_gate_status']['pilot_has_run']).lower()}",
             f"- cache_write_pilot_result_review_actual_import_readiness: {provider_block['cache_write_pilot_result_review_gate_status']['actual_import_readiness']}",
             f"- cache_write_pilot_result_review_raw_ohlcv_emitted: {str(provider_block['cache_write_pilot_result_review_gate_status']['raw_ohlcv_emitted']).lower()}",
+            f"- actual_import_readiness_boundary_exists: {str(provider_block['actual_import_readiness_boundary_status']['boundary_exists']).lower()}",
+            f"- actual_import_boundary_status: {provider_block['actual_import_readiness_boundary_status']['boundary_status']}",
+            f"- actual_import_boundary_cache_write_pilot_readiness: {provider_block['actual_import_readiness_boundary_status']['cache_write_pilot_readiness']}",
+            f"- actual_import_boundary_result_review_readiness: {provider_block['actual_import_readiness_boundary_status']['cache_write_pilot_result_review_readiness']}",
+            f"- actual_import_boundary_actual_import_readiness: {provider_block['actual_import_readiness_boundary_status']['actual_import_readiness']}",
+            f"- actual_import_boundary_cache_write_does_not_imply_actual_import: {str(provider_block['actual_import_readiness_boundary_status']['cache_write_approval_does_not_imply_actual_import']).lower()}",
+            f"- actual_import_boundary_result_review_pass_not_sufficient: {str(provider_block['actual_import_readiness_boundary_status']['result_review_pass_not_sufficient_for_actual_import']).lower()}",
+            f"- actual_import_boundary_actual_import_approval_phrase_issued: {str(provider_block['actual_import_readiness_boundary_status']['actual_import_approval_phrase_issued']).lower()}",
+            f"- actual_import_boundary_execution_allowed_now: {str(provider_block['actual_import_readiness_boundary_status']['actual_import_execution_allowed_now']).lower()}",
+            f"- actual_import_boundary_trading_readiness: {provider_block['actual_import_readiness_boundary_status']['trading_readiness']}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
