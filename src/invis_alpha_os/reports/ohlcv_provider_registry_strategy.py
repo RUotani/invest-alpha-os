@@ -35,6 +35,9 @@ from invis_alpha_os.data.cache_purge_inventory_dryrun_contract import (
 from invis_alpha_os.data.cache_write_pilot_approval_packet import (
     build_cache_write_pilot_approval_packet,
 )
+from invis_alpha_os.data.cache_write_pilot_result_review_gate import (
+    build_cache_write_pilot_result_review_gate,
+)
 from invis_alpha_os.data.ohlcv_provider_execution import (
     ProviderExecutionMode,
     build_provider_safe_execution_harness,
@@ -341,6 +344,10 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         report_date=report_date,
         candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
     )
+    result_review_gate_md, result_review_gate_json = build_cache_write_pilot_result_review_gate_report(
+        report_date=report_date,
+        candidate_cache_path=DEFAULT_CANDIDATE_CACHE_PATH,
+    )
     _ = (
         registry_md,
         planner_md,
@@ -361,6 +368,7 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
         path_preflight_md,
         purge_contract_md,
         pilot_packet_md,
+        result_review_gate_md,
     )
     return {
         "provider_registry_status": registry_json["provider_registry_status"],
@@ -785,6 +793,31 @@ def build_provider_context_pack_block(*, report_date: str) -> dict[str, Any]:
                 "raw_ohlcv_persisted"
             ],
             "next_task": pilot_packet_json["cache_write_pilot_approval_packet"]["context_summary"]["next_task"],
+        },
+        "cache_write_pilot_result_review_gate_status": {
+            "gate_exists": True,
+            "source_only": result_review_gate_json["cache_write_pilot_result_review_gate"]["safety_flags"][
+                "source_only"
+            ],
+            "review_status": result_review_gate_json["cache_write_pilot_result_review_gate"]["review_status"],
+            "current_verdict": result_review_gate_json["cache_write_pilot_result_review_gate"][
+                "readiness_verdict"
+            ]["result_review_verdict"],
+            "pilot_has_run": result_review_gate_json["cache_write_pilot_result_review_gate"][
+                "readiness_verdict"
+            ]["pilot_has_run"],
+            "actual_import_readiness": result_review_gate_json["cache_write_pilot_result_review_gate"][
+                "readiness_verdict"
+            ]["actual_import_readiness"],
+            "trading_readiness": result_review_gate_json["cache_write_pilot_result_review_gate"][
+                "readiness_verdict"
+            ]["trading_readiness"],
+            "raw_ohlcv_emitted": result_review_gate_json["cache_write_pilot_result_review_gate"]["safety_flags"][
+                "raw_ohlcv_emitted"
+            ],
+            "next_task": result_review_gate_json["cache_write_pilot_result_review_gate"]["context_summary"][
+                "next_task"
+            ],
         },
         "manual_csv_is_fallback_not_primary": True,
     }
@@ -3426,6 +3459,105 @@ def build_cache_write_pilot_approval_packet_report(
     return "\n".join(lines), payload
 
 
+def build_cache_write_pilot_result_review_gate_report(
+    *,
+    report_date: str,
+    candidate_cache_path: str,
+) -> tuple[str, dict[str, Any]]:
+    gate = build_cache_write_pilot_result_review_gate(
+        report_date=report_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    payload: dict[str, Any] = {
+        **_payload_base(report_date, name="cache_write_pilot_result_review_gate"),
+        "pack_version": "v70B",
+        "cache_write_pilot_result_review_gate": gate.to_dict(),
+    }
+    data = payload["cache_write_pilot_result_review_gate"]
+    verdict = data["readiness_verdict"]
+    lines = [
+        "# v70B Cache-Write Pilot Result Review Gate / Data Quality Acceptance Pack",
+        "",
+        "## Verdict",
+        "",
+        f"- result_review_verdict: {verdict['result_review_verdict']}",
+        f"- pilot_has_run: {str(verdict['pilot_has_run']).lower()}",
+        f"- cache_write_pilot_review_ready: {str(verdict['cache_write_pilot_review_ready']).lower()}",
+        f"- actual_import_readiness: {verdict['actual_import_readiness']}",
+        f"- trading_readiness: {verdict['trading_readiness']}",
+        f"- raw_ohlcv_fields_emitted: {str(verdict['raw_ohlcv_fields_emitted']).lower()}",
+        "",
+        "## Future Pilot Scope",
+        "",
+    ]
+    for key, value in data["future_pilot_scope"].items():
+        lines.append(f"- {key}: {', '.join(value) if isinstance(value, list) else value}")
+    lines.extend(
+        [
+            "",
+            "## Acceptance Criteria",
+            "",
+            "| criterion_id | current_status | raw_values_allowed | allowed_output | description |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for row in data["acceptance_criteria"]:
+        lines.append(
+            f"| {row['criterion_id']} | {row['current_status']} | "
+            f"{str(row['raw_values_allowed']).lower()} | {row['allowed_output']} | {row['description']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Allowed Result Fields",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in data["allowed_result_fields"])
+    lines.extend(
+        [
+            "",
+            "## Forbidden Result Fields",
+            "",
+        ]
+    )
+    lines.extend(f"- {item}" for item in data["forbidden_result_fields"])
+    policy = data["verdict_policy"]
+    lines.extend(
+        [
+            "",
+            "## Verdict Policy",
+            "",
+            f"- allowed_verdicts: {', '.join(policy['allowed_verdicts'])}",
+            f"- current_verdict: {policy['current_verdict']}",
+            f"- pass_requires_no_raw_leakage: {str(policy['pass_requires_no_raw_leakage']).lower()}",
+            f"- pass_requires_cache_path_policy_pass: {str(policy['pass_requires_cache_path_policy_pass']).lower()}",
+            f"- pass_requires_redacted_manifest: {str(policy['pass_requires_redacted_manifest']).lower()}",
+            f"- pass_requires_purge_contract: {str(policy['pass_requires_purge_contract']).lower()}",
+            f"- pass_does_not_approve_actual_import: {str(policy['pass_does_not_approve_actual_import']).lower()}",
+            f"- pass_does_not_approve_trading: {str(policy['pass_does_not_approve_trading']).lower()}",
+            "",
+            "## Machine-Readable Summary",
+            "",
+            "```json",
+            json.dumps(
+                {
+                    "result_review_verdict": verdict["result_review_verdict"],
+                    "pilot_has_run": verdict["pilot_has_run"],
+                    "actual_import_readiness": verdict["actual_import_readiness"],
+                    "trading_readiness": verdict["trading_readiness"],
+                    "raw_ohlcv_fields_emitted": verdict["raw_ohlcv_fields_emitted"],
+                    "source_only": data["safety_flags"]["source_only"],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            "```",
+        ]
+    )
+    return "\n".join(lines), payload
+
+
 def write_us_ohlcv_provider_selection_matrix_outputs(
     *,
     out_dir: Path,
@@ -3665,6 +3797,28 @@ def write_cache_write_pilot_approval_packet_outputs(
         json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
         paths[f"{label}_cache_write_pilot_approval_packet_md"] = md_path
         paths[f"{label}_cache_write_pilot_approval_packet_json"] = json_path
+    return paths
+
+
+def write_cache_write_pilot_result_review_gate_outputs(
+    *,
+    out_dir: Path,
+    report_date: str,
+    markdown_text: str,
+    json_payload: dict[str, Any],
+) -> dict[str, Path]:
+    latest = out_dir / "latest"
+    weekly = out_dir / "weekly" / "2026" / report_date
+    latest.mkdir(parents=True, exist_ok=True)
+    weekly.mkdir(parents=True, exist_ok=True)
+    paths: dict[str, Path] = {}
+    for label, root in (("latest", latest), ("weekly", weekly)):
+        md_path = root / "cache_write_pilot_result_review_gate.md"
+        json_path = root / "cache_write_pilot_result_review_gate.json"
+        md_path.write_text(markdown_text.rstrip() + "\n", encoding="utf-8")
+        json_path.write_text(json.dumps(json_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        paths[f"{label}_cache_write_pilot_result_review_gate_md"] = md_path
+        paths[f"{label}_cache_write_pilot_result_review_gate_json"] = json_path
     return paths
 
 
