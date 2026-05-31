@@ -38,6 +38,9 @@ from invis_alpha_os.reports.weekly_report_manual_backfill_command_pack import (
 from invis_alpha_os.reports.scheduled_report_failure_triage_matrix import (
     build_scheduled_report_failure_triage_matrix,
 )
+from invis_alpha_os.reports.long_run_development_progress_snapshot import (
+    build_long_run_development_progress_snapshot,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -257,6 +260,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     workflow_patch_review_gate = build_weekly_report_workflow_patch_review_gate(report_date=report_date)
     manual_backfill_command_pack = build_weekly_report_manual_backfill_command_pack(report_date=report_date)
     failure_triage = build_scheduled_report_failure_triage_matrix(report_date=report_date)
+    progress_snapshot = build_long_run_development_progress_snapshot(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -440,6 +444,16 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             ],
             "workflow_files_modified": failure_triage["safety_summary"]["workflow_files_modified"],
             "next_task": failure_triage["next_task"],
+        },
+        "long_run_development_progress_snapshot_status": {
+            "snapshot_exists": True,
+            "readiness_verdict": progress_snapshot["readiness_verdict"],
+            "single_overall_percent_allowed": progress_snapshot["progress_policy"][
+                "single_overall_percent_allowed"
+            ],
+            "domains": [row["domain"] for row in progress_snapshot["domain_progress"]],
+            "hard_gate_status": progress_snapshot["hard_gate_status"],
+            "workflow_files_modified": progress_snapshot["safety_summary"]["workflow_files_modified"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -754,6 +768,11 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- scheduled_report_failure_triage_utc_cron: {out_json['scheduled_report_failure_triage_matrix_status']['utc_cron_expression']}",
             f"- scheduled_report_failure_triage_secret_values_may_be_displayed: {str(out_json['scheduled_report_failure_triage_matrix_status']['secret_values_may_be_displayed']).lower()}",
             f"- scheduled_report_failure_triage_workflow_files_modified: {str(out_json['scheduled_report_failure_triage_matrix_status']['workflow_files_modified']).lower()}",
+            f"- long_run_development_progress_snapshot_exists: {str(out_json['long_run_development_progress_snapshot_status']['snapshot_exists']).lower()}",
+            f"- long_run_development_progress_verdict: {out_json['long_run_development_progress_snapshot_status']['readiness_verdict']}",
+            f"- long_run_development_single_overall_percent_allowed: {str(out_json['long_run_development_progress_snapshot_status']['single_overall_percent_allowed']).lower()}",
+            f"- long_run_development_progress_domains: {', '.join(out_json['long_run_development_progress_snapshot_status']['domains'])}",
+            f"- long_run_development_progress_workflow_files_modified: {str(out_json['long_run_development_progress_snapshot_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
