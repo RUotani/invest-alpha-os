@@ -18,6 +18,7 @@ from invis_alpha_os.reports.contract_env_status import (
 from invis_alpha_os.reports.data_contract_limit import assess_data_contract_limit
 from invis_alpha_os.reports.jquants_date_range import contract_dates_from_env
 from invis_alpha_os.reports.ohlcv_provider_registry_strategy import build_provider_context_pack_block
+from invis_alpha_os.reports.weekly_report_schedule_diagnostic import build_weekly_report_schedule_diagnostic
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -227,6 +228,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     contract_env = build_contract_env_status()
     jp_env_gap = jp_stale_candidates_without_contract_env(top10)
     provider_block = build_provider_context_pack_block(report_date=report_date)
+    weekly_schedule = build_weekly_report_schedule_diagnostic(observed_missing_date="2026-05-30")
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -289,6 +291,18 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "cache_write_pilot_result_review_gate_status"
         ],
         "actual_import_readiness_boundary_status": provider_block["actual_import_readiness_boundary_status"],
+        "weekly_report_schedule_diagnostic_status": {
+            "diagnostic_exists": True,
+            "user_observed_issue": weekly_schedule["user_observed_issue"],
+            "root_cause_found": weekly_schedule["root_cause_found"],
+            "github_weekly_schedule_found": weekly_schedule["detected_scheduler_wiring"]["github_actions"][
+                "github_weekly_schedule_found"
+            ],
+            "launchd_template_exists": weekly_schedule["detected_scheduler_wiring"]["launchd_template"]["exists"],
+            "workflow_change_required": weekly_schedule["workflow_change_required"],
+            "next_scheduled_report_confidence": weekly_schedule["next_scheduled_report_confidence"],
+            "workflow_files_modified": weekly_schedule["safety_summary"]["workflow_files_modified"],
+        },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -532,6 +546,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- actual_import_boundary_actual_import_approval_phrase_issued: {str(provider_block['actual_import_readiness_boundary_status']['actual_import_approval_phrase_issued']).lower()}",
             f"- actual_import_boundary_execution_allowed_now: {str(provider_block['actual_import_readiness_boundary_status']['actual_import_execution_allowed_now']).lower()}",
             f"- actual_import_boundary_trading_readiness: {provider_block['actual_import_readiness_boundary_status']['trading_readiness']}",
+            f"- weekly_report_schedule_diagnostic_exists: {str(out_json['weekly_report_schedule_diagnostic_status']['diagnostic_exists']).lower()}",
+            f"- weekly_report_missing_user_observed_issue: {out_json['weekly_report_schedule_diagnostic_status']['user_observed_issue']}",
+            f"- weekly_report_missing_root_cause_found: {out_json['weekly_report_schedule_diagnostic_status']['root_cause_found']}",
+            f"- weekly_report_github_weekly_schedule_found: {str(out_json['weekly_report_schedule_diagnostic_status']['github_weekly_schedule_found']).lower()}",
+            f"- weekly_report_launchd_template_exists: {str(out_json['weekly_report_schedule_diagnostic_status']['launchd_template_exists']).lower()}",
+            f"- weekly_report_workflow_change_required: {out_json['weekly_report_schedule_diagnostic_status']['workflow_change_required']}",
+            f"- weekly_report_next_scheduled_report_confidence: {out_json['weekly_report_schedule_diagnostic_status']['next_scheduled_report_confidence']}",
+            f"- weekly_report_workflow_files_modified: {str(out_json['weekly_report_schedule_diagnostic_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
