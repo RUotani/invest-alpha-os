@@ -161,6 +161,12 @@ from invis_alpha_os.discovery.us_universe_scanner import (
 )
 from invis_alpha_os.reports.daily_email import build_daily_email_from_bundle
 from invis_alpha_os.reports.weekly_candidate_brief_email import build_weekly_candidate_brief_email_draft
+from invis_alpha_os.reports.weekly_report_schedule_diagnostic import (
+    build_weekly_report_schedule_diagnostic,
+    format_weekly_report_schedule_diagnostic_json,
+    format_weekly_report_schedule_diagnostic_markdown,
+    write_weekly_report_schedule_diagnostic_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -947,6 +953,52 @@ def weekly_candidate_brief_email_command(
     msg_id = result.get("id", "") if isinstance(result, dict) else ""
     masked_to = recipient.split("@")[0][:2] + "***@" + recipient.split("@", 1)[1] if "@" in recipient else "***"
     typer.echo(f"weekly-candidate-brief-email: sent test message id={msg_id!r} to={masked_to}")
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-schedule-diagnostic")
+def weekly_candidate_brief_schedule_diagnostic_command(
+    observed_missing_date: str = typer.Option("2026-05-30", "--observed-missing-date"),
+    timezone_name: str = typer.Option("Asia/Tokyo", "--timezone"),
+    expected_weekday: str = typer.Option("Saturday", "--expected-weekday"),
+    expected_hour_jst: int = typer.Option(7, "--expected-hour-jst"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-schedule-diagnostic: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    try:
+        payload = build_weekly_report_schedule_diagnostic(
+            observed_missing_date=observed_missing_date,
+            timezone_name=timezone_name,
+            expected_weekday=expected_weekday,
+            expected_hour_jst=expected_hour_jst,
+            repo_root=ROOT_DIR,
+        )
+    except ValueError as e:
+        typer.echo(f"weekly-candidate-brief-schedule-diagnostic: {e}", err=True)
+        raise typer.Exit(2) from e
+    markdown_text = format_weekly_report_schedule_diagnostic_markdown(payload)
+    run_date = observed_missing_date
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_report_schedule_diagnostic_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_report_schedule_diagnostic_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-schedule-diagnostic: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-schedule-diagnostic: "
+        "source_only=true workflow_files_modified=false provider_live_access_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false env_secret_displayed=false trading_action_executed=false",
+        err=True,
+    )
     raise typer.Exit(0)
 
 
