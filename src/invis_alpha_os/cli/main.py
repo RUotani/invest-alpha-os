@@ -209,6 +209,12 @@ from invis_alpha_os.reports.weekly_report_workflow_patch_review_gate import (
     format_weekly_report_workflow_patch_review_gate_markdown,
     write_weekly_report_workflow_patch_review_gate_outputs,
 )
+from invis_alpha_os.reports.weekly_report_manual_backfill_command_pack import (
+    build_weekly_report_manual_backfill_command_pack,
+    format_weekly_report_manual_backfill_command_pack_json,
+    format_weekly_report_manual_backfill_command_pack_markdown,
+    write_weekly_report_manual_backfill_command_pack_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1334,6 +1340,50 @@ def weekly_candidate_brief_workflow_patch_review_gate_command(
         "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
         "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "dependency_pyproject_changed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-manual-backfill-command-pack")
+def weekly_candidate_brief_manual_backfill_command_pack_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    missed_report_date: str = typer.Option("2026-05-30", "--missed-report-date"),
+    target_timezone: str = typer.Option("Asia/Tokyo", "--target-timezone"),
+    backfill_out_dir: str = typer.Option("reports", "--backfill-out-dir"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-manual-backfill-command-pack: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_weekly_report_manual_backfill_command_pack(
+        report_date=run_date,
+        missed_report_date=missed_report_date,
+        timezone_name=target_timezone,
+        out_dir=backfill_out_dir,
+    )
+    markdown_text = format_weekly_report_manual_backfill_command_pack_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_report_manual_backfill_command_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_report_manual_backfill_command_pack_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-manual-backfill-command-pack: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-manual-backfill-command-pack: "
+        "source_only=true manual_backfill_command_pack_only=true manual_backfill_executed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false workflow_files_modified=false "
+        "gmail_send_executed=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)

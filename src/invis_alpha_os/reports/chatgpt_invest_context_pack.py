@@ -32,6 +32,9 @@ from invis_alpha_os.reports.scheduled_report_assurance_snapshot import build_sch
 from invis_alpha_os.reports.weekly_report_workflow_patch_review_gate import (
     build_weekly_report_workflow_patch_review_gate,
 )
+from invis_alpha_os.reports.weekly_report_manual_backfill_command_pack import (
+    build_weekly_report_manual_backfill_command_pack,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -249,6 +252,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     long_run_preflight = build_long_run_operator_preflight_pack(report_date=report_date)
     assurance_snapshot = build_scheduled_report_assurance_snapshot(report_date=report_date)
     workflow_patch_review_gate = build_weekly_report_workflow_patch_review_gate(report_date=report_date)
+    manual_backfill_command_pack = build_weekly_report_manual_backfill_command_pack(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -406,6 +410,21 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             ],
             "workflow_files_modified": workflow_patch_review_gate["safety_summary"]["workflow_files_modified"],
             "next_task": workflow_patch_review_gate["next_task"],
+        },
+        "weekly_report_manual_backfill_command_pack_status": {
+            "pack_exists": True,
+            "readiness_verdict": manual_backfill_command_pack["readiness_verdict"],
+            "missed_report_date": manual_backfill_command_pack["missed_report_date"],
+            "timezone": manual_backfill_command_pack["timezone"],
+            "manual_backfill_execution_approved_by_this_pack": manual_backfill_command_pack["dry_run_boundary"][
+                "manual_backfill_execution_approved_by_this_pack"
+            ],
+            "raw_data_outputs_allowed": manual_backfill_command_pack["expected_output_schema"][
+                "raw_data_outputs_allowed"
+            ],
+            "workflow_files_modified": manual_backfill_command_pack["safety_summary"]["workflow_files_modified"],
+            "gmail_send_executed": manual_backfill_command_pack["safety_summary"]["gmail_send_executed"],
+            "next_task": manual_backfill_command_pack["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -706,6 +725,14 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_workflow_patch_review_jst_schedule: {out_json['weekly_report_workflow_patch_review_gate_status']['corresponding_jst_schedule']}",
             f"- weekly_report_workflow_patch_review_manual_dispatch_required: {str(out_json['weekly_report_workflow_patch_review_gate_status']['manual_workflow_dispatch_required']).lower()}",
             f"- weekly_report_workflow_patch_review_workflow_files_modified: {str(out_json['weekly_report_workflow_patch_review_gate_status']['workflow_files_modified']).lower()}",
+            f"- weekly_report_manual_backfill_command_pack_exists: {str(out_json['weekly_report_manual_backfill_command_pack_status']['pack_exists']).lower()}",
+            f"- weekly_report_manual_backfill_command_pack_verdict: {out_json['weekly_report_manual_backfill_command_pack_status']['readiness_verdict']}",
+            f"- weekly_report_manual_backfill_missed_report_date: {out_json['weekly_report_manual_backfill_command_pack_status']['missed_report_date']}",
+            f"- weekly_report_manual_backfill_timezone: {out_json['weekly_report_manual_backfill_command_pack_status']['timezone']}",
+            f"- weekly_report_manual_backfill_execution_approved: {str(out_json['weekly_report_manual_backfill_command_pack_status']['manual_backfill_execution_approved_by_this_pack']).lower()}",
+            f"- weekly_report_manual_backfill_raw_data_outputs_allowed: {str(out_json['weekly_report_manual_backfill_command_pack_status']['raw_data_outputs_allowed']).lower()}",
+            f"- weekly_report_manual_backfill_workflow_files_modified: {str(out_json['weekly_report_manual_backfill_command_pack_status']['workflow_files_modified']).lower()}",
+            f"- weekly_report_manual_backfill_gmail_send_executed: {str(out_json['weekly_report_manual_backfill_command_pack_status']['gmail_send_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
