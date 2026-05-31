@@ -285,6 +285,9 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "cache_purge_inventory_dryrun_contract_status"
         ],
         "cache_write_pilot_approval_packet_status": provider_block["cache_write_pilot_approval_packet_status"],
+        "cache_write_pilot_result_review_gate_status": provider_block[
+            "cache_write_pilot_result_review_gate_status"
+        ],
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
             "new": ["未実装"],
@@ -513,6 +516,11 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- cache_write_pilot_cache_write_approval_status: {provider_block['cache_write_pilot_approval_packet_status']['cache_write_approval_status']}",
             f"- cache_write_pilot_actual_import_approval_status: {provider_block['cache_write_pilot_approval_packet_status']['actual_import_approval_status']}",
             f"- cache_write_pilot_approval_phrase_issued: {str(provider_block['cache_write_pilot_approval_packet_status']['approval_phrase_issued']).lower()}",
+            f"- cache_write_pilot_result_review_gate_exists: {str(provider_block['cache_write_pilot_result_review_gate_status']['gate_exists']).lower()}",
+            f"- cache_write_pilot_result_review_current_verdict: {provider_block['cache_write_pilot_result_review_gate_status']['current_verdict']}",
+            f"- cache_write_pilot_result_review_pilot_has_run: {str(provider_block['cache_write_pilot_result_review_gate_status']['pilot_has_run']).lower()}",
+            f"- cache_write_pilot_result_review_actual_import_readiness: {provider_block['cache_write_pilot_result_review_gate_status']['actual_import_readiness']}",
+            f"- cache_write_pilot_result_review_raw_ohlcv_emitted: {str(provider_block['cache_write_pilot_result_review_gate_status']['raw_ohlcv_emitted']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
