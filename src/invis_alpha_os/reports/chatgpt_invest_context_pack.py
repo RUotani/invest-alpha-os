@@ -24,6 +24,9 @@ from invis_alpha_os.reports.weekly_report_recovery_runbook import build_weekly_r
 from invis_alpha_os.reports.weekly_report_workflow_approval_package import (
     build_weekly_report_workflow_approval_package,
 )
+from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import (
+    build_weekly_report_local_dryrun_backfill_contract,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -237,6 +240,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     scheduled_observability = build_scheduled_report_observability(as_of_date=report_date)
     recovery_runbook = build_weekly_report_recovery_runbook(missed_report_date="2026-05-30")
     workflow_approval = build_weekly_report_workflow_approval_package(report_date=report_date)
+    local_dryrun_contract = build_weekly_report_local_dryrun_backfill_contract(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -341,6 +345,22 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "github_actions_cron_utc": workflow_approval["target_schedule"]["github_actions_cron_utc"],
             "workflow_files_modified": workflow_approval["safety_summary"]["workflow_files_modified"],
             "next_task": workflow_approval["context_summary"]["next_task"],
+        },
+        "weekly_report_local_dryrun_backfill_contract_status": {
+            "contract_exists": True,
+            "readiness_verdict": local_dryrun_contract["readiness_verdict"],
+            "missed_report_date": local_dryrun_contract["missed_report_date"],
+            "local_dryrun_execution_approved_by_this_pack": local_dryrun_contract["scope"][
+                "local_dryrun_execution_approved_by_this_pack"
+            ],
+            "manual_backfill_execution_approved_by_this_pack": local_dryrun_contract["scope"][
+                "manual_backfill_execution_approved_by_this_pack"
+            ],
+            "raw_ohlcv_persistence_executed": local_dryrun_contract["safety_summary"][
+                "raw_ohlcv_persistence_executed"
+            ],
+            "workflow_files_modified": local_dryrun_contract["safety_summary"]["workflow_files_modified"],
+            "next_task": local_dryrun_contract["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -613,6 +633,13 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_report_workflow_wrong_cron_detected: {str(out_json['weekly_report_workflow_approval_package_status']['wrong_cron_detected']).lower()}",
             f"- weekly_report_workflow_github_actions_cron_utc: {out_json['weekly_report_workflow_approval_package_status']['github_actions_cron_utc']}",
             f"- weekly_report_workflow_files_modified: {str(out_json['weekly_report_workflow_approval_package_status']['workflow_files_modified']).lower()}",
+            f"- weekly_report_local_dryrun_backfill_contract_exists: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['contract_exists']).lower()}",
+            f"- weekly_report_local_dryrun_backfill_verdict: {out_json['weekly_report_local_dryrun_backfill_contract_status']['readiness_verdict']}",
+            f"- weekly_report_local_dryrun_missed_report_date: {out_json['weekly_report_local_dryrun_backfill_contract_status']['missed_report_date']}",
+            f"- weekly_report_local_dryrun_execution_approved: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['local_dryrun_execution_approved_by_this_pack']).lower()}",
+            f"- weekly_report_manual_backfill_execution_approved: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['manual_backfill_execution_approved_by_this_pack']).lower()}",
+            f"- weekly_report_local_dryrun_raw_ohlcv_persistence_executed: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['raw_ohlcv_persistence_executed']).lower()}",
+            f"- weekly_report_local_dryrun_workflow_files_modified: {str(out_json['weekly_report_local_dryrun_backfill_contract_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",

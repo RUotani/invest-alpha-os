@@ -185,6 +185,12 @@ from invis_alpha_os.reports.weekly_report_workflow_approval_package import (
     format_weekly_report_workflow_approval_package_markdown,
     write_weekly_report_workflow_approval_package_outputs,
 )
+from invis_alpha_os.reports.weekly_report_local_dryrun_backfill_contract import (
+    build_weekly_report_local_dryrun_backfill_contract,
+    format_weekly_report_local_dryrun_backfill_contract_json,
+    format_weekly_report_local_dryrun_backfill_contract_markdown,
+    write_weekly_report_local_dryrun_backfill_contract_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1147,6 +1153,46 @@ def weekly_candidate_brief_workflow_approval_package_command(
     typer.echo(
         "weekly-candidate-brief-workflow-approval-package: "
         "source_only=true workflow_patch_package_only=true workflow_files_modified=false provider_live_access_executed=false live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-local-dryrun-backfill-contract")
+def weekly_candidate_brief_local_dryrun_backfill_contract_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    missed_report_date: str = typer.Option("2026-05-30", "--missed-report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-local-dryrun-backfill-contract: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_weekly_report_local_dryrun_backfill_contract(
+        report_date=run_date,
+        missed_report_date=missed_report_date,
+    )
+    markdown_text = format_weekly_report_local_dryrun_backfill_contract_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_report_local_dryrun_backfill_contract_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_report_local_dryrun_backfill_contract_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-local-dryrun-backfill-contract: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-local-dryrun-backfill-contract: "
+        "source_only=true local_dryrun_contract_only=true local_dryrun_executed=false "
+        "manual_backfill_executed=false provider_live_access_executed=false live_http_executed=false "
+        "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "workflow_files_modified=false gmail_send_executed=false",
         err=True,
     )
     raise typer.Exit(0)
