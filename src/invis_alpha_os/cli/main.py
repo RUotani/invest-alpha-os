@@ -234,6 +234,7 @@ from invis_alpha_os.reports.weekly_workflow_post_merge_observation_plan import (
     write_weekly_workflow_post_merge_observation_plan_outputs,
 )
 from invis_alpha_os.reports.position_aware_dca_decision_pack import (
+    DEFAULT_POSITION_GUARD_SYMBOLS,
     build_position_aware_dca_decision_pack,
     format_position_aware_dca_decision_pack_json,
     format_position_aware_dca_decision_pack_markdown,
@@ -1542,7 +1543,7 @@ def weekly_candidate_brief_workflow_observation_plan_command(
 @app.command("position-aware-dca-decision-pack")
 def position_aware_dca_decision_pack_command(
     report_date: Optional[str] = typer.Option(None, "--report-date"),
-    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
@@ -1579,7 +1580,7 @@ def position_aware_dca_decision_pack_command(
 @app.command("position-snapshot-template")
 def position_snapshot_template_command(
     report_date: Optional[str] = typer.Option(None, "--report-date"),
-    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
@@ -1614,7 +1615,7 @@ def position_snapshot_template_command(
 def position_snapshot_validate_command(
     snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
     report_date: Optional[str] = typer.Option(None, "--report-date"),
-    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
@@ -1655,7 +1656,7 @@ def position_snapshot_validate_command(
 def position_aware_dca_strategy_pack_command(
     snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
     report_date: Optional[str] = typer.Option(None, "--report-date"),
-    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:
@@ -1694,7 +1695,7 @@ def position_aware_dca_strategy_pack_command(
 @app.command("position-snapshot-human-input-checklist")
 def position_snapshot_human_input_checklist_command(
     report_date: Optional[str] = typer.Option(None, "--report-date"),
-    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
     out_dir: Optional[str] = typer.Option(None, "--out-dir"),
     fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
 ) -> None:

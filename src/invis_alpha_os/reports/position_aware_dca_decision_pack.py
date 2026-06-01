@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 
+DEFAULT_POSITION_GUARD_SYMBOLS = "6501.T,7203.T,AAPL,NVDA,GLDM"
+
 DCA_DECISION_LABELS = (
     "no_action",
     "monitor_only",
@@ -33,6 +35,134 @@ DcaDecisionLabel = Literal[
 THESIS_INTACT = "intact"
 THESIS_WATCH = "watch"
 THESIS_BROKEN = "broken"
+
+GENERIC_POSITION_GUARD_LABELS = (
+    "monitor_only",
+    "wait_for_capitulation",
+    "small_tranche_allowed",
+    "dca_blocked_by_portfolio_risk",
+    "dca_blocked_by_thesis_damage",
+    "dca_blocked_by_cash_buffer",
+    "requires_latest_market_review",
+)
+
+GenericPositionGuardLabel = Literal[
+    "monitor_only",
+    "wait_for_capitulation",
+    "small_tranche_allowed",
+    "dca_blocked_by_portfolio_risk",
+    "dca_blocked_by_thesis_damage",
+    "dca_blocked_by_cash_buffer",
+    "requires_latest_market_review",
+]
+
+
+@dataclass(frozen=True)
+class GenericPositionGuardInput:
+    symbol: str
+    display_name: str
+    asset_class: str
+    market: str
+    sector_tag: str
+    theme_tag: str
+    position_weight_pct: float
+    max_position_weight_pct: float
+    cash_buffer_status: str
+    thesis_status: str
+    business_value_status: str
+    valuation_status: str
+    technical_status: str
+    portfolio_permission_status: str
+    dca_policy_mode: str
+    max_additional_buy_amount: float
+    must_not_buy_if: tuple[str, ...] = ()
+    review_triggers: tuple[str, ...] = ()
+    operator_notes: str = ""
+
+
+def _status_in(value: str, expected: set[str]) -> bool:
+    return value.strip().lower() in expected
+
+
+def build_generic_position_guard(guard_input: GenericPositionGuardInput) -> dict[str, Any]:
+    """Build a generic, observation-only position-aware DCA guard.
+
+    This deliberately avoids symbol-specific logic. It separates price
+    cheapness, thesis integrity, business value, portfolio permission, cash
+    permission, and current-entry review into explicit fields.
+    """
+
+    thesis_status = guard_input.thesis_status.strip().lower()
+    business_value_status = guard_input.business_value_status.strip().lower()
+    valuation_status = guard_input.valuation_status.strip().lower()
+    technical_status = guard_input.technical_status.strip().lower()
+    portfolio_permission_status = guard_input.portfolio_permission_status.strip().lower()
+    cash_buffer_status = guard_input.cash_buffer_status.strip().lower()
+    dca_policy_mode = guard_input.dca_policy_mode.strip().lower()
+
+    cheap_price = _status_in(
+        valuation_status,
+        {"cheap", "undervalued", "discounted", "cheap_vs_history", "below_fair_value"},
+    )
+    improved_business_value = _status_in(
+        business_value_status,
+        {"improving", "improved", "positive_revision", "turning_up"},
+    )
+    intact_thesis = thesis_status == THESIS_INTACT
+    portfolio_permission = (
+        portfolio_permission_status in {"allowed", "manual_allowed", "within_limit"}
+        and guard_input.position_weight_pct < guard_input.max_position_weight_pct
+        and guard_input.max_position_weight_pct > 0
+    )
+    cash_permission = cash_buffer_status == "sufficient" and guard_input.max_additional_buy_amount > 0
+    entry_trigger = technical_status in {"capitulation_seen", "support_confirmed", "entry_trigger_present"}
+    needs_latest_market_review = technical_status in {"unknown", "manual_review_required", "needs_current_review", ""}
+    must_not_buy_blocker = bool(guard_input.must_not_buy_if) and dca_policy_mode in {"blocked", "review_only"}
+
+    blockers: list[str] = []
+    if thesis_status == THESIS_BROKEN:
+        blockers.append("thesis_damage_or_broken")
+    if not portfolio_permission:
+        blockers.append("portfolio_permission_not_confirmed")
+    if not cash_permission:
+        blockers.append("cash_permission_not_confirmed")
+    if must_not_buy_blocker:
+        blockers.append("must_not_buy_conditions_present")
+
+    if thesis_status == THESIS_BROKEN:
+        label: GenericPositionGuardLabel = "dca_blocked_by_thesis_damage"
+    elif not portfolio_permission:
+        label = "dca_blocked_by_portfolio_risk"
+    elif not cash_permission:
+        label = "dca_blocked_by_cash_buffer"
+    elif needs_latest_market_review:
+        label = "requires_latest_market_review"
+    elif cheap_price and improved_business_value and intact_thesis and entry_trigger:
+        label = "small_tranche_allowed"
+    elif cheap_price and intact_thesis:
+        label = "wait_for_capitulation"
+    else:
+        label = "monitor_only"
+
+    return {
+        "guard_label": label,
+        "observation_only_not_trade_instruction": True,
+        "symbol_specific_logic_used": False,
+        "cheap_price": cheap_price,
+        "improved_business_value": improved_business_value,
+        "intact_thesis": intact_thesis,
+        "portfolio_permission": portfolio_permission,
+        "cash_permission": cash_permission,
+        "entry_trigger": entry_trigger,
+        "must_not_buy_blocker": must_not_buy_blocker,
+        "blockers": tuple(blockers),
+        "review_triggers": guard_input.review_triggers,
+        "required_human_checks": (
+            "confirm latest market/filing/news context before any human action",
+            "confirm portfolio sizing and cash buffer against household plan",
+            "confirm this guard is not an automated trade recommendation",
+        ),
+    }
 
 
 @dataclass(frozen=True)
@@ -174,6 +304,12 @@ def validate_position_snapshot(raw: dict[str, Any]) -> PositionSnapshot:
 
 
 def jfe_honda_starter_profiles() -> dict[str, dict[str, Any]]:
+    """Return starter example profiles.
+
+    JFE/Honda are retained only as examples/fixtures for v74-v75 continuity.
+    Generic guard behavior must not branch on these symbols.
+    """
+
     return {
         "5411.T": {
             "symbol": "5411.T",
@@ -237,7 +373,46 @@ def jfe_honda_starter_profiles() -> dict[str, dict[str, Any]]:
                 "shareholder return / low PBR thesis",
             ),
         },
+        "6501.T": {
+            "symbol": "6501.T",
+            "display_name": "Hitachi",
+            "investment_thesis": "generic large-cap industrial starter example; manual thesis required",
+            "valuation_context": "manual valuation context required",
+            "yield_context": "manual shareholder-return context required",
+            "starter_tags": {"valuation": (), "trend": (), "business_risk": (), "dividend": ()},
+            "risk_factors": ("manual business review required",),
+        },
+        "7203.T": {
+            "symbol": "7203.T",
+            "display_name": "Toyota Motor",
+            "investment_thesis": "generic large-cap auto starter example; manual thesis required",
+            "valuation_context": "manual valuation context required",
+            "yield_context": "manual shareholder-return context required",
+            "starter_tags": {"valuation": (), "trend": (), "business_risk": (), "dividend": ()},
+            "risk_factors": ("manual business review required",),
+        },
+        "AAPL": {
+            "symbol": "AAPL",
+            "display_name": "Apple",
+            "investment_thesis": "generic US equity starter example; manual thesis required",
+            "valuation_context": "manual valuation context required",
+            "yield_context": "manual shareholder-return context required",
+            "starter_tags": {"valuation": (), "trend": (), "business_risk": (), "dividend": ()},
+            "risk_factors": ("manual business review required",),
+        },
+        "NVDA": {
+            "symbol": "NVDA",
+            "display_name": "NVIDIA",
+            "investment_thesis": "generic US equity starter example; manual thesis required",
+            "valuation_context": "manual valuation context required",
+            "yield_context": "manual shareholder-return context required",
+            "starter_tags": {"valuation": (), "trend": (), "business_risk": (), "dividend": ()},
+            "risk_factors": ("manual business review required",),
+        },
     }
+
+
+starter_position_profiles = jfe_honda_starter_profiles
 
 
 def fixture_position_snapshots() -> dict[str, PositionSnapshot]:
@@ -425,7 +600,7 @@ def _snapshot_for_symbol(symbol: str) -> PositionSnapshot:
 def build_position_aware_dca_decision_pack(
     *,
     report_date: str,
-    symbols_csv: str = "5411.T,7267.T",
+    symbols_csv: str = DEFAULT_POSITION_GUARD_SYMBOLS,
 ) -> dict[str, Any]:
     symbols = _parse_symbols(symbols_csv)
     rows: list[dict[str, Any]] = []
@@ -569,7 +744,7 @@ def format_position_aware_dca_decision_pack_markdown(payload: dict[str, Any]) ->
             "## Copy-ready ChatGPT Prompt",
             "```text",
             "以下はsource-onlyのredacted position-aware DCA summaryです。",
-            "売買指示ではなく、JFE/Hondaの平均取得単価、含み損益、portfolio weight、cash buffer、",
+            "売買指示ではなく、任意銘柄の平均取得単価、含み損益、portfolio weight、cash buffer、",
             "投資仮説の健全性、事業リスク、配当持続性を分けて、追加・待機・縮小レビューの論点を整理してください。",
             "特に『価格が安い』と『事業価値が改善した』を混同しないでください。",
             "```",
