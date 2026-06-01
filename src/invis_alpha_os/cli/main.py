@@ -227,6 +227,12 @@ from invis_alpha_os.reports.long_run_development_progress_snapshot import (
     format_long_run_development_progress_snapshot_markdown,
     write_long_run_development_progress_snapshot_outputs,
 )
+from invis_alpha_os.reports.weekly_workflow_post_merge_observation_plan import (
+    build_weekly_workflow_post_merge_observation_plan,
+    format_weekly_workflow_post_merge_observation_plan_json,
+    format_weekly_workflow_post_merge_observation_plan_markdown,
+    write_weekly_workflow_post_merge_observation_plan_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1468,6 +1474,47 @@ def weekly_candidate_brief_long_run_progress_snapshot_command(
         "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
         "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "workflow_files_modified=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-workflow-observation-plan")
+def weekly_candidate_brief_workflow_observation_plan_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    target_local_hour: int = typer.Option(7, "--target-local-hour"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("weekly-candidate-brief-workflow-observation-plan: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_weekly_workflow_post_merge_observation_plan(
+        report_date=run_date,
+        target_local_hour=target_local_hour,
+        repo_root=ROOT_DIR,
+    )
+    markdown_text = format_weekly_workflow_post_merge_observation_plan_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "chatgpt_context"
+    paths = write_weekly_workflow_post_merge_observation_plan_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_weekly_workflow_post_merge_observation_plan_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"weekly-candidate-brief-workflow-observation-plan: {key}={p}", err=True)
+    typer.echo(
+        "weekly-candidate-brief-workflow-observation-plan: "
+        "source_only=true post_merge_observation_plan_only=true manual_workflow_dispatch_executed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)

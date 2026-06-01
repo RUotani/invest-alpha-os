@@ -41,6 +41,9 @@ from invis_alpha_os.reports.scheduled_report_failure_triage_matrix import (
 from invis_alpha_os.reports.long_run_development_progress_snapshot import (
     build_long_run_development_progress_snapshot,
 )
+from invis_alpha_os.reports.weekly_workflow_post_merge_observation_plan import (
+    build_weekly_workflow_post_merge_observation_plan,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -261,6 +264,7 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     manual_backfill_command_pack = build_weekly_report_manual_backfill_command_pack(report_date=report_date)
     failure_triage = build_scheduled_report_failure_triage_matrix(report_date=report_date)
     progress_snapshot = build_long_run_development_progress_snapshot(report_date=report_date)
+    workflow_observation_plan = build_weekly_workflow_post_merge_observation_plan(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -454,6 +458,20 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "domains": [row["domain"] for row in progress_snapshot["domain_progress"]],
             "hard_gate_status": progress_snapshot["hard_gate_status"],
             "workflow_files_modified": progress_snapshot["safety_summary"]["workflow_files_modified"],
+        },
+        "weekly_workflow_post_merge_observation_plan_status": {
+            "plan_exists": True,
+            "readiness_verdict": workflow_observation_plan["readiness_verdict"],
+            "next_run_date_jst": workflow_observation_plan["next_run_target"]["next_run_date_jst"],
+            "next_run_local_time": workflow_observation_plan["next_run_target"]["next_run_local_time"],
+            "github_actions_cron_utc": workflow_observation_plan["next_run_target"]["github_actions_cron_utc"],
+            "workflow_exists": workflow_observation_plan["workflow_source_status"]["workflow_exists"],
+            "expected_cron_found": workflow_observation_plan["workflow_source_status"]["expected_cron_found"],
+            "manual_workflow_dispatch_executed": workflow_observation_plan["safety_summary"][
+                "manual_workflow_dispatch_executed"
+            ],
+            "workflow_files_modified": workflow_observation_plan["safety_summary"]["workflow_files_modified"],
+            "next_task": workflow_observation_plan["next_task"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -773,6 +791,15 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- long_run_development_single_overall_percent_allowed: {str(out_json['long_run_development_progress_snapshot_status']['single_overall_percent_allowed']).lower()}",
             f"- long_run_development_progress_domains: {', '.join(out_json['long_run_development_progress_snapshot_status']['domains'])}",
             f"- long_run_development_progress_workflow_files_modified: {str(out_json['long_run_development_progress_snapshot_status']['workflow_files_modified']).lower()}",
+            f"- weekly_workflow_post_merge_observation_plan_exists: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['plan_exists']).lower()}",
+            f"- weekly_workflow_post_merge_observation_verdict: {out_json['weekly_workflow_post_merge_observation_plan_status']['readiness_verdict']}",
+            f"- weekly_workflow_post_merge_next_run_date_jst: {out_json['weekly_workflow_post_merge_observation_plan_status']['next_run_date_jst']}",
+            f"- weekly_workflow_post_merge_next_run_local_time: {out_json['weekly_workflow_post_merge_observation_plan_status']['next_run_local_time']}",
+            f"- weekly_workflow_post_merge_cron_utc: {out_json['weekly_workflow_post_merge_observation_plan_status']['github_actions_cron_utc']}",
+            f"- weekly_workflow_post_merge_workflow_exists: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['workflow_exists']).lower()}",
+            f"- weekly_workflow_post_merge_expected_cron_found: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['expected_cron_found']).lower()}",
+            f"- weekly_workflow_post_merge_manual_dispatch_executed: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['manual_workflow_dispatch_executed']).lower()}",
+            f"- weekly_workflow_post_merge_workflow_files_modified: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['workflow_files_modified']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
