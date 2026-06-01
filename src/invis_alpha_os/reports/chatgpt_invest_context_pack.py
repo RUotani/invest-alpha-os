@@ -44,6 +44,13 @@ from invis_alpha_os.reports.long_run_development_progress_snapshot import (
 from invis_alpha_os.reports.weekly_workflow_post_merge_observation_plan import (
     build_weekly_workflow_post_merge_observation_plan,
 )
+from invis_alpha_os.reports.position_aware_dca_decision_pack import (
+    DEFAULT_POSITION_GUARD_SYMBOLS,
+    GENERIC_POSITION_GUARD_LABELS,
+)
+from invis_alpha_os.reports.redacted_position_snapshot_input_pack import (
+    build_redacted_position_snapshot_template,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -265,6 +272,10 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
     failure_triage = build_scheduled_report_failure_triage_matrix(report_date=report_date)
     progress_snapshot = build_long_run_development_progress_snapshot(report_date=report_date)
     workflow_observation_plan = build_weekly_workflow_post_merge_observation_plan(report_date=report_date)
+    generic_position_template = build_redacted_position_snapshot_template(
+        report_date=report_date,
+        symbols_csv=DEFAULT_POSITION_GUARD_SYMBOLS,
+    )
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -472,6 +483,27 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             ],
             "workflow_files_modified": workflow_observation_plan["safety_summary"]["workflow_files_modified"],
             "next_task": workflow_observation_plan["next_task"],
+        },
+        "generic_position_aware_guard_status": {
+            "guard_exists": True,
+            "pack_version": generic_position_template["pack_version"],
+            "default_symbols": generic_position_template["redacted_snapshot_template"]["positions"],
+            "generic_labels": list(GENERIC_POSITION_GUARD_LABELS),
+            "jfe_honda_scope": "starter_examples_and_fixtures_only",
+            "symbol_specific_guard_logic_allowed": False,
+            "return_to_main_development_recommended": True,
+            "provider_live_access_executed": generic_position_template["safety_summary"][
+                "provider_live_access_executed"
+            ],
+            "live_http_executed": generic_position_template["safety_summary"]["live_http_executed"],
+            "cache_write_executed": generic_position_template["safety_summary"]["cache_write_executed"],
+            "actual_refresh_import_executed": generic_position_template["safety_summary"][
+                "actual_refresh_import_executed"
+            ],
+            "broker_api_access_executed": generic_position_template["safety_summary"]["broker_api_access_executed"],
+            "raw_broker_export_parsed": generic_position_template["safety_summary"]["raw_broker_export_parsed"],
+            "env_secret_displayed": generic_position_template["safety_summary"]["env_secret_displayed"],
+            "trading_action_executed": generic_position_template["safety_summary"]["trading_action_executed"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -800,6 +832,20 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- weekly_workflow_post_merge_expected_cron_found: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['expected_cron_found']).lower()}",
             f"- weekly_workflow_post_merge_manual_dispatch_executed: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['manual_workflow_dispatch_executed']).lower()}",
             f"- weekly_workflow_post_merge_workflow_files_modified: {str(out_json['weekly_workflow_post_merge_observation_plan_status']['workflow_files_modified']).lower()}",
+            f"- generic_position_aware_guard_exists: {str(out_json['generic_position_aware_guard_status']['guard_exists']).lower()}",
+            f"- generic_position_aware_guard_version: {out_json['generic_position_aware_guard_status']['pack_version']}",
+            f"- generic_position_guard_labels: {', '.join(out_json['generic_position_aware_guard_status']['generic_labels'])}",
+            f"- generic_position_jfe_honda_scope: {out_json['generic_position_aware_guard_status']['jfe_honda_scope']}",
+            f"- generic_position_symbol_specific_guard_logic_allowed: {str(out_json['generic_position_aware_guard_status']['symbol_specific_guard_logic_allowed']).lower()}",
+            f"- generic_position_return_to_main_development_recommended: {str(out_json['generic_position_aware_guard_status']['return_to_main_development_recommended']).lower()}",
+            f"- generic_position_provider_live_access_executed: {str(out_json['generic_position_aware_guard_status']['provider_live_access_executed']).lower()}",
+            f"- generic_position_live_http_executed: {str(out_json['generic_position_aware_guard_status']['live_http_executed']).lower()}",
+            f"- generic_position_cache_write_executed: {str(out_json['generic_position_aware_guard_status']['cache_write_executed']).lower()}",
+            f"- generic_position_actual_refresh_import_executed: {str(out_json['generic_position_aware_guard_status']['actual_refresh_import_executed']).lower()}",
+            f"- generic_position_broker_api_access_executed: {str(out_json['generic_position_aware_guard_status']['broker_api_access_executed']).lower()}",
+            f"- generic_position_raw_broker_export_parsed: {str(out_json['generic_position_aware_guard_status']['raw_broker_export_parsed']).lower()}",
+            f"- generic_position_env_secret_displayed: {str(out_json['generic_position_aware_guard_status']['env_secret_displayed']).lower()}",
+            f"- generic_position_trading_action_executed: {str(out_json['generic_position_aware_guard_status']['trading_action_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",

@@ -34,6 +34,8 @@ def _valid_snapshot() -> dict[str, object]:
             {
                 "symbol": "5411.T",
                 "display_name": "JFE Holdings",
+                "asset_class": "equity",
+                "market": "JP",
                 "account_alias": "taxable_alias_1",
                 "account_type": "taxable",
                 "shares": 100,
@@ -42,10 +44,17 @@ def _valid_snapshot() -> dict[str, object]:
                 "market_value": 190000,
                 "unrealized_pl": -40000,
                 "unrealized_pl_pct": -17.3913,
+                "position_weight_pct": 2.4,
                 "portfolio_weight_pct": 2.4,
                 "sector_tag": "steel",
+                "theme_tag": "cyclical",
+                "cash_buffer_status": "sufficient",
                 "thesis_status": "watch",
-                "dca_intent": "review_only",
+                "business_value_status": "unknown",
+                "valuation_status": "cheap",
+                "technical_status": "needs_current_review",
+                "portfolio_permission_status": "allowed",
+                "dca_policy_mode": "review_only",
                 "max_additional_buy_amount": 50000,
                 "max_position_weight_pct": 5,
                 "must_not_buy_if": ["thesis_status is broken", "cash buffer becomes insufficient"],
@@ -55,6 +64,8 @@ def _valid_snapshot() -> dict[str, object]:
             {
                 "symbol": "7267.T",
                 "display_name": "Honda Motor",
+                "asset_class": "equity",
+                "market": "JP",
                 "account_alias": "taxable_alias_1",
                 "account_type": "taxable",
                 "shares": 100,
@@ -63,10 +74,17 @@ def _valid_snapshot() -> dict[str, object]:
                 "market_value": 150000,
                 "unrealized_pl": -20000,
                 "unrealized_pl_pct": -11.7647,
+                "position_weight_pct": 2.0,
                 "portfolio_weight_pct": 2.0,
                 "sector_tag": "auto",
+                "theme_tag": "global_auto",
+                "cash_buffer_status": "sufficient",
                 "thesis_status": "watch",
-                "dca_intent": "review_only",
+                "business_value_status": "unknown",
+                "valuation_status": "unknown",
+                "technical_status": "needs_current_review",
+                "portfolio_permission_status": "allowed",
+                "dca_policy_mode": "review_only",
                 "max_additional_buy_amount": 50000,
                 "max_position_weight_pct": 5,
                 "must_not_buy_if": ["thesis_status is broken", "cash buffer becomes insufficient"],
@@ -77,15 +95,17 @@ def _valid_snapshot() -> dict[str, object]:
     }
 
 
-def test_template_contains_jfe_honda_json_skeleton_and_safety() -> None:
-    payload = build_redacted_position_snapshot_template(report_date="2026-06-01", symbols_csv="5411.T,7267.T")
+def test_template_contains_generic_json_skeleton_and_safety() -> None:
+    payload = build_redacted_position_snapshot_template(report_date="2026-06-01", symbols_csv="6501.T,AAPL,NVDA")
     template = payload["redacted_snapshot_template"]
     assert template["cash_buffer_status"] == "unknown"
-    assert [row["symbol"] for row in template["positions"]] == ["5411.T", "7267.T"]
+    assert [row["symbol"] for row in template["positions"]] == ["6501.T", "AAPL", "NVDA"]
+    assert {"asset_class", "market", "theme_tag", "dca_policy_mode"}.issubset(template["positions"][0])
     markdown = format_redacted_position_snapshot_template_markdown(payload)
-    assert "Redacted Position Snapshot Template v75" in markdown
+    assert "Redacted Position Snapshot Template v76" in markdown
     assert "broker account numbers" in markdown
     assert "Copy-ready ChatGPT Prompt" in markdown
+    assert "JFE/Honda" not in markdown
     assert "broker_api_access_executed: false" in markdown
 
 
@@ -137,11 +157,13 @@ def test_strategy_pack_integrates_valid_redacted_snapshot() -> None:
     payload = build_redacted_position_strategy_pack(report_date="2026-06-01", redacted_snapshot=_valid_snapshot())
     assert payload["validation"]["validation_passed"] is True
     rows = {row["symbol"]: row for row in payload["rows"]}
-    assert rows["5411.T"]["placeholder_label"] == "wait_for_capitulation"
+    assert rows["5411.T"]["starter_fixture_label"] == "wait_for_capitulation"
     assert rows["5411.T"]["redacted_position_label"] in {"monitor_only", "wait_for_capitulation"}
-    assert rows["7267.T"]["placeholder_label"] == "monitor_only"
+    assert rows["5411.T"]["generic_guard_label"] == "requires_latest_market_review"
+    assert rows["7267.T"]["starter_fixture_label"] == "monitor_only"
     markdown = format_redacted_position_strategy_pack_markdown(payload)
-    assert "JFE/Honda Side-by-Side" in markdown
+    assert "Generic Position Guard" in markdown
+    assert "JFE/Hondaのplaceholder" not in markdown
     assert "not a trading recommendation" in markdown
     assert "trading_action_executed: false" in markdown
 
@@ -215,11 +237,13 @@ def test_output_writer_and_cli_commands(tmp_path: Path) -> None:
 
 
 def test_human_input_checklist_documents_safe_next_inputs() -> None:
-    payload = build_redacted_position_human_input_checklist(report_date="2026-06-01", symbols_csv="5411.T,7267.T")
-    assert payload["pack_version"] == "v75E"
+    payload = build_redacted_position_human_input_checklist(report_date="2026-06-01", symbols_csv="6501.T,AAPL,NVDA")
+    assert payload["pack_version"] == "v76"
     assert "shares" in payload["required_inputs"]
+    assert "dca_policy_mode" in payload["required_inputs"]
     assert "raw broker CSV/export rows" in payload["do_not_include"]
     markdown = format_redacted_position_human_input_checklist_markdown(payload)
-    assert "Redacted Position Human Input Checklist v75E" in markdown
+    assert "Redacted Position Human Input Checklist v76" in markdown
+    assert "JFE/Honda" not in markdown
     assert "position-snapshot-template" in markdown
     assert "trading_action_executed: false" in markdown

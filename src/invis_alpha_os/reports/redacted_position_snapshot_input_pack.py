@@ -7,13 +7,16 @@ from pathlib import Path
 from typing import Any
 
 from invis_alpha_os.reports.position_aware_dca_decision_pack import (
+    DEFAULT_POSITION_GUARD_SYMBOLS,
     THESIS_BROKEN,
     THESIS_INTACT,
     THESIS_WATCH,
+    GenericPositionGuardInput,
     PositionSnapshot,
     build_dca_decision_matrix,
+    build_generic_position_guard,
     build_position_aware_dca_decision_pack,
-    jfe_honda_starter_profiles,
+    starter_position_profiles,
     validate_position_snapshot,
 )
 
@@ -29,6 +32,8 @@ REQUIRED_TOP_LEVEL_FIELDS: tuple[str, ...] = (
 REQUIRED_POSITION_FIELDS: tuple[str, ...] = (
     "symbol",
     "display_name",
+    "asset_class",
+    "market",
     "account_alias",
     "account_type",
     "shares",
@@ -37,10 +42,17 @@ REQUIRED_POSITION_FIELDS: tuple[str, ...] = (
     "market_value",
     "unrealized_pl",
     "unrealized_pl_pct",
+    "position_weight_pct",
     "portfolio_weight_pct",
     "sector_tag",
+    "theme_tag",
+    "cash_buffer_status",
     "thesis_status",
-    "dca_intent",
+    "business_value_status",
+    "valuation_status",
+    "technical_status",
+    "portfolio_permission_status",
+    "dca_policy_mode",
     "max_additional_buy_amount",
     "max_position_weight_pct",
     "must_not_buy_if",
@@ -58,6 +70,7 @@ NUMERIC_POSITION_FIELDS: tuple[str, ...] = (
     "market_value",
     "unrealized_pl",
     "unrealized_pl_pct",
+    "position_weight_pct",
     "portfolio_weight_pct",
     "max_additional_buy_amount",
     "max_position_weight_pct",
@@ -167,9 +180,9 @@ def detect_forbidden_values(snapshot: dict[str, Any]) -> tuple[str, ...]:
 def build_redacted_position_snapshot_template(
     *,
     report_date: str,
-    symbols_csv: str = "5411.T,7267.T",
+    symbols_csv: str = DEFAULT_POSITION_GUARD_SYMBOLS,
 ) -> dict[str, Any]:
-    profiles = jfe_honda_starter_profiles()
+    profiles = starter_position_profiles()
     positions: list[dict[str, Any]] = []
     for symbol in _parse_symbols(symbols_csv):
         profile = profiles.get(symbol, {"display_name": symbol})
@@ -177,6 +190,8 @@ def build_redacted_position_snapshot_template(
             {
                 "symbol": symbol,
                 "display_name": profile["display_name"],
+                "asset_class": "equity",
+                "market": "manual_market",
                 "account_alias": "taxable_alias_1",
                 "account_type": "taxable",
                 "shares": 0,
@@ -185,10 +200,17 @@ def build_redacted_position_snapshot_template(
                 "market_value": 0,
                 "unrealized_pl": 0,
                 "unrealized_pl_pct": 0,
+                "position_weight_pct": 0,
                 "portfolio_weight_pct": 0,
                 "sector_tag": "manual_sector_tag",
+                "theme_tag": "manual_theme_tag",
+                "cash_buffer_status": "unknown",
                 "thesis_status": THESIS_WATCH,
-                "dca_intent": "review_only",
+                "business_value_status": "unknown",
+                "valuation_status": "unknown",
+                "technical_status": "needs_current_review",
+                "portfolio_permission_status": "manual_review_required",
+                "dca_policy_mode": "review_only",
                 "max_additional_buy_amount": 0,
                 "max_position_weight_pct": 5,
                 "must_not_buy_if": [
@@ -205,7 +227,7 @@ def build_redacted_position_snapshot_template(
             }
         )
     return {
-        "pack_version": "v75",
+        "pack_version": "v76",
         "report_name": "redacted_position_snapshot_template",
         "source_only": True,
         "report_date": report_date,
@@ -225,9 +247,9 @@ def build_redacted_position_snapshot_template(
             "trade execution instructions",
         ),
         "copy_ready_chatgpt_prompt": (
-            "このredacted position snapshotを使い、JFE/Hondaの平均取得単価、現在価格、含み損益、"
-            "portfolio weight、cash buffer、thesis_status、must_not_buy_ifを分けて、"
-            "追加・待機・縮小レビューの論点を整理してください。売買指示は出さないでください。"
+            "このredacted position snapshotを使い、任意銘柄ごとにcheap_price、business_value_status、"
+            "thesis_status、portfolio_permission_status、cash_buffer_status、must_not_buy_ifを分けて、"
+            "観測・待機・追加検討ブロック条件を整理してください。売買指示は出さないでください。"
         ),
         "safety_summary": _safety_summary(),
     }
@@ -285,14 +307,15 @@ def _numerical_consistency(position: dict[str, Any]) -> tuple[dict[str, Any], ..
 def _position_dca_blockers(position: dict[str, Any], *, cash_buffer_status: str) -> tuple[str, ...]:
     blockers: list[str] = []
     thesis = str(position.get("thesis_status", "")).strip()
-    weight = _as_float(position.get("portfolio_weight_pct"), field="portfolio_weight_pct")
+    position_cash_status = str(position.get("cash_buffer_status") or cash_buffer_status).strip()
+    weight = _as_float(position.get("position_weight_pct", position.get("portfolio_weight_pct")), field="position_weight_pct")
     max_weight = _as_float(position.get("max_position_weight_pct"), field="max_position_weight_pct")
     max_add = _as_float(position.get("max_additional_buy_amount"), field="max_additional_buy_amount")
     if thesis == THESIS_BROKEN:
         blockers.append("thesis_broken")
     if weight is not None and max_weight is not None and weight >= max_weight:
         blockers.append("over_position_limit")
-    if cash_buffer_status in {"insufficient", "unknown"}:
+    if position_cash_status in {"insufficient", "unknown"}:
         blockers.append("cash_buffer_not_confirmed")
     if max_add is not None and max_add <= 0:
         blockers.append("max_additional_buy_amount_not_positive")
@@ -365,7 +388,7 @@ def validate_redacted_position_snapshot(snapshot: dict[str, Any]) -> dict[str, A
         and valid_positions
     )
     return {
-        "pack_version": "v75",
+        "pack_version": "v76",
         "report_name": "redacted_position_snapshot_validation",
         "source_only": True,
         "validation_passed": validation_passed,
@@ -398,6 +421,7 @@ def load_redacted_position_snapshot_json(path: Path) -> dict[str, Any]:
 def _snapshot_to_v74_position(position: dict[str, Any], *, cash_buffer_status: str) -> PositionSnapshot:
     max_add = _as_float(position.get("max_additional_buy_amount"), field="max_additional_buy_amount") or 0.0
     remaining_cash = max_add if cash_buffer_status == "sufficient" else 0.0
+    weight = position.get("position_weight_pct", position.get("portfolio_weight_pct"))
     return validate_position_snapshot(
         {
             "symbol": position["symbol"],
@@ -409,9 +433,9 @@ def _snapshot_to_v74_position(position: dict[str, Any], *, cash_buffer_status: s
             "market_value": position["market_value"],
             "unrealized_pnl": position["unrealized_pl"],
             "unrealized_pnl_pct": position["unrealized_pl_pct"],
-            "portfolio_weight_pct": position["portfolio_weight_pct"],
+            "portfolio_weight_pct": weight,
             "sector_weight_pct": 0,
-            "intended_role": position["dca_intent"],
+            "intended_role": position.get("dca_policy_mode", position.get("dca_intent", "review_only")),
             "max_position_weight_pct": position["max_position_weight_pct"],
             "planned_dca_budget": max_add,
             "remaining_cash_buffer": remaining_cash,
@@ -419,22 +443,59 @@ def _snapshot_to_v74_position(position: dict[str, Any], *, cash_buffer_status: s
     )
 
 
+def _position_to_generic_guard_input(position: dict[str, Any], *, top_cash_buffer_status: str) -> GenericPositionGuardInput:
+    return GenericPositionGuardInput(
+        symbol=str(position["symbol"]),
+        display_name=str(position["display_name"]),
+        asset_class=str(position["asset_class"]),
+        market=str(position["market"]),
+        sector_tag=str(position["sector_tag"]),
+        theme_tag=str(position["theme_tag"]),
+        position_weight_pct=_as_float(
+            position.get("position_weight_pct", position.get("portfolio_weight_pct")),
+            field="position_weight_pct",
+        )
+        or 0.0,
+        max_position_weight_pct=_as_float(position.get("max_position_weight_pct"), field="max_position_weight_pct")
+        or 0.0,
+        cash_buffer_status=str(position.get("cash_buffer_status") or top_cash_buffer_status),
+        thesis_status=str(position["thesis_status"]),
+        business_value_status=str(position["business_value_status"]),
+        valuation_status=str(position["valuation_status"]),
+        technical_status=str(position["technical_status"]),
+        portfolio_permission_status=str(position["portfolio_permission_status"]),
+        dca_policy_mode=str(position["dca_policy_mode"]),
+        max_additional_buy_amount=_as_float(
+            position.get("max_additional_buy_amount"),
+            field="max_additional_buy_amount",
+        )
+        or 0.0,
+        must_not_buy_if=tuple(str(item) for item in position.get("must_not_buy_if", ())),
+        review_triggers=tuple(str(item) for item in position.get("review_triggers", ())),
+        operator_notes=str(position.get("operator_notes", "")),
+    )
+
+
 def build_redacted_position_strategy_pack(
     *,
     report_date: str,
     redacted_snapshot: dict[str, Any] | None = None,
-    symbols_csv: str = "5411.T,7267.T",
+    symbols_csv: str = DEFAULT_POSITION_GUARD_SYMBOLS,
 ) -> dict[str, Any]:
     snapshot = redacted_snapshot or build_redacted_position_snapshot_template(
         report_date=report_date,
         symbols_csv=symbols_csv,
     )["redacted_snapshot_template"]
     validation = validate_redacted_position_snapshot(snapshot)
-    placeholder_pack = build_position_aware_dca_decision_pack(report_date=report_date, symbols_csv=symbols_csv)
+    snapshot_symbols_csv = ",".join(str(row.get("symbol", "")) for row in snapshot.get("positions", ()))
+    placeholder_pack = build_position_aware_dca_decision_pack(
+        report_date=report_date,
+        symbols_csv=snapshot_symbols_csv or symbols_csv,
+    )
     placeholder_by_symbol = {
         row["symbol"]: row["dca_decision_matrix"]["decision_label"] for row in placeholder_pack["rows"]
     }
-    profiles = jfe_honda_starter_profiles()
+    profiles = starter_position_profiles()
     rows: list[dict[str, Any]] = []
     if validation["validation_passed"]:
         for position in snapshot["positions"]:
@@ -450,22 +511,31 @@ def build_redacted_position_strategy_pack(
                 dividend_tags=tuple(tags.get("dividend", ())),
                 thesis_integrity_status=str(position["thesis_status"]),
             )
+            generic_guard = build_generic_position_guard(
+                _position_to_generic_guard_input(
+                    position,
+                    top_cash_buffer_status=str(snapshot["cash_buffer_status"]),
+                )
+            )
             rows.append(
                 {
                     "symbol": symbol,
                     "display_name": position["display_name"],
-                    "placeholder_label": placeholder_by_symbol.get(symbol, "not_available"),
+                    "starter_fixture_label": placeholder_by_symbol.get(symbol, "not_available"),
                     "redacted_position_label": matrix["decision_label"],
+                    "generic_guard_label": generic_guard["guard_label"],
                     "portfolio_weight_pct": position["portfolio_weight_pct"],
+                    "position_weight_pct": position["position_weight_pct"],
                     "max_position_weight_pct": position["max_position_weight_pct"],
-                    "cash_buffer_status": snapshot["cash_buffer_status"],
+                    "cash_buffer_status": position.get("cash_buffer_status") or snapshot["cash_buffer_status"],
                     "thesis_status": position["thesis_status"],
                     "dca_readiness_blockers": validation["dca_readiness_blockers"],
                     "matrix": matrix,
+                    "generic_guard": generic_guard,
                 }
             )
     return {
-        "pack_version": "v75",
+        "pack_version": "v76",
         "report_name": "redacted_position_strategy_pack",
         "source_only": True,
         "report_date": report_date,
@@ -483,10 +553,10 @@ def build_redacted_position_strategy_pack(
 def build_redacted_position_human_input_checklist(
     *,
     report_date: str,
-    symbols_csv: str = "5411.T,7267.T",
+    symbols_csv: str = DEFAULT_POSITION_GUARD_SYMBOLS,
 ) -> dict[str, Any]:
     return {
-        "pack_version": "v75E",
+        "pack_version": "v76",
         "report_name": "redacted_position_human_input_checklist",
         "source_only": True,
         "report_date": report_date,
@@ -495,11 +565,19 @@ def build_redacted_position_human_input_checklist(
             "portfolio_snapshot_date",
             "cash_buffer_status",
             "household_risk_budget_note",
+            "asset_class",
+            "market",
             "shares",
             "average_cost",
             "manual_current_price",
+            "position_weight_pct",
             "portfolio_weight_pct",
             "thesis_status",
+            "business_value_status",
+            "valuation_status",
+            "technical_status",
+            "portfolio_permission_status",
+            "dca_policy_mode",
             "max_additional_buy_amount",
             "max_position_weight_pct",
             "must_not_buy_if",
@@ -549,7 +627,7 @@ def _safety_summary() -> dict[str, bool]:
 def format_redacted_position_snapshot_template_markdown(payload: dict[str, Any]) -> str:
     template = payload["redacted_snapshot_template"]
     lines = [
-        "# Redacted Position Snapshot Template v75",
+        "# Redacted Position Snapshot Template v76",
         "",
         "This template is for manual redacted input only. Do not paste broker account numbers, raw broker exports, secrets, or order instructions.",
         "",
@@ -579,7 +657,7 @@ def format_redacted_position_snapshot_template_markdown(payload: dict[str, Any])
 
 def format_redacted_position_snapshot_validation_markdown(payload: dict[str, Any]) -> str:
     lines = [
-        "# Redacted Position Snapshot Validation v75",
+        "# Redacted Position Snapshot Validation v76",
         "",
         f"- validation_passed: {str(payload['validation_passed']).lower()}",
         f"- chatgpt_paste_ready: {str(payload['chatgpt_paste_ready']).lower()}",
@@ -607,7 +685,7 @@ def format_redacted_position_snapshot_validation_markdown(payload: dict[str, Any
 
 def format_redacted_position_strategy_pack_markdown(payload: dict[str, Any]) -> str:
     lines = [
-        "# Redacted Position Strategy Pack v75",
+        "# Redacted Position Strategy Pack v76",
         "",
         "Observation-only strategy dialogue pack. This is not a trading recommendation or order instruction.",
         "",
@@ -615,19 +693,19 @@ def format_redacted_position_strategy_pack_markdown(payload: dict[str, Any]) -> 
         f"- chatgpt_paste_ready: {str(payload['strategy_summary']['chatgpt_paste_ready']).lower()}",
         f"- household_allocation_caveat: {payload['strategy_summary']['household_allocation_caveat']}",
         "",
-        "## JFE/Honda Side-by-Side",
-        "| symbol | placeholder_label | redacted_position_label | portfolio_weight_pct | max_position_weight_pct | cash_buffer_status | thesis_status |",
-        "|---|---|---|---:|---:|---|---|",
+        "## Generic Position Guard",
+        "| symbol | starter_fixture_label | redacted_position_label | generic_guard_label | position_weight_pct | max_position_weight_pct | cash_buffer_status | thesis_status |",
+        "|---|---|---|---|---:|---:|---|---|",
     ]
     if payload["rows"]:
         for row in payload["rows"]:
             lines.append(
-                f"| {row['symbol']} | {row['placeholder_label']} | {row['redacted_position_label']} | "
-                f"{row['portfolio_weight_pct']} | {row['max_position_weight_pct']} | "
+                f"| {row['symbol']} | {row['starter_fixture_label']} | {row['redacted_position_label']} | "
+                f"{row['generic_guard_label']} | {row['position_weight_pct']} | {row['max_position_weight_pct']} | "
                 f"{row['cash_buffer_status']} | {row['thesis_status']} |"
             )
     else:
-        lines.append("| not_ready | not_available | validation_required | 0 | 0 | unknown | unknown |")
+        lines.append("| not_ready | not_available | validation_required | validation_required | 0 | 0 | unknown | unknown |")
     lines.extend(
         [
             "",
@@ -636,11 +714,12 @@ def format_redacted_position_strategy_pack_markdown(payload: dict[str, Any]) -> 
             "- business value improvement must be separately confirmed",
             "- thesis_status must remain intact before any add discussion",
             "- cash buffer and max position weight must permit additional exposure",
+            "- starter examples are fixtures only; no symbol-specific guard branch is used",
             "",
             "## Copy-ready ChatGPT Prompt",
             "```text",
-            "このredacted position strategy packを使い、JFE/Hondaのplaceholder labelとredacted position-aware labelの差、",
-            "cash buffer、portfolio weight、max position weight、thesis_status、must-not-buy条件を分けて、",
+            "このredacted position strategy packを使い、任意銘柄のgeneric_guard_label、cash buffer、",
+            "portfolio weight、max position weight、thesis_status、must-not-buy条件を分けて、",
             "追加・待機・縮小レビューの論点を整理してください。売買指示は出さないでください。",
             "```",
             "",
@@ -654,9 +733,9 @@ def format_redacted_position_strategy_pack_markdown(payload: dict[str, Any]) -> 
 
 def format_redacted_position_human_input_checklist_markdown(payload: dict[str, Any]) -> str:
     lines = [
-        "# Redacted Position Human Input Checklist v75E",
+        "# Redacted Position Human Input Checklist v76",
         "",
-        "Use this checklist before filling JFE/Honda redacted position snapshots.",
+        "Use this checklist before filling generic redacted position snapshots for any symbol.",
         "",
         f"- report_date: {payload['report_date']}",
         f"- symbols: {', '.join(payload['symbols'])}",
