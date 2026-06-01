@@ -263,6 +263,17 @@ from invis_alpha_os.reports.return_to_main_development_pack import (
     format_return_to_main_pack_markdown,
     write_return_to_main_pack_outputs,
 )
+from invis_alpha_os.reports.monthly_portfolio_strategy_observation_pack import (
+    build_monthly_chatgpt_portfolio_review_pack,
+    build_monthly_portfolio_allocation_guardrails,
+    build_monthly_portfolio_snapshot_template,
+    build_portfolio_cleanup_candidate_matrix,
+    format_monthly_portfolio_strategy_json,
+    format_monthly_portfolio_strategy_markdown,
+    load_monthly_portfolio_snapshot_json,
+    validate_monthly_portfolio_snapshot,
+    write_monthly_portfolio_strategy_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1891,6 +1902,170 @@ def chatgpt_main_development_handoff_summary_command(
             "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
             "broker_api_access_executed=false raw_broker_export_parsed=false env_secret_displayed=false "
             "workflow_files_modified=false trading_action_executed=false"
+        ),
+    )
+
+
+def _emit_monthly_portfolio_pack(
+    *,
+    command_name: str,
+    payload: dict[str, Any],
+    out_dir: Path,
+    report_month: str,
+    stem: str,
+    fmt: str,
+    stderr_suffix: str,
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo(f"{command_name}: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    markdown_text = format_monthly_portfolio_strategy_markdown(payload)
+    paths = write_monthly_portfolio_strategy_outputs(
+        out_dir=out_dir,
+        report_month=report_month,
+        stem=stem,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_monthly_portfolio_strategy_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"{command_name}: {key}={p}", err=True)
+    typer.echo(f"{command_name}: {stderr_suffix}", err=True)
+    raise typer.Exit(0)
+
+
+@app.command("monthly-portfolio-snapshot-template")
+def monthly_portfolio_snapshot_template_command(
+    report_month: str = typer.Option("2026-05", "--report-month"),
+    snapshot_date: Optional[str] = typer.Option(None, "--snapshot-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    payload = build_monthly_portfolio_snapshot_template(
+        report_month=report_month,
+        snapshot_date=snapshot_date,
+    )
+    _emit_monthly_portfolio_pack(
+        command_name="monthly-portfolio-snapshot-template",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_month=report_month,
+        stem="monthly_portfolio_snapshot_template",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true template_only=true manual_redacted_json_only=true "
+            "broker_api_access_executed=false raw_broker_export_parsed=false raw_excel_direct_parsed=false "
+            "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+            "actual_refresh_import_executed=false env_secret_displayed=false workflow_files_modified=false "
+            "trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("monthly-portfolio-snapshot-validate")
+def monthly_portfolio_snapshot_validate_command(
+    snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
+    report_month: str = typer.Option("2026-05", "--report-month"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    snapshot = (
+        load_monthly_portfolio_snapshot_json(Path(snapshot_path))
+        if snapshot_path
+        else build_monthly_portfolio_snapshot_template(report_month=report_month)["monthly_portfolio_snapshot"]
+    )
+    payload = validate_monthly_portfolio_snapshot(snapshot)
+    _emit_monthly_portfolio_pack(
+        command_name="monthly-portfolio-snapshot-validate",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_month=report_month,
+        stem="monthly_portfolio_snapshot_validation",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true redacted_json_only=true broker_api_access_executed=false "
+            "raw_broker_export_parsed=false raw_excel_direct_parsed=false provider_live_access_executed=false "
+            "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
+            "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("monthly-portfolio-allocation-guardrails")
+def monthly_portfolio_allocation_guardrails_command(
+    snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
+    report_month: str = typer.Option("2026-05", "--report-month"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    snapshot = load_monthly_portfolio_snapshot_json(Path(snapshot_path)) if snapshot_path else None
+    payload = build_monthly_portfolio_allocation_guardrails(
+        report_month=report_month,
+        snapshot=snapshot,
+    )
+    _emit_monthly_portfolio_pack(
+        command_name="monthly-portfolio-allocation-guardrails",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_month=report_month,
+        stem="monthly_portfolio_allocation_guardrails",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true guardrail_report_only=true broker_api_access_executed=false "
+            "raw_broker_export_parsed=false raw_excel_direct_parsed=false provider_live_access_executed=false "
+            "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
+            "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("portfolio-cleanup-candidate-matrix")
+def portfolio_cleanup_candidate_matrix_command(
+    report_month: str = typer.Option("2026-05", "--report-month"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    payload = build_portfolio_cleanup_candidate_matrix(report_month=report_month)
+    _emit_monthly_portfolio_pack(
+        command_name="portfolio-cleanup-candidate-matrix",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_month=report_month,
+        stem="portfolio_cleanup_candidate_matrix",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true fixture_examples_only=true broker_api_access_executed=false "
+            "raw_broker_export_parsed=false raw_excel_direct_parsed=false provider_live_access_executed=false "
+            "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
+            "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("monthly-chatgpt-portfolio-review-pack")
+def monthly_chatgpt_portfolio_review_pack_command(
+    snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
+    report_month: str = typer.Option("2026-05", "--report-month"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    snapshot = load_monthly_portfolio_snapshot_json(Path(snapshot_path)) if snapshot_path else None
+    payload = build_monthly_chatgpt_portfolio_review_pack(
+        report_month=report_month,
+        snapshot=snapshot,
+    )
+    _emit_monthly_portfolio_pack(
+        command_name="monthly-chatgpt-portfolio-review-pack",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_month=report_month,
+        stem="monthly_chatgpt_portfolio_review_pack",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true chatgpt_review_pack_only=true broker_api_access_executed=false "
+            "raw_broker_export_parsed=false raw_excel_direct_parsed=false provider_live_access_executed=false "
+            "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
+            "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false"
         ),
     )
 
