@@ -233,6 +233,12 @@ from invis_alpha_os.reports.weekly_workflow_post_merge_observation_plan import (
     format_weekly_workflow_post_merge_observation_plan_markdown,
     write_weekly_workflow_post_merge_observation_plan_outputs,
 )
+from invis_alpha_os.reports.position_aware_dca_decision_pack import (
+    build_position_aware_dca_decision_pack,
+    format_position_aware_dca_decision_pack_json,
+    format_position_aware_dca_decision_pack_markdown,
+    write_position_aware_dca_decision_pack_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1514,6 +1520,43 @@ def weekly_candidate_brief_workflow_observation_plan_command(
         "source_only=true post_merge_observation_plan_only=true manual_workflow_dispatch_executed=false "
         "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
         "actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
+        "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("position-aware-dca-decision-pack")
+def position_aware_dca_decision_pack_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("position-aware-dca-decision-pack: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_position_aware_dca_decision_pack(report_date=run_date, symbols_csv=symbols)
+    markdown_text = format_position_aware_dca_decision_pack_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "position_aware_dca"
+    paths = write_position_aware_dca_decision_pack_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    if fmt == "json":
+        typer.echo(format_position_aware_dca_decision_pack_json(payload))
+    else:
+        typer.echo(markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"position-aware-dca-decision-pack: {key}={p}", err=True)
+    typer.echo(
+        "position-aware-dca-decision-pack: "
+        "source_only=true redacted_summary_only=true broker_api_access_executed=false "
+        "raw_broker_export_parsed=false provider_live_access_executed=false live_http_executed=false "
+        "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
         err=True,
     )
