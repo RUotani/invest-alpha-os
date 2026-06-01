@@ -179,7 +179,7 @@ def _workflow_status(repo_root: Path) -> dict[str, Any]:
         "workflow_files": rows,
         "github_weekly_schedule_found": weekly_schedule_found,
         "github_weekly_command_found": weekly_command_found,
-        "source_workflow_change_applied": False,
+        "source_workflow_change_applied": weekly_schedule_found,
     }
 
 
@@ -253,15 +253,29 @@ def build_weekly_report_schedule_diagnostic(
     workflow = _workflow_status(repo_root)
     launchd = _launchd_template_status(repo_root)
     script = _weekly_script_status(repo_root)
-    root_cause = (
-        "confirmed_source_gap_no_tracked_github_weekly_schedule; "
-        "launchd_template_exists_but_runtime_installation_not_proven_from_source; "
-        "weekly_email_step_is_preview_only_by_default"
-    )
-    workflow_required = (
-        "required_if_unattended_remote_github_actions_delivery_is_expected; "
-        "not_required_if_local_launchd_is_installed_loaded_and_healthy"
-    )
+    if workflow["github_weekly_schedule_found"]:
+        root_cause = (
+            "tracked_github_weekly_schedule_present_after_v73; "
+            "launchd_template_exists_but_runtime_installation_not_proven_from_source; "
+            "weekly_email_step_is_preview_only_by_default"
+        )
+        workflow_required = "not_required_after_v73_workflow_source_wiring; observe_next_scheduled_run"
+        remaining_manual_action = "observe the next Saturday 07:00 JST GitHub Actions scheduled run"
+        next_confidence = "high_source_wiring_visible_runtime_scheduler_not_yet_observed"
+    else:
+        root_cause = (
+            "confirmed_source_gap_no_tracked_github_weekly_schedule; "
+            "launchd_template_exists_but_runtime_installation_not_proven_from_source; "
+            "weekly_email_step_is_preview_only_by_default"
+        )
+        workflow_required = (
+            "required_if_unattended_remote_github_actions_delivery_is_expected; "
+            "not_required_if_local_launchd_is_installed_loaded_and_healthy"
+        )
+        remaining_manual_action = (
+            "choose local launchd repair/verification or explicitly approve the proposed GitHub Actions weekly workflow"
+        )
+        next_confidence = "medium_source_wiring_visible_runtime_scheduler_not_proven"
     return {
         "pack_version": "v70D",
         "report_name": "weekly_report_schedule_diagnostic",
@@ -300,10 +314,8 @@ def build_weekly_report_schedule_diagnostic(
             "workflow scheduling changes alter unattended automation behavior."
         ),
         "proposed_workflow_patch": proposed_weekly_github_actions_patch(mapping),
-        "remaining_manual_action": (
-            "choose local launchd repair/verification or explicitly approve the proposed GitHub Actions weekly workflow"
-        ),
-        "next_scheduled_report_confidence": "medium_source_wiring_visible_runtime_scheduler_not_proven",
+        "remaining_manual_action": remaining_manual_action,
+        "next_scheduled_report_confidence": next_confidence,
         "safety_summary": {
             "provider_live_access_executed": False,
             "live_http_executed": False,
@@ -334,7 +346,11 @@ def format_weekly_report_schedule_diagnostic_markdown(payload: dict[str, Any]) -
         "",
         "## Root Cause Candidates",
         f"- root_cause_found: {payload['root_cause_found']}",
-        "- confirmed from repo source: no tracked GitHub Actions weekly schedule for Weekly Candidate Brief",
+        (
+            "- confirmed from repo source: tracked GitHub Actions weekly schedule exists for Weekly Candidate Brief"
+            if wiring["github_actions"]["github_weekly_schedule_found"]
+            else "- confirmed from repo source: no tracked GitHub Actions weekly schedule for Weekly Candidate Brief"
+        ),
         "- inferred but not proven: local launchd may not be installed/loaded or may have failed at runtime",
         "- requires runtime/GitHub Actions log inspection: whether any external scheduler attempted the run",
         "",
@@ -360,7 +376,11 @@ def format_weekly_report_schedule_diagnostic_markdown(payload: dict[str, Any]) -
         "",
         "## Output/Delivery Boundary",
         "- weekly-candidate-brief-email is dry-run by default; it writes previews and does not send Gmail unless separately gated.",
-        "- GitHub Actions artifacts are not configured for the weekly report in tracked source.",
+        (
+            "- GitHub Actions artifact upload is configured for generated weekly report outputs in tracked source."
+            if wiring["github_actions"]["github_weekly_schedule_found"]
+            else "- GitHub Actions artifacts are not configured for the weekly report in tracked source."
+        ),
         "",
         "## Silent Failure Risks",
         "- launchd runtime load/status/log evidence is outside tracked source.",
@@ -368,7 +388,7 @@ def format_weekly_report_schedule_diagnostic_markdown(payload: dict[str, Any]) -
         "",
         "## Tests Added",
         "- Saturday 07:00 JST to Friday 22:00 UTC cron mapping",
-        "- source diagnostic for missing GitHub weekly schedule",
+        "- source diagnostic for GitHub weekly schedule presence/absence",
         "- workflow patch emitted as proposal only",
         "- CLI/report/context pack status",
         "",

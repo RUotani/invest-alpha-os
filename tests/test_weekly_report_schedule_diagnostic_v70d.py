@@ -43,18 +43,19 @@ def test_invalid_timezone_and_weekday_fail_closed() -> None:
         raise AssertionError("expected weekday failure")
 
 
-def test_source_diagnostic_identifies_missing_github_weekly_schedule() -> None:
+def test_source_diagnostic_identifies_github_weekly_schedule_after_v73() -> None:
     payload = build_weekly_report_schedule_diagnostic(observed_missing_date="2026-05-30")
     wiring = payload["detected_scheduler_wiring"]
     assert payload["user_observed_issue"] == "Saturday morning JST weekly report did not appear"
-    assert "no_tracked_github_weekly_schedule" in payload["root_cause_found"]
+    assert "tracked_github_weekly_schedule_present_after_v73" in payload["root_cause_found"]
     assert wiring["weekly_script"]["exists"] is True
     assert wiring["weekly_script"]["writes_markdown_report"] is True
     assert wiring["weekly_script"]["writes_copy_report"] is True
     assert wiring["weekly_script"]["writes_email_preview"] is True
     assert wiring["launchd_template"]["exists"] is True
     assert wiring["launchd_template"]["template_only_not_installation_evidence"] is True
-    assert wiring["github_actions"]["github_weekly_schedule_found"] is False
+    assert wiring["github_actions"]["github_weekly_schedule_found"] is True
+    assert wiring["github_actions"]["source_workflow_change_applied"] is True
 
 
 def test_workflow_patch_is_proposed_not_applied() -> None:
@@ -142,6 +143,6 @@ def test_cli_and_context_pack_include_v70d(tmp_path: Path) -> None:
     pack = build_chatgpt_context_pack(report_date="2026-05-31", report_dir=report_dir)
     status = pack.json_payload["weekly_report_schedule_diagnostic_status"]
     assert status["diagnostic_exists"] is True
-    assert status["github_weekly_schedule_found"] is False
+    assert status["github_weekly_schedule_found"] is True
     assert status["workflow_files_modified"] is False
     assert "- weekly_report_schedule_diagnostic_exists: true" in pack.markdown_text

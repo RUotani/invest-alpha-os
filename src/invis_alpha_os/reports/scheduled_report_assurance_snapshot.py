@@ -59,6 +59,21 @@ def build_scheduled_report_assurance_snapshot(
     recovery = build_weekly_report_recovery_runbook(missed_report_date=missed_report_date)
     preflight = build_long_run_operator_preflight_pack(report_date=report_date)
     next_run = _next_saturday_jst(report_date, target_local_hour=target_local_hour)
+    workflow_required = workflow["current_scheduler_assessment"]["workflow_patch_required"]
+    if workflow_required:
+        manual_approvals_evidence = "workflow patch approval and any recovery/backfill execution approval remain manual"
+        remaining_manual_approvals = (
+            "explicit .github/workflows approval before applying the v71 workflow patch",
+            "explicit local dry-run/backfill execution approval before any recovery execution",
+            "explicit Gmail send approval before any notification send",
+        )
+    else:
+        manual_approvals_evidence = "workflow patch applied; recovery/backfill execution and Gmail send remain manual"
+        remaining_manual_approvals = (
+            "observe the next Saturday 07:00 JST scheduled workflow run",
+            "explicit local dry-run/backfill execution approval before any recovery execution",
+            "explicit Gmail send approval before any notification send",
+        )
     readiness_rows = (
         {
             "item": "next_saturday_morning_jst_target",
@@ -95,10 +110,9 @@ def build_scheduled_report_assurance_snapshot(
         {
             "item": "manual_approvals_remaining",
             "status": "not_ready",
-            "evidence": "workflow patch approval and any recovery/backfill execution approval remain manual",
+            "evidence": manual_approvals_evidence,
         },
     )
-    workflow_required = workflow["current_scheduler_assessment"]["workflow_patch_required"]
     return {
         "pack_version": "v71D",
         "report_name": "scheduled_report_assurance_snapshot",
@@ -115,11 +129,7 @@ def build_scheduled_report_assurance_snapshot(
             "weekly_report_local_dryrun_backfill_contract_exists": True,
             "long_run_operator_preflight_sleep_guard_exists": True,
         },
-        "remaining_manual_approvals": (
-            "explicit .github/workflows approval before applying the v71 workflow patch",
-            "explicit local dry-run/backfill execution approval before any recovery execution",
-            "explicit Gmail send approval before any notification send",
-        ),
+        "remaining_manual_approvals": remaining_manual_approvals,
         "next_scheduled_report_confidence": (
             "medium_after_workflow_patch_approval" if workflow_required else "high_if_github_actions_enabled"
         ),

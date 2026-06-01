@@ -35,10 +35,12 @@ def test_readiness_matrix_and_remaining_manual_approvals() -> None:
     assert rows["local_dryrun_backfill_contract_exists"]["status"] == "ready"
     assert rows["missing_report_sentinel_exists"]["status"] == "ready"
     assert rows["recovery_runbook_exists"]["status"] == "ready"
+    assert rows["workflow_patch_required"]["status"] == "ready"
     assert rows["sleep_prevention_instruction_present"]["evidence"] == "caffeinate -dimsu -t 43200"
     assert rows["manual_approvals_remaining"]["status"] == "not_ready"
+    assert "workflow patch applied" in rows["manual_approvals_remaining"]["evidence"]
     approvals = "\n".join(payload["remaining_manual_approvals"])
-    assert ".github/workflows approval" in approvals
+    assert "observe the next Saturday 07:00 JST scheduled workflow run" in approvals
     assert "local dry-run/backfill execution approval" in approvals
     assert "Gmail send approval" in approvals
 
@@ -47,7 +49,7 @@ def test_markdown_writer_and_safety_flags(tmp_path: Path) -> None:
     payload = build_scheduled_report_assurance_snapshot(report_date="2026-05-31")
     markdown = format_scheduled_report_assurance_snapshot_markdown(payload)
     assert "# Scheduled Report Assurance Snapshot / Next-Run Readiness Matrix v71D" in markdown
-    assert "scheduled_report_not_ready_until_workflow_patch_approved" in markdown
+    assert "scheduled_report_ready_for_next_run_observation" in markdown
     assert "workflow_files_modified: false" in markdown
     assert "gmail_send_executed: false" in markdown
     paths = write_scheduled_report_assurance_snapshot_outputs(
