@@ -239,6 +239,19 @@ from invis_alpha_os.reports.position_aware_dca_decision_pack import (
     format_position_aware_dca_decision_pack_markdown,
     write_position_aware_dca_decision_pack_outputs,
 )
+from invis_alpha_os.reports.redacted_position_snapshot_input_pack import (
+    build_redacted_position_human_input_checklist,
+    build_redacted_position_snapshot_template,
+    build_redacted_position_strategy_pack,
+    format_redacted_position_json,
+    format_redacted_position_human_input_checklist_markdown,
+    format_redacted_position_snapshot_template_markdown,
+    format_redacted_position_snapshot_validation_markdown,
+    format_redacted_position_strategy_pack_markdown,
+    load_redacted_position_snapshot_json,
+    validate_redacted_position_snapshot,
+    write_redacted_position_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1558,6 +1571,155 @@ def position_aware_dca_decision_pack_command(
         "raw_broker_export_parsed=false provider_live_access_executed=false live_http_executed=false "
         "cache_write_executed=false actual_refresh_import_executed=false raw_ohlcv_persistence_executed=false "
         "env_secret_displayed=false workflow_files_modified=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("position-snapshot-template")
+def position_snapshot_template_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("position-snapshot-template: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_redacted_position_snapshot_template(report_date=run_date, symbols_csv=symbols)
+    markdown_text = format_redacted_position_snapshot_template_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "position_aware_dca"
+    paths = write_redacted_position_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        stem="redacted_position_snapshot_template",
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_redacted_position_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"position-snapshot-template: {key}={p}", err=True)
+    typer.echo(
+        "position-snapshot-template: "
+        "source_only=true template_only=true broker_api_access_executed=false raw_broker_export_parsed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false env_secret_displayed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("position-snapshot-validate")
+def position_snapshot_validate_command(
+    snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("position-snapshot-validate: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    if snapshot_path:
+        snapshot = load_redacted_position_snapshot_json(Path(snapshot_path))
+    else:
+        snapshot = build_redacted_position_snapshot_template(report_date=run_date, symbols_csv=symbols)[
+            "redacted_snapshot_template"
+        ]
+    payload = validate_redacted_position_snapshot(snapshot)
+    markdown_text = format_redacted_position_snapshot_validation_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "position_aware_dca"
+    paths = write_redacted_position_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        stem="redacted_position_snapshot_validation",
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_redacted_position_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"position-snapshot-validate: {key}={p}", err=True)
+    typer.echo(
+        "position-snapshot-validate: "
+        "source_only=true redacted_json_only=true broker_api_access_executed=false raw_broker_export_parsed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false env_secret_displayed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("position-aware-dca-strategy-pack")
+def position_aware_dca_strategy_pack_command(
+    snapshot_path: Optional[str] = typer.Option(None, "--snapshot-path"),
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("position-aware-dca-strategy-pack: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    snapshot = load_redacted_position_snapshot_json(Path(snapshot_path)) if snapshot_path else None
+    payload = build_redacted_position_strategy_pack(
+        report_date=run_date,
+        redacted_snapshot=snapshot,
+        symbols_csv=symbols,
+    )
+    markdown_text = format_redacted_position_strategy_pack_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "position_aware_dca"
+    paths = write_redacted_position_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        stem="redacted_position_strategy_pack",
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_redacted_position_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"position-aware-dca-strategy-pack: {key}={p}", err=True)
+    typer.echo(
+        "position-aware-dca-strategy-pack: "
+        "source_only=true strategy_pack_only=true broker_api_access_executed=false raw_broker_export_parsed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false env_secret_displayed=false trading_action_executed=false",
+        err=True,
+    )
+    raise typer.Exit(0)
+
+
+@app.command("position-snapshot-human-input-checklist")
+def position_snapshot_human_input_checklist_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option("5411.T,7267.T", "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo("position-snapshot-human-input-checklist: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    run_date = report_date or today_jst_iso()
+    payload = build_redacted_position_human_input_checklist(report_date=run_date, symbols_csv=symbols)
+    markdown_text = format_redacted_position_human_input_checklist_markdown(payload)
+    out_root = Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "position_aware_dca"
+    paths = write_redacted_position_outputs(
+        out_dir=out_root,
+        report_date=run_date,
+        stem="redacted_position_human_input_checklist",
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_redacted_position_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"position-snapshot-human-input-checklist: {key}={p}", err=True)
+    typer.echo(
+        "position-snapshot-human-input-checklist: "
+        "source_only=true checklist_only=true broker_api_access_executed=false raw_broker_export_parsed=false "
+        "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+        "actual_refresh_import_executed=false env_secret_displayed=false trading_action_executed=false",
         err=True,
     )
     raise typer.Exit(0)
