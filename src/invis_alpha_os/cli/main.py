@@ -253,6 +253,16 @@ from invis_alpha_os.reports.redacted_position_snapshot_input_pack import (
     validate_redacted_position_snapshot,
     write_redacted_position_outputs,
 )
+from invis_alpha_os.reports.return_to_main_development_pack import (
+    build_actual_import_quarantine_followthrough_matrix,
+    build_cache_write_pilot_preexecution_readiness_snapshot,
+    build_chatgpt_main_development_handoff_summary,
+    build_portfolio_strategy_observation_report,
+    build_weekly_scheduled_run_observation_pack,
+    format_return_to_main_pack_json,
+    format_return_to_main_pack_markdown,
+    write_return_to_main_pack_outputs,
+)
 from invis_alpha_os.reports.chatgpt_context_archive import (
     sync_validation_outputs_to_reports_repo,
     sync_to_reports_repo,
@@ -1724,6 +1734,165 @@ def position_snapshot_human_input_checklist_command(
         err=True,
     )
     raise typer.Exit(0)
+
+
+def _emit_return_to_main_pack(
+    *,
+    command_name: str,
+    payload: dict[str, Any],
+    out_dir: Path,
+    report_date: str,
+    stem: str,
+    fmt: str,
+    stderr_suffix: str,
+) -> None:
+    if fmt not in {"markdown", "json"}:
+        typer.echo(f"{command_name}: --format must be markdown or json", err=True)
+        raise typer.Exit(2)
+    markdown_text = format_return_to_main_pack_markdown(payload)
+    paths = write_return_to_main_pack_outputs(
+        out_dir=out_dir,
+        report_date=report_date,
+        stem=stem,
+        markdown_text=markdown_text,
+        json_payload=payload,
+    )
+    typer.echo(format_return_to_main_pack_json(payload) if fmt == "json" else markdown_text)
+    for key, p in paths.items():
+        typer.echo(f"{command_name}: {key}={p}", err=True)
+    typer.echo(f"{command_name}: {stderr_suffix}", err=True)
+    raise typer.Exit(0)
+
+
+@app.command("weekly-candidate-brief-scheduled-run-observation-pack")
+def weekly_candidate_brief_scheduled_run_observation_pack_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    payload = build_weekly_scheduled_run_observation_pack(report_date=run_date)
+    _emit_return_to_main_pack(
+        command_name="weekly-candidate-brief-scheduled-run-observation-pack",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "weekly_candidate_brief",
+        report_date=run_date,
+        stem="weekly_scheduled_run_observation_pack",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true scheduled_run_observation_only=true manual_workflow_dispatch_executed=false "
+            "workflow_files_modified=false provider_live_access_executed=false live_http_executed=false "
+            "cache_write_executed=false actual_refresh_import_executed=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("cache-write-pilot-preexecution-readiness-snapshot")
+def cache_write_pilot_preexecution_readiness_snapshot_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    candidate_cache_path: str = typer.Option(DEFAULT_CANDIDATE_CACHE_PATH, "--candidate-cache-path"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    payload = build_cache_write_pilot_preexecution_readiness_snapshot(
+        report_date=run_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    _emit_return_to_main_pack(
+        command_name="cache-write-pilot-preexecution-readiness-snapshot",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "cache_write_readiness",
+        report_date=run_date,
+        stem="cache_write_pilot_preexecution_readiness_snapshot",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true preexecution_snapshot_only=true cache_directory_created=false "
+            "provider_live_access_executed=false live_http_executed=false cache_write_executed=false "
+            "actual_refresh_import_executed=false raw_ohlcv_api_persistence_executed=false "
+            "env_secret_displayed=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("actual-import-quarantine-followthrough-matrix")
+def actual_import_quarantine_followthrough_matrix_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    candidate_cache_path: str = typer.Option(DEFAULT_CANDIDATE_CACHE_PATH, "--candidate-cache-path"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    payload = build_actual_import_quarantine_followthrough_matrix(
+        report_date=run_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    _emit_return_to_main_pack(
+        command_name="actual-import-quarantine-followthrough-matrix",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "actual_import_readiness",
+        report_date=run_date,
+        stem="actual_import_quarantine_followthrough_matrix",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true quarantine_matrix_only=true cache_write_executed=false "
+            "actual_refresh_import_executed=false manual_actual_import_executed=false "
+            "raw_broker_export_parsed=false provider_live_access_executed=false live_http_executed=false "
+            "trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("portfolio-strategy-observation-report")
+def portfolio_strategy_observation_report_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    symbols: str = typer.Option(DEFAULT_POSITION_GUARD_SYMBOLS, "--symbols"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    payload = build_portfolio_strategy_observation_report(report_date=run_date, symbols_csv=symbols)
+    _emit_return_to_main_pack(
+        command_name="portfolio-strategy-observation-report",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "portfolio_strategy",
+        report_date=run_date,
+        stem="portfolio_strategy_observation_report",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true portfolio_observation_only=true broker_api_access_executed=false "
+            "raw_broker_export_parsed=false provider_live_access_executed=false live_http_executed=false "
+            "cache_write_executed=false actual_refresh_import_executed=false trading_action_executed=false"
+        ),
+    )
+
+
+@app.command("chatgpt-main-development-handoff-summary")
+def chatgpt_main_development_handoff_summary_command(
+    report_date: Optional[str] = typer.Option(None, "--report-date"),
+    candidate_cache_path: str = typer.Option(DEFAULT_CANDIDATE_CACHE_PATH, "--candidate-cache-path"),
+    out_dir: Optional[str] = typer.Option(None, "--out-dir"),
+    fmt: str = typer.Option("markdown", "--format", help="markdown or json."),
+) -> None:
+    run_date = report_date or today_jst_iso()
+    payload = build_chatgpt_main_development_handoff_summary(
+        report_date=run_date,
+        candidate_cache_path=candidate_cache_path,
+    )
+    _emit_return_to_main_pack(
+        command_name="chatgpt-main-development-handoff-summary",
+        payload=payload,
+        out_dir=Path(out_dir) if out_dir else OUTPUTS_DIR / "reports" / "chatgpt_handoff",
+        report_date=run_date,
+        stem="chatgpt_main_development_handoff_summary",
+        fmt=fmt,
+        stderr_suffix=(
+            "source_only=true handoff_summary_only=true provider_live_access_executed=false "
+            "live_http_executed=false cache_write_executed=false actual_refresh_import_executed=false "
+            "broker_api_access_executed=false raw_broker_export_parsed=false env_secret_displayed=false "
+            "workflow_files_modified=false trading_action_executed=false"
+        ),
+    )
 
 
 @app.command("weekly-candidate-brief-chatgpt-context")
