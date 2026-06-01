@@ -51,6 +51,13 @@ from invis_alpha_os.reports.position_aware_dca_decision_pack import (
 from invis_alpha_os.reports.redacted_position_snapshot_input_pack import (
     build_redacted_position_snapshot_template,
 )
+from invis_alpha_os.reports.return_to_main_development_pack import (
+    build_actual_import_quarantine_followthrough_matrix,
+    build_cache_write_pilot_preexecution_readiness_snapshot,
+    build_chatgpt_main_development_handoff_summary,
+    build_portfolio_strategy_observation_report,
+    build_weekly_scheduled_run_observation_pack,
+)
 from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import compute_candidate_quant_metrics
 
 
@@ -276,6 +283,11 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
         report_date=report_date,
         symbols_csv=DEFAULT_POSITION_GUARD_SYMBOLS,
     )
+    v77_weekly = build_weekly_scheduled_run_observation_pack(report_date=report_date)
+    v77_cache = build_cache_write_pilot_preexecution_readiness_snapshot(report_date=report_date)
+    v77_actual = build_actual_import_quarantine_followthrough_matrix(report_date=report_date)
+    v77_portfolio = build_portfolio_strategy_observation_report(report_date=report_date)
+    v77_handoff = build_chatgpt_main_development_handoff_summary(report_date=report_date)
 
     out_json: dict[str, Any] = {
         "report_date": report_date,
@@ -504,6 +516,29 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             "raw_broker_export_parsed": generic_position_template["safety_summary"]["raw_broker_export_parsed"],
             "env_secret_displayed": generic_position_template["safety_summary"]["env_secret_displayed"],
             "trading_action_executed": generic_position_template["safety_summary"]["trading_action_executed"],
+        },
+        "v77_return_to_main_development_status": {
+            "pack_exists": True,
+            "weekly_readiness_verdict": v77_weekly["weekly_report_status"]["readiness_verdict"],
+            "cache_write_approved": v77_cache["readiness_summary"]["cache_write_approved"],
+            "actual_import_approved": v77_cache["readiness_summary"]["actual_import_approved"],
+            "actual_import_execution_allowed_now": v77_actual["readiness_verdict"][
+                "actual_import_execution_allowed_now"
+            ],
+            "portfolio_observation_only": v77_portfolio["portfolio_strategy_status"]["observation_only"],
+            "v76_dca_line_closed_generic_guard_only": v77_handoff["summary"][
+                "v76_dca_line_closed_generic_guard_only"
+            ],
+            "next_decision_points": list(v77_handoff["summary"]["next_main_development_decision_points"]),
+            "provider_live_access_executed": v77_handoff["safety_summary"]["provider_live_access_executed"],
+            "live_http_executed": v77_handoff["safety_summary"]["live_http_executed"],
+            "cache_write_executed": v77_handoff["safety_summary"]["cache_write_executed"],
+            "actual_refresh_import_executed": v77_handoff["safety_summary"]["actual_refresh_import_executed"],
+            "broker_api_access_executed": v77_handoff["safety_summary"]["broker_api_access_executed"],
+            "raw_broker_export_parsed": v77_handoff["safety_summary"]["raw_broker_export_parsed"],
+            "env_secret_displayed": v77_handoff["safety_summary"]["env_secret_displayed"],
+            "workflow_files_modified": v77_handoff["safety_summary"]["workflow_files_modified"],
+            "trading_action_executed": v77_handoff["safety_summary"]["trading_action_executed"],
         },
         "manual_csv_is_fallback_not_primary": provider_block["manual_csv_is_fallback_not_primary"],
         "week_over_week_changes": {
@@ -846,6 +881,22 @@ def build_chatgpt_context_pack(*, report_date: str, report_dir: Path) -> Context
             f"- generic_position_raw_broker_export_parsed: {str(out_json['generic_position_aware_guard_status']['raw_broker_export_parsed']).lower()}",
             f"- generic_position_env_secret_displayed: {str(out_json['generic_position_aware_guard_status']['env_secret_displayed']).lower()}",
             f"- generic_position_trading_action_executed: {str(out_json['generic_position_aware_guard_status']['trading_action_executed']).lower()}",
+            f"- v77_return_to_main_development_pack_exists: {str(out_json['v77_return_to_main_development_status']['pack_exists']).lower()}",
+            f"- v77_weekly_readiness_verdict: {out_json['v77_return_to_main_development_status']['weekly_readiness_verdict']}",
+            f"- v77_cache_write_approved: {str(out_json['v77_return_to_main_development_status']['cache_write_approved']).lower()}",
+            f"- v77_actual_import_approved: {str(out_json['v77_return_to_main_development_status']['actual_import_approved']).lower()}",
+            f"- v77_actual_import_execution_allowed_now: {str(out_json['v77_return_to_main_development_status']['actual_import_execution_allowed_now']).lower()}",
+            f"- v77_portfolio_observation_only: {str(out_json['v77_return_to_main_development_status']['portfolio_observation_only']).lower()}",
+            f"- v77_dca_line_closed_generic_guard_only: {str(out_json['v77_return_to_main_development_status']['v76_dca_line_closed_generic_guard_only']).lower()}",
+            f"- v77_provider_live_access_executed: {str(out_json['v77_return_to_main_development_status']['provider_live_access_executed']).lower()}",
+            f"- v77_live_http_executed: {str(out_json['v77_return_to_main_development_status']['live_http_executed']).lower()}",
+            f"- v77_cache_write_executed: {str(out_json['v77_return_to_main_development_status']['cache_write_executed']).lower()}",
+            f"- v77_actual_refresh_import_executed: {str(out_json['v77_return_to_main_development_status']['actual_refresh_import_executed']).lower()}",
+            f"- v77_broker_api_access_executed: {str(out_json['v77_return_to_main_development_status']['broker_api_access_executed']).lower()}",
+            f"- v77_raw_broker_export_parsed: {str(out_json['v77_return_to_main_development_status']['raw_broker_export_parsed']).lower()}",
+            f"- v77_env_secret_displayed: {str(out_json['v77_return_to_main_development_status']['env_secret_displayed']).lower()}",
+            f"- v77_workflow_files_modified: {str(out_json['v77_return_to_main_development_status']['workflow_files_modified']).lower()}",
+            f"- v77_trading_action_executed: {str(out_json['v77_return_to_main_development_status']['trading_action_executed']).lower()}",
             "",
             "## 7. ChatGPTへの推奨質問",
             "- 上位3銘柄の無効化条件を先に定義してください。",
