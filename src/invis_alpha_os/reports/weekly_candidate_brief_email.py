@@ -203,6 +203,17 @@ def _extract_pipeline_trace_notes(copy_body: str) -> tuple[str, str] | None:
     return summary_line, main_reason_line
 
 
+def _extract_score_veto_summary_notes(copy_body: str) -> tuple[str, ...]:
+    notes: list[str] = []
+    for raw in copy_body.splitlines():
+        line = raw.strip()
+        if line.startswith("- Score/Veto:"):
+            notes.append(line.removeprefix("- ").strip())
+        elif line.startswith("- これは実行指示ではなく、根拠補完と安全確認の分類です。"):
+            notes.append(line.removeprefix("- ").strip())
+    return tuple(notes[:2])
+
+
 def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
     lines.extend(
         [
@@ -309,6 +320,7 @@ def _build_rich_text_body(
     candidates: list[CandidateDigest],
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
+    score_veto_notes: tuple[str, ...],
 ) -> str:
     lines: list[str] = [
         "テストメール",
@@ -327,6 +339,11 @@ def _build_rich_text_body(
         lines.extend([f"- {pipeline_trace_notes[0]}", f"- {pipeline_trace_notes[1]}"])
     else:
         lines.append("- 候補パイプライン要約: copy-ready側のtrace sectionを確認してください。")
+    lines.extend(["", "## Score / Veto（短縮）"])
+    if score_veto_notes:
+        lines.extend(f"- {note}" for note in score_veto_notes)
+    else:
+        lines.append("- Score/Veto: copy-ready側の統合サマリーを確認してください。")
     lines.extend(
         [
             "",
@@ -430,6 +447,7 @@ def _build_rich_html_body(
     footer: str,
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
+    score_veto_notes: tuple[str, ...],
 ) -> str:
     pipeline_list = ""
     if pipeline_trace_notes:
@@ -439,6 +457,11 @@ def _build_rich_html_body(
             f"<li>{escape(pipeline_trace_notes[1])}</li>"
             "</ul>"
         )
+    score_veto_list = ""
+    if score_veto_notes:
+        score_veto_list = "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
+            f"<li>{escape(note)}</li>" for note in score_veto_notes
+        ) + "</ul>"
     parts: list[str] = [
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
         "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
@@ -452,6 +475,8 @@ def _build_rich_html_body(
         f"<p style='margin:0 0 10px;'>注目候補数: {len(candidates)} / 観測ベースの候補抽出</p>",
         "<h2 style='margin:14px 0 8px;'>候補パイプライン（短縮）</h2>",
         pipeline_list or "<p style='margin:0 0 10px;'>候補パイプライン要約: copy-ready側のtrace sectionを確認してください。</p>",
+        "<h2 style='margin:14px 0 8px;'>Score / Veto（短縮）</h2>",
+        score_veto_list or "<p style='margin:0 0 10px;'>Score/Veto: copy-ready側の統合サマリーを確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
@@ -530,12 +555,14 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     candidates = _parse_top_candidates(body_core)
     zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
     pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
+    score_veto_notes = _extract_score_veto_summary_notes(body_core)
     body = _build_rich_text_body(
         report_date=report_date,
         generated_at=generated_at,
         candidates=candidates,
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
+        score_veto_notes=score_veto_notes,
     )
     if footer not in body:
         body = f"{body.rstrip()}\n\n---\n{footer}\n"
@@ -546,6 +573,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         footer=footer,
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
+        score_veto_notes=score_veto_notes,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),

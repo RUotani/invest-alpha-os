@@ -114,6 +114,8 @@ def test_format_json_schema() -> None:
     payload = json.loads(format_weekly_candidate_brief_v0_json(brief))
     assert payload["schema_version"] == "weekly_candidate_brief.v0.1"
     assert payload["sections"]["top_picks"] == []
+    assert payload["score_veto_pipeline"][0]["symbol"] == "GRID_A"
+    assert payload["score_veto_pipeline"][0]["pipeline_stage"] == "veto_blocked"
 
 
 def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
@@ -159,6 +161,11 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "veto reason log: 該当なし。" in body
         assert "候補パイプライン: 入力" in body
         assert "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。" in body
+        assert "## Score / Veto 統合サマリー" in body
+        assert "| 候補 | Score band | Score | Veto | Pipeline | 今週の扱い | 次確認 |" in body
+        assert "| CASH_D | HIGH_CONVICTION_REVIEW | 87.25 | - | high_conviction_review | 高優先レビュー |" in body
+        assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in body
+        assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in body
         assert "## 候補0件の理由メモ" in body
         assert "| coverage不足 | 0件 |" in body
         assert "| score未達 | 該当候補なし |" in body
