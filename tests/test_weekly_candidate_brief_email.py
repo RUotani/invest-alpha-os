@@ -33,6 +33,24 @@ SAMPLE_COPY = """<<< COPY FROM HERE >>>
 <<< COPY TO HERE >>>
 """
 
+SAMPLE_COPY_JA_TABLE = """<<< COPY FROM HERE >>>
+# 週次候補ブリーフ — 2026-06-02
+
+## 今週の深掘り候補 上位5件
+
+| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |
+|---|---|---|---|---|---|
+| 1 | 285A | キオクシア | JP | 注目 | 20日モメンタムが強い |
+
+## 候補別メモ
+
+### 1. 285A キオクシア
+- 反証: 短期の過熱サイン
+- 次確認: NAND/DRAM市況
+
+<<< COPY TO HERE >>>
+"""
+
 
 def test_weekly_candidate_brief_email_subject() -> None:
     assert build_weekly_candidate_brief_email_subject("2026-05-27") == (
@@ -65,6 +83,16 @@ def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
     lower = draft.text_body.lower()
     for term in FORBIDDEN_OUTPUT_TERMS:
         assert term not in lower
+
+
+def test_weekly_candidate_brief_email_parses_japanese_copy_ready_table() -> None:
+    draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=SAMPLE_COPY_JA_TABLE)
+
+    assert "注目候補数: 1" in draft.text_body
+    assert "285A" in draft.text_body
+    assert "キオクシア" in draft.text_body
+    assert "NAND/DRAM市況" in draft.text_body
+    assert "強い新規リスク候補: 0件" not in draft.text_body
 
 
 def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
@@ -128,14 +156,35 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
 
     assert "注目候補数: 0" in draft.text_body
     assert "強い新規リスク候補: 0件" in draft.text_body
-    assert "候補0件の理由とcoverage不足を確認する" in draft.text_body
-    assert "データ不足のまま個別株リスクを増やさない" in draft.text_body
+    assert "## 今週の行動チェックリスト" in draft.text_body
+    assert "ポートフォリオ前提: 現金11.7% / 個別株19.6% / 株式系67.8%" in draft.text_body
+    assert "### 今週やってよいこと" in draft.text_body
+    assert "### 今週やらないこと" in draft.text_body
+    assert "### 次に確認すること" in draft.text_body
+    assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in draft.text_body
+    assert "根拠不足の新規個別株・高ベータ枠を追加しない" in draft.text_body
+    assert "株式系67.8%と個別株19.6%に重複リスク" in draft.text_body
+    assert "候補0件はレポート失敗ではありません" in draft.text_body
     assert "no candidates in copy body" not in draft.text_body
     assert draft.html_body is not None
     assert "強い新規リスク候補: 0件" in draft.html_body
-    assert "今週のDo / Don't" in draft.html_body
+    assert "今週の行動チェックリスト" in draft.html_body
+    assert "今週やってよいこと" in draft.html_body
+    assert "今週やらないこと" in draft.html_body
+    assert "次に確認すること" in draft.html_body
+    assert "現金11.7% / 個別株19.6% / 株式系67.8%" in draft.html_body
     assert "no candidates in copy body" not in draft.html_body
     assert "| 順位 |" not in draft.html_body
+
+
+def test_weekly_candidate_brief_email_action_checklist_always_shown() -> None:
+    draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=SAMPLE_COPY)
+
+    assert "## 今週の行動チェックリスト" in draft.text_body
+    assert "根拠不足の新規個別株・高ベータ枠を追加しない" in draft.text_body
+    assert draft.html_body is not None
+    assert "今週の行動チェックリスト" in draft.html_body
+    assert "候補0件はレポート失敗ではなく" in draft.html_body
 
 
 def test_weekly_candidate_brief_email_missing_copy_exit2(tmp_path: Path) -> None:
