@@ -142,12 +142,23 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "個別株: 846.3万円 / 19.6%" in body
         assert "株式系合計: 2,934.5万円 / 67.8%" in body
         assert "## 行動分類" in body
-        assert "| 新規リスク候補 | 0 | 条件を満たす候補なし |" in body
+        assert "| 新規リスク候補 | 0 | 候補0件なら新規リスク追加を抑制 |" in body
         assert "| データ不足候補 | 0 | データ不足候補なし |" in body
+        assert "| 何もしない | 1 | 候補0件は失敗ではなく、抑制判断として記録 |" in body
+        assert "## 今週の行動チェックリスト" in body
+        assert "### 今週やってよいこと" in body
+        assert "### 今週やらないこと" in body
+        assert "### 次に確認すること" in body
+        assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in body
+        assert "現金11.7%から最低15%、できれば20%方向へ戻す前提" in body
+        assert "個別株19.6%が10〜15%目安を上回る前提" in body
+        assert "株式系67.8%と個別株19.6%に重複リスク" in body
+        assert "候補0件はレポート失敗ではありません" in body
         assert "## 今週のDo / Don't" in body
         assert "候補0件の理由とcoverage不足を確認する" in body
         assert "データ不足のまま個別株リスクを増やさない" in body
         assert "## ChatGPTレビュー依頼" in body
+        assert "今週やってよいこと / やらないこと / 次に確認すること" in body
         assert "no_candidate_reason" in body
         assert "## 安全メモ" in body
         assert "このレポートは売買指示ではありません" in body

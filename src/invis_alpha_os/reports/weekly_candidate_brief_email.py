@@ -41,6 +41,27 @@ class CandidateDigest:
     next_checks: str
 
 
+EMAIL_PORTFOLIO_CONTEXT_V85 = "現金11.7% / 個別株19.6% / 株式系67.8%"
+
+EMAIL_ALLOWED_ACTIONS_V85: tuple[str, ...] = (
+    "候補0件の理由、coverage不足、score未達、veto理由を確認する",
+    "監視候補・整理候補・高ボラ枠の根拠確認を進める",
+    "現金11.7%から最低15%、できれば20%方向へ戻す前提で判断を記録する",
+)
+
+EMAIL_SUPPRESSED_ACTIONS_V85: tuple[str, ...] = (
+    "根拠不足の新規個別株・高ベータ枠を追加しない",
+    "個別株19.6%のまま、個別株候補を強い新規リスク候補扱いしない",
+    "データ不足候補をcoverage・価格・score内訳なしで深掘り対象にしない",
+)
+
+EMAIL_NEXT_CHECKS_V85: tuple[str, ...] = (
+    "現金比率が15%未満で止まっていないか",
+    "株式系67.8%と個別株19.6%に重複リスク・整理候補がないか",
+    "次回weekly runで候補0件の理由が改善しているか",
+)
+
+
 def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     lines = [x.rstrip() for x in copy_body.splitlines()]
     by_rank: dict[int, dict[str, str]] = {}
@@ -52,7 +73,7 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
         line = raw.strip()
         if not line:
             continue
-        if line.startswith("| Rank |"):
+        if line.startswith("| Rank |") or line.startswith("| 順位 |"):
             in_table = True
             continue
         if in_table and line.startswith("|---"):
@@ -106,6 +127,56 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     return out
 
 
+def _extend_text_action_checklist(lines: list[str]) -> None:
+    lines.extend(
+        [
+            "",
+            "## 今週の行動チェックリスト",
+            f"- ポートフォリオ前提: {EMAIL_PORTFOLIO_CONTEXT_V85}",
+            "",
+            "### 今週やってよいこと",
+        ]
+    )
+    lines.extend(f"- {item}" for item in EMAIL_ALLOWED_ACTIONS_V85)
+    lines.extend(["", "### 今週やらないこと"])
+    lines.extend(f"- {item}" for item in EMAIL_SUPPRESSED_ACTIONS_V85)
+    lines.extend(["", "### 次に確認すること"])
+    lines.extend(f"- {item}" for item in EMAIL_NEXT_CHECKS_V85)
+    lines.extend(
+        [
+            "",
+            "### 候補0件の意味",
+            "- 候補0件はレポート失敗ではありません。",
+            "- 現金不足・データ不足・条件未達のため、新規リスクを増やさない判断材料です。",
+            "",
+        ]
+    )
+
+
+def _html_list(items: tuple[str, ...]) -> str:
+    return "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
+        f"<li>{escape(item)}</li>" for item in items
+    ) + "</ul>"
+
+
+def _append_html_action_checklist(parts: list[str]) -> None:
+    parts.extend(
+        [
+            "<h2 style='margin:14px 0 8px;'>今週の行動チェックリスト</h2>",
+            "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+            f"<p style='margin:0 0 8px;'><strong>ポートフォリオ前提:</strong> {escape(EMAIL_PORTFOLIO_CONTEXT_V85)}</p>",
+            "<h3 style='margin:0 0 6px;'>今週やってよいこと</h3>",
+            _html_list(EMAIL_ALLOWED_ACTIONS_V85),
+            "<h3 style='margin:8px 0 6px;'>今週やらないこと</h3>",
+            _html_list(EMAIL_SUPPRESSED_ACTIONS_V85),
+            "<h3 style='margin:8px 0 6px;'>次に確認すること</h3>",
+            _html_list(EMAIL_NEXT_CHECKS_V85),
+            "<p style='margin:8px 0 0;'>候補0件はレポート失敗ではなく、現金不足・データ不足・条件未達による抑制判断です。</p>",
+            "</div>",
+        ]
+    )
+
+
 def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest]) -> str:
     lines: list[str] = [
         "テストメール",
@@ -126,20 +197,9 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
                 "- 強い新規リスク候補: 0件",
                 "- 理由: データ品質・coverage・score条件を同時に満たす候補がありません。",
                 "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
-                "",
-                "## 今週のDo / Don't",
-                "### Do",
-                "- 候補0件の理由とcoverage不足を確認する",
-                "- 現金比率が低い前提で、新規リスク追加を抑制する",
-                "- 整理候補・高ボラ枠を次回レビュー対象にする",
-                "",
-                "### Don't",
-                "- 候補0件を「問題なし」と解釈しない",
-                "- データ不足のまま個別株リスクを増やさない",
-                "- 高ボラ/レバ商品を雰囲気で追いかけない",
-                "",
             ]
         )
+    _extend_text_action_checklist(lines)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         momentum_q: list[str] = []
@@ -241,15 +301,9 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
                 "<p style='margin:0 0 6px;'>データ品質・coverage・score条件を同時に満たす候補がありません。</p>",
                 "<p style='margin:0;'>現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。</p>",
                 "</div>",
-                "<h2 style='margin:14px 0 8px;'>今週のDo / Don't</h2>",
-                "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
-                "<h3 style='margin:0 0 6px;'>Do</h3>",
-                "<ul style='margin:0 0 10px 18px;padding:0;'><li>候補0件の理由とcoverage不足を確認する</li><li>現金比率が低い前提で、新規リスク追加を抑制する</li><li>整理候補・高ボラ枠を次回レビュー対象にする</li></ul>",
-                "<h3 style='margin:0 0 6px;'>Don't</h3>",
-                "<ul style='margin:0 0 0 18px;padding:0;'><li>候補0件を「問題なし」と解釈しない</li><li>データ不足のまま個別株リスクを増やさない</li><li>高ボラ/レバ商品を雰囲気で追いかけない</li></ul>",
-                "</div>",
             ]
         )
+    _append_html_action_checklist(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         parts.extend(

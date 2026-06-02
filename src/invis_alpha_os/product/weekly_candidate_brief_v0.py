@@ -97,6 +97,24 @@ DONT_ITEMS_V81: tuple[str, ...] = (
     "高ボラ/レバ商品を雰囲気で追いかけない",
 )
 
+ALLOWED_ACTION_ITEMS_V85: tuple[str, ...] = (
+    "候補0件の理由、coverage不足、score未達、veto理由を確認する",
+    "新規リスク追加ではなく、監視候補・整理候補・高ボラ枠の根拠確認を進める",
+    "現金11.7%から最低15%、できれば20%方向へ戻す前提で、週次判断を記録する",
+)
+
+SUPPRESSED_ACTION_ITEMS_V85: tuple[str, ...] = (
+    "現金比率11.7%のまま、根拠不足の新規個別株・高ベータ枠を追加しない",
+    "個別株19.6%が10〜15%目安を上回る前提で、個別株候補を強い新規リスク候補扱いしない",
+    "データ不足候補を、coverage・価格・score内訳を確認しないまま深掘り対象にしない",
+)
+
+NEXT_CHECK_ITEMS_V85: tuple[str, ...] = (
+    "現金比率が15%未満で止まっていないか、20%回復ゾーンへ向かう余地があるか",
+    "株式系67.8%と個別株19.6%に重複リスク・高ボラ偏り・整理候補がないか",
+    "次回weekly runで候補0件の理由が、データ不足から条件未達へ改善しているか",
+)
+
 
 @dataclass(frozen=True)
 class UnifiedCandidate:
@@ -972,12 +990,24 @@ def _action_classification_rows(brief: WeeklyCandidateBriefV0) -> list[tuple[str
     avoid_count = len(brief.avoid_list)
     data_blocked_count = len(brief.insufficient_list)
     return [
-        ("新規リスク候補", top_count, "条件を満たす候補なし" if top_count == 0 else "反証確認後に深掘り"),
+        (
+            "新規リスク候補",
+            top_count,
+            "候補0件なら新規リスク追加を抑制" if top_count == 0 else "反証確認後に深掘り",
+        ),
         ("監視候補", watch_count, "監視対象なし、またはデータ不足" if watch_count == 0 else "条件待ち"),
         ("追いかけない候補", avoid_count, "過熱判定対象なし" if avoid_count == 0 else "急伸後の反証を優先"),
-        ("整理候補", 0, "今回の週次スクリーニングでは未評価"),
-        ("データ不足候補", data_blocked_count, "データ不足候補なし" if data_blocked_count == 0 else "根拠不足のため深掘り前に補完"),
-        ("何もしない", 1 if top_count == 0 else 0, "候補0件時は新規リスク追加を抑制"),
+        ("整理候補", 0, "実行判断ではなく、根拠確認と重複リスク確認を優先"),
+        (
+            "データ不足候補",
+            data_blocked_count,
+            "データ不足候補なし" if data_blocked_count == 0 else "coverage・価格・score内訳を確認",
+        ),
+        (
+            "何もしない",
+            1 if top_count == 0 else 0,
+            "候補0件は失敗ではなく、抑制判断として記録" if top_count == 0 else "上位候補ありでも現金制約を優先",
+        ),
     ]
 
 
@@ -1003,16 +1033,36 @@ def _do_dont_lines() -> list[str]:
     return lines
 
 
+def _weekly_action_checklist_lines() -> list[str]:
+    lines = ["## 今週の行動チェックリスト", "", "### 今週やってよいこと"]
+    lines.extend(f"- {item}" for item in ALLOWED_ACTION_ITEMS_V85)
+    lines.extend(["", "### 今週やらないこと"])
+    lines.extend(f"- {item}" for item in SUPPRESSED_ACTION_ITEMS_V85)
+    lines.extend(["", "### 次に確認すること"])
+    lines.extend(f"- {item}" for item in NEXT_CHECK_ITEMS_V85)
+    lines.extend(
+        [
+            "",
+            "### 候補0件の意味",
+            "- 候補0件はレポート失敗ではありません。",
+            "- 現金不足・データ不足・条件未達のため、新規リスクを増やさない判断材料です。",
+            "",
+        ]
+    )
+    return lines
+
+
 def _chatgpt_review_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return [
         "## ChatGPTレビュー依頼",
         "",
-        "この週次レポートを、買い煽りを避けて、cleanup / risk-control / data-quality優先でレビューしてください。",
+        "この週次レポートを、追加煽りを避けて、cleanup / risk-control / data-quality優先でレビューしてください。",
         f"- report_date: {brief.report_date}",
         "- run_type: local_or_workflow_generated",
         f"- candidate_count: {_total_candidate_count(brief)}",
         f"- no_candidate_reason: {_no_candidate_reason(brief)}",
         f"- portfolio_context: cash {PORTFOLIO_CONTEXT_V81['cash']}, individual stocks {PORTFOLIO_CONTEXT_V81['individual_stocks']}, equity total {PORTFOLIO_CONTEXT_V81['equity_total']}",
+        "- review_request: 今週やってよいこと / やらないこと / 次に確認することを、現金制約と個別株比率制約から再点検してください。",
         "",
     ]
 
@@ -1036,6 +1086,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_weekly_conclusion_lines(brief))
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_action_classification_lines(brief))
+    lines.extend(_weekly_action_checklist_lines())
     lines.extend(_do_dont_lines())
     lines.extend(
         [
