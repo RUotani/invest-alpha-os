@@ -185,6 +185,24 @@ def _extract_candidate_zero_reason_notes(copy_body: str) -> tuple[str, str] | No
     return reason_line, next_line
 
 
+def _extract_pipeline_trace_notes(copy_body: str) -> tuple[str, str] | None:
+    summary_line = ""
+    main_reason_line = ""
+    for raw in copy_body.splitlines():
+        line = raw.strip()
+        if line.startswith("- 候補パイプライン:"):
+            summary_line = line.removeprefix("- ").strip()
+        elif line.startswith("- 主因:"):
+            main_reason_line = line.removeprefix("- ").strip()
+    if not summary_line and not main_reason_line:
+        return None
+    if not summary_line:
+        summary_line = "候補パイプライン: 入力/coverage不足/score未達/veto/深掘り可能を確認"
+    if not main_reason_line:
+        main_reason_line = "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。"
+    return summary_line, main_reason_line
+
+
 def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
     lines.extend(
         [
@@ -290,6 +308,7 @@ def _build_rich_text_body(
     generated_at: str,
     candidates: list[CandidateDigest],
     zero_reason_notes: tuple[str, str] | None,
+    pipeline_trace_notes: tuple[str, str] | None,
 ) -> str:
     lines: list[str] = [
         "テストメール",
@@ -302,8 +321,18 @@ def _build_rich_text_body(
         "- 主目的: 次の調査候補を絞り込むための観測",
         "- 安全方針: 観測のみ（実行指示なし）",
         "",
-        "## 注目候補",
+        "## 候補パイプライン（短縮）",
     ]
+    if pipeline_trace_notes:
+        lines.extend([f"- {pipeline_trace_notes[0]}", f"- {pipeline_trace_notes[1]}"])
+    else:
+        lines.append("- 候補パイプライン要約: copy-ready側のtrace sectionを確認してください。")
+    lines.extend(
+        [
+            "",
+        "## 注目候補",
+        ]
+    )
     if not candidates:
         lines.extend(
             [
@@ -400,7 +429,16 @@ def _build_rich_html_body(
     candidates: list[CandidateDigest],
     footer: str,
     zero_reason_notes: tuple[str, str] | None,
+    pipeline_trace_notes: tuple[str, str] | None,
 ) -> str:
+    pipeline_list = ""
+    if pipeline_trace_notes:
+        pipeline_list = (
+            "<ul style='margin:0 0 10px 18px;padding:0;'>"
+            f"<li>{escape(pipeline_trace_notes[0])}</li>"
+            f"<li>{escape(pipeline_trace_notes[1])}</li>"
+            "</ul>"
+        )
     parts: list[str] = [
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
         "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
@@ -412,6 +450,8 @@ def _build_rich_html_body(
         "</div>",
         "<h2 style='margin:10px 0 6px;'>要約</h2>",
         f"<p style='margin:0 0 10px;'>注目候補数: {len(candidates)} / 観測ベースの候補抽出</p>",
+        "<h2 style='margin:14px 0 8px;'>候補パイプライン（短縮）</h2>",
+        pipeline_list or "<p style='margin:0 0 10px;'>候補パイプライン要約: copy-ready側のtrace sectionを確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
@@ -489,11 +529,13 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     footer = "観測・深掘り候補の整理です。売買推奨・投資助言・発注指示ではありません。"
     candidates = _parse_top_candidates(body_core)
     zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
+    pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
     body = _build_rich_text_body(
         report_date=report_date,
         generated_at=generated_at,
         candidates=candidates,
         zero_reason_notes=zero_reason_notes,
+        pipeline_trace_notes=pipeline_trace_notes,
     )
     if footer not in body:
         body = f"{body.rstrip()}\n\n---\n{footer}\n"
@@ -503,6 +545,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         candidates=candidates,
         footer=footer,
         zero_reason_notes=zero_reason_notes,
+        pipeline_trace_notes=pipeline_trace_notes,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),
