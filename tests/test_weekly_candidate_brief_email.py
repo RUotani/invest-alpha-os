@@ -106,6 +106,38 @@ def test_weekly_candidate_brief_email_dry_run_cli(tmp_path: Path) -> None:
     assert "反証・下落リスク" in txt
 
 
+def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None:
+    copy_body = """<<< COPY FROM HERE >>>
+# 週次候補ブリーフ — 2026-06-02
+
+## 今週の結論
+
+- 強い新規リスク候補: 0件
+- 理由: データ品質・coverage・score条件を同時に満たす候補がありません。
+- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。
+
+## 今週の深掘り候補 上位5件
+
+| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |
+|---|---|---|---|---|---|
+| — | — | — | — | — | — |
+
+<<< COPY TO HERE >>>
+"""
+    draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=copy_body)
+
+    assert "注目候補数: 0" in draft.text_body
+    assert "強い新規リスク候補: 0件" in draft.text_body
+    assert "候補0件の理由とcoverage不足を確認する" in draft.text_body
+    assert "データ不足のまま個別株リスクを増やさない" in draft.text_body
+    assert "no candidates in copy body" not in draft.text_body
+    assert draft.html_body is not None
+    assert "強い新規リスク候補: 0件" in draft.html_body
+    assert "今週のDo / Don't" in draft.html_body
+    assert "no candidates in copy body" not in draft.html_body
+    assert "| 順位 |" not in draft.html_body
+
+
 def test_weekly_candidate_brief_email_missing_copy_exit2(tmp_path: Path) -> None:
     r = runner.invoke(
         app,

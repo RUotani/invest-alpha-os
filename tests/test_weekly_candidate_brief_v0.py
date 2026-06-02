@@ -116,6 +116,49 @@ def test_format_json_schema() -> None:
     assert payload["sections"]["top_picks"] == []
 
 
+def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
+    from invis_alpha_os.product.weekly_candidate_brief_v0 import WeeklyCandidateBriefV0
+
+    brief = WeeklyCandidateBriefV0(
+        report_date="2026-06-02",
+        generated_at_jp="t1",
+        generated_at_us="t2",
+        jp_scope="jp",
+        us_scope="us",
+        macro_summary="macro",
+        coverage_note=(
+            "coverage_note: JP candidates were unavailable due to insufficient JP cache quality / "
+            "US equity candidates were unavailable due to insufficient data quality"
+        ),
+    )
+    md = format_weekly_candidate_brief_v0_markdown(brief)
+    copy_body = format_weekly_candidate_brief_v0_copy(brief)
+
+    for body in (md, copy_body):
+        assert "## 今週の結論" in body
+        assert "強い新規リスク候補: 0件" in body
+        assert "## ポートフォリオ制約" in body
+        assert "現金: 508.2万円 / 11.7%" in body
+        assert "個別株: 846.3万円 / 19.6%" in body
+        assert "株式系合計: 2,934.5万円 / 67.8%" in body
+        assert "## 行動分類" in body
+        assert "| 新規リスク候補 | 0 | 条件を満たす候補なし |" in body
+        assert "| データ不足候補 | 0 | データ不足候補なし |" in body
+        assert "## 今週のDo / Don't" in body
+        assert "候補0件の理由とcoverage不足を確認する" in body
+        assert "データ不足のまま個別株リスクを増やさない" in body
+        assert "## ChatGPTレビュー依頼" in body
+        assert "no_candidate_reason" in body
+        assert "## 安全メモ" in body
+        assert "このレポートは売買指示ではありません" in body
+
+    assert copy_body.strip().startswith("<<< COPY FROM HERE >>>")
+    assert copy_body.strip().endswith("<<< COPY TO HERE >>>")
+    lower = copy_body.lower()
+    for term in FORBIDDEN_OUTPUT_TERMS:
+        assert term not in lower
+
+
 def _candidate_jp(
     *,
     code: str = "7011",
