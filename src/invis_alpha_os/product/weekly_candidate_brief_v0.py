@@ -36,6 +36,11 @@ from invis_alpha_os.portfolio.target_allocation_gap_calculator_v82 import (
     compute_target_allocation_gap_from_portfolio_context_v82,
     format_target_allocation_gap_markdown_short_v82,
 )
+from invis_alpha_os.product.candidate_score_veto_pipeline_v93 import (
+    CandidateIntegratedAssessment,
+    build_fixture_integrated_candidate_assessments_v93,
+    render_integrated_candidate_assessment_markdown,
+)
 from invis_alpha_os.product.weekly_candidate_pipeline_trace_v90 import (
     CandidatePipelineTraceSummary,
     CandidateTraceInput,
@@ -202,6 +207,7 @@ class WeeklyCandidateBriefV0:
     coverage_note: str | None = None
     discovery_merge: dict[str, Any] = field(default_factory=dict)
     pipeline_trace: CandidatePipelineTraceSummary | None = None
+    score_veto_assessments: tuple[CandidateIntegratedAssessment, ...] = field(default_factory=tuple)
 
 
 def _sort_key(c: UnifiedCandidate) -> tuple[int, float, str]:
@@ -877,6 +883,7 @@ def build_weekly_candidate_brief_v0(
         coverage_note=coverage_note,
         discovery_merge=discovery_merge,
         pipeline_trace=pipeline_trace,
+        score_veto_assessments=build_fixture_integrated_candidate_assessments_v93(),
     )
 
 
@@ -1265,6 +1272,11 @@ def _pipeline_trace_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return lines
 
 
+def _score_veto_integration_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    assessments = brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93()
+    return render_integrated_candidate_assessment_markdown(assessments).splitlines()
+
+
 def _do_dont_lines() -> list[str]:
     lines = ["## 今週のDo / Don't", "", "### Do"]
     lines.extend(f"- {item}" for item in DO_ITEMS_V81)
@@ -1430,6 +1442,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_target_allocation_gap_short_lines())
     lines.extend(_action_classification_lines(brief))
     lines.extend(_pipeline_trace_lines(brief))
+    lines.extend(_score_veto_integration_lines(brief))
     lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())
@@ -1569,6 +1582,10 @@ def _card_to_dict(card: CandidateCard) -> dict[str, Any]:
     }
 
 
+def _integrated_assessment_to_dict(row: CandidateIntegratedAssessment) -> dict[str, Any]:
+    return asdict(row)
+
+
 def format_weekly_candidate_brief_v0_json(brief: WeeklyCandidateBriefV0) -> str:
     payload: dict[str, Any] = {
         "schema_version": "weekly_candidate_brief.v0.1",
@@ -1584,6 +1601,10 @@ def format_weekly_candidate_brief_v0_json(brief: WeeklyCandidateBriefV0) -> str:
             "insufficient": [_card_to_dict(c) for c in brief.insufficient_list],
             "theme_highlights": [_card_to_dict(c) for c in brief.theme_highlights],
         },
+        "score_veto_pipeline": [
+            _integrated_assessment_to_dict(row)
+            for row in (brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93())
+        ],
         "discovery": brief.discovery_merge,
         "observation_only": True,
     }
