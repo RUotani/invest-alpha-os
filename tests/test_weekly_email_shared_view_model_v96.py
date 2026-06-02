@@ -13,6 +13,7 @@ def test_v96_shared_view_model_build_and_render() -> None:
         score_veto_summary_lines=("Score/Veto: 監視1",),
         pipeline_summary_lines=("候補パイプライン: 入力3",),
         monthly_input_summary_lines=("Monthly Input: 判定 WARN",),
+        sanitized_manual_input_summary_lines=("Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen",),
     )
     md_lines = render_weekly_shared_view_model_markdown_v96(model)
     joined = "\n".join(md_lines)
@@ -20,6 +21,7 @@ def test_v96_shared_view_model_build_and_render() -> None:
     assert "Score / Veto（共有要約）" in joined
     assert "候補パイプライン（共有要約）" in joined
     assert "Monthly Input Consistency（共有要約）" in joined
+    assert "Sanitized / Manual Input（共有要約）" in joined
     assert "これは売買指示ではなく" in joined
 
 
@@ -31,10 +33,14 @@ def test_v96_extract_and_email_compact_share_same_source() -> None:
 - これは実行指示ではなく、根拠補完と安全確認の分類です。
 - Monthly Input: 判定 WARN / 対象月 2026-05
 - Monthly Guardrail: 現金11.7% / 個別株19.6%
+- Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen
+- Sanitized Guardrail: 現金11.7%はminimum 15%未満 / 個別株19.6%はtarget 10.0〜15.0%超過
+- Sanitized Parity: v97/v95整合 WARN
 <<< COPY TO HERE >>>"""
     model = extract_weekly_shared_view_model_from_copy_v96(copy_body)
     email_lines = render_weekly_shared_view_model_email_text_v96(model)
     assert any("候補パイプライン" in x for x in email_lines)
     assert any("Score/Veto" in x for x in email_lines)
     assert any("Monthly Input" in x for x in email_lines)
+    assert any("Sanitized Input" in x for x in email_lines)
     assert any("売買指示" in x for x in email_lines)

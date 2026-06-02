@@ -149,6 +149,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
 - これは実行指示ではなく、根拠補完と安全確認の分類です。
 - Monthly Input: 判定 WARN / 対象月 2026-05
 - Monthly Guardrail: 現金11.7% / 個別株19.6%
+- Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen
+- Sanitized Guardrail: 現金11.7%はminimum 15.0%未満 / 個別株19.6%はtarget 10.0〜15.0%超過
+- Sanitized Parity: v97/v95整合 WARN
 - 候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件
 - 次確認: 価格・出来高・期間・score内訳・veto理由
 
@@ -178,6 +181,10 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "## Monthly Input Consistency（短縮）" in draft.text_body
     assert "Monthly Input: 判定 WARN / 対象月 2026-05" in draft.text_body
     assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in draft.text_body
+    assert "## Sanitized / Manual Input（短縮）" in draft.text_body
+    assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in draft.text_body
+    assert "Sanitized Guardrail: 現金11.7%はminimum 15.0%未満" in draft.text_body
+    assert "Sanitized Parity: v97/v95整合 WARN" in draft.text_body
     assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in draft.text_body
     assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.text_body
     assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.text_body
@@ -210,6 +217,10 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "Monthly Input Consistency（短縮）" in draft.html_body
     assert "Monthly Input: 判定 WARN / 対象月 2026-05" in draft.html_body
     assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in draft.html_body
+    assert "Sanitized / Manual Input（短縮）" in draft.html_body
+    assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in draft.html_body
+    assert "Sanitized Guardrail: 現金11.7%はminimum 15.0%未満" in draft.html_body
+    assert "Sanitized Parity: v97/v95整合 WARN" in draft.html_body
     assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.html_body
     assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.html_body
     assert "veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。" in draft.html_body

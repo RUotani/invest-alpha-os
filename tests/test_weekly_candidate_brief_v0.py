@@ -170,6 +170,10 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "### Monthly Input Consistency（共有要約）" in body
         assert "Monthly Input: 判定 WARN / 対象月 2026-05" in body
         assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in body
+        assert "### Sanitized / Manual Input（共有要約）" in body
+        assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in body
+        assert "Sanitized Guardrail: 現金11.7%はminimum 15.0%未満" in body
+        assert "Sanitized Parity: v97/v95整合 WARN" in body
         assert "## 候補0件の理由メモ" in body
         assert "| coverage不足 | 0件 |" in body
         assert "| score未達 | 該当候補なし |" in body

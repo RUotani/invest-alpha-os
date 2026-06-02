@@ -47,6 +47,9 @@ from invis_alpha_os.product.monthly_input_consistency_v95 import (
     render_monthly_input_consistency_summary_lines_v95,
     validate_monthly_portfolio_input_v95,
 )
+from invis_alpha_os.product.sanitized_manual_input_report_connection_v99 import (
+    build_sanitized_manual_input_summary_lines_v99,
+)
 from invis_alpha_os.product.weekly_candidate_pipeline_trace_v90 import (
     CandidatePipelineTraceSummary,
     CandidateTraceInput,
@@ -1314,6 +1317,7 @@ def _shared_view_model_lines_v96(brief: WeeklyCandidateBriefV0) -> list[str]:
         score_veto_summary_lines=score_veto_summary,
         pipeline_summary_lines=pipeline_summary,
         monthly_input_summary_lines=_monthly_input_summary_lines_v95(),
+        sanitized_manual_input_summary_lines=build_sanitized_manual_input_summary_lines_v99(),
     )
     return render_weekly_shared_view_model_markdown_v96(model)
 
