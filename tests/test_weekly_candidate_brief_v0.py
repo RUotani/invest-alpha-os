@@ -148,6 +148,13 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "| 新規リスク候補 | 0 | 候補0件なら新規リスク追加を抑制 |" in body
         assert "| データ不足候補 | 0 | データ不足候補なし |" in body
         assert "| 何もしない | 1 | 候補0件は失敗ではなく、抑制判断として記録 |" in body
+        assert "## 候補0件の理由メモ" in body
+        assert "| coverage不足 | 0件 |" in body
+        assert "| score未達 | 該当候補なし |" in body
+        assert "| veto | 0件 | vetoで除外されたのではなく" in body
+        assert "候補0件の主因: coverage不足 0件 / score未達 該当候補なし / veto 0件" in body
+        assert "次確認: 価格・出来高・期間・score内訳・veto理由" in body
+        assert "vetoで除外されたのではなく、主にcoverage/score条件で候補化されていない" in body
         assert "## 整理・監視優先度スコア" in body
         assert "このスコアは売却指示ではなく、次に確認すべき整理・監視優先度です" in body
         assert "| 個別株枠 | 個別株全体 | 4 |" in body
