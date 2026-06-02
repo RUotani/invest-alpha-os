@@ -40,11 +40,21 @@ from invis_alpha_os.product.candidate_score_veto_pipeline_v93 import (
     CandidateIntegratedAssessment,
     build_fixture_integrated_candidate_assessments_v93,
     render_integrated_candidate_assessment_markdown,
+    render_integrated_candidate_assessment_summary_lines,
+)
+from invis_alpha_os.product.monthly_input_consistency_v95 import (
+    build_redacted_monthly_portfolio_fixture_v95,
+    render_monthly_input_consistency_summary_lines_v95,
+    validate_monthly_portfolio_input_v95,
 )
 from invis_alpha_os.product.weekly_candidate_pipeline_trace_v90 import (
     CandidatePipelineTraceSummary,
     CandidateTraceInput,
     build_candidate_pipeline_trace_summary,
+)
+from invis_alpha_os.product.weekly_email_shared_view_model_v96 import (
+    build_weekly_shared_view_model_v96,
+    render_weekly_shared_view_model_markdown_v96,
 )
 
 CandidateBriefType = Literal[
@@ -1277,6 +1287,37 @@ def _score_veto_integration_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return render_integrated_candidate_assessment_markdown(assessments).splitlines() + [""]
 
 
+def _monthly_input_summary_lines_v95() -> tuple[str, ...]:
+    fixture = build_redacted_monthly_portfolio_fixture_v95()
+    result = validate_monthly_portfolio_input_v95(fixture, current_month=fixture.as_of_month)
+    core = render_monthly_input_consistency_summary_lines_v95(fixture, result)
+    return (
+        f"Monthly Input: 判定 {result.overall_severity.value.upper()} / 対象月 {fixture.as_of_month}",
+        f"Monthly Guardrail: 現金{fixture.cash.ratio_pct:.1f}% / 個別株{fixture.individual_stocks.ratio_pct:.1f}%",
+        core[2],
+        core[3],
+    )
+
+
+def _shared_view_model_lines_v96(brief: WeeklyCandidateBriefV0) -> list[str]:
+    assessments = brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93()
+    score_veto_summary = render_integrated_candidate_assessment_summary_lines(assessments)
+    t = brief.pipeline_trace
+    if t is None:
+        pipeline_summary = ("候補パイプライン: 集計情報なし",)
+    else:
+        pipeline_summary = (
+            f"候補パイプライン: 入力{t.input_count} / coverage不足{t.coverage_missing_count} / score未達{t.score_miss_count} / veto{t.veto_count} / 深掘り可能{t.final_candidate_count}",
+            "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。",
+        )
+    model = build_weekly_shared_view_model_v96(
+        score_veto_summary_lines=score_veto_summary,
+        pipeline_summary_lines=pipeline_summary,
+        monthly_input_summary_lines=_monthly_input_summary_lines_v95(),
+    )
+    return render_weekly_shared_view_model_markdown_v96(model)
+
+
 def _do_dont_lines() -> list[str]:
     lines = ["## 今週のDo / Don't", "", "### Do"]
     lines.extend(f"- {item}" for item in DO_ITEMS_V81)
@@ -1443,6 +1484,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_action_classification_lines(brief))
     lines.extend(_pipeline_trace_lines(brief))
     lines.extend(_score_veto_integration_lines(brief))
+    lines.extend(_shared_view_model_lines_v96(brief))
     lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())
