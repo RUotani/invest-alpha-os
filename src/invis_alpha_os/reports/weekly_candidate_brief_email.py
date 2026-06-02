@@ -121,7 +121,25 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
         "## 注目候補",
     ]
     if not candidates:
-        lines.extend(["- no candidates in copy body", ""])
+        lines.extend(
+            [
+                "- 強い新規リスク候補: 0件",
+                "- 理由: データ品質・coverage・score条件を同時に満たす候補がありません。",
+                "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
+                "",
+                "## 今週のDo / Don't",
+                "### Do",
+                "- 候補0件の理由とcoverage不足を確認する",
+                "- 現金比率が低い前提で、新規リスク追加を抑制する",
+                "- 整理候補・高ボラ枠を次回レビュー対象にする",
+                "",
+                "### Don't",
+                "- 候補0件を「問題なし」と解釈しない",
+                "- データ不足のまま個別株リスクを増やさない",
+                "- 高ボラ/レバ商品を雰囲気で追いかけない",
+                "",
+            ]
+        )
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         momentum_q: list[str] = []
@@ -216,7 +234,22 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
-        parts.append("<p>no candidates in copy body</p>")
+        parts.extend(
+            [
+                "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                "<p style='margin:0 0 6px;'><strong>強い新規リスク候補: 0件</strong></p>",
+                "<p style='margin:0 0 6px;'>データ品質・coverage・score条件を同時に満たす候補がありません。</p>",
+                "<p style='margin:0;'>現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。</p>",
+                "</div>",
+                "<h2 style='margin:14px 0 8px;'>今週のDo / Don't</h2>",
+                "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                "<h3 style='margin:0 0 6px;'>Do</h3>",
+                "<ul style='margin:0 0 10px 18px;padding:0;'><li>候補0件の理由とcoverage不足を確認する</li><li>現金比率が低い前提で、新規リスク追加を抑制する</li><li>整理候補・高ボラ枠を次回レビュー対象にする</li></ul>",
+                "<h3 style='margin:0 0 6px;'>Don't</h3>",
+                "<ul style='margin:0 0 0 18px;padding:0;'><li>候補0件を「問題なし」と解釈しない</li><li>データ不足のまま個別株リスクを増やさない</li><li>高ボラ/レバ商品を雰囲気で追いかけない</li></ul>",
+                "</div>",
+            ]
+        )
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         parts.extend(
@@ -288,8 +321,6 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         candidates=candidates,
         footer=footer,
     )
-    if not candidates:
-        html_body = html_body.replace("</div></body></html>", f"{_render_copy_markdown_as_simple_html(body_core)}</div></body></html>")
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),
         text_body=body,

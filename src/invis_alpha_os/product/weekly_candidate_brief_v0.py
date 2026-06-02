@@ -62,6 +62,41 @@ BRIEF_DISCLAIMER_JA = (
     " discovery_score はリサーチ優先度の目安です。"
 )
 
+PORTFOLIO_CONTEXT_V81: dict[str, str] = {
+    "source": "2026-05 month-end redacted portfolio context",
+    "total_assets": "約4,327.9万円",
+    "cash": "508.2万円 / 11.7%",
+    "equity_total": "2,934.5万円 / 67.8%",
+    "individual_stocks": "846.3万円 / 19.6%",
+    "bonds": "582.7万円 / 13.5%",
+    "gold": "234.5万円 / 5.4%",
+    "crypto_high_beta": "57.5万円 / 1.3%",
+    "leverage": "10.5万円 / 0.2%",
+    "cash_policy": "現金比率は最低15%、できれば20%方向へ戻す",
+    "individual_policy": "個別株は徐々に10〜15%方向へ圧縮",
+}
+
+PORTFOLIO_ACTION_BIAS_V81 = (
+    "現金比率が11.7%で最低目安15%を下回るため、強い根拠のない新規リスク追加よりも、"
+    "監視・整理・現金回復を優先します。"
+)
+
+NO_CANDIDATE_DEFAULT_REASON_V81 = (
+    "JP / US / ETF の横断候補が、データ品質・coverage・score条件を同時に満たしていません。"
+)
+
+DO_ITEMS_V81: tuple[str, ...] = (
+    "候補0件の理由とcoverage不足を確認する",
+    "現金比率が低い前提で、新規リスク追加を抑制する",
+    "整理候補・高ボラ枠を次回レビュー対象にする",
+)
+
+DONT_ITEMS_V81: tuple[str, ...] = (
+    "候補0件を「問題なし」と解釈しない",
+    "データ不足のまま個別株リスクを増やさない",
+    "高ボラ/レバ商品を雰囲気で追いかけない",
+)
+
 
 @dataclass(frozen=True)
 class UnifiedCandidate:
@@ -871,20 +906,151 @@ def _copy_ready_name(c: UnifiedCandidate) -> str:
     return dn
 
 
+def _total_candidate_count(brief: WeeklyCandidateBriefV0) -> int:
+    seen: set[str] = set()
+    for cards in (
+        brief.top_picks,
+        brief.rapid_movers,
+        brief.pullbacks,
+        brief.avoid_list,
+        brief.insufficient_list,
+        brief.theme_highlights,
+    ):
+        for card in cards:
+            c = card.candidate
+            seen.add(f"{c.market}:{c.instrument_id}")
+    return len(seen)
+
+
+def _no_candidate_reason(brief: WeeklyCandidateBriefV0) -> str:
+    if brief.top_picks:
+        return "上位候補はあります。反証と次確認を優先して深掘りしてください。"
+    if brief.coverage_note:
+        note = brief.coverage_note.removeprefix("coverage_note: ").strip()
+        if note:
+            return note
+    return NO_CANDIDATE_DEFAULT_REASON_V81
+
+
+def _weekly_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    top_count = len(brief.top_picks)
+    total_count = _total_candidate_count(brief)
+    if top_count:
+        first = f"深掘り候補: {top_count}件。反証と次確認を先に見て、観測ベースで優先順位を確認します。"
+    else:
+        first = "強い新規リスク候補: 0件。候補ゼロを正常な抑制シグナルとして扱います。"
+    return [
+        "## 今週の結論",
+        "",
+        f"- {first}",
+        f"- 候補総数: {total_count}件 / 上位候補: {top_count}件",
+        f"- 理由: {_no_candidate_reason(brief)}",
+        f"- 判断方針: {PORTFOLIO_ACTION_BIAS_V81}",
+        "",
+    ]
+
+
+def _portfolio_constraint_lines() -> list[str]:
+    return [
+        "## ポートフォリオ制約",
+        "",
+        f"- 前提: {PORTFOLIO_CONTEXT_V81['source']}",
+        f"- 総資産: {PORTFOLIO_CONTEXT_V81['total_assets']}",
+        f"- 現金: {PORTFOLIO_CONTEXT_V81['cash']}（{PORTFOLIO_CONTEXT_V81['cash_policy']}）",
+        f"- 株式系合計: {PORTFOLIO_CONTEXT_V81['equity_total']}",
+        f"- 個別株: {PORTFOLIO_CONTEXT_V81['individual_stocks']}（{PORTFOLIO_CONTEXT_V81['individual_policy']}）",
+        f"- 債券: {PORTFOLIO_CONTEXT_V81['bonds']} / GOLD: {PORTFOLIO_CONTEXT_V81['gold']}",
+        f"- 高ベータ枠: {PORTFOLIO_CONTEXT_V81['crypto_high_beta']} / レバ枠: {PORTFOLIO_CONTEXT_V81['leverage']}",
+        f"- 週次判断: {PORTFOLIO_ACTION_BIAS_V81}",
+        "",
+    ]
+
+
+def _action_classification_rows(brief: WeeklyCandidateBriefV0) -> list[tuple[str, int, str]]:
+    top_count = len(brief.top_picks)
+    watch_count = len(_dedupe_cards_by_symbol([*brief.rapid_movers, *brief.pullbacks, *brief.theme_highlights]))
+    avoid_count = len(brief.avoid_list)
+    data_blocked_count = len(brief.insufficient_list)
+    return [
+        ("新規リスク候補", top_count, "条件を満たす候補なし" if top_count == 0 else "反証確認後に深掘り"),
+        ("監視候補", watch_count, "監視対象なし、またはデータ不足" if watch_count == 0 else "条件待ち"),
+        ("追いかけない候補", avoid_count, "過熱判定対象なし" if avoid_count == 0 else "急伸後の反証を優先"),
+        ("整理候補", 0, "今回の週次スクリーニングでは未評価"),
+        ("データ不足候補", data_blocked_count, "データ不足候補なし" if data_blocked_count == 0 else "根拠不足のため深掘り前に補完"),
+        ("何もしない", 1 if top_count == 0 else 0, "候補0件時は新規リスク追加を抑制"),
+    ]
+
+
+def _action_classification_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## 行動分類",
+        "",
+        "| 分類 | 件数 | 判断 |",
+        "|---|---:|---|",
+    ]
+    for label, count, judgement in _action_classification_rows(brief):
+        lines.append(f"| {label} | {count} | {judgement} |")
+    lines.append("")
+    return lines
+
+
+def _do_dont_lines() -> list[str]:
+    lines = ["## 今週のDo / Don't", "", "### Do"]
+    lines.extend(f"- {item}" for item in DO_ITEMS_V81)
+    lines.extend(["", "### Don't"])
+    lines.extend(f"- {item}" for item in DONT_ITEMS_V81)
+    lines.append("")
+    return lines
+
+
+def _chatgpt_review_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    return [
+        "## ChatGPTレビュー依頼",
+        "",
+        "この週次レポートを、買い煽りを避けて、cleanup / risk-control / data-quality優先でレビューしてください。",
+        f"- report_date: {brief.report_date}",
+        "- run_type: local_or_workflow_generated",
+        f"- candidate_count: {_total_candidate_count(brief)}",
+        f"- no_candidate_reason: {_no_candidate_reason(brief)}",
+        f"- portfolio_context: cash {PORTFOLIO_CONTEXT_V81['cash']}, individual stocks {PORTFOLIO_CONTEXT_V81['individual_stocks']}, equity total {PORTFOLIO_CONTEXT_V81['equity_total']}",
+        "",
+    ]
+
+
+def _safety_action_note_lines() -> list[str]:
+    return [
+        "## 安全メモ",
+        "",
+        "このレポートは売買指示ではありません。",
+        "現金比率が低い局面では、候補が出ないこと自体を「新規リスクを増やさない」シグナルとして扱います。",
+        "",
+    ]
+
+
 def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines = [
         COPY_READY_MARKER_FROM,
         f"# 週次候補ブリーフ — {brief.report_date}",
         "",
-        "## 今週の深掘り候補 上位5件",
-        "",
-        "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |",
-        "|---|---|---|---|---|---|",
     ]
+    lines.extend(_weekly_conclusion_lines(brief))
+    lines.extend(_portfolio_constraint_lines())
+    lines.extend(_action_classification_lines(brief))
+    lines.extend(_do_dont_lines())
+    lines.extend(
+        [
+            "## 今週の深掘り候補 上位5件",
+            "",
+            "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
     for rank, card in enumerate(brief.top_picks, start=1):
         lines.append(_format_copy_ready_brief_table_row(rank=rank, card=card))
     if not brief.top_picks:
         lines.append("| — | — | — | — | — | — |")
+    if brief.coverage_note:
+        lines.extend(["", f"- coverage: {_no_candidate_reason(brief)}"])
 
     lines.extend(
         [
@@ -911,9 +1077,11 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
             "- 上位5件は JP / US / ETF の横断性を優先します。",
             "- 反証と次確認を見て、深掘りする候補を選びます。",
             "",
-            COPY_READY_MARKER_TO,
         ]
     )
+    lines.extend(_chatgpt_review_lines(brief))
+    lines.extend(_safety_action_note_lines())
+    lines.append(COPY_READY_MARKER_TO)
     return lines
 
 
