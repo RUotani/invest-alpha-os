@@ -205,4 +205,8 @@ def _format_veto_cell(row: CandidateIntegratedAssessment) -> str:
         prefix = VetoSeverity.SOFT.name
     else:
         return "-"
-    return f"{prefix}: {', '.join(row.veto_keys)}"
+    if len(row.veto_keys) <= 2:
+        keys = ", ".join(row.veto_keys)
+    else:
+        keys = f"{', '.join(row.veto_keys[:2])} +{len(row.veto_keys) - 2}"
+    return f"{prefix}: {keys}"

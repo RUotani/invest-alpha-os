@@ -1274,7 +1274,7 @@ def _pipeline_trace_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
 
 def _score_veto_integration_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     assessments = brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93()
-    return render_integrated_candidate_assessment_markdown(assessments).splitlines()
+    return render_integrated_candidate_assessment_markdown(assessments).splitlines() + [""]
 
 
 def _do_dont_lines() -> list[str]:
