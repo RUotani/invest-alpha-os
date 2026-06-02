@@ -17,6 +17,7 @@ def test_monthly_decision_sheet_v84_contains_required_sections() -> None:
     assert "## 現金回復ステップ" in md
     assert "## 次月への持ち越し" in md
     assert "## Safety note" in md
+    assert "| 判断領域 | 月次スタンス | 理由 | 次に確認すること |" in md
 
 
 def test_monthly_decision_sheet_v84_includes_required_numbers_and_gap_values() -> None:
@@ -40,6 +41,7 @@ def test_monthly_decision_sheet_v84_includes_required_numbers_and_gap_values() -
 def test_monthly_decision_sheet_v84_contains_safety_wording() -> None:
     md = build_monthly_decision_sheet_v84_markdown()
     assert "このシートは売買指示ではなく" in md
+    assert "確認・記録・リスク管理のための分類" in md
     assert "価格、税金、NISA枠、取得単価、家計キャッシュフロー、リスク許容度を別途確認して判断" in md
 
 
@@ -47,6 +49,23 @@ def test_monthly_decision_sheet_v84_does_not_include_forbidden_phrases() -> None
     md = build_monthly_decision_sheet_v84_markdown()
     for phrase in FORBIDDEN_DECISION_SHEET_PHRASES_V84:
         assert phrase not in md
+
+
+def test_monthly_decision_sheet_v84_uses_neutralized_decision_labels() -> None:
+    md = build_monthly_decision_sheet_v84_markdown()
+
+    assert "新規個別株リスク" in md
+    assert "インデックス積立方針" in md
+    assert "債券ポジション" in md
+    assert "オルタナティブ配分" in md
+    assert "現金回復" in md
+    assert "既存ポジション確認" in md
+
+    assert "買う（新規個別株追加）" not in md
+    assert "保留（インデックス積立）" not in md
+    assert "保留（債券追加）" not in md
+    assert "保留（GOLD/オルタナ追加）" not in md
+    assert "| アクション | 判定 | 理由 | 次に確認すること |" not in md
 
 
 def test_monthly_decision_sheet_v84_default_input_snapshot_values() -> None:
