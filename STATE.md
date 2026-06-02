@@ -1,11 +1,69 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.1 / 最終更新: 2026-05-27
+版: v0.2 / 最終更新: 2026-06-02
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
+- **latest verified main**: `a56a18969132903b1dcd5124be4406a3be76c2ef`（v87 merge commit）
+- **次の必須観測**: 2026-06-06 07:00 JST scheduled weekly run（推奨観測開始: 07:30 JST以降）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
+
+## §1. v81〜v87 完了状態（main反映済み）
+
+- PR #437 / v85: Portfolio-Aware Weekly Action Checklist
+- PR #438 / v83: Cleanup Priority Scoring Pack
+- PR #440 / v82: Target Allocation Gap Calculator
+- PR #442 / v84: Monthly Decision Sheet Pack
+- PR #444 / v84b: Decision Label Neutralization Pack
+- PR #445 / v87: Veto Reason Display Clarity Pack
+
+## §2. Weekly / Monthly 現在機能
+
+### Weekly Candidate Brief（v81-v87）
+
+- 今週の結論
+- ポートフォリオ制約
+- 行動分類
+- 今週の行動チェックリスト
+- 整理・監視優先度スコア
+- 目標配分ギャップ（v82）
+- 候補0件の理由メモ（coverage不足 / score未達 / veto）
+- email txt/html preview への短縮理由メモ反映
+
+### Monthly Decision Sheet（v84-v84b）
+
+- 今月の結論
+- 判断サマリー
+- 中立化済みの意思決定テーブル
+- 現金回復ステップ
+- 次月への持ち越し
+- Safety note（売買指示ではない旨を明示）
+
+## §3. 次の必須観測
+
+- タスク: v86 Scheduled Weekly Run Observation / Artifact Review
+- scheduled target: 2026-06-06 07:00 JST
+- recommended observation: 2026-06-06 07:30 JST以降
+- 確認対象:
+  - scheduled event 発火
+  - run conclusion success
+  - weekly candidate brief artifact 生成
+  - v81/v85/v83/v82/v87 反映
+  - email txt/html preview 崩れなし
+
+## §3.5 継続禁止事項・未承認事項
+
+- workflow変更は未承認
+- provider live HTTP 未承認
+- market-data live fetch 未承認
+- cache write 未承認
+- actual import 未承認
+- broker API 未承認
+- raw broker export parsing 未承認
+- env/secret 表示禁止
+- dependency/pyproject/Makefile 変更は別承認
+- trading action / order placement / 自動売買禁止
 
 ## §4. ローカル
 
