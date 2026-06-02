@@ -167,7 +167,25 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     return out
 
 
-def _extend_text_action_checklist(lines: list[str]) -> None:
+def _extract_candidate_zero_reason_notes(copy_body: str) -> tuple[str, str] | None:
+    reason_line = ""
+    next_line = ""
+    for raw in copy_body.splitlines():
+        line = raw.strip()
+        if line.startswith("- 候補0件の主因:"):
+            reason_line = line.removeprefix("- ").strip()
+        elif line.startswith("- 次確認:"):
+            next_line = line.removeprefix("- ").strip()
+    if not reason_line and not next_line:
+        return None
+    if not reason_line:
+        reason_line = "候補0件の主因: coverage/score/vetoの内訳を確認"
+    if not next_line:
+        next_line = "次確認: 価格・出来高・期間・score内訳・veto理由"
+    return reason_line, next_line
+
+
+def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
     lines.extend(
         [
             "",
@@ -192,6 +210,14 @@ def _extend_text_action_checklist(lines: list[str]) -> None:
             "### 候補0件の意味",
             "- 候補0件はレポート失敗ではありません。",
             "- 現金不足・データ不足・条件未達のため、新規リスクを増やさない判断材料です。",
+        ]
+    )
+    if zero_reason_notes:
+        reason_line, next_line = zero_reason_notes
+        lines.extend([f"- {reason_line}", f"- {next_line}"])
+    lines.extend(
+        [
+            "- veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。",
             "",
         ]
     )
@@ -210,7 +236,16 @@ def _html_list(items: tuple[str, ...]) -> str:
     ) + "</ul>"
 
 
-def _append_html_action_checklist(parts: list[str]) -> None:
+def _append_html_action_checklist(parts: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
+    short_note = ""
+    if zero_reason_notes:
+        reason_line, next_line = zero_reason_notes
+        short_note = (
+            "<ul style='margin:6px 0 0 18px;padding:0;'>"
+            f"<li>{escape(reason_line)}</li>"
+            f"<li>{escape(next_line)}</li>"
+            "</ul>"
+        )
     parts.extend(
         [
             "<h2 style='margin:14px 0 8px;'>今週の行動チェックリスト</h2>",
@@ -224,6 +259,8 @@ def _append_html_action_checklist(parts: list[str]) -> None:
             "<h3 style='margin:8px 0 6px;'>次に確認すること</h3>",
             _html_list(EMAIL_NEXT_CHECKS_V85),
             "<p style='margin:8px 0 0;'>候補0件はレポート失敗ではなく、現金不足・データ不足・条件未達による抑制判断です。</p>",
+            short_note,
+            "<p style='margin:8px 0 0;'>veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。</p>",
             "</div>",
         ]
     )
@@ -247,7 +284,13 @@ def _append_html_cleanup_priority(parts: list[str]) -> None:
     )
 
 
-def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest]) -> str:
+def _build_rich_text_body(
+    *,
+    report_date: str,
+    generated_at: str,
+    candidates: list[CandidateDigest],
+    zero_reason_notes: tuple[str, str] | None,
+) -> str:
     lines: list[str] = [
         "テストメール",
         f"レポート日: {report_date}",
@@ -269,7 +312,7 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
                 "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
             ]
         )
-    _extend_text_action_checklist(lines)
+    _extend_text_action_checklist(lines, zero_reason_notes=zero_reason_notes)
     _extend_text_cleanup_priority(lines)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
@@ -350,7 +393,14 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
     return "\n".join(lines).strip() + "\n"
 
 
-def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: list[CandidateDigest], footer: str) -> str:
+def _build_rich_html_body(
+    *,
+    report_date: str,
+    generated_at: str,
+    candidates: list[CandidateDigest],
+    footer: str,
+    zero_reason_notes: tuple[str, str] | None,
+) -> str:
     parts: list[str] = [
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
         "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
@@ -374,7 +424,7 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
                 "</div>",
             ]
         )
-    _append_html_action_checklist(parts)
+    _append_html_action_checklist(parts, zero_reason_notes=zero_reason_notes)
     _append_html_cleanup_priority(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
@@ -438,7 +488,13 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     footer = "観測・深掘り候補の整理です。売買推奨・投資助言・発注指示ではありません。"
     candidates = _parse_top_candidates(body_core)
-    body = _build_rich_text_body(report_date=report_date, generated_at=generated_at, candidates=candidates)
+    zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
+    body = _build_rich_text_body(
+        report_date=report_date,
+        generated_at=generated_at,
+        candidates=candidates,
+        zero_reason_notes=zero_reason_notes,
+    )
     if footer not in body:
         body = f"{body.rstrip()}\n\n---\n{footer}\n"
     html_body = _build_rich_html_body(
@@ -446,6 +502,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         generated_at=generated_at,
         candidates=candidates,
         footer=footer,
+        zero_reason_notes=zero_reason_notes,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),

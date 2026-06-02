@@ -143,6 +143,8 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
 - 強い新規リスク候補: 0件
 - 理由: データ品質・coverage・score条件を同時に満たす候補がありません。
 - 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。
+- 候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件
+- 次確認: 価格・出来高・期間・score内訳・veto理由
 
 ## 今週の深掘り候補 上位5件
 
@@ -162,6 +164,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "### 今週やらないこと" in draft.text_body
     assert "### 次に確認すること" in draft.text_body
     assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in draft.text_body
+    assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.text_body
+    assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.text_body
+    assert "veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。" in draft.text_body
     assert "不足 790.2万円" in draft.text_body
     assert "上回り +813.8万円" in draft.text_body
     assert "不足 151.9万円" in draft.text_body
@@ -181,6 +186,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "今週やってよいこと" in draft.html_body
     assert "今週やらないこと" in draft.html_body
     assert "次に確認すること" in draft.html_body
+    assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.html_body
+    assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.html_body
+    assert "veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。" in draft.html_body
     assert "現金11.7% / 個別株19.6% / 株式系67.8%" in draft.html_body
     assert "不足 790.2万円" in draft.html_body
     assert "上回り +813.8万円" in draft.html_body

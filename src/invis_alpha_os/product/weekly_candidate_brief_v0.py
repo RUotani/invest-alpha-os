@@ -979,7 +979,13 @@ def _no_candidate_reason(brief: WeeklyCandidateBriefV0) -> str:
         note = brief.coverage_note.removeprefix("coverage_note: ").strip()
         if note:
             return note
-    return NO_CANDIDATE_DEFAULT_REASON_V81
+    coverage_count = len(brief.insufficient_list)
+    veto_count = len(brief.avoid_list)
+    score_state = "該当候補なし" if coverage_count == 0 and veto_count == 0 else "coverage/veto確認を優先"
+    return (
+        f"候補0件の主因: coverage不足 {coverage_count}件 / "
+        f"score未達 {score_state} / veto {veto_count}件。"
+    )
 
 
 def _weekly_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
@@ -1058,6 +1064,62 @@ def _action_classification_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     for label, count, judgement in _action_classification_rows(brief):
         lines.append(f"| {label} | {count} | {judgement} |")
     lines.append("")
+    return lines
+
+
+def _candidate_zero_reason_rows(brief: WeeklyCandidateBriefV0) -> list[tuple[str, str, str, str]]:
+    coverage_count = len(brief.insufficient_list)
+    veto_count = len(brief.avoid_list)
+    score_state = "該当候補なし" if coverage_count == 0 and veto_count == 0 else "coverage/veto確認を優先"
+    return [
+        (
+            "coverage不足",
+            f"{coverage_count}件",
+            "データ不足候補はcoverage不足として扱い、score判定の信頼度が不足",
+            "価格・出来高・期間・データソースを確認",
+        ),
+        (
+            "score未達",
+            score_state,
+            "score条件を満たす根拠が不足、または候補化前の条件確認が必要",
+            "score内訳・閾値・相場環境を確認",
+        ),
+        (
+            "veto",
+            f"{veto_count}件",
+            (
+                "veto該当候補あり。除外理由の根拠を確認"
+                if veto_count
+                else "vetoで除外されたのではなく、主にcoverage/score条件で候補化されていない"
+            ),
+            "veto理由・除外条件・反証軸を確認",
+        ),
+    ]
+
+
+def _candidate_zero_reason_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    if brief.top_picks:
+        return []
+    rows = _candidate_zero_reason_rows(brief)
+    lines = [
+        "## 候補0件の理由メモ",
+        "",
+        "候補0件は失敗ではありません。今回は、強い新規リスク候補として扱える根拠が不足しているため、",
+        "追加リスクを抑制する判断材料として扱います。",
+        "",
+        "| 理由カテゴリ | 件数/状態 | 説明 | 次に確認すること |",
+        "|---|---|---|---|",
+    ]
+    for category, count_or_state, description, next_check in rows:
+        lines.append(f"| {category} | {count_or_state} | {description} | {next_check} |")
+    lines.extend(
+        [
+            "",
+            f"- 候補0件の主因: {rows[0][0]} {rows[0][1]} / {rows[1][0]} {rows[1][1]} / {rows[2][0]} {rows[2][1]}",
+            "- 次確認: 価格・出来高・期間・score内訳・veto理由",
+            "",
+        ]
+    )
     return lines
 
 
@@ -1225,6 +1287,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_target_allocation_gap_short_lines())
     lines.extend(_action_classification_lines(brief))
+    lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())
     lines.extend(_do_dont_lines())
