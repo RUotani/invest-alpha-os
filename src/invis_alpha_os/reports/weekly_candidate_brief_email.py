@@ -13,6 +13,12 @@ from invis_alpha_os.reports.weekly_candidate_brief_quant_metrics import (
     fmt_pct,
 )
 
+from invis_alpha_os.portfolio.target_allocation_gap_calculator_v82 import (
+    compute_target_allocation_gap_from_portfolio_context_v82,
+    format_target_allocation_gap_email_3_lines_v82,
+)
+from invis_alpha_os.product.weekly_candidate_brief_v0 import PORTFOLIO_CONTEXT_V81
+
 _TABLE_ROW_RE = re.compile(
     r"^\|\s*(?P<rank>\d+)\s*\|\s*(?P<symbol>[^|]+)\|\s*(?P<name>[^|]+)\|\s*(?P<market>[^|]+)\|\s*(?P<kind>[^|]+)\|\s*(?P<reason>[^|]+)\|\s*$"
 )
@@ -90,6 +96,11 @@ EMAIL_CLEANUP_PRIORITY_ROWS_V83: tuple[tuple[str, int, str, str], ...] = (
     ),
 )
 
+_TARGET_ALLOCATION_GAP_V82 = compute_target_allocation_gap_from_portfolio_context_v82(PORTFOLIO_CONTEXT_V81)
+EMAIL_TARGET_ALLOCATION_GAP_3_LINES_V82: tuple[str, str, str] = format_target_allocation_gap_email_3_lines_v82(
+    _TARGET_ALLOCATION_GAP_V82
+)
+
 
 def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     lines = [x.rstrip() for x in copy_body.splitlines()]
@@ -162,6 +173,7 @@ def _extend_text_action_checklist(lines: list[str]) -> None:
             "",
             "## 今週の行動チェックリスト",
             f"- ポートフォリオ前提: {EMAIL_PORTFOLIO_CONTEXT_V85}",
+            *[f"- {x}" for x in EMAIL_TARGET_ALLOCATION_GAP_3_LINES_V82],
             "",
             "### 今週やってよいこと",
         ]
@@ -204,6 +216,7 @@ def _append_html_action_checklist(parts: list[str]) -> None:
             "<h2 style='margin:14px 0 8px;'>今週の行動チェックリスト</h2>",
             "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
             f"<p style='margin:0 0 8px;'><strong>ポートフォリオ前提:</strong> {escape(EMAIL_PORTFOLIO_CONTEXT_V85)}</p>",
+            _html_list(EMAIL_TARGET_ALLOCATION_GAP_3_LINES_V82),
             "<h3 style='margin:0 0 6px;'>今週やってよいこと</h3>",
             _html_list(EMAIL_ALLOWED_ACTIONS_V85),
             "<h3 style='margin:8px 0 6px;'>今週やらないこと</h3>",

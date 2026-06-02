@@ -141,6 +141,9 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "現金: 508.2万円 / 11.7%" in body
         assert "個別株: 846.3万円 / 19.6%" in body
         assert "株式系合計: 2,934.5万円 / 67.8%" in body
+        assert "## 目標配分ギャップ（v82）" in body
+        assert "不足 790.2万円" in body
+        assert "上回り +813.8万円" in body
         assert "## 行動分類" in body
         assert "| 新規リスク候補 | 0 | 候補0件なら新規リスク追加を抑制 |" in body
         assert "| データ不足候補 | 0 | データ不足候補なし |" in body

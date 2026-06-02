@@ -32,6 +32,11 @@ from invis_alpha_os.discovery.us_universe_scanner import (
     scan_us_universe,
 )
 
+from invis_alpha_os.portfolio.target_allocation_gap_calculator_v82 import (
+    compute_target_allocation_gap_from_portfolio_context_v82,
+    format_target_allocation_gap_markdown_short_v82,
+)
+
 CandidateBriefType = Literal[
     "top_pick",
     "rapid_mover",
@@ -80,6 +85,8 @@ PORTFOLIO_ACTION_BIAS_V81 = (
     "現金比率が11.7%で最低目安15%を下回るため、強い根拠のない新規リスク追加よりも、"
     "監視・整理・現金回復を優先します。"
 )
+
+_TARGET_ALLOCATION_GAP_V82 = compute_target_allocation_gap_from_portfolio_context_v82(PORTFOLIO_CONTEXT_V81)
 
 NO_CANDIDATE_DEFAULT_REASON_V81 = (
     "JP / US / ETF の横断候補が、データ品質・coverage・score条件を同時に満たしていません。"
@@ -1009,6 +1016,11 @@ def _portfolio_constraint_lines() -> list[str]:
     ]
 
 
+def _target_allocation_gap_short_lines() -> list[str]:
+    # v82: 現在配分と目標配分の差分（観測・検証用）
+    return format_target_allocation_gap_markdown_short_v82(_TARGET_ALLOCATION_GAP_V82)
+
+
 def _action_classification_rows(brief: WeeklyCandidateBriefV0) -> list[tuple[str, int, str]]:
     top_count = len(brief.top_picks)
     watch_count = len(_dedupe_cards_by_symbol([*brief.rapid_movers, *brief.pullbacks, *brief.theme_highlights]))
@@ -1211,6 +1223,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     ]
     lines.extend(_weekly_conclusion_lines(brief))
     lines.extend(_portfolio_constraint_lines())
+    lines.extend(_target_allocation_gap_short_lines())
     lines.extend(_action_classification_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())
