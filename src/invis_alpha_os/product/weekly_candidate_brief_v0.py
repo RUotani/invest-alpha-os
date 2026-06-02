@@ -36,6 +36,11 @@ from invis_alpha_os.portfolio.target_allocation_gap_calculator_v82 import (
     compute_target_allocation_gap_from_portfolio_context_v82,
     format_target_allocation_gap_markdown_short_v82,
 )
+from invis_alpha_os.product.weekly_candidate_pipeline_trace_v90 import (
+    CandidatePipelineTraceSummary,
+    CandidateTraceInput,
+    build_candidate_pipeline_trace_summary,
+)
 
 CandidateBriefType = Literal[
     "top_pick",
@@ -132,6 +137,7 @@ CLEANUP_SCORE_SCALE_V83: tuple[str, ...] = (
     "4: 高優先で監視・整理検討",
     "5: 強い抑制・新規追加禁止寄り",
 )
+PIPELINE_SCORE_THRESHOLD_V90 = 1.0
 
 
 @dataclass(frozen=True)
@@ -195,6 +201,7 @@ class WeeklyCandidateBriefV0:
     appendix_lines: tuple[str, ...] = ()
     coverage_note: str | None = None
     discovery_merge: dict[str, Any] = field(default_factory=dict)
+    pipeline_trace: CandidatePipelineTraceSummary | None = None
 
 
 def _sort_key(c: UnifiedCandidate) -> tuple[int, float, str]:
@@ -752,6 +759,50 @@ def _dedupe_cards_by_symbol(cards: Sequence[CandidateCard]) -> list[CandidateCar
     return out
 
 
+def _build_pipeline_trace_summary(
+    *,
+    ranked: Sequence[UnifiedCandidate],
+    insufficient: Sequence[UnifiedCandidate],
+    avoid_candidates: Sequence[UnifiedCandidate],
+) -> CandidatePipelineTraceSummary:
+    by_key: dict[str, CandidateTraceInput] = {}
+    insufficient_keys: set[str] = set()
+    avoid_map: dict[str, tuple[str, ...]] = {}
+
+    for c in insufficient:
+        insufficient_keys.add(f"{c.market}:{c.instrument_id}")
+    for c in avoid_candidates:
+        key = f"{c.market}:{c.instrument_id}"
+        reasons = tuple(
+            sorted(
+                {
+                    x
+                    for x in {*c.categories, *c.labels}
+                    if ("caution" in x) or ("veto" in x)
+                }
+            )
+        )
+        if not reasons:
+            reasons = ("generic_veto",)
+        avoid_map[key] = reasons
+
+    for c in [*ranked, *insufficient]:
+        key = f"{c.market}:{c.instrument_id}"
+        has_required_coverage = c.data_quality == "ok" and key not in insufficient_keys
+        data_insufficient_reasons = ("insufficient_data",) if key in insufficient_keys else ()
+        veto_reasons = avoid_map.get(key, ())
+        by_key[key] = CandidateTraceInput(
+            symbol=c.instrument_id,
+            name=c.display_name,
+            has_required_coverage=has_required_coverage,
+            score=float(c.discovery_score),
+            score_threshold=PIPELINE_SCORE_THRESHOLD_V90,
+            veto_reasons=veto_reasons,
+            data_insufficient_reasons=data_insufficient_reasons,
+        )
+    return build_candidate_pipeline_trace_summary(tuple(by_key.values()))
+
+
 def build_weekly_candidate_brief_v0(
     *,
     report_date: str | None = None,
@@ -791,6 +842,11 @@ def build_weekly_candidate_brief_v0(
     avoid_list = [_make_card(c, "avoid") for c in avoid_src[:SECTION_TOP_COUNT]]
     insufficient_list = [_make_card(c, "insufficient") for c in insuf_src]
     theme_highlights = _dedupe_cards_by_symbol(_theme_highlights(all_ranked))
+    pipeline_trace = _build_pipeline_trace_summary(
+        ranked=all_ranked,
+        insufficient=all_insuf,
+        avoid_candidates=avoid_src,
+    )
 
     appendix = (
         f"- JP スキャン: `{jp_result.universe_scope}` · {jp_result.symbol_count} 銘柄",
@@ -820,6 +876,7 @@ def build_weekly_candidate_brief_v0(
         appendix_lines=appendix,
         coverage_note=coverage_note,
         discovery_merge=discovery_merge,
+        pipeline_trace=pipeline_trace,
     )
 
 
@@ -1123,6 +1180,91 @@ def _candidate_zero_reason_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return lines
 
 
+def _pipeline_trace_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    t = brief.pipeline_trace
+    if t is None:
+        avoid_ids = {f"{card.candidate.market}:{card.candidate.instrument_id}" for card in brief.avoid_list}
+        t = build_candidate_pipeline_trace_summary(
+            (
+                CandidateTraceInput(
+                    symbol=card.candidate.instrument_id,
+                    name=card.candidate.display_name,
+                    has_required_coverage=card.candidate.data_quality == "ok",
+                    score=float(card.candidate.discovery_score),
+                    score_threshold=PIPELINE_SCORE_THRESHOLD_V90,
+                    veto_reasons=(
+                        tuple(
+                            sorted(
+                                {
+                                    x
+                                    for x in {*card.candidate.categories, *card.candidate.labels}
+                                    if ("caution" in x) or ("veto" in x)
+                                }
+                            )
+                        )
+                        or ("generic_veto",)
+                    )
+                    if f"{card.candidate.market}:{card.candidate.instrument_id}" in avoid_ids
+                    else (),
+                    data_insufficient_reasons=("insufficient_data",)
+                    if card in brief.insufficient_list
+                    else (),
+                )
+                for card in [*brief.top_picks, *brief.rapid_movers, *brief.pullbacks, *brief.avoid_list, *brief.insufficient_list]
+            )
+        )
+    lines = [
+        "## 候補パイプライン・トレース",
+        "",
+        "この表は売買指示ではなく、候補がどの段階で止まったかを確認するためのものです。",
+        "",
+        "| 段階 | 件数 | 説明 | 次に確認すること |",
+        "|---|---:|---|---|",
+        f"| 入力候補 | {t.input_count} | 週次評価に入った候補数 | universe / source |",
+        (
+            f"| coverage不足 | {t.coverage_missing_count} | "
+            "必要データ不足でscore信頼度が不足 | 価格・出来高・期間・データソース |"
+        ),
+        f"| score未達 | {t.score_miss_count} | score条件を満たさなかった候補 | score内訳・閾値 |",
+        f"| veto該当 | {t.veto_count} | 安全側の除外条件に該当した候補 | veto詳細 |",
+        (
+            f"| 深掘り可能候補 | {t.final_candidate_count} | "
+            "score条件を満たしvetoなしの候補（買い推奨ではない） | 個別確認・反証 |"
+        ),
+        "",
+        (
+            f"- 候補パイプライン: 入力{t.input_count} / coverage不足{t.coverage_missing_count} / "
+            f"score未達{t.score_miss_count} / veto{t.veto_count} / 深掘り可能{t.final_candidate_count}"
+        ),
+    ]
+    if t.final_candidate_count == 0:
+        lines.append(
+            "- 今回は深掘り可能候補0件です。これは買い推奨候補がない意味ではなく、"
+            "coverage/score/veto条件上、強い新規リスク候補として扱える根拠が不足している状態です。"
+        )
+    if t.coverage_missing_count >= t.score_miss_count and t.coverage_missing_count >= t.veto_count:
+        lines.append("- 主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。")
+    lines.extend(["", "### Veto reason log", ""])
+    if not t.veto_reason_log:
+        lines.extend(
+            [
+                "veto reason log: 該当なし。今回はvetoで除外されたというより、coverageまたはscore条件で候補化されていません。",
+                "",
+            ]
+        )
+        return lines
+    lines.extend(
+        [
+            "| 候補 | veto | 説明 | 次確認 |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in t.veto_reason_log:
+        lines.append(f"| {row.symbol} | {row.veto_key} | {row.description_ja} | {row.next_check_ja} |")
+    lines.append("")
+    return lines
+
+
 def _do_dont_lines() -> list[str]:
     lines = ["## 今週のDo / Don't", "", "### Do"]
     lines.extend(f"- {item}" for item in DO_ITEMS_V81)
@@ -1287,6 +1429,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_target_allocation_gap_short_lines())
     lines.extend(_action_classification_lines(brief))
+    lines.extend(_pipeline_trace_lines(brief))
     lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())

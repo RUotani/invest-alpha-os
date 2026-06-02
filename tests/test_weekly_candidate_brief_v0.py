@@ -148,6 +148,17 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "| 新規リスク候補 | 0 | 候補0件なら新規リスク追加を抑制 |" in body
         assert "| データ不足候補 | 0 | データ不足候補なし |" in body
         assert "| 何もしない | 1 | 候補0件は失敗ではなく、抑制判断として記録 |" in body
+        assert "## 候補パイプライン・トレース" in body
+        assert "| 入力候補 |" in body
+        assert "| coverage不足 |" in body
+        assert "| score未達 |" in body
+        assert "| veto該当 |" in body
+        assert "| 深掘り可能候補 |" in body
+        assert "深掘り可能候補0件です。これは買い推奨候補がない意味ではなく" in body
+        assert "### Veto reason log" in body
+        assert "veto reason log: 該当なし。" in body
+        assert "候補パイプライン: 入力" in body
+        assert "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。" in body
         assert "## 候補0件の理由メモ" in body
         assert "| coverage不足 | 0件 |" in body
         assert "| score未達 | 該当候補なし |" in body
