@@ -162,6 +162,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "### 今週やらないこと" in draft.text_body
     assert "### 次に確認すること" in draft.text_body
     assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in draft.text_body
+    assert "不足 790.2万円" in draft.text_body
+    assert "上回り +813.8万円" in draft.text_body
+    assert "不足 151.9万円" in draft.text_body
     assert "根拠不足の新規個別株・高ベータ枠を追加しない" in draft.text_body
     assert "株式系67.8%と個別株19.6%に重複リスク" in draft.text_body
     assert "## 整理・監視優先度" in draft.text_body
@@ -179,6 +182,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "今週やらないこと" in draft.html_body
     assert "次に確認すること" in draft.html_body
     assert "現金11.7% / 個別株19.6% / 株式系67.8%" in draft.html_body
+    assert "不足 790.2万円" in draft.html_body
+    assert "上回り +813.8万円" in draft.html_body
+    assert "不足 151.9万円" in draft.html_body
     assert "整理・監視優先度" in draft.html_body
     assert "個別株枠: 4 / 5" in draft.html_body
     assert "株式系重複リスク: 4 / 5" in draft.html_body
