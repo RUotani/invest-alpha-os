@@ -217,6 +217,11 @@ def _extract_monthly_input_summary_notes(copy_body: str) -> tuple[str, ...]:
     return model.monthly_input_summary_lines
 
 
+def _extract_sanitized_manual_summary_notes(copy_body: str) -> tuple[str, ...]:
+    model = extract_weekly_shared_view_model_from_copy_v96(copy_body)
+    return model.sanitized_manual_input_summary_lines
+
+
 def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
     lines.extend(
         [
@@ -325,6 +330,7 @@ def _build_rich_text_body(
     pipeline_trace_notes: tuple[str, str] | None,
     score_veto_notes: tuple[str, ...],
     monthly_input_notes: tuple[str, ...],
+    sanitized_manual_notes: tuple[str, ...],
 ) -> str:
     lines: list[str] = [
         "テストメール",
@@ -353,6 +359,11 @@ def _build_rich_text_body(
         lines.extend(f"- {note}" for note in monthly_input_notes)
     else:
         lines.append("- Monthly Input: copy-ready側の共有要約を確認してください。")
+    lines.extend(["", "## Sanitized / Manual Input（短縮）"])
+    if sanitized_manual_notes:
+        lines.extend(f"- {note}" for note in sanitized_manual_notes)
+    else:
+        lines.append("- Sanitized Input: copy-ready側の共有要約を確認してください。")
     lines.extend(
         [
             "",
@@ -458,6 +469,7 @@ def _build_rich_html_body(
     pipeline_trace_notes: tuple[str, str] | None,
     score_veto_notes: tuple[str, ...],
     monthly_input_notes: tuple[str, ...],
+    sanitized_manual_notes: tuple[str, ...],
 ) -> str:
     pipeline_list = ""
     if pipeline_trace_notes:
@@ -477,6 +489,11 @@ def _build_rich_html_body(
         monthly_input_list = "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
             f"<li>{escape(note)}</li>" for note in monthly_input_notes
         ) + "</ul>"
+    sanitized_manual_list = ""
+    if sanitized_manual_notes:
+        sanitized_manual_list = "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
+            f"<li>{escape(note)}</li>" for note in sanitized_manual_notes
+        ) + "</ul>"
     parts: list[str] = [
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
         "<div style='max-width:680px;margin:0 auto;padding:16px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.55;'>",
@@ -494,6 +511,8 @@ def _build_rich_html_body(
         score_veto_list or "<p style='margin:0 0 10px;'>Score/Veto: copy-ready側の統合サマリーを確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>Monthly Input Consistency（短縮）</h2>",
         monthly_input_list or "<p style='margin:0 0 10px;'>Monthly Input: copy-ready側の共有要約を確認してください。</p>",
+        "<h2 style='margin:14px 0 8px;'>Sanitized / Manual Input（短縮）</h2>",
+        sanitized_manual_list or "<p style='margin:0 0 10px;'>Sanitized Input: copy-ready側の共有要約を確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
@@ -574,6 +593,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
     score_veto_notes = _extract_score_veto_summary_notes(body_core)
     monthly_input_notes = _extract_monthly_input_summary_notes(body_core)
+    sanitized_manual_notes = _extract_sanitized_manual_summary_notes(body_core)
     shared_model = extract_weekly_shared_view_model_from_copy_v96(body_core)
     shared_compact_notes = render_weekly_shared_view_model_email_text_v96(shared_model)
     body = _build_rich_text_body(
@@ -584,6 +604,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         pipeline_trace_notes=pipeline_trace_notes,
         score_veto_notes=score_veto_notes,
         monthly_input_notes=monthly_input_notes,
+        sanitized_manual_notes=sanitized_manual_notes,
     )
     if shared_compact_notes and all(note not in body for note in shared_compact_notes):
         body = body.rstrip() + "\n\n" + "\n".join(f"- {x}" for x in shared_compact_notes) + "\n"
@@ -598,6 +619,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         pipeline_trace_notes=pipeline_trace_notes,
         score_veto_notes=score_veto_notes,
         monthly_input_notes=monthly_input_notes,
+        sanitized_manual_notes=sanitized_manual_notes,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),

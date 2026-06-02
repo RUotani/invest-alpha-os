@@ -11,6 +11,7 @@ class WeeklySharedViewModelV96:
     score_veto_summary_lines: tuple[str, ...]
     pipeline_summary_lines: tuple[str, ...]
     monthly_input_summary_lines: tuple[str, ...]
+    sanitized_manual_input_summary_lines: tuple[str, ...] = ()
 
 
 _DEFAULT_SAFETY_NOTE = "これは売買指示ではなく、根拠補完・安全確認・深掘り優先度の分類です。"
@@ -21,6 +22,7 @@ def build_weekly_shared_view_model_v96(
     score_veto_summary_lines: tuple[str, ...],
     pipeline_summary_lines: tuple[str, ...],
     monthly_input_summary_lines: tuple[str, ...],
+    sanitized_manual_input_summary_lines: tuple[str, ...] = (),
     safety_note_ja: str = _DEFAULT_SAFETY_NOTE,
 ) -> WeeklySharedViewModelV96:
     return WeeklySharedViewModelV96(
@@ -28,6 +30,7 @@ def build_weekly_shared_view_model_v96(
         score_veto_summary_lines=score_veto_summary_lines,
         pipeline_summary_lines=pipeline_summary_lines,
         monthly_input_summary_lines=monthly_input_summary_lines,
+        sanitized_manual_input_summary_lines=sanitized_manual_input_summary_lines,
     )
 
 
@@ -45,6 +48,9 @@ def render_weekly_shared_view_model_markdown_v96(model: WeeklySharedViewModelV96
     lines.extend(["", "### Monthly Input Consistency（共有要約）"])
     if model.monthly_input_summary_lines:
         lines.extend(f"- {x}" for x in model.monthly_input_summary_lines)
+    lines.extend(["", "### Sanitized / Manual Input（共有要約）"])
+    if model.sanitized_manual_input_summary_lines:
+        lines.extend(f"- {x}" for x in model.sanitized_manual_input_summary_lines)
     lines.extend(["", f"- {model.safety_note_ja}", ""])
     return lines
 
@@ -54,6 +60,7 @@ def render_weekly_shared_view_model_email_text_v96(model: WeeklySharedViewModelV
     lines.extend(model.pipeline_summary_lines)
     lines.extend(model.score_veto_summary_lines)
     lines.extend(model.monthly_input_summary_lines)
+    lines.extend(model.sanitized_manual_input_summary_lines)
     lines.append(model.safety_note_ja)
     return tuple(x for x in lines if x)
 
@@ -62,6 +69,7 @@ def extract_weekly_shared_view_model_from_copy_v96(copy_body: str) -> WeeklyShar
     score: list[str] = []
     pipeline: list[str] = []
     monthly: list[str] = []
+    sanitized: list[str] = []
     safety = _DEFAULT_SAFETY_NOTE
     for raw in copy_body.splitlines():
         line = raw.strip()
@@ -78,9 +86,16 @@ def extract_weekly_shared_view_model_from_copy_v96(copy_body: str) -> WeeklyShar
             monthly.append(line.removeprefix("- ").strip())
         elif line.startswith("- Monthly Guardrail:"):
             monthly.append(line.removeprefix("- ").strip())
+        elif line.startswith("- Sanitized Input:"):
+            sanitized.append(line.removeprefix("- ").strip())
+        elif line.startswith("- Sanitized Guardrail:"):
+            sanitized.append(line.removeprefix("- ").strip())
+        elif line.startswith("- Sanitized Parity:"):
+            sanitized.append(line.removeprefix("- ").strip())
     return build_weekly_shared_view_model_v96(
         score_veto_summary_lines=tuple(score),
         pipeline_summary_lines=tuple(pipeline),
         monthly_input_summary_lines=tuple(monthly),
+        sanitized_manual_input_summary_lines=tuple(sanitized),
         safety_note_ja=safety,
     )
