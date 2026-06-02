@@ -61,6 +61,35 @@ EMAIL_NEXT_CHECKS_V85: tuple[str, ...] = (
     "次回weekly runで候補0件の理由が改善しているか",
 )
 
+EMAIL_CLEANUP_PRIORITY_NOTE_V83 = "このスコアは売却指示ではなく、次に確認すべき整理・監視優先度です。"
+
+EMAIL_CLEANUP_PRIORITY_ROWS_V83: tuple[tuple[str, int, str, str], ...] = (
+    (
+        "個別株枠",
+        4,
+        "19.6%で10〜15%方向の目安を上回り、現金11.7%も不足",
+        "新規追加より整理・監視を優先",
+    ),
+    (
+        "株式系重複リスク",
+        4,
+        "株式系67.8%でINDEXと個別株の同方向リスクが積み上がりやすい",
+        "重複テーマ・セクター偏りを確認",
+    ),
+    (
+        "高ボラ枠",
+        3,
+        "高ベータ枠1.3%は小さいが、現金不足下では追加リスクを抑制",
+        "追加せず監視",
+    ),
+    (
+        "データ不足候補",
+        3,
+        "coverage / score / veto理由の確認が先",
+        "深掘り前に根拠を補完",
+    ),
+)
+
 
 def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     lines = [x.rstrip() for x in copy_body.splitlines()]
@@ -138,10 +167,13 @@ def _extend_text_action_checklist(lines: list[str]) -> None:
         ]
     )
     lines.extend(f"- {item}" for item in EMAIL_ALLOWED_ACTIONS_V85)
+    lines.append("- 整理・監視優先度スコアが高い枠の根拠を確認する")
     lines.extend(["", "### 今週やらないこと"])
     lines.extend(f"- {item}" for item in EMAIL_SUPPRESSED_ACTIONS_V85)
+    lines.append("- 整理・監視優先度が高い枠と同じリスクを新規に増やさない")
     lines.extend(["", "### 次に確認すること"])
     lines.extend(f"- {item}" for item in EMAIL_NEXT_CHECKS_V85)
+    lines.append("- score 4以上の枠がどの制約に集中しているか")
     lines.extend(
         [
             "",
@@ -151,6 +183,13 @@ def _extend_text_action_checklist(lines: list[str]) -> None:
             "",
         ]
     )
+
+
+def _extend_text_cleanup_priority(lines: list[str]) -> None:
+    lines.extend(["", "## 整理・監視優先度", f"- {EMAIL_CLEANUP_PRIORITY_NOTE_V83}"])
+    for target, score, reason, treatment in EMAIL_CLEANUP_PRIORITY_ROWS_V83:
+        lines.append(f"- {target}: {score} / 5 — {reason}。{treatment}。")
+    lines.append("")
 
 
 def _html_list(items: tuple[str, ...]) -> str:
@@ -172,6 +211,24 @@ def _append_html_action_checklist(parts: list[str]) -> None:
             "<h3 style='margin:8px 0 6px;'>次に確認すること</h3>",
             _html_list(EMAIL_NEXT_CHECKS_V85),
             "<p style='margin:8px 0 0;'>候補0件はレポート失敗ではなく、現金不足・データ不足・条件未達による抑制判断です。</p>",
+            "</div>",
+        ]
+    )
+
+
+def _append_html_cleanup_priority(parts: list[str]) -> None:
+    items = "".join(
+        "<li>"
+        f"<strong>{escape(target)}: {score} / 5</strong> — {escape(reason)}。{escape(treatment)}。"
+        "</li>"
+        for target, score, reason, treatment in EMAIL_CLEANUP_PRIORITY_ROWS_V83
+    )
+    parts.extend(
+        [
+            "<h2 style='margin:14px 0 8px;'>整理・監視優先度</h2>",
+            "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+            f"<p style='margin:0 0 8px;'>{escape(EMAIL_CLEANUP_PRIORITY_NOTE_V83)}</p>",
+            f"<ul style='margin:0 0 0 18px;padding:0;'>{items}</ul>",
             "</div>",
         ]
     )
@@ -200,6 +257,7 @@ def _build_rich_text_body(*, report_date: str, generated_at: str, candidates: li
             ]
         )
     _extend_text_action_checklist(lines)
+    _extend_text_cleanup_priority(lines)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         momentum_q: list[str] = []
@@ -304,6 +362,7 @@ def _build_rich_html_body(*, report_date: str, generated_at: str, candidates: li
             ]
         )
     _append_html_action_checklist(parts)
+    _append_html_cleanup_priority(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         parts.extend(

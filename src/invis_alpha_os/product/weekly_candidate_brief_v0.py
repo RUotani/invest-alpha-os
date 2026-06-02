@@ -115,6 +115,17 @@ NEXT_CHECK_ITEMS_V85: tuple[str, ...] = (
     "次回weekly runで候補0件の理由が、データ不足から条件未達へ改善しているか",
 )
 
+CLEANUP_PRIORITY_NOTE_V83 = "このスコアは売却指示ではなく、次に確認すべき整理・監視優先度です。"
+
+CLEANUP_SCORE_SCALE_V83: tuple[str, ...] = (
+    "0: 今週は対象外",
+    "1: 低い監視",
+    "2: 軽い確認",
+    "3: 要確認",
+    "4: 高優先で監視・整理検討",
+    "5: 強い抑制・新規追加禁止寄り",
+)
+
 
 @dataclass(frozen=True)
 class UnifiedCandidate:
@@ -144,6 +155,20 @@ class CandidateCard:
     reason: str
     counter_evidence: tuple[str, ...]
     next_checks: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CleanupPriorityRow:
+    target: str
+    classification: str
+    priority: int
+    cash_pressure: int
+    allocation_excess: int
+    evidence_gap: int
+    volatility_risk: int
+    duplication_risk: int
+    main_reason: str
+    weekly_treatment: str
 
 
 @dataclass
@@ -1033,13 +1058,113 @@ def _do_dont_lines() -> list[str]:
     return lines
 
 
+def _cleanup_priority_rows(brief: WeeklyCandidateBriefV0) -> tuple[CleanupPriorityRow, ...]:
+    data_blocked_count = len(brief.insufficient_list)
+    top_count = len(brief.top_picks)
+    evidence_gap_score = 3 if data_blocked_count or top_count == 0 else 2
+    evidence_gap_reason = (
+        f"データ不足候補 {data_blocked_count}件。coverage / score / veto理由を確認"
+        if data_blocked_count
+        else "候補根拠はあるが、反証・データ鮮度・veto理由の確認が先"
+    )
+    if top_count == 0 and data_blocked_count == 0:
+        evidence_gap_reason = "候補0件。coverage / score / veto理由を確認"
+    return (
+        CleanupPriorityRow(
+            target="個別株枠",
+            classification="個別株全体",
+            priority=4,
+            cash_pressure=4,
+            allocation_excess=4,
+            evidence_gap=2,
+            volatility_risk=2,
+            duplication_risk=3,
+            main_reason="個別株19.6%で10〜15%方向の目安を上回り、現金11.7%も不足",
+            weekly_treatment="新規追加を抑制し、重複リスクと整理候補の根拠を確認",
+        ),
+        CleanupPriorityRow(
+            target="高ボラ枠",
+            classification="仮想通貨・高ベータ",
+            priority=3,
+            cash_pressure=4,
+            allocation_excess=1,
+            evidence_gap=2,
+            volatility_risk=4,
+            duplication_risk=2,
+            main_reason="高ベータ枠1.3%は小さいが、現金不足下では追加リスクを抑制",
+            weekly_treatment="追加せず監視し、既存リスクとの相関を確認",
+        ),
+        CleanupPriorityRow(
+            target="株式系重複リスク",
+            classification="INDEX + 個別株",
+            priority=4,
+            cash_pressure=4,
+            allocation_excess=3,
+            evidence_gap=2,
+            volatility_risk=2,
+            duplication_risk=4,
+            main_reason="株式系67.8%で、INDEXと個別株の同方向リスクが積み上がりやすい",
+            weekly_treatment="新規テーマ追加より、重複テーマ・セクター偏りを確認",
+        ),
+        CleanupPriorityRow(
+            target="データ不足候補",
+            classification="candidate group",
+            priority=evidence_gap_score,
+            cash_pressure=3,
+            allocation_excess=2,
+            evidence_gap=evidence_gap_score,
+            volatility_risk=2,
+            duplication_risk=2,
+            main_reason=evidence_gap_reason,
+            weekly_treatment="深掘り前にcoverage・価格・score内訳を補完",
+        ),
+    )
+
+
+def _cleanup_priority_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## 整理・監視優先度スコア",
+        "",
+        CLEANUP_PRIORITY_NOTE_V83,
+        "",
+        "| 対象 | 分類 | 優先度 | 主な理由 | 今週の扱い |",
+        "|---|---|---:|---|---|",
+    ]
+    for row in _cleanup_priority_rows(brief):
+        lines.append(
+            f"| {row.target} | {row.classification} | {row.priority} | "
+            f"{row.main_reason} | {row.weekly_treatment} |"
+        )
+    lines.extend(
+        [
+            "",
+            "### スコアリング軸",
+            "",
+            "| 対象 | 現金圧力 | 配分超過 | 根拠不足 | 高ボラリスク | 重複リスク |",
+            "|---|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in _cleanup_priority_rows(brief):
+        lines.append(
+            f"| {row.target} | {row.cash_pressure} | {row.allocation_excess} | "
+            f"{row.evidence_gap} | {row.volatility_risk} | {row.duplication_risk} |"
+        )
+    lines.extend(["", "### スコアの見方"])
+    lines.extend(f"- {item}" for item in CLEANUP_SCORE_SCALE_V83)
+    lines.append("")
+    return lines
+
+
 def _weekly_action_checklist_lines() -> list[str]:
     lines = ["## 今週の行動チェックリスト", "", "### 今週やってよいこと"]
     lines.extend(f"- {item}" for item in ALLOWED_ACTION_ITEMS_V85)
+    lines.append("- 整理・監視優先度スコアが高い枠の根拠を確認する")
     lines.extend(["", "### 今週やらないこと"])
     lines.extend(f"- {item}" for item in SUPPRESSED_ACTION_ITEMS_V85)
+    lines.append("- 整理・監視優先度が高い枠と同じリスクを新規に増やさない")
     lines.extend(["", "### 次に確認すること"])
     lines.extend(f"- {item}" for item in NEXT_CHECK_ITEMS_V85)
+    lines.append("- score 4以上の枠が、個別株・高ボラ枠・重複リスクのどれに集中しているか")
     lines.extend(
         [
             "",
@@ -1062,6 +1187,7 @@ def _chatgpt_review_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         f"- candidate_count: {_total_candidate_count(brief)}",
         f"- no_candidate_reason: {_no_candidate_reason(brief)}",
         f"- portfolio_context: cash {PORTFOLIO_CONTEXT_V81['cash']}, individual stocks {PORTFOLIO_CONTEXT_V81['individual_stocks']}, equity total {PORTFOLIO_CONTEXT_V81['equity_total']}",
+        "- cleanup_priority: 現金圧力 / 配分超過 / 根拠不足 / 高ボラリスク / 重複リスク を確認してください。",
         "- review_request: 今週やってよいこと / やらないこと / 次に確認することを、現金制約と個別株比率制約から再点検してください。",
         "",
     ]
@@ -1086,6 +1212,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_weekly_conclusion_lines(brief))
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_action_classification_lines(brief))
+    lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines())
     lines.extend(_do_dont_lines())
     lines.extend(
