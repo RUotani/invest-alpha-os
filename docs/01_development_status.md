@@ -1,5 +1,64 @@
 # Development Status
 
+## v88 Development State Refresh（2026-06-02）
+
+### latest verified main
+
+- `a56a18969132903b1dcd5124be4406a3be76c2ef`（PR #445 merge commit）
+
+### v81〜v87 完了状態（main反映済み）
+
+- PR #437 / v85: Portfolio-Aware Weekly Action Checklist
+- PR #438 / v83: Cleanup Priority Scoring Pack
+- PR #440 / v82: Target Allocation Gap Calculator
+- PR #442 / v84: Monthly Decision Sheet Pack
+- PR #444 / v84b: Decision Label Neutralization Pack
+- PR #445 / v87: Veto Reason Display Clarity Pack
+
+### Weekly Candidate Brief 現在機能
+
+- 今週の結論
+- ポートフォリオ制約
+- 行動分類
+- 今週の行動チェックリスト
+- 整理・監視優先度スコア
+- 目標配分ギャップ（v82）
+- 候補0件の理由メモ（coverage不足 / score未達 / veto）
+- email txt/html preview 短縮理由メモ
+
+### Monthly Decision Sheet 現在機能
+
+- 今月の結論
+- 判断サマリー
+- 中立化済みの意思決定テーブル
+- 現金回復ステップ
+- 次月への持ち越し
+- Safety note（売買指示ではない旨を明示）
+
+### 次の必須観測（v86）
+
+- Scheduled Weekly Run Observation / Artifact Review
+- scheduled target: 2026-06-06 07:00 JST
+- recommended observation: 2026-06-06 07:30 JST以降
+- 確認対象:
+  - schedule event 発火
+  - run conclusion success
+  - weekly artifact 生成（v81/v85/v83/v82/v87 反映）
+  - email txt/html preview 崩れなし
+
+### 継続禁止事項・未承認事項
+
+- workflow変更は未承認
+- provider live HTTP 未承認
+- market-data live fetch 未承認
+- cache write 未承認
+- actual import 未承認
+- broker API 未承認
+- raw broker export parsing 未承認
+- env/secret表示禁止
+- dependency/pyproject/Makefile変更は別承認
+- trading action / order placement / 自動売買禁止
+
 ## Phase 0-v1.1 — 完了（クローズ済み）
 
 Phase 0-v1.1 は完了し、以下条件を確認済み。
