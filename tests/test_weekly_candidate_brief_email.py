@@ -147,6 +147,8 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
 - 主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。
 - Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。
 - これは実行指示ではなく、根拠補完と安全確認の分類です。
+- Monthly Input: 判定 WARN / 対象月 2026-05
+- Monthly Guardrail: 現金11.7% / 個別株19.6%
 - 候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件
 - 次確認: 価格・出来高・期間・score内訳・veto理由
 
@@ -173,6 +175,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "## Score / Veto（短縮）" in draft.text_body
     assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in draft.text_body
     assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in draft.text_body
+    assert "## Monthly Input Consistency（短縮）" in draft.text_body
+    assert "Monthly Input: 判定 WARN / 対象月 2026-05" in draft.text_body
+    assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in draft.text_body
     assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in draft.text_body
     assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.text_body
     assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.text_body
@@ -202,6 +207,9 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
     assert "Score / Veto（短縮）" in draft.html_body
     assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in draft.html_body
     assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in draft.html_body
+    assert "Monthly Input Consistency（短縮）" in draft.html_body
+    assert "Monthly Input: 判定 WARN / 対象月 2026-05" in draft.html_body
+    assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in draft.html_body
     assert "候補0件の主因: coverage不足 3件 / score未達 coverage/veto確認を優先 / veto 0件" in draft.html_body
     assert "次確認: 価格・出来高・期間・score内訳・veto理由" in draft.html_body
     assert "veto該当0件でも、直ちに新規追加判断には進まず、coverage/scoreの再確認を優先します。" in draft.html_body

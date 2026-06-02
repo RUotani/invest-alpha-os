@@ -166,6 +166,10 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "| CASH_D | HIGH_CONVICTION_REVIEW | 87.25 | - | high_conviction_review | 高優先レビュー |" in body
         assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in body
         assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in body
+        assert "## Shared Summary（v96）" in body
+        assert "### Monthly Input Consistency（共有要約）" in body
+        assert "Monthly Input: 判定 WARN / 対象月 2026-05" in body
+        assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in body
         assert "## 候補0件の理由メモ" in body
         assert "| coverage不足 | 0件 |" in body
         assert "| score未達 | 該当候補なし |" in body

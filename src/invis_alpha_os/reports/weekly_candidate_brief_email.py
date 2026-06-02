@@ -18,6 +18,10 @@ from invis_alpha_os.portfolio.target_allocation_gap_calculator_v82 import (
     format_target_allocation_gap_email_3_lines_v82,
 )
 from invis_alpha_os.product.weekly_candidate_brief_v0 import PORTFOLIO_CONTEXT_V81
+from invis_alpha_os.product.weekly_email_shared_view_model_v96 import (
+    extract_weekly_shared_view_model_from_copy_v96,
+    render_weekly_shared_view_model_email_text_v96,
+)
 
 _TABLE_ROW_RE = re.compile(
     r"^\|\s*(?P<rank>\d+)\s*\|\s*(?P<symbol>[^|]+)\|\s*(?P<name>[^|]+)\|\s*(?P<market>[^|]+)\|\s*(?P<kind>[^|]+)\|\s*(?P<reason>[^|]+)\|\s*$"
@@ -204,14 +208,13 @@ def _extract_pipeline_trace_notes(copy_body: str) -> tuple[str, str] | None:
 
 
 def _extract_score_veto_summary_notes(copy_body: str) -> tuple[str, ...]:
-    notes: list[str] = []
-    for raw in copy_body.splitlines():
-        line = raw.strip()
-        if line.startswith("- Score/Veto:"):
-            notes.append(line.removeprefix("- ").strip())
-        elif line.startswith("- これは実行指示ではなく、根拠補完と安全確認の分類です。"):
-            notes.append(line.removeprefix("- ").strip())
-    return tuple(notes[:2])
+    model = extract_weekly_shared_view_model_from_copy_v96(copy_body)
+    return model.score_veto_summary_lines
+
+
+def _extract_monthly_input_summary_notes(copy_body: str) -> tuple[str, ...]:
+    model = extract_weekly_shared_view_model_from_copy_v96(copy_body)
+    return model.monthly_input_summary_lines
 
 
 def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
@@ -321,6 +324,7 @@ def _build_rich_text_body(
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
     score_veto_notes: tuple[str, ...],
+    monthly_input_notes: tuple[str, ...],
 ) -> str:
     lines: list[str] = [
         "テストメール",
@@ -344,6 +348,11 @@ def _build_rich_text_body(
         lines.extend(f"- {note}" for note in score_veto_notes)
     else:
         lines.append("- Score/Veto: copy-ready側の統合サマリーを確認してください。")
+    lines.extend(["", "## Monthly Input Consistency（短縮）"])
+    if monthly_input_notes:
+        lines.extend(f"- {note}" for note in monthly_input_notes)
+    else:
+        lines.append("- Monthly Input: copy-ready側の共有要約を確認してください。")
     lines.extend(
         [
             "",
@@ -448,6 +457,7 @@ def _build_rich_html_body(
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
     score_veto_notes: tuple[str, ...],
+    monthly_input_notes: tuple[str, ...],
 ) -> str:
     pipeline_list = ""
     if pipeline_trace_notes:
@@ -461,6 +471,11 @@ def _build_rich_html_body(
     if score_veto_notes:
         score_veto_list = "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
             f"<li>{escape(note)}</li>" for note in score_veto_notes
+        ) + "</ul>"
+    monthly_input_list = ""
+    if monthly_input_notes:
+        monthly_input_list = "<ul style='margin:0 0 10px 18px;padding:0;'>" + "".join(
+            f"<li>{escape(note)}</li>" for note in monthly_input_notes
         ) + "</ul>"
     parts: list[str] = [
         "<html><body style='margin:0;padding:0;background:#f8fafc;color:#111827;'>",
@@ -477,6 +492,8 @@ def _build_rich_html_body(
         pipeline_list or "<p style='margin:0 0 10px;'>候補パイプライン要約: copy-ready側のtrace sectionを確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>Score / Veto（短縮）</h2>",
         score_veto_list or "<p style='margin:0 0 10px;'>Score/Veto: copy-ready側の統合サマリーを確認してください。</p>",
+        "<h2 style='margin:14px 0 8px;'>Monthly Input Consistency（短縮）</h2>",
+        monthly_input_list or "<p style='margin:0 0 10px;'>Monthly Input: copy-ready側の共有要約を確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
@@ -556,6 +573,9 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
     pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
     score_veto_notes = _extract_score_veto_summary_notes(body_core)
+    monthly_input_notes = _extract_monthly_input_summary_notes(body_core)
+    shared_model = extract_weekly_shared_view_model_from_copy_v96(body_core)
+    shared_compact_notes = render_weekly_shared_view_model_email_text_v96(shared_model)
     body = _build_rich_text_body(
         report_date=report_date,
         generated_at=generated_at,
@@ -563,7 +583,10 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
         score_veto_notes=score_veto_notes,
+        monthly_input_notes=monthly_input_notes,
     )
+    if shared_compact_notes and all(note not in body for note in shared_compact_notes):
+        body = body.rstrip() + "\n\n" + "\n".join(f"- {x}" for x in shared_compact_notes) + "\n"
     if footer not in body:
         body = f"{body.rstrip()}\n\n---\n{footer}\n"
     html_body = _build_rich_html_body(
@@ -574,6 +597,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
         score_veto_notes=score_veto_notes,
+        monthly_input_notes=monthly_input_notes,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),

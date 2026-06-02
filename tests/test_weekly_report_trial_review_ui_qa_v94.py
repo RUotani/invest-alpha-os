@@ -40,7 +40,9 @@ def test_v94_score_veto_markdown_json_and_email_are_consistent() -> None:
     assert "| CASH_D | HIGH_CONVICTION_REVIEW | 87.25 | - | high_conviction_review | 高優先レビュー |" in copy_body
     assert "HARD: missing_evidence, portfolio_constraint_breach +6" in copy_body
     assert "- Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in copy_body
-    assert "- これは実行指示ではなく、根拠補完と安全確認の分類です。\n\n## 候補0件の理由メモ" in copy_body
+    assert "- これは実行指示ではなく、根拠補完と安全確認の分類です。" in copy_body
+    assert "## Shared Summary（v96）" in copy_body
+    assert "## 候補0件の理由メモ" in copy_body
 
     assert "## Score / Veto（短縮）" in draft.text_body
     assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in draft.text_body
