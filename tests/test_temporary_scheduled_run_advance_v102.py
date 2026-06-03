@@ -8,13 +8,13 @@ WORKFLOW_PATH = ROOT / ".github" / "workflows" / "weekly_candidate_brief.yml"
 DECISION_PATH = ROOT / "docs" / "decisions" / "2026-06-03_temporary_scheduled_run_advance_v102.md"
 
 
-def test_v102_workflow_keeps_normal_schedule_and_adds_temporary_observation_cron() -> None:
+def test_v102_workflow_keeps_normal_schedule_after_temporary_observation_window() -> None:
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert '- cron: "0 22 * * 5"' in workflow
-    assert '- cron: "0 22 3 6 *"' in workflow
-    assert "2026-06-04 07:00 JST = 2026-06-03 22:00 UTC" in workflow
-    assert "Remove after v86 scheduled run observation completes." in workflow
+    assert '- cron: "0 22 3 6 *"' not in workflow
+    assert "2026-06-04 07:00 JST = 2026-06-03 22:00 UTC" not in workflow
+    assert "Remove after v86 scheduled run observation completes." not in workflow
 
 
 def test_v102_decision_records_revert_requirement_and_safety_boundaries() -> None:
