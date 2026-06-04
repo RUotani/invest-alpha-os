@@ -20,6 +20,9 @@ LOG_FILE="${LOG_DIR}/run_0700.log"
 STATUS_FILE="${LOG_DIR}/status.json"
 FULL_MD="${REPORT_DIR}/weekly_candidate_brief_v0_1.md"
 COPY_MD="${REPORT_DIR}/weekly_candidate_brief_copy.md"
+EMAIL_TXT="${REPORT_DIR}/email/email_preview.txt"
+EMAIL_HTML="${REPORT_DIR}/email/email_preview.html"
+EMAIL_EML="${REPORT_DIR}/email/email_preview.eml"
 
 mkdir -p "${REPORT_DIR}" "${LOG_DIR}"
 exec >>"${LOG_FILE}" 2>&1
@@ -45,16 +48,13 @@ export CONFIRM_US_LIVE_HTTP=
   --copy-file "${COPY_MD}" \
   --full-md "${FULL_MD}"
 
-"${PYTHON}" -c "
-import datetime, json, pathlib
-status = pathlib.Path('${STATUS_FILE}')
-status.write_text(json.dumps({
-  'date': '${REPORT_DATE}',
-  'status': 'weekly_candidate_brief_generated',
-  'full_report': '${FULL_MD}',
-  'copy_report': '${COPY_MD}',
-  'completed_at': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-}, indent=2), encoding='utf-8')
-"
+"${PYTHON}" -m invis_alpha_os.product.weekly_artifact_status_schema_v104 \
+  --status-file "${STATUS_FILE}" \
+  --report-date "${REPORT_DATE}" \
+  --full-report "${FULL_MD}" \
+  --copy-report "${COPY_MD}" \
+  --email-text "${EMAIL_TXT}" \
+  --email-html "${EMAIL_HTML}" \
+  --email-eml "${EMAIL_EML}"
 
 echo "OK: weekly candidate brief generated"

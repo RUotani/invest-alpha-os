@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Mapping
 
 from invis_alpha_os.product.weekly_candidate_brief_v0 import (
@@ -10,6 +11,9 @@ from invis_alpha_os.product.weekly_candidate_brief_v0 import (
     format_weekly_candidate_brief_v0_copy,
     format_weekly_candidate_brief_v0_json,
     format_weekly_candidate_brief_v0_markdown,
+)
+from invis_alpha_os.product.weekly_artifact_status_schema_v104 import (
+    build_weekly_artifact_status_v104,
 )
 from invis_alpha_os.reports.weekly_candidate_brief_email import build_weekly_candidate_brief_email_draft
 
@@ -61,8 +65,6 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                     "Score / Veto",
                     "候補パイプライン",
                     "Sanitized / Manual Input",
-                    "現金11.7%",
-                    "個別株19.6%",
                     "これは売買指示ではなく",
                 ),
             ),
@@ -74,15 +76,13 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                     "Score / Veto",
                     "Pipeline",
                     "Sanitized / Manual Input",
-                    "現金11.7%",
-                    "個別株19.6%",
                     "これは売買指示ではなく",
                 ),
             ),
             ScheduledArtifactExpectationV101(
                 path="weekly_candidate_brief.json",
-                required=True,
-                description_ja="機械可読の週次ブリーフpayload。",
+                required=False,
+                description_ja="任意の機械可読週次ブリーフpayload。現runnerではstatus.jsonを正本とする。",
                 must_contain=("weekly_candidate_brief.v0.1", "score_veto_pipeline", "report_date"),
             ),
             ScheduledArtifactExpectationV101(
@@ -92,8 +92,6 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 must_contain=(
                     "Score / Veto",
                     "Sanitized / Manual Input",
-                    "現金11.7%",
-                    "個別株19.6%",
                     "これは実行指示ではなく",
                 ),
             ),
@@ -101,13 +99,21 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 path="email/email_preview.html",
                 required=True,
                 description_ja="送信前確認用のHTML版email preview。実メール送信ではない。",
-                must_contain=("Score / Veto", "Sanitized / Manual Input", "現金11.7%", "個別株19.6%"),
+                must_contain=("Score / Veto", "Sanitized / Manual Input"),
             ),
             ScheduledArtifactExpectationV101(
                 path="status.json",
                 required=True,
                 description_ja="scheduled run観測ステータス。dispatchではなく結果確認に使う。",
-                must_contain=("status", "report_date", "artifact_paths", "manual_workflow_dispatch_not_required"),
+                must_contain=(
+                    "schema_version",
+                    "source_mode",
+                    "trigger",
+                    "reports",
+                    "email_preview",
+                    "gmail_send_attempted",
+                    "artifact_generation_complete",
+                ),
             ),
         ),
         safety_notes_ja=(
@@ -136,19 +142,32 @@ def build_fixture_artifact_texts_for_scheduled_observation_v101(
     )
     copy_body = format_weekly_candidate_brief_v0_copy(brief)
     email = build_weekly_candidate_brief_email_draft(report_date=report_date, copy_body=copy_body)
+    status = build_weekly_artifact_status_v104(
+        report_date=report_date,
+        full_report="weekly_candidate_brief_v0_1.md",
+        copy_report="weekly_candidate_brief_copy.md",
+        json_report="weekly_candidate_brief.json",
+        email_text="email/email_preview.txt",
+        email_html="email/email_preview.html",
+        email_eml="email/email_preview.eml",
+        status_file="status.json",
+        completed_at="2026-06-06T00:00:00Z",
+        env={},
+        existing_paths=(
+            "weekly_candidate_brief_v0_1.md",
+            "weekly_candidate_brief_copy.md",
+            "email/email_preview.txt",
+            "email/email_preview.html",
+            "email/email_preview.eml",
+        ),
+    )
     return {
         "weekly_candidate_brief_v0_1.md": format_weekly_candidate_brief_v0_markdown(brief),
         "weekly_candidate_brief_copy.md": copy_body,
         "weekly_candidate_brief.json": format_weekly_candidate_brief_v0_json(brief),
         "email/email_preview.txt": email.text_body,
         "email/email_preview.html": email.html_body or "",
-        "status.json": (
-            '{"status":"fixture_ready","report_date":"'
-            + report_date
-            + '","artifact_paths":["weekly_candidate_brief_v0_1.md","weekly_candidate_brief_copy.md",'
-            + '"weekly_candidate_brief.json","email/email_preview.txt","email/email_preview.html"],'
-            + '"manual_workflow_dispatch_not_required":true}'
-        ),
+        "status.json": json.dumps(status, ensure_ascii=False),
     }
 
 

@@ -32,8 +32,12 @@ def test_v101_expected_artifacts_are_listed_with_required_markers() -> None:
     }
     assert "Score / Veto" in by_path["weekly_candidate_brief_copy.md"].must_contain
     assert "Sanitized / Manual Input" in by_path["weekly_candidate_brief_copy.md"].must_contain
-    assert "現金11.7%" in by_path["email/email_preview.txt"].must_contain
-    assert "個別株19.6%" in by_path["email/email_preview.html"].must_contain
+    assert "現金11.7%" not in by_path["email/email_preview.txt"].must_contain
+    assert "個別株19.6%" not in by_path["email/email_preview.html"].must_contain
+    assert by_path["weekly_candidate_brief.json"].required is False
+    assert by_path["status.json"].required is True
+    assert "schema_version" in by_path["status.json"].must_contain
+    assert "gmail_send_attempted" in by_path["status.json"].must_contain
 
 
 def test_v101_fixture_texts_validate_weekly_copy_email_and_status() -> None:
@@ -48,7 +52,8 @@ def test_v101_fixture_texts_validate_weekly_copy_email_and_status() -> None:
     assert "Sanitized / Manual Input" in texts["weekly_candidate_brief_copy.md"]
     assert "現金11.7%" in texts["email/email_preview.txt"]
     assert "個別株19.6%" in texts["email/email_preview.html"]
-    assert "manual_workflow_dispatch_not_required" in texts["status.json"]
+    assert '"schema_version": "v104"' in texts["status.json"]
+    assert '"gmail_send_attempted": false' in texts["status.json"]
 
 
 def test_v101_validation_reports_missing_required_text() -> None:
