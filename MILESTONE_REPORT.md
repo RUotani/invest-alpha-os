@@ -2,9 +2,9 @@
 
 ## Current Epoch
 
-- **Epoch:** 3 / 4（dashboard polish + sample-output-pack）
+- **Epoch:** 4 / 4（完了 — final consolidation PR 作成中）
 - **Start:** 2026-06-04（Serial Marathon 継続）
-- **Base main:** `cd32558`（#471 merged）
+- **Latest main:** `0e233e2`（#472 merged）
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -18,22 +18,23 @@
 
 - [x] disclaimer 統一 / `portfolio-data-quality-review` CLI / ChatGPT one-page sample
 
-## Completed — Epoch 3（本ブランチ）
+## Completed — Epoch 3（#472 merged）
 
 - [x] operator dashboard カード風 polish
-- [x] `sample-output-pack` CLI（stdout-only）
-- [x] `docs/sample_output_regeneration.md`
-- [ ] full pytest（CI）
+- [x] `sample-output-pack` CLI + regeneration docs
+- [x] full pytest 1832 passed（CI）
+
+## Completed — Epoch 4（本ブランチ）
+
+- [x] `scheduled_run_observation_20260604.md`（pending — 2026-06-06 待ち）
+- [x] `cursor_auto_24h_final_summary.md`
+- [x] STATE v0.5 更新案
+- [ ] PR #473 merge
 
 ## Open Issues
 
-- v86 scheduled observation: **pending**（2026-06-06 07:30 JST → Epoch 4）
+- v86 scheduled observation: **pending**（natural run 未到来）
 - CI `weekly_candidate_brief.json` 未生成
-
-## Next Actions
-
-1. Epoch 3 PR → merge
-2. Epoch 4: scheduled observation pending doc + final summary
 
 ## 24h 理想目標トラッキング
 

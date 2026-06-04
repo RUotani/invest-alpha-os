@@ -1,11 +1,11 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.4 / 最終更新: 2026-06-04
+版: v0.5 / 最終更新: 2026-06-04
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `3a5349eb3d7329eaac424805bc8df683af906bf9`（v111 / PR #469 merge commit）
-- **次の必須観測**: 2026-06-06 07:00 JST natural scheduled weekly run（推奨観測開始: 07:30 JST以降）
+- **latest verified main**: `0e233e2`（Marathon #472 / Epoch 3 merge）
+- **次の必須観測**: 2026-06-06 07:30 JST 以降 natural scheduled weekly run（`reports-private/scheduled_observation/` pending 記録済み）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
 
@@ -25,6 +25,9 @@
 - PR #467 / v109: Portfolio Data Quality Review
 - PR #468 / v110: Raw Input Quarantine Design
 - PR #469 / v111: Raw Input Quarantine Cross Review Skeleton
+- PR #470: Marathon Epoch 1 progress dashboard + sample outputs
+- PR #471: Epoch 2 disclaimer + `portfolio-data-quality-review` CLI
+- PR #472: Epoch 3 operator dashboard + `sample-output-pack` CLI
 
 ## §2. Weekly / Monthly 現在機能
 

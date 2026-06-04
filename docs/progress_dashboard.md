@@ -2,8 +2,8 @@
 
 版: v0.2 / 最終更新: 2026-06-04  
 基準 commit: `f08b79d50decc3d81eccade76f8cebb1a434820a`（main, #470）  
-直近: Marathon Epoch 3 — operator dashboard polish + `sample-output-pack` CLI  
-#471 merged: disclaimer統一 + `portfolio-data-quality-review` CLI
+直近: Marathon Epoch 4 — scheduled observation pending + final summary  
+#470–#472 merged（CLI: `portfolio-data-quality-review`, `sample-output-pack`）
 
 ## 使い方
 
@@ -150,7 +150,8 @@
 | --- | --- |
 | #470 | progress dashboard + 6 sample outputs |
 | #471 | disclaimer + UX wording + portfolio-data-quality-review CLI |
-| #472（予定） | operator dashboard + sample-output-pack + full pytest |
+| #472 | operator dashboard + sample-output-pack + full pytest |
+| #473 | scheduled observation pending + final summary |
 
 進捗率が過去にブレた理由: 分母未定義・MVPと自動化の混同。本ダッシュボードは**固定項目数**で再計算する。
 
