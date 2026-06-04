@@ -122,7 +122,11 @@ from invis_alpha_os.product.raw_input_quarantine_review_v111 import (
     format_portfolio_quarantine_cross_review_json_v111,
     render_portfolio_quarantine_cross_review_markdown_v111,
 )
-from invis_alpha_os.product.portfolio_data_quality_review_v109 import build_portfolio_data_quality_review_v109
+from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
+    build_portfolio_data_quality_review_v109,
+    format_portfolio_data_quality_review_json_v109,
+    render_portfolio_data_quality_review_markdown_v109,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -1931,6 +1935,22 @@ def raw_input_quarantine_review_command(
         typer.echo(format_raw_input_quarantine_review_json_v110(manifest, review))
     else:
         typer.echo(render_raw_input_quarantine_review_markdown_v110(manifest, review))
+
+
+@app.command("portfolio-data-quality-review")
+def portfolio_data_quality_review_command(
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Fixture-only portfolio data quality review to stdout (no raw paths or I/O)."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("portfolio-data-quality-review: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    review = build_portfolio_data_quality_review_v109()
+    if format == "json":
+        typer.echo(format_portfolio_data_quality_review_json_v109(review))
+    else:
+        typer.echo(render_portfolio_data_quality_review_markdown_v109(review))
 
 
 @app.command("portfolio-quarantine-cross-review")

@@ -1,4 +1,6 @@
-<!-- fixture-only / sanitized sample — not trading advice; no live data accuracy claim -->
+> このサンプルは source-only / fixture-only の出力例です。
+> 実データの正確性・鮮度を保証せず、売買指示ではありません。
+> actual import / cache write / broker API / raw Excel parsing は実行していません。
 
 # Raw Input Quarantine Review
 

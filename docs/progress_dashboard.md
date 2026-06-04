@@ -1,7 +1,8 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
-版: v0.1 / 最終更新: 2026-06-04  
-基準 commit: `3a5349eb3d7329eaac424805bc8df683af906bf9`（main）
+版: v0.2 / 最終更新: 2026-06-04  
+基準 commit: `f08b79d50decc3d81eccade76f8cebb1a434820a`（main, #470）  
+直近: Marathon Epoch 2 — disclaimer統一 + `portfolio-data-quality-review` CLI
 
 ## 使い方
 
@@ -16,10 +17,10 @@
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
 | Report MVP | 20 | 14 | 20 | 70% |
 | Weekly / Monthly Ops | 15 | 11 | 15 | 73% |
-| Portfolio Data Quality | 15 | 12 | 15 | 80% |
+| Portfolio Data Quality | 15 | 13 | 15 | 87% |
 | Raw Input Quarantine | 15 | 13 | 15 | 87% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
-| UX / Sample Outputs | 10 | 8 | 10 | 80% |
+| UX / Sample Outputs | 10 | 9 | 10 | 90% |
 
 **加重参考（単一総合%は運用禁止・参考のみ）:** 約 **76%**
 
@@ -90,7 +91,7 @@
 - [x] tests
 - [x] decision doc
 - [x] v111 との taxonomy key 接続
-- [ ] CLI `portfolio-data-quality-review` 公開
+- [x] CLI `portfolio-data-quality-review` 公開（Epoch 2）
 - [ ] sample を weekly copy に短縮要約接続
 - [ ] STATE と dashboard 自動同期スクリプト
 - [x] import readiness NO-GO 明示
@@ -128,7 +129,7 @@
 - [ ] v110→import ゲート自動化（意図的に未接続）
 - [ ] production import 実行
 
-### UX / Sample Outputs（8/10）
+### UX / Sample Outputs（9/10）
 
 - [x] progress_dashboard.md（本ファイル）
 - [x] MILESTONE_REPORT.md
@@ -139,16 +140,25 @@
 - [x] cross-review sample（完成）
 - [x] operator_dashboard_sample（完成）
 - [x] reports-private index README
-- [ ] ChatGPT 貼り付け用 1ページサマリ
+- [x] ChatGPT 貼り付け用 1ページサマリ（`chatgpt_one_page_summary_sample.md`）
+- [x] 全 sample 先頭 disclaimer 統一（blockquote）
+
+## 24h Marathon 見える成果（#470 + Epoch 2）
+
+| PR | 内容 |
+| --- | --- |
+| #470 | progress dashboard + 6 sample outputs |
+| #471（予定） | disclaimer + UX wording + portfolio-data-quality-review CLI |
+
+進捗率が過去にブレた理由: 分母未定義・MVPと自動化の混同。本ダッシュボードは**固定項目数**で再計算する。
 
 ## 投資ロジック稼働までの残作業（参考カウンタ）
 
 - signals 本番観察3ファイル未完了: **3件**（`momentum.py` / `peer_sync.py` / `veto_rules.py` 運用観察）
 
-## 次の6時間（Epoch 1）
+## 次（Epoch 3–4）
 
-1. `reports-private/sample_outputs/` 全6種 + README
-2. `operator_dashboard_sample.md` 統合
-3. focused pytest（v109–v111 + sample 生成スモーク）
-4. UX wording 微修正（必要最小）
-5. PR 作成・CI（sample/docs のみ）
+1. operator dashboard カード風 polish
+2. full pytest + ruff
+3. 2026-06-06 07:30 JST scheduled run read-only 観測（Epoch 4）
+4. `cursor_auto_24h_final_summary.md`

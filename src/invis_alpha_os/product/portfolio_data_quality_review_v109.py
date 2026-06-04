@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 
 from invis_alpha_os.product import portfolio_input, report_view_model
 from invis_alpha_os.product.validation_issue_taxonomy import (
@@ -230,7 +231,7 @@ def build_portfolio_data_quality_review_v109(
             "総資産・ローン残高・純資産・各資産分類が同一時点の値か確認する。",
             "raw Excel / broker exportを直接解析せず、redacted/sanitized入力であることを確認する。",
         ),
-        safety_note_ja="これは売買指示ではなく、portfolio入力品質と配分上の注意を確認するレビューです。",
+        safety_note_ja="これは売買指示ではありません。portfolio入力品質と配分上の注意を確認するレビューです。",
     )
 
 
@@ -253,7 +254,12 @@ def render_portfolio_data_quality_review_markdown_v109(
         f"- 対象月: {review.as_of_month}",
         f"- 判定: {review.overall_severity}",
         f"- source_mode: {review.source_mode}",
-        f"- Safety: {review.safety_note_ja}",
+        "- Import Readiness: NO-GO",
+        "- Cache Write Readiness: NO-GO",
+        "",
+        "## Safety Summary",
+        f"- {review.safety_note_ja}",
+        "- source-only / fixture-only（raw path・broker data 未使用）",
         "",
         "## Review Items",
         "",
@@ -265,7 +271,7 @@ def render_portfolio_data_quality_review_markdown_v109(
         f"{item.title_ja}: {item.detail_ja} {item.why_it_matters_ja} | {item.next_check_ja} |"
         for item in review.review_items
     )
-    lines.extend(["", "## Manual Confirmation Items"])
+    lines.extend(["", "## Manual Confirmations Required"])
     lines.extend(f"- {item}" for item in review.manual_confirmation_items_ja)
     lines.extend(
         [
@@ -279,3 +285,9 @@ def render_portfolio_data_quality_review_markdown_v109(
         ]
     )
     return "\n".join(lines)
+
+
+def format_portfolio_data_quality_review_json_v109(
+    review: PortfolioDataQualityReviewV109,
+) -> str:
+    return json.dumps(asdict(review), ensure_ascii=False, indent=2)

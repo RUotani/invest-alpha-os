@@ -10,10 +10,14 @@
 | `raw_input_quarantine_review_sample.md` | `raw_input_quarantine_v110` safe fixture |
 | `portfolio_quarantine_cross_review_sample.md` | `raw_input_quarantine_review_v111` |
 | `operator_dashboard_sample.md` | 上記 + progress dashboard 要約 |
+| `chatgpt_one_page_summary_sample.md` | 週次/品質/quarantine を1画面要約（ChatGPT貼付用） |
+
+各 `.md` 先頭に統一 disclaimer（blockquote）を付与しています。
 
 再生成（source-only）:
 
 ```bash
+env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main portfolio-data-quality-review --format markdown
 env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main raw-input-quarantine-review --format markdown
 env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main portfolio-quarantine-cross-review --format markdown
 ```
