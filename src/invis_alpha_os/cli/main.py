@@ -116,6 +116,13 @@ from invis_alpha_os.product.raw_input_quarantine_v110 import (
     render_raw_input_quarantine_review_markdown_v110,
     review_raw_input_quarantine_manifest_v110,
 )
+from invis_alpha_os.product.raw_input_quarantine_review_v111 import (
+    build_declared_raw_excel_manifest_fixture_v111,
+    build_portfolio_quarantine_cross_review_v111,
+    format_portfolio_quarantine_cross_review_json_v111,
+    render_portfolio_quarantine_cross_review_markdown_v111,
+)
+from invis_alpha_os.product.portfolio_data_quality_review_v109 import build_portfolio_data_quality_review_v109
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -1924,6 +1931,51 @@ def raw_input_quarantine_review_command(
         typer.echo(format_raw_input_quarantine_review_json_v110(manifest, review))
     else:
         typer.echo(render_raw_input_quarantine_review_markdown_v110(manifest, review))
+
+
+@app.command("portfolio-quarantine-cross-review")
+def portfolio_quarantine_cross_review_command(
+    scenario: str = typer.Option("safe_fixture", "--scenario"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Cross-review safe declaration fixtures without raw input access."""
+
+    if scenario == "safe_fixture":
+        manifest = RawInputQuarantineManifestV110(
+            source_kind=QuarantineSourceKind.FIXTURE,
+            declared_unit="man_yen",
+            declared_currency="JPY",
+            statement_month="2026-05",
+            owner_scope="household",
+            redaction_status="redacted",
+        )
+    elif scenario == "raw_excel_declared":
+        manifest = build_declared_raw_excel_manifest_fixture_v111()
+    else:
+        typer.echo(f"portfolio-quarantine-cross-review: unsupported scenario: {scenario}", err=True)
+        raise typer.Exit(code=2)
+    if format not in {"markdown", "json"}:
+        typer.echo("portfolio-quarantine-cross-review: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    portfolio_review = build_portfolio_data_quality_review_v109()
+    quarantine_review = review_raw_input_quarantine_manifest_v110(manifest)
+    cross_review = build_portfolio_quarantine_cross_review_v111(manifest)
+    if format == "json":
+        typer.echo(
+            format_portfolio_quarantine_cross_review_json_v111(
+                portfolio_review,
+                quarantine_review,
+                cross_review,
+            )
+        )
+    else:
+        typer.echo(
+            render_portfolio_quarantine_cross_review_markdown_v111(
+                portfolio_review,
+                quarantine_review,
+                cross_review,
+            )
+        )
 
 
 @app.command("chatgpt-main-development-handoff-summary")
