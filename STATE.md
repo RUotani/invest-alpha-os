@@ -1,10 +1,10 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.3 / 最終更新: 2026-06-04
+版: v0.4 / 最終更新: 2026-06-04
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `97ec5ed2c44e0009fb60921124d8c151150f298b`（v110 merge commit）
+- **latest verified main**: `3a5349eb3d7329eaac424805bc8df683af906bf9`（v111 / PR #469 merge commit）
 - **次の必須観測**: 2026-06-06 07:00 JST natural scheduled weekly run（推奨観測開始: 07:30 JST以降）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
@@ -24,6 +24,7 @@
 - PR #466 / v108: State Refresh After v107 Taxonomy Skeleton
 - PR #467 / v109: Portfolio Data Quality Review
 - PR #468 / v110: Raw Input Quarantine Design
+- PR #469 / v111: Raw Input Quarantine Cross Review Skeleton
 
 ## §2. Weekly / Monthly 現在機能
 
