@@ -14,9 +14,10 @@
 
 各 `.md` 先頭に統一 disclaimer（blockquote）を付与しています。
 
-再生成（source-only）:
+再生成手順の詳細: `docs/sample_output_regeneration.md`
 
 ```bash
+env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main sample-output-pack --format markdown
 env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main portfolio-data-quality-review --format markdown
 env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main raw-input-quarantine-review --format markdown
 env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main portfolio-quarantine-cross-review --format markdown

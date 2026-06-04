@@ -122,6 +122,7 @@ from invis_alpha_os.product.raw_input_quarantine_review_v111 import (
     format_portfolio_quarantine_cross_review_json_v111,
     render_portfolio_quarantine_cross_review_markdown_v111,
 )
+from invis_alpha_os.product.sample_output_pack_v112 import render_sample_output_pack_markdown_v112
 from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
     build_portfolio_data_quality_review_v109,
     format_portfolio_data_quality_review_json_v109,
@@ -1935,6 +1936,18 @@ def raw_input_quarantine_review_command(
         typer.echo(format_raw_input_quarantine_review_json_v110(manifest, review))
     else:
         typer.echo(render_raw_input_quarantine_review_markdown_v110(manifest, review))
+
+
+@app.command("sample-output-pack")
+def sample_output_pack_command(
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Emit fixture-only quality/quarantine samples to stdout (no cache write or file I/O)."""
+
+    if format != "markdown":
+        typer.echo("sample-output-pack: only markdown is supported", err=True)
+        raise typer.Exit(code=2)
+    typer.echo(render_sample_output_pack_markdown_v112())
 
 
 @app.command("portfolio-data-quality-review")
