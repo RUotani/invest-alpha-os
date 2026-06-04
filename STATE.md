@@ -1,15 +1,15 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.2 / 最終更新: 2026-06-02
+版: v0.3 / 最終更新: 2026-06-04
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `a56a18969132903b1dcd5124be4406a3be76c2ef`（v87 merge commit）
-- **次の必須観測**: 2026-06-06 07:00 JST scheduled weekly run（推奨観測開始: 07:30 JST以降）
+- **latest verified main**: `1538c5c3753fc5e13059967f85d24bbe6d09e372`（v107 merge commit）
+- **次の必須観測**: 2026-06-06 07:00 JST natural scheduled weekly run（推奨観測開始: 07:30 JST以降）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
 
-## §1. v81〜v87 完了状態（main反映済み）
+## §1. 主要完了状態（main反映済み）
 
 - PR #437 / v85: Portfolio-Aware Weekly Action Checklist
 - PR #438 / v83: Cleanup Priority Scoring Pack
@@ -17,6 +17,10 @@
 - PR #442 / v84: Monthly Decision Sheet Pack
 - PR #444 / v84b: Decision Label Neutralization Pack
 - PR #445 / v87: Veto Reason Display Clarity Pack
+- PR #462 / v104: Scheduled Run Observability + Artifact Status Schema
+- PR #463 / v105: Versionless Facade Introduction
+- PR #464 / v106: Common Validation Taxonomy Assessment
+- PR #465 / v107: Non-Breaking Common Validation Taxonomy Skeleton
 
 ## §2. Weekly / Monthly 現在機能
 
@@ -40,9 +44,17 @@
 - 次月への持ち越し
 - Safety note（売買指示ではない旨を明示）
 
-## §3. 次の必須観測
+## §3. Scheduled Run / Observability 現在地
 
-- タスク: v86 Scheduled Weekly Run Observation / Artifact Review
+- v86 scheduled run observation: **partial / schedule-trigger observation miss**
+- pre-v86 workflow_dispatch reference artifact:
+  - weekly report / copy report / email preview txt/html生成確認済み
+  - Gmail未着は仕様どおり（real email send無効）
+- v102 temporary cron: v103で削除済み
+- normal schedule: `0 22 * * 5`（Saturday 07:00 JST）を維持
+- v104 `status.json` schema: trigger metadata / reports / email preview / `gmail_send_attempted=false`を導入済み
+- 次のnatural scheduled observation:
+  - task: Scheduled Weekly Run Observation / Artifact Review
 - scheduled target: 2026-06-06 07:00 JST
 - recommended observation: 2026-06-06 07:30 JST以降
 - 確認対象:
@@ -52,18 +64,35 @@
   - v81/v85/v83/v82/v87 反映
   - email txt/html preview 崩れなし
 
-## §3.5 継続禁止事項・未承認事項
+## §3.5 Hard Gates / 継続禁止事項
 
 - workflow変更は未承認
+- manual workflow_dispatch 未承認
 - provider live HTTP 未承認
 - market-data live fetch 未承認
-- cache write 未承認
-- actual import 未承認
-- broker API 未承認
+- cache write: **NO-GO**
+- actual refresh/import / manual actual import: **NO-GO**
+- broker API / broker login: **NO-GO**
+- raw Excel direct parsing: **NO-GO**
 - raw broker export parsing 未承認
 - env/secret 表示禁止
 - dependency/pyproject/Makefile 変更は別承認
-- trading action / order placement / 自動売買禁止
+- real email send: **NO-GO**
+- trading action / order placement / 自動売買: **NO-GO**
+
+## §3.6 Product / Validation Architecture 現在地
+
+- v105 versionless facades:
+  - `product/report_view_model.py`
+  - `product/portfolio_input.py`
+  - `product/candidate_pipeline.py`
+- v106 assessment:
+  - v95/v97/v98/v100の40 keyを棚卸し
+  - 命名揺れ2組、validator severity揺れ0組
+- v107 taxonomy skeleton:
+  - severity / category / canonical key / legacy alias mappingを定義
+  - 既存validatorには未接続
+  - concrete consumerなしの追加拡張・一括移行は停止
 
 ## §4. ローカル
 
@@ -113,3 +142,13 @@ scripts/run_weekly_candidate_brief.sh
 - `reports/YYYY-MM-DD/weekly_candidate_brief_copy.md`
 - `reports/YYYY-MM-DD/email/*`
 - `outputs/operator/weekly_candidate_brief/**`
+
+## §8. 次工程候補
+
+優先順:
+
+1. Portfolio Data Quality Review Pack（source-only / fixture-only）
+2. Raw Input Quarantine Design（actual importなし）
+3. v104 `status.json`による次回natural scheduled run観測
+
+Actual import / broker access / raw Excel direct parsing / cache writeは、上記設計・reviewを完了しても自動承認されない。
