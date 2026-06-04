@@ -1,13 +1,17 @@
+> このサンプルは source-only / fixture-only の出力例です。
+> 実データの正確性・鮮度を保証せず、売買指示ではありません。
+> actual import / cache write / broker API / raw Excel parsing は実行していません。
+
 # Operator Dashboard Sample（fixture-only）
 
-> 観測・レビュー用ダッシュボード要約。売買指示・発注・実メール送信ではありません。  
-> 基準: main `3a5349eb3d7329eaac424805bc8df683af906bf9` / 生成: 2026-06-04
+> 観測・レビュー用ダッシュボード要約。売買指示ではありません。発注・実メール送信は行っていません。  
+> 基準: main `f08b79d50decc3d81eccade76f8cebb1a434820a` / 生成: 2026-06-04
 
 ## 3行サマリー
 
 - **週次**: 候補0件を抑制シグナルとして扱う copy-ready brief（fixture）
 - **月次**: 現金回復優先の decision sheet（fixture 数値）
-- **品質**: v109 portfolio review + v110 quarantine + v111 cross-review はすべて **import/cache NO-GO**
+- **品質**: v109 portfolio review + v110 quarantine + v111 cross-review — **Import Readiness: NO-GO** / **Cache Write Readiness: NO-GO**
 - **Hard Gates**: すべて遵守（live HTTP / cache write / broker / raw Excel なし）
 
 ## 進捗スナップショット（固定分母）
@@ -20,7 +24,7 @@
 | Portfolio Data Quality | 80% |
 | Raw Input Quarantine | 87% |
 | Actual Import Readiness | 0% |
-| UX / Sample Outputs | 40% → **本サンプル生成で上昇予定** |
+| UX / Sample Outputs | 85% |
 
 詳細: `docs/progress_dashboard.md`
 

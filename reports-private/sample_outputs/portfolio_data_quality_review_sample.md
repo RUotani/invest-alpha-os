@@ -1,11 +1,20 @@
-<!-- fixture-only / sanitized sample — not trading advice; no live data accuracy claim -->
+> このサンプルは source-only / fixture-only の出力例です。
+
+> 実データの正確性・鮮度を保証せず、売買指示ではありません。
+
+> actual import / cache write / broker API / raw Excel parsing は実行していません。
 
 # Portfolio Data Quality Review
 
 - 対象月: 2026-05
 - 判定: WARN
 - source_mode: fixture_or_sanitized_manual_only
-- Safety: これは売買指示ではなく、portfolio入力品質と配分上の注意を確認するレビューです。
+- Import Readiness: NO-GO
+- Cache Write Readiness: NO-GO
+
+## Safety Summary
+- これは売買指示ではありません。portfolio入力品質と配分上の注意を確認するレビューです。
+- source-only / fixture-only（raw path・broker data 未使用）
 
 ## Review Items
 
@@ -20,7 +29,7 @@
 | single_stock_above_target_band | WARN | guardrail | 個別株比率ガードレール: 個別株19.6% / target max 15.0% 個別株比率超過は集中・高ボラリスクを増やします。 | 最新入力と分類定義で超過が継続しているか確認する。 |
 | target_allocation_gap | WARN | ratio | 目標配分ギャップ: cash -18.3pt / equity +18.8pt / alternative -3.6pt / bond +3.0pt 目標配分との差は候補評価時のportfolio制約です。 | 目標比率と現在比率が同じ分類ルールか確認する。 |
 
-## Manual Confirmation Items
+## Manual Confirmations Required
 - 対象月2026-05が最新portfolio inputか確認する。
 - currency=JPY / amount_unit=man_yenが共有契約と一致するか確認する。
 - 総資産・ローン残高・純資産・各資産分類が同一時点の値か確認する。
@@ -31,3 +40,4 @@
 - cache write / actual import: not executed / not approved
 - broker API / raw Excel direct parsing: not executed / not approved
 - trading action / real email send: not executed / not approved
+

@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 
+from typer.testing import CliRunner
+
+from invis_alpha_os.cli.main import app
 from invis_alpha_os.product import portfolio_input
+from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
+    format_portfolio_data_quality_review_json_v109,
+)
 from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
     build_portfolio_data_quality_review_v109,
     render_portfolio_data_quality_review_markdown_v109,
@@ -68,7 +75,11 @@ def test_v109_manual_confirmation_items_cover_freshness_unit_and_boundary() -> N
 def test_v109_markdown_is_quality_review_not_trade_instruction() -> None:
     markdown = render_portfolio_data_quality_review_markdown_v109(build_portfolio_data_quality_review_v109())
     assert markdown.startswith("# Portfolio Data Quality Review")
-    assert "これは売買指示ではなく" in markdown
+    assert "Import Readiness: NO-GO" in markdown
+    assert "Cache Write Readiness: NO-GO" in markdown
+    assert "## Safety Summary" in markdown
+    assert "## Manual Confirmations Required" in markdown
+    assert "これは売買指示ではありません" in markdown
     assert "actual import: not executed / not approved" in markdown
     assert "raw Excel direct parsing: not executed / not approved" in markdown
     assert "今すぐ購入" not in markdown
@@ -79,7 +90,31 @@ def test_v109_summary_lines_are_report_ready() -> None:
     lines = render_portfolio_data_quality_review_summary_lines_v109(build_portfolio_data_quality_review_v109())
     assert lines[0] == "Portfolio Data Quality: WARN / 2026-05"
     assert "現金11.7% / 個別株19.6% / 株式系合計67.8%" in lines[1]
-    assert "売買指示ではなく" in lines[-1]
+    assert "売買指示ではありません" in lines[-1]
+
+
+def test_v109_json_fixture_review_is_stdout_safe() -> None:
+    review = build_portfolio_data_quality_review_v109()
+    payload = json.loads(format_portfolio_data_quality_review_json_v109(review))
+    assert payload["overall_severity"] == "WARN"
+    assert payload["source_mode"] == "fixture_or_sanitized_manual_only"
+
+
+def test_v109_cli_emits_fixture_only_markdown_and_json() -> None:
+    markdown_result = CliRunner().invoke(app, ["portfolio-data-quality-review", "--format", "markdown"])
+    assert markdown_result.exit_code == 0
+    assert "Import Readiness: NO-GO" in markdown_result.stdout
+
+    json_result = CliRunner().invoke(app, ["portfolio-data-quality-review", "--format", "json"])
+    assert json_result.exit_code == 0
+    payload = json.loads(json_result.stdout)
+    assert payload["overall_severity"] == "WARN"
+
+
+def test_v109_cli_rejects_unknown_format() -> None:
+    result = CliRunner().invoke(app, ["portfolio-data-quality-review", "--format", "yaml"])
+    assert result.exit_code == 2
+    assert "markdown or json" in result.stderr
 
 
 def test_v109_module_has_no_forbidden_execution_paths() -> None:
