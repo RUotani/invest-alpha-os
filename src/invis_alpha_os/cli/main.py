@@ -109,6 +109,13 @@ from invis_alpha_os.product.portfolio_observation_summary import (
     format_portfolio_observation_summary_json,
     format_portfolio_observation_summary_markdown,
 )
+from invis_alpha_os.product.raw_input_quarantine_v110 import (
+    QuarantineSourceKind,
+    RawInputQuarantineManifestV110,
+    format_raw_input_quarantine_review_json_v110,
+    render_raw_input_quarantine_review_markdown_v110,
+    review_raw_input_quarantine_manifest_v110,
+)
 from invis_alpha_os.product.us_forward_return_validation import (
     compute_us_forward_returns,
     format_us_forward_return_markdown,
@@ -1876,6 +1883,47 @@ def portfolio_strategy_observation_report_command(
             "cache_write_executed=false actual_refresh_import_executed=false trading_action_executed=false"
         ),
     )
+
+
+@app.command("raw-input-quarantine-review")
+def raw_input_quarantine_review_command(
+    source_kind: str = typer.Option("fixture", "--source-kind"),
+    declared_unit: str = typer.Option("man_yen", "--declared-unit"),
+    declared_currency: str = typer.Option("JPY", "--declared-currency"),
+    statement_month: str = typer.Option("2026-05", "--statement-month"),
+    owner_scope: str = typer.Option("household", "--owner-scope"),
+    redaction_status: str = typer.Option("redacted", "--redaction-status"),
+    validation_key: list[str] | None = typer.Option(None, "--validation-key"),
+    actual_import_requested: bool = typer.Option(False, "--actual-import-requested"),
+    cache_write_requested: bool = typer.Option(False, "--cache-write-requested"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Review a declaration-only quarantine manifest; never read raw input."""
+
+    try:
+        source = QuarantineSourceKind(source_kind)
+    except ValueError:
+        typer.echo(f"raw-input-quarantine-review: unsupported source kind: {source_kind}", err=True)
+        raise typer.Exit(code=2) from None
+    if format not in {"markdown", "json"}:
+        typer.echo("raw-input-quarantine-review: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    manifest = RawInputQuarantineManifestV110(
+        source_kind=source,
+        declared_unit=declared_unit,
+        declared_currency=declared_currency,
+        statement_month=statement_month,
+        owner_scope=owner_scope,
+        redaction_status=redaction_status,
+        actual_import_requested=actual_import_requested,
+        cache_write_requested=cache_write_requested,
+        validation_keys=tuple(validation_key or ()),
+    )
+    review = review_raw_input_quarantine_manifest_v110(manifest)
+    if format == "json":
+        typer.echo(format_raw_input_quarantine_review_json_v110(manifest, review))
+    else:
+        typer.echo(render_raw_input_quarantine_review_markdown_v110(manifest, review))
 
 
 @app.command("chatgpt-main-development-handoff-summary")

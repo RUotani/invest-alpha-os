@@ -4,7 +4,7 @@
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `1538c5c3753fc5e13059967f85d24bbe6d09e372`（v107 merge commit）
+- **latest verified main**: `2cf3f0aa38fb90e3b716c4aaaea07f3b2481d869`（v109 merge commit）
 - **次の必須観測**: 2026-06-06 07:00 JST natural scheduled weekly run（推奨観測開始: 07:30 JST以降）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
@@ -21,6 +21,8 @@
 - PR #463 / v105: Versionless Facade Introduction
 - PR #464 / v106: Common Validation Taxonomy Assessment
 - PR #465 / v107: Non-Breaking Common Validation Taxonomy Skeleton
+- PR #466 / v108: State Refresh After v107 Taxonomy Skeleton
+- PR #467 / v109: Portfolio Data Quality Review
 
 ## §2. Weekly / Monthly 現在機能
 
@@ -93,6 +95,12 @@
   - severity / category / canonical key / legacy alias mappingを定義
   - 既存validatorには未接続
   - concrete consumerなしの追加拡張・一括移行は停止
+- v109 portfolio data quality review:
+  - fixture/sanitized inputの構造整合・guardrail・target gap・manual confirmationを横断review
+- v110 raw input quarantine contract:
+  - declaration-only manifest / stdout-only CLI
+  - raw path・raw payload読取なし
+  - import/cache readinessは常時NO-GO
 
 ## §4. ローカル
 
@@ -147,8 +155,8 @@ scripts/run_weekly_candidate_brief.sh
 
 優先順:
 
-1. Portfolio Data Quality Review Pack（source-only / fixture-only）
-2. Raw Input Quarantine Design（actual importなし）
-3. v104 `status.json`による次回natural scheduled run観測
+1. Raw Input Quarantine Review Skeletonとv109 cross-report接続（actual importなし）
+2. v104 `status.json`による次回natural scheduled run観測
+3. quarantine reviewとmonthly review packの接続評価
 
 Actual import / broker access / raw Excel direct parsing / cache writeは、上記設計・reviewを完了しても自動承認されない。
