@@ -2,7 +2,8 @@
 
 版: v0.2 / 最終更新: 2026-06-04  
 基準 commit: `f08b79d50decc3d81eccade76f8cebb1a434820a`（main, #470）  
-直近: Marathon Epoch 2 — disclaimer統一 + `portfolio-data-quality-review` CLI
+直近: Marathon Epoch 3 — operator dashboard polish + `sample-output-pack` CLI  
+#471 merged: disclaimer統一 + `portfolio-data-quality-review` CLI
 
 ## 使い方
 
@@ -20,7 +21,7 @@
 | Portfolio Data Quality | 15 | 13 | 15 | 87% |
 | Raw Input Quarantine | 15 | 13 | 15 | 87% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
-| UX / Sample Outputs | 10 | 9 | 10 | 90% |
+| UX / Sample Outputs | 10 | 10 | 10 | 100% |
 
 **加重参考（単一総合%は運用禁止・参考のみ）:** 約 **76%**
 
@@ -114,7 +115,7 @@
 - [x] stdout-only / declaration-only
 - [x] sample quarantine markdown
 - [x] sample cross-review markdown
-- [ ] operator runbook 日本語1枚
+- [x] sample 再生成手順（`docs/sample_output_regeneration.md`）
 
 ### Actual Import Readiness（0/10）
 
@@ -129,7 +130,7 @@
 - [ ] v110→import ゲート自動化（意図的に未接続）
 - [ ] production import 実行
 
-### UX / Sample Outputs（9/10）
+### UX / Sample Outputs（10/10）
 
 - [x] progress_dashboard.md（本ファイル）
 - [x] MILESTONE_REPORT.md
@@ -148,7 +149,8 @@
 | PR | 内容 |
 | --- | --- |
 | #470 | progress dashboard + 6 sample outputs |
-| #471（予定） | disclaimer + UX wording + portfolio-data-quality-review CLI |
+| #471 | disclaimer + UX wording + portfolio-data-quality-review CLI |
+| #472（予定） | operator dashboard + sample-output-pack + full pytest |
 
 進捗率が過去にブレた理由: 分母未定義・MVPと自動化の混同。本ダッシュボードは**固定項目数**で再計算する。
 
