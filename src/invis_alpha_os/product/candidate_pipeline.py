@@ -1,0 +1,73 @@
+"""Stable versionless facade for candidate trace, score, veto, and assessment APIs."""
+
+from invis_alpha_os.product.candidate_score_veto_pipeline_v93 import (
+    CandidateIntegratedAssessment,
+    build_fixture_integrated_candidate_assessments_v93 as build_fixture_integrated_candidate_assessments,
+    build_integrated_candidate_assessment,
+    render_integrated_candidate_assessment_markdown,
+    render_integrated_candidate_assessment_summary_lines,
+)
+from invis_alpha_os.product.candidate_scoring_contract_v91 import (
+    CandidateScoreBreakdown,
+    CandidateScoreInput,
+    CandidateScoreResult,
+    CandidateScoreWeights,
+    ScoreBand,
+    classify_score_band,
+    fixture_candidates_v91 as fixture_candidates,
+    format_candidate_scoring_contract_markdown,
+    normalized_score,
+    score_candidate,
+    score_candidates,
+    validate_score_breakdown,
+    weighted_score,
+)
+from invis_alpha_os.product.candidate_veto_rules_v92 import (
+    CandidateVetoInput,
+    CandidateVetoReason,
+    CandidateVetoResult,
+    VetoSeverity,
+    evaluate_candidate_vetoes,
+    render_candidate_veto_reasons_markdown,
+    render_veto_rule_contract_markdown,
+    veto_input_from_score_result,
+)
+from invis_alpha_os.product.weekly_candidate_pipeline_trace_v90 import (
+    CandidatePipelineTraceSummary,
+    CandidateTraceInput,
+    VetoReasonLog,
+    build_candidate_pipeline_trace_summary,
+)
+
+__all__ = [
+    "CandidateIntegratedAssessment",
+    "CandidatePipelineTraceSummary",
+    "CandidateScoreBreakdown",
+    "CandidateScoreInput",
+    "CandidateScoreResult",
+    "CandidateScoreWeights",
+    "CandidateTraceInput",
+    "CandidateVetoInput",
+    "CandidateVetoReason",
+    "CandidateVetoResult",
+    "ScoreBand",
+    "VetoReasonLog",
+    "VetoSeverity",
+    "build_candidate_pipeline_trace_summary",
+    "build_fixture_integrated_candidate_assessments",
+    "build_integrated_candidate_assessment",
+    "classify_score_band",
+    "evaluate_candidate_vetoes",
+    "fixture_candidates",
+    "format_candidate_scoring_contract_markdown",
+    "normalized_score",
+    "render_candidate_veto_reasons_markdown",
+    "render_integrated_candidate_assessment_markdown",
+    "render_integrated_candidate_assessment_summary_lines",
+    "render_veto_rule_contract_markdown",
+    "score_candidate",
+    "score_candidates",
+    "validate_score_breakdown",
+    "veto_input_from_score_result",
+    "weighted_score",
+]
