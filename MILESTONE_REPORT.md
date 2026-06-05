@@ -89,6 +89,13 @@
 - [x] forbidden action boundary list
 - [x] sample regeneration docs update
 
+## 2026-06-05 24h Long-Run Queue（S4）
+
+- [x] CLI `monthly-review-pack-integration`
+- [x] monthly decision sheet / monthly input consistency / portfolio data quality / v82 gap integration contract
+- [x] fixture-only markdown/json renderers
+- [x] monthly integration focused tests
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）

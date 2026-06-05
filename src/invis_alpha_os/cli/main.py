@@ -143,6 +143,11 @@ from invis_alpha_os.product.sample_output_regeneration_contract import (
     format_sample_output_regeneration_contract_json,
     render_sample_output_regeneration_contract_markdown,
 )
+from invis_alpha_os.product.monthly_review_pack_integration import (
+    build_monthly_review_pack_integration_result,
+    format_monthly_review_pack_integration_json,
+    render_monthly_review_pack_integration_markdown,
+)
 from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
     build_portfolio_data_quality_review_v109,
     format_portfolio_data_quality_review_json_v109,
@@ -1989,6 +1994,24 @@ def sample_output_regeneration_contract_command(
         typer.echo(format_sample_output_regeneration_contract_json(contract))
     else:
         typer.echo(render_sample_output_regeneration_contract_markdown(contract))
+
+
+@app.command("monthly-review-pack-integration")
+def monthly_review_pack_integration_command(
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Check monthly review pack integration using fixture-only contracts."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("monthly-review-pack-integration: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    result = build_monthly_review_pack_integration_result()
+    if format == "json":
+        typer.echo(format_monthly_review_pack_integration_json(result))
+    else:
+        typer.echo(render_monthly_review_pack_integration_markdown(result))
+    if not result.ready:
+        raise typer.Exit(code=1)
 
 
 @app.command("operator-dashboard-summary")
