@@ -25,6 +25,12 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-use
 | ChatGPT one-page sample | [chatgpt_one_page_summary_sample.md](../reports-private/sample_outputs/chatgpt_one_page_summary_sample.md) |
 | プロジェクト目的 | [project_goal_candidate_discovery_os.md](./project_goal_candidate_discovery_os.md) |
 
+## 今週のレポート（2026-06-06 · 手動発行）
+
+natural scheduled run 未発火のため、ローカル CLI で生成済み:
+
+**`reports-private/manual_issue/weekly_20260606/README_FOR_USER.md`**（まずここ）
+
 ## Scheduled Observation 現状（2026-06-06 07:58 JST）
 
 | 項目 | 状態 |
