@@ -3,7 +3,7 @@
 ## Current Phase
 
 - **Phase:** Post #494 — Candidate Discovery OS D4 + scheduled observation pending
-- **Latest main:** `af6543a`（#495 merged; Long-Run MAX active）
+- **Latest main:** `3215ef3`（#496 merged; Long-Run MAX active）
 - **P0:** 2026-06-06 00:10 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
@@ -165,7 +165,8 @@
 - [x] D6 Report MVP 85 readiness + progress dashboard v0.6
 - [x] T1 workflow JSON proposal status update（未適用）
 - [x] T2 next 24h candidate discovery longrun plan
-- [ ] T3 final consolidation（07:30 JST 観測後）
+- [x] T3 final consolidation（`cursor_auto_24h_final_summary.md` Post #494 更新）
+- [ ] Post 07:30 JST scheduled observation PR
 
 ## Open Issues
 
