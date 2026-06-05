@@ -5,7 +5,15 @@
 
 > 自動売買ボットではない。ブローカー接続・注文実行・actual import は対象外。
 
-## 朝（5分）— 起動確認
+## 今日読むファイル（1つ）
+
+```text
+reports-private/manual_issue/latest/README_FOR_USER.md
+```
+
+深掘り候補（285A / AAPL / QQQ）は **売買指示ではなく調査用** として読む。
+
+## 朝（5分）— 起動確認（agent が実行済みでも可）
 
 ```bash
 cd /Users/uotani/Projects/invest-alpha-os
@@ -52,6 +60,7 @@ gh run list --workflow weekly_candidate_brief.yml --limit 10
 
 | 用途 | パス |
 | --- | --- |
+| **今日読む週次（固定）** | `reports-private/manual_issue/latest/README_FOR_USER.md` |
 | **Start Here（1ページ索引）** | `docs/v1_0_operator_start_here.md` |
 | v1.0 readiness dashboard | `docs/v1_0_operational_readiness_dashboard.md` |
 | 週次10分 | `docs/v1_0_weekly_10min_flow.md` |
