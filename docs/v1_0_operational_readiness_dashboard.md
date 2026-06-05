@@ -1,6 +1,6 @@
 # v1.0 Operational Readiness Dashboard
 
-版: 2026-06-06  
+版: 2026-06-06（07:58 JST 観測反映）  
 固定分母: **core 12 + observation 2 + boundary 1 = 15**
 
 ## 使い方
@@ -39,8 +39,11 @@ observation 2件は v1.0 完全化待ちであり、初日の手動レビュー�
 
 ## Observation チェックリスト（2）
 
-- [ ] natural scheduled run 観測（07:30 JST 以降）
+- [ ] natural scheduled run 観測 — **pending** `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE`（2026-06-06 07:58 JST）
 - [ ] CI `weekly_candidate_brief.json` upload（workflow 承認待ち）
+
+初日運用（2026-06-07）は core 12/12 完了のため **observation pending でも開始可**。  
+詳細: `reports-private/scheduled_observation/scheduled_run_observation_20260606.md`
 
 ## Boundary（1）
 

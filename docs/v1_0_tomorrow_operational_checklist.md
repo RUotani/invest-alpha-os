@@ -52,6 +52,7 @@ gh run list --workflow weekly_candidate_brief.yml --limit 10
 
 | 用途 | パス |
 | --- | --- |
+| **Start Here（1ページ索引）** | `docs/v1_0_operator_start_here.md` |
 | v1.0 readiness dashboard | `docs/v1_0_operational_readiness_dashboard.md` |
 | 週次10分 | `docs/v1_0_weekly_10min_flow.md` |
 | one-page sample | `reports-private/sample_outputs/chatgpt_one_page_summary_sample.md` |
