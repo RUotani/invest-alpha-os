@@ -4,12 +4,12 @@
 
 | 項目 | 結果 |
 | --- | --- |
-| observation time | 2026-06-05 22:07 JST（Post #487 merge + auto-merge policy） |
+| observation time | 2026-06-05 22:35 JST（Long-Run MAX #491–#492 後） |
 | workflow | `weekly-candidate-brief`（`.github/workflows/weekly_candidate_brief.yml`） |
 | event | **not observed** — `event=schedule` の run は一覧に未出現 |
 | conclusion | **NOT_YET_OBSERVABLE**（観測ウィンドウ 2026-06-06 07:30 JST 未到達） |
 | run id | — |
-| branch/head | `main` / `da3bdc88aaf71036e780038f19619c80e0aec905`（#487） |
+| branch/head | `main` / `880c4b3`（#492） |
 | artifact count | 0（natural run なし） |
 | status.json | 未確認（schedule run なし） |
 | weekly_candidate_brief.md | 未確認 |
@@ -34,8 +34,9 @@
 
 ## Findings
 
-- 現時刻（2026-06-05 22:07 JST）は観測ウィンドウ **2026-06-06 07:30 JST 以降** に未到達。
-- #487 merge 後も natural `event=schedule` は一覧に未出現（dispatch のみ 2026-06-01〜02）。
+- 現時刻（2026-06-05 22:35 JST）は観測ウィンドウ **2026-06-06 07:30 JST 以降** に未到達。
+- Long-Run MAX 再観測でも natural `event=schedule` は一覧に未出現（dispatch のみ 2026-06-01〜02）。
+- #491–#492 完了: coverage taxonomy / JSON pipeline source / email renderer 整合。
 - cron: `0 22 * * 5`（金曜 22:00 UTC ≒ **土曜 07:00 JST**）。次の natural run は **2026-06-06 07:00 JST 前後** が想定。
 - `gh run list --workflow weekly_candidate_brief.yml` 直近は **workflow_dispatch のみ**（2026-06-01〜02）。
 - **workflow_dispatch は本観測で未実行**（Hard Gate 遵守）。
