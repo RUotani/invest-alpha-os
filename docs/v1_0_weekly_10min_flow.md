@@ -14,7 +14,7 @@
 | 分 | ステップ | コマンド / 操作 |
 | ---: | --- | --- |
 | 1 | v1.0 readiness 確認 | `env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main v1-readiness-check --format markdown` |
-| 2 | scheduled run 分類（read-only） | `gh run list --workflow weekly_candidate_brief.yml --limit 10` |
+| 2 | scheduled run 分類（read-only） | `gh run list --workflow weekly_candidate_brief.yml --limit 10`（schedule なし → pending 記録で終了） |
 | 3 | artifact download（success 時のみ） | `gh run download <RUN_ID> --dir /tmp/invest-alpha-os-weekly-<RUN_ID>` |
 | 4 | artifact verify | `weekly-artifact-local-verify --report-date <date> --report-dir /tmp/.../reports/<date> --status-file /tmp/.../outputs/operator/weekly_candidate_brief/<date>/status.json --json-report-optional` |
 | 5 | one-page summary | `weekly-report-user-summary --format markdown --source composed --report-date <date>` |

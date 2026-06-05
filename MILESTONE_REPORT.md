@@ -3,8 +3,8 @@
 ## Current Phase
 
 - **Phase:** v1.0 Candidate Discovery OS — operational readiness pack
-- **Latest main:** `6031cfc`（#498 merged; v1.0 Long-Run active）
-- **P0:** 2026-06-06 00:22 JST — v1.0 core 12/12 target; worktree clean
+- **Latest main:** `8849f37`（#499 merged; v1.0 initial ops Long-Run active）
+- **P0:** 2026-06-06 07:58 JST — scheduled observation pending; v1.0 core 12/12
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -166,7 +166,7 @@
 - [x] T1 workflow JSON proposal status update（未適用）
 - [x] T2 next 24h candidate discovery longrun plan
 - [x] T3 final consolidation（`cursor_auto_24h_final_summary.md` Post #494 更新）
-- [ ] Post 07:30 JST scheduled observation PR
+- [x] Post 07:30 JST scheduled observation（#500 予定 — pending 記録）
 
 ## v1.0 Operational Readiness（#498 merged）
 
@@ -175,7 +175,15 @@
 - [x] `docs/v1_0_tomorrow_operational_checklist.md`
 - [x] `docs/v1_0_weekly_10min_flow.md`
 - [x] `weekly_artifact_local_verify_20260606.md`（dispatch 参考）
-- [ ] Post 07:30 JST scheduled observation + natural artifact re-verify
+
+## Post #499 v1.0 Initial Ops（#500 予定）
+
+- [x] 07:58 JST scheduled observation — `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE`
+- [x] natural artifact verify — `OBSERVATION_PENDING_ARTIFACT_NOT_FOUND`
+- [x] `docs/v1_0_operator_start_here.md`
+- [x] v1-readiness-check `v1_usable_tomorrow: true`
+- [x] weekly-report-user-summary composed 確認
+- [ ] 2026-06-07/08 scheduled re-observation
 
 ## Open Issues
 

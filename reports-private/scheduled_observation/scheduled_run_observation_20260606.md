@@ -4,20 +4,19 @@
 
 | 項目 | 結果 |
 | --- | --- |
-| observation time | 2026-06-06 00:22 JST（v1.0 pack 前・再観測） |
+| observation time | 2026-06-06 07:58 JST（Post #499 v1.0 observation · 観測ウィンドウ到達後） |
 | workflow | `weekly-candidate-brief`（`.github/workflows/weekly_candidate_brief.yml`） |
 | event | **not observed** — `event=schedule` の run は一覧に未出現 |
-| conclusion | **NOT_YET_OBSERVABLE**（観測ウィンドウ 2026-06-06 07:30 JST 未到達） |
+| conclusion | **OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE** |
+| classification code | `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` |
 | run id | — |
-| branch/head | `main` / `af6543a`（#495） |
+| branch/head | `main` / `8849f37`（#499） |
 | artifact count | 0（natural run なし） |
+| artifact verify | **OBSERVATION_PENDING_ARTIFACT_NOT_FOUND** |
 | status.json | 未確認（schedule run なし） |
-| weekly_candidate_brief.md | 未確認 |
-| weekly_candidate_brief.json | 未確認（runner は #475 以降生成、CI upload は workflow 待ち） |
-| copy report | 未確認 |
-| email preview txt/html | 未確認 |
+| weekly_candidate_brief.json | 未確認（CI upload workflow 承認待ち） |
 | gmail_send_attempted | 設計上 `false`（v104）— artifact 未取得 |
-| result | **PENDING — re-observe after 2026-06-06 07:30 JST** |
+| result | **PENDING — 2026-06-07/08 再観測。初日運用は fixture/sample で可** |
 
 ## Classification
 
@@ -25,34 +24,30 @@
 | --- | --- |
 | event=schedule + success | **未該当** |
 | event=schedule + failure | **未該当** |
-| no event=schedule after expected prep time | **NOT_YET_OBSERVABLE**（時刻未到達） |
-| event exists but no artifact | **未該当** |
-| artifact exists but status.json missing | **未該当** |
-| email preview exists but send attempted | **未該当** |
-
-参考: 直近 `workflow_dispatch` run `26803119044`（2026-06-02, success）— artifact に JSON なし、status.json は旧 minimal schema（v104 前）。
+| no event=schedule after 07:30 JST window | **OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE** |
+| artifact verify（natural） | **OBSERVATION_PENDING_ARTIFACT_NOT_FOUND** |
+| workflow_dispatch 代替 | **未実施**（Hard Gate） |
 
 ## Findings
 
-- 現時刻（2026-06-06 00:10 JST）は観測ウィンドウ **2026-06-06 07:30 JST 以降** に未到達。
-- 再観測でも natural `event=schedule` は一覧に未出現（dispatch のみ 2026-06-01〜02）。
-- #491–#495 完了: D1–D4（taxonomy / JSON / discovery summary / candidate-positive conclusion）。
-- cron: `0 22 * * 5`（金曜 22:00 UTC ≒ **土曜 07:00 JST**）。次の natural run は **2026-06-06 07:00 JST 前後** が想定。
-- `gh run list --workflow weekly_candidate_brief.yml` 直近は **workflow_dispatch のみ**（2026-06-01〜02）。
+- 観測時刻（2026-06-06 07:58 JST）は想定ウィンドウ **07:30 JST 以降** に到達。
+- `gh run list --workflow weekly_candidate_brief.yml --limit 30` — **workflow_dispatch のみ**（2026-06-01〜02）。
+- natural `event=schedule` は **未出現**（cron `0 22 * * 5` ≒ 土曜 07:00 JST 想定だが GitHub 上に記録なし）。
+- v1.0 core **12/12** — 明日（2026-06-07）の初日運用は `v1-readiness-check` + composed summary で継続可能。
 - **workflow_dispatch は本観測で未実行**（Hard Gate 遵守）。
 
 ## Missing / Gaps
 
-- natural `event=schedule` 未確認
-- CI artifact upload に `weekly_candidate_brief.json` 未含む（workflow patch proposal 作成済み）
-- v86 scheduled observation: **partial**
+- natural scheduled run 未確認（scheduler gap または platform 遅延の可能性）
+- CI artifact upload に `weekly_candidate_brief.json` 未含む（workflow patch **承認待ち**）
+- v86 scheduled observation: **partial**（pending 理由付きで記録済み）
 
 ## Next Actions
 
-1. **2026-06-06 07:30 JST 以降** に `gh run list` を再実行し `event=schedule` を分類
-2. success 時: `gh run download <RUN_ID> --dir /tmp/...` で artifact 検証
-3. `weekly-artifact-local-verify --report-date <date>` で local/schema 検証
-4. `weekly_artifact_missing_analysis_20260606.md` / workflow proposal を参照
+1. **2026-06-07 / 2026-06-08** に `gh run list` を再実行
+2. `event=schedule` + success 時: `/tmp` download → `weekly-artifact-local-verify`
+3. workflow JSON upload は人間承認まで proposal のみ
+4. 初日運用: `docs/v1_0_operator_start_here.md`
 
 ## Safety Summary
 
