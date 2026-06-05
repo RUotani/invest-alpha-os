@@ -152,6 +152,11 @@ from invis_alpha_os.product.weekly_us_observation import (
     build_enriched_us_observation_summary,
     us_cache_expansion_report,
 )
+from invis_alpha_os.product.weekly_artifact_local_verification import (
+    format_weekly_artifact_local_verification_json,
+    render_weekly_artifact_local_verification_markdown,
+    verify_weekly_candidate_brief_local_artifacts,
+)
 from invis_alpha_os.product.evidence_manifest import (
     build_evidence_manifest,
     write_evidence_manifest_report,
@@ -1948,6 +1953,39 @@ def sample_output_pack_command(
         typer.echo("sample-output-pack: only markdown is supported", err=True)
         raise typer.Exit(code=2)
     typer.echo(render_sample_output_pack_markdown_v112())
+
+
+@app.command("weekly-artifact-local-verify")
+def weekly_artifact_local_verify_command(
+    report_date: str = typer.Option(..., "--report-date"),
+    report_dir: Optional[str] = typer.Option(None, "--report-dir"),
+    status_file: Optional[str] = typer.Option(None, "--status-file"),
+    require_json_report: bool = typer.Option(True, "--require-json-report/--json-report-optional"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Verify weekly brief artifacts locally; never dispatch workflows or fetch live data."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("weekly-artifact-local-verify: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    resolved_report_dir = Path(report_dir) if report_dir else ROOT_DIR / "reports" / report_date
+    resolved_status_file = (
+        Path(status_file)
+        if status_file
+        else ROOT_DIR / "outputs" / "operator" / "weekly_candidate_brief" / report_date / "status.json"
+    )
+    result = verify_weekly_candidate_brief_local_artifacts(
+        report_date=report_date,
+        report_dir=resolved_report_dir,
+        status_file=resolved_status_file,
+        require_json_report=require_json_report,
+    )
+    if format == "json":
+        typer.echo(format_weekly_artifact_local_verification_json(result))
+    else:
+        typer.echo(render_weekly_artifact_local_verification_markdown(result))
+    if not result.ready:
+        raise typer.Exit(code=1)
 
 
 @app.command("portfolio-data-quality-review")
