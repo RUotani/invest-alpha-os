@@ -103,6 +103,14 @@
 - [x] forbidden direct action wording validator
 - [x] operator dashboard current-state wording refresh
 
+## 2026-06-05 24h Long-Run Queue（T2）
+
+- [x] `docs/operator_user_guide.md`
+- [x] safe command index
+- [x] weekly scheduled run observation classification
+- [x] email preview vs Gmail delivery wording
+- [x] hard-gate forbidden actions list
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
