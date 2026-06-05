@@ -42,6 +42,14 @@
 - [x] full pytest 1833 passed
 - [ ] scheduled run 再観測（2026-06-06 07:30 JST 以降）
 
+## Post #475 Continuous Main Queue（P1/P2）
+
+- [x] P1 scheduled natural run read-only observation: NOT YET OBSERVABLE（2026-06-05 19:58 JST）
+- [x] P2 weekly artifact/status.json local verification harness
+- [x] CLI `weekly-artifact-local-verify`
+- [x] v104 status / local artifact marker validation tests
+- [ ] scheduled run 再観測（2026-06-06 07:30 JST 以降）
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
