@@ -28,7 +28,7 @@ def test_progress_dashboard_current_file_is_consistent() -> None:
 
 def test_progress_dashboard_checker_reports_section_mismatch(tmp_path: Path) -> None:
     source = (REPO / "docs" / "progress_dashboard.md").read_text(encoding="utf-8")
-    broken = source.replace("| Report MVP | 20 | 16 | 19 | 84% |", "| Report MVP | 20 | 13 | 19 | 68% |")
+    broken = source.replace("| Report MVP | 20 | 17 | 20 | 85% |", "| Report MVP | 20 | 13 | 20 | 65% |")
     path = tmp_path / "progress_dashboard.md"
     path.write_text(broken, encoding="utf-8")
 

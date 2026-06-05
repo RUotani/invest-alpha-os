@@ -36,3 +36,9 @@ CI artifact に `weekly_candidate_brief.json` を含め、v101 checklist と loc
 ## Do not apply without approval
 
 Cursor / Agent は本パックを作成するのみ。`.github/workflows/*` への直接編集は禁止。
+
+## Status（2026-06-06 Post #494）
+
+- **APPROVAL_REQUIRED** — boundary pack 有効、workflow 未変更
+- scheduled observation: **NOT_YET_OBSERVABLE**（2026-06-06 07:30 JST 以降に再観測）
+- merge 後検証: read-only `gh run download` + `weekly-artifact-local-verify`（Hard Gate 遵守）

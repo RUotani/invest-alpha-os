@@ -2,9 +2,9 @@
 
 ## Current Phase
 
-- **Phase:** Post #487 — Report MVP 85% + Candidate Discovery OS next tree
-- **Latest main:** `2b9cd9a`（#493 merged; Long-Run MAX active）
-- **P0:** 2026-06-05 22:07 JST — auto-merge policy active; worktree clean
+- **Phase:** Post #494 — Candidate Discovery OS D4 + scheduled observation pending
+- **Latest main:** `af6543a`（#495 merged; Long-Run MAX active）
+- **P0:** 2026-06-06 00:10 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -150,11 +150,22 @@
 - [x] #489 Candidate Discovery OS next 24h tree
 - [ ] T1 scheduled re-observation（2026-06-06 07:30 JST 以降）
 
-## Long-Run MAX（#491–#493）
+## Long-Run MAX（#491–#495）
 
 - [x] #491 D1 coverage reason taxonomy（signals）
 - [x] #492 D2 JSON schema + R1 email renderer alignment
-- [ ] #493 D3 discovery summary + observation refresh
+- [x] #493 D3 discovery summary + observation refresh
+- [x] #494 MILESTONE #493 完了マーク
+- [x] #495 D4 candidate-positive weekly conclusion template
+
+## Post #494 Queue（docs）
+
+- [x] P1 scheduled observation 再記録（NOT_YET_OBSERVABLE @ 00:10 JST）
+- [x] D5 project goal Candidate Discovery OS
+- [x] D6 Report MVP 85 readiness + progress dashboard v0.6
+- [x] T1 workflow JSON proposal status update（未適用）
+- [x] T2 next 24h candidate discovery longrun plan
+- [ ] T3 final consolidation（07:30 JST 観測後）
 
 ## Open Issues
 
