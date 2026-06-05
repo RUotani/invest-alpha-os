@@ -3,7 +3,7 @@
 ## Current Phase
 
 - **Phase:** Post #487 — Report MVP 85% + Candidate Discovery OS next tree
-- **Latest main:** `880c4b3`（#492 merged; Long-Run MAX active）
+- **Latest main:** `2b9cd9a`（#493 merged; Long-Run MAX active）
 - **P0:** 2026-06-05 22:07 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
