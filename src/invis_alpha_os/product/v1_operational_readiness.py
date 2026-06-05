@@ -30,6 +30,9 @@ class V1OperationalReadinessResult:
     source_mode: str
     target_use_date: str
     latest_verified_main_note: str
+    schedule_status: str
+    delivery_mode: str
+    gmail_sent: bool
     core_ready: int
     core_total: int
     observation_ready: int
@@ -185,6 +188,9 @@ def build_v1_operational_readiness(
         source_mode="source_only_read_only_no_side_effects",
         target_use_date=target_use_date,
         latest_verified_main_note="Post #497 — Candidate Discovery OS v1.0 operational pack",
+        schedule_status="pending",
+        delivery_mode="local_markdown_or_artifact_preview",
+        gmail_sent=False,
         core_ready=core_ready,
         core_total=_CORE_ITEM_COUNT,
         observation_ready=observation_ready,
@@ -209,6 +215,9 @@ def format_v1_operational_readiness_json(result: V1OperationalReadinessResult) -
         "source_mode": result.source_mode,
         "target_use_date": result.target_use_date,
         "latest_verified_main_note": result.latest_verified_main_note,
+        "schedule_status": result.schedule_status,
+        "delivery_mode": result.delivery_mode,
+        "gmail_sent": result.gmail_sent,
         "core_ready": result.core_ready,
         "core_total": result.core_total,
         "observation_ready": result.observation_ready,
@@ -233,6 +242,9 @@ def render_v1_operational_readiness_markdown(result: V1OperationalReadinessResul
         f"- source_mode: {result.source_mode}",
         f"- target_use_date: {result.target_use_date}",
         f"- latest_verified_main_note: {result.latest_verified_main_note}",
+        f"- schedule_status: **{result.schedule_status}**",
+        f"- delivery_mode: **{result.delivery_mode}**",
+        f"- gmail_sent: **{str(result.gmail_sent).lower()}**",
         f"- v1_usable_tomorrow: **{str(result.v1_usable_tomorrow).lower()}**",
         f"- core: **{result.core_ready}/{result.core_total} ({core_pct}%)**",
         f"- observation: {result.observation_ready}/{result.observation_total}",
@@ -280,6 +292,8 @@ def render_v1_operational_readiness_markdown(result: V1OperationalReadinessResul
         [
             "",
             "## Safety Notes",
+            "- Gmail inbox is not the canonical v1.0 delivery mechanism",
+            "- canonical outputs are local Markdown reports and email preview artifacts",
             "- not an auto-trading bot; no broker API; no order placement",
             "- workflow_dispatch / workflow change / live HTTP / cache write / actual import: not executed",
             "- real email send / trading action / env secret display: not executed",
