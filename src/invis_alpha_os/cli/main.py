@@ -114,6 +114,11 @@ from invis_alpha_os.product.portfolio_observation_summary import (
     format_portfolio_observation_summary_json,
     format_portfolio_observation_summary_markdown,
 )
+from invis_alpha_os.product.progress_dashboard_consistency import (
+    check_progress_dashboard_consistency,
+    format_progress_dashboard_consistency_json,
+    render_progress_dashboard_consistency_markdown,
+)
 from invis_alpha_os.product.raw_input_quarantine_v110 import (
     QuarantineSourceKind,
     RawInputQuarantineManifestV110,
@@ -1974,6 +1979,25 @@ def operator_dashboard_summary_command(
         typer.echo(format_operator_dashboard_summary_json(summary))
     else:
         typer.echo(render_operator_dashboard_summary_markdown(summary))
+
+
+@app.command("progress-dashboard-check")
+def progress_dashboard_check_command(
+    path: str = typer.Option(str(ROOT_DIR / "docs" / "progress_dashboard.md"), "--path"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Validate progress dashboard table/checklist consistency without side effects."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("progress-dashboard-check: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    result = check_progress_dashboard_consistency(Path(path))
+    if format == "json":
+        typer.echo(format_progress_dashboard_consistency_json(result))
+    else:
+        typer.echo(render_progress_dashboard_consistency_markdown(result))
+    if not result.ok:
+        raise typer.Exit(code=1)
 
 
 @app.command("weekly-artifact-local-verify")
