@@ -29,6 +29,27 @@ jobs:
           python -m pip install -e ".[gmail]"
       - name: Generate weekly candidate brief
         run: scripts/run_weekly_candidate_brief.sh
+      - name: Resolve report date (JST)
+        id: report_date
+        run: |
+          REPORT_DATE="$(PYTHONPATH=src python -c 'from invis_alpha_os.utils.date_utils import today_jst_iso; print(today_jst_iso())')"
+          echo "date=${REPORT_DATE}" >> "${GITHUB_OUTPUT}"
+      - name: Send weekly report email
+        if: vars.WEEKLY_REPORT_EMAIL_ENABLED == 'true'
+        env:
+          WEEKLY_REPORT_EMAIL_ENABLED: ${{ vars.WEEKLY_REPORT_EMAIL_ENABLED }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          WEEKLY_REPORT_EMAIL_FROM: ${{ secrets.WEEKLY_REPORT_EMAIL_FROM }}
+          WEEKLY_REPORT_EMAIL_TO: ${{ secrets.WEEKLY_REPORT_EMAIL_TO }}
+        run: |
+          PYTHONPATH=src python -m invis_alpha_os.cli.main weekly-report-email-send \
+            --report-date "${{ steps.report_date.outputs.date }}" \
+            --report-root "reports/${{ steps.report_date.outputs.date }}" \
+            --send \
+            --format markdown
       - name: Upload weekly candidate brief artifact
         uses: actions/upload-artifact@v4
         with:

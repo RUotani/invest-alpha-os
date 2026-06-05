@@ -43,7 +43,7 @@
 | ブロッカー | 状態 | 初日運用への影響 |
 | --- | --- | --- |
 | GitHub scheduled run | `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` | **なし** — 本 manual pack で代替済み |
-| Gmail 配信 | `NO_GO_NOT_SENT`（real email 未実装/禁止） | **なし** — 本 README + copy で閲覧可 |
+| Gmail 配信 | v1.1 承認済み — secrets 設定後は `weekly-report-email-send --send` | 未設定時は本 README + copy で閲覧可 |
 | CI JSON artifact | workflow 承認待ち | **なし** — ローカル JSON は生成済み（週次dir） |
 
 初日運用（2026-06-07）は **v1_usable_tomorrow: true** のまま継続。
@@ -53,6 +53,11 @@
 1. [weekly_20260606/README_FOR_USER.md](../weekly_20260606/README_FOR_USER.md) — 週次フル要約
 2. [weekly_20260606/weekly_candidate_brief_copy.md](../weekly_20260606/weekly_candidate_brief_copy.md) — 全文
 3. [docs/v1_0_operator_start_here.md](../../../docs/v1_0_operator_start_here.md) — 運用索引
+
+## Gmail 自動送信（v1.1）
+
+セットアップ: `docs/v1_1_gmail_auto_send_setup.md`  
+secrets 設定後、週次 workflow または CLI で SMTP 送信。失敗時も本 README が fallback。
 
 ## 安全メモ
 
