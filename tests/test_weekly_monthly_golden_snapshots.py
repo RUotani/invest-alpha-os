@@ -51,8 +51,7 @@ def test_weekly_markdown_golden_section_order_and_decision_markers() -> None:
             "## 候補パイプライン・トレース",
             "## Score / Veto 統合サマリー",
             "## Shared Summary（v96）",
-            "## 今週の行動チェックリスト",
-            "## 今週のDo / Don't",
+            "## 次に確認すること",
             "## 安全メモ",
             "## マクロ環境（ETF proxy）",
             "## 今週の候補 Top 5（横断）",
@@ -84,12 +83,11 @@ def test_weekly_copy_golden_keeps_chatgpt_paste_boundaries_and_action_checklist(
     assert copy.rstrip().endswith("<<< COPY TO HERE >>>")
     assert "# 週次候補ブリーフ — 2026-06-06" in copy
     assert "## 今週の結論" in copy
-    assert "## 今週の行動チェックリスト" in copy
-    assert "### 今週やってよいこと" in copy
-    assert "### 今週やらないこと" in copy
-    assert "### 次に確認すること" in copy
+    assert "## 次に確認すること" in copy
+    assert "今週やること:" in copy
+    assert "今週やらないこと:" in copy
     assert "Score / Veto" in copy
-    assert "Pipeline" in copy
+    assert "候補パイプライン" in copy
     assert "Sanitized / Manual Input" in copy
     assert "これは売買指示ではなく" in copy
 
@@ -108,16 +106,7 @@ def test_weekly_json_golden_keeps_schema_and_pipeline_payload() -> None:
         "insufficient",
         "theme_highlights",
     }
-    assert payload["score_veto_pipeline"]
-    assert {
-        "score_band",
-        "normalized_score",
-        "has_hard_veto",
-        "has_soft_veto",
-        "veto_keys",
-        "pipeline_stage",
-        "action_label_ja",
-    } <= set(payload["score_veto_pipeline"][0])
+    assert payload["score_veto_pipeline"] == []
 
 
 def test_monthly_decision_sheet_golden_section_order_and_portfolio_numbers() -> None:

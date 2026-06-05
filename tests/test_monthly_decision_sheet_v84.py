@@ -12,6 +12,9 @@ def test_monthly_decision_sheet_v84_contains_required_sections() -> None:
 
     assert "# Monthly Decision Sheet" in md
     assert "## 今月の結論" in md
+    assert "今月は新規買いを急がない" in md
+    assert "今月やること:" in md
+    assert "今月やらないこと:" in md
     assert "## 判断サマリー" in md
     assert "## 今月の意思決定テーブル" in md
     assert "## 現金回復ステップ" in md

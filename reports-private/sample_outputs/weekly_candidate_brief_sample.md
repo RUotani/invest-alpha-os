@@ -7,10 +7,24 @@
 
 ## 今週の結論
 
-- 強い新規リスク候補: 0件。候補ゼロを正常な抑制シグナルとして扱います。
-- 候補総数: 0件 / 上位候補: 0件
-- 理由: JP candidates were unavailable due to insufficient JP cache quality / US equity candidates were unavailable due to insufficient data quality
-- 判断方針: 現金比率が11.7%で最低目安15%を下回るため、強い根拠のない新規リスク追加よりも、監視・整理・現金回復を優先します。
+今週は新規買いを急がない。
+
+理由:
+- 現金比率が11.7%で、最低目安15%を下回っている
+- 個別株比率が19.6%で、目安10〜15%を上回っている
+- 日本株・米国株とも、候補判定に必要なデータ品質が不足していたため、強い新規候補として採用しませんでした。
+
+候補0件は「問題なし」ではなく、新規リスクを増やさない抑制シグナルです。
+
+今週やること:
+1. 新規リスク追加ではなく、現金回復と個別株比率の整理候補を確認
+2. データ不足の原因を確認
+3. 次回runで候補抽出が改善するかを見る
+
+今週やらないこと:
+- 根拠不足の個別株・高ベータ銘柄を追加しない
+- 候補0件を「問題なし」と解釈しない
+- actual import / broker連携 / cache write は引き続き NO-GO
 
 ## ポートフォリオ制約
 
@@ -65,23 +79,13 @@ veto reason log: 該当なし。今回はvetoで除外されたというより�
 
 ## Score / Veto 統合サマリー
 
-この表は売買指示ではなく、候補の深掘り優先度と安全確認ポイントを整理するものです。
-
-| 候補 | Score band | Score | Veto | Pipeline | 今週の扱い | 次確認 |
-|---|---|---:|---|---|---|---|
-| GRID_A | BLOCKED | 58.75 | HARD: missing_evidence | veto_blocked | veto確認 | coverage、score内訳、価格根拠、一次情報の有無を確認します。 |
-| ROBO_B | DEEP_DIVE | 65.25 | SOFT: duplicate_exposure | watch | 追加確認 | 既存保有、ETF、投信、テーマ別exposureとの重なりを確認します。 |
-| MAT_C | WATCH | 62.50 | - | watch | 監視 | 次回runでscore・veto・portfolio制約の変化を確認 |
-| CASH_D | HIGH_CONVICTION_REVIEW | 87.25 | - | high_conviction_review | 高優先レビュー | 高優先レビューとして、反証とportfolio制約を人間が確認 |
-| HYPE_E | BLOCKED | 43.25 | HARD: missing_evidence, portfolio_constraint_breach +6 | veto_blocked | veto確認 | coverage、score内訳、価格根拠、一次情報の有無を確認します。 |
-
-- Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。
-- これは実行指示ではなく、根拠補完と安全確認の分類です。
+今回は強い新規候補0件のため、パイプライン候補表は表示しません。
+coverage / score / veto 条件の確認を優先してください。
 
 ## Shared Summary（v96）
 
 ### Score / Veto（共有要約）
-- Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。
+- Score/Veto: 深掘り候補0。強い新規候補なしのためfixture候補表は表示しません。
 - これは実行指示ではなく、根拠補完と安全確認の分類です。
 
 ### 候補パイプライン（共有要約）
@@ -100,19 +104,13 @@ veto reason log: 該当なし。今回はvetoで除外されたというより�
 
 - これは売買指示ではなく、根拠補完・安全確認・深掘り優先度の分類です。
 
-## 候補0件の理由メモ
-
-候補0件は失敗ではありません。今回は、強い新規リスク候補として扱える根拠が不足しているため、
-追加リスクを抑制する判断材料として扱います。
+## 候補0件の内訳
 
 | 理由カテゴリ | 件数/状態 | 説明 | 次に確認すること |
 |---|---|---|---|
 | coverage不足 | 0件 | データ不足候補はcoverage不足として扱い、score判定の信頼度が不足 | 価格・出来高・期間・データソースを確認 |
 | score未達 | 該当候補なし | score条件を満たす根拠が不足、または候補化前の条件確認が必要 | score内訳・閾値・相場環境を確認 |
 | veto | 0件 | vetoで除外されたのではなく、主にcoverage/score条件で候補化されていない | veto理由・除外条件・反証軸を確認 |
-
-- 候補0件の主因: coverage不足 0件 / score未達 該当候補なし / veto 0件
-- 次確認: 価格・出来高・期間・score内訳・veto理由
 
 ## 整理・監視優先度スコア
 
@@ -142,49 +140,18 @@ veto reason log: 該当なし。今回はvetoで除外されたというより�
 - 4: 高優先で監視・整理検討
 - 5: 強い抑制・新規追加禁止寄り
 
-## 今週の行動チェックリスト
+## 次に確認すること
 
-### 今週やってよいこと
-- 候補0件の理由、coverage不足、score未達、veto理由を確認する
-- 新規リスク追加ではなく、監視候補・整理候補・高ボラ枠の根拠確認を進める
-- 現金11.7%から最低15%、できれば20%方向へ戻す前提で、週次判断を記録する
-- 整理・監視優先度スコアが高い枠の根拠を確認する
-
-### 今週やらないこと
-- 現金比率11.7%のまま、根拠不足の新規個別株・高ベータ枠を追加しない
-- 個別株19.6%が10〜15%目安を上回る前提で、個別株候補を強い新規リスク候補扱いしない
-- データ不足候補を、coverage・価格・score内訳を確認しないまま深掘り対象にしない
-- 整理・監視優先度が高い枠と同じリスクを新規に増やさない
-
-### 次に確認すること
 - 現金比率が15%未満で止まっていないか、20%回復ゾーンへ向かう余地があるか
 - 株式系67.8%と個別株19.6%に重複リスク・高ボラ偏り・整理候補がないか
 - 次回weekly runで候補0件の理由が、データ不足から条件未達へ改善しているか
 - score 4以上の枠が、個別株・高ボラ枠・重複リスクのどれに集中しているか
-
-### 候補0件の意味
-- 候補0件はレポート失敗ではありません。
-- 現金不足・データ不足・条件未達のため、新規リスクを増やさない判断材料です。
-
-## 今週のDo / Don't
-
-### Do
-- 候補0件の理由とcoverage不足を確認する
-- 現金比率が低い前提で、新規リスク追加を抑制する
-- 整理候補・高ボラ枠を次回レビュー対象にする
-
-### Don't
-- 候補0件を「問題なし」と解釈しない
-- データ不足のまま個別株リスクを増やさない
-- 高ボラ/レバ商品を雰囲気で追いかけない
 
 ## 今週の深掘り候補 上位5件
 
 | 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |
 |---|---|---|---|---|---|
 | — | — | — | — | — | — |
-
-- coverage: JP candidates were unavailable due to insufficient JP cache quality / US equity candidates were unavailable due to insufficient data quality
 
 ## 候補別メモ
 
@@ -202,14 +169,16 @@ veto reason log: 該当なし。今回はvetoで除外されたというより�
 - report_date: 2026-06-04
 - run_type: local_or_workflow_generated
 - candidate_count: 0
-- no_candidate_reason: JP candidates were unavailable due to insufficient JP cache quality / US equity candidates were unavailable due to insufficient data quality
+- no_candidate_reason: 日本株・米国株とも、候補判定に必要なデータ品質が不足していたため、強い新規候補として採用しませんでした。
 - portfolio_context: cash 508.2万円 / 11.7%, individual stocks 846.3万円 / 19.6%, equity total 2,934.5万円 / 67.8%
 - cleanup_priority: 現金圧力 / 配分超過 / 根拠不足 / 高ボラリスク / 重複リスク を確認してください。
 - review_request: 今週やってよいこと / やらないこと / 次に確認することを、現金制約と個別株比率制約から再点検してください。
 
 ## 安全メモ
 
-このレポートは売買指示ではありません。
-現金比率が低い局面では、候補が出ないこと自体を「新規リスクを増やさない」シグナルとして扱います。
+これは売買指示ではありません。
+現金比率が低い局面では、候補が出ないこと自体を「新規リスクを増やさない」抑制シグナルとして扱います。
+actual import / broker連携 / cache write / 実メール送信は実行していません。
 
 <<< COPY TO HERE >>>
+

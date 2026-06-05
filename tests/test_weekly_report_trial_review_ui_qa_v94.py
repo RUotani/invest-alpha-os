@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 
+from invis_alpha_os.product.candidate_score_veto_pipeline_v93 import (
+    build_fixture_integrated_candidate_assessments_v93,
+)
 from invis_alpha_os.product.weekly_candidate_brief_v0 import (
     WeeklyCandidateBriefV0,
     format_weekly_candidate_brief_v0_copy,
@@ -21,8 +24,27 @@ def _fixture_brief() -> WeeklyCandidateBriefV0:
     )
 
 
-def test_v94_score_veto_markdown_json_and_email_are_consistent() -> None:
-    brief = _fixture_brief()
+def test_v94_zero_candidate_copy_suppresses_fixture_pipeline_rows() -> None:
+    copy_body = format_weekly_candidate_brief_v0_copy(_fixture_brief())
+    payload = json.loads(format_weekly_candidate_brief_v0_json(_fixture_brief()))
+
+    assert payload["score_veto_pipeline"] == []
+    assert "今回は強い新規候補0件のため、パイプライン候補表は表示しません" in copy_body
+    for fixture_name in ("GRID_A", "ROBO_B", "MAT_C", "CASH_D", "HYPE_E"):
+        assert fixture_name not in copy_body
+    assert "## 候補0件の内訳" in copy_body
+
+
+def test_v94_score_veto_markdown_json_and_email_are_consistent_with_explicit_assessments() -> None:
+    brief = WeeklyCandidateBriefV0(
+        report_date="2026-06-02",
+        generated_at_jp="fixture-only",
+        generated_at_us="fixture-only",
+        jp_scope="fixture-only",
+        us_scope="fixture-only",
+        macro_summary="fixture-only trial",
+        score_veto_assessments=build_fixture_integrated_candidate_assessments_v93(),
+    )
     copy_body = format_weekly_candidate_brief_v0_copy(brief)
     payload = json.loads(format_weekly_candidate_brief_v0_json(brief))
     draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=copy_body)
@@ -42,7 +64,6 @@ def test_v94_score_veto_markdown_json_and_email_are_consistent() -> None:
     assert "- Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in copy_body
     assert "- これは実行指示ではなく、根拠補完と安全確認の分類です。" in copy_body
     assert "## Shared Summary（v96）" in copy_body
-    assert "## 候補0件の理由メモ" in copy_body
 
     assert "## Score / Veto（短縮）" in draft.text_body
     assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in draft.text_body

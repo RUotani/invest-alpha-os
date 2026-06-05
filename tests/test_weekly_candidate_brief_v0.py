@@ -114,8 +114,7 @@ def test_format_json_schema() -> None:
     payload = json.loads(format_weekly_candidate_brief_v0_json(brief))
     assert payload["schema_version"] == "weekly_candidate_brief.v0.1"
     assert payload["sections"]["top_picks"] == []
-    assert payload["score_veto_pipeline"][0]["symbol"] == "GRID_A"
-    assert payload["score_veto_pipeline"][0]["pipeline_stage"] == "veto_blocked"
+    assert payload["score_veto_pipeline"] == []
 
 
 def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
@@ -138,7 +137,11 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
 
     for body in (md, copy_body):
         assert "## 今週の結論" in body
-        assert "強い新規リスク候補: 0件" in body
+        assert "今週は新規買いを急がない" in body
+        assert "候補0件は「問題なし」ではなく、新規リスクを増やさない抑制シグナルです" in body
+        assert "日本株・米国株とも、候補判定に必要なデータ品質が不足していたため" in body
+        for fixture_name in ("GRID_A", "ROBO_B", "MAT_C", "CASH_D", "HYPE_E"):
+            assert fixture_name not in body
         assert "## ポートフォリオ制約" in body
         assert "現金: 508.2万円 / 11.7%" in body
         assert "個別株: 846.3万円 / 19.6%" in body
@@ -162,9 +165,8 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "候補パイプライン: 入力" in body
         assert "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。" in body
         assert "## Score / Veto 統合サマリー" in body
-        assert "| 候補 | Score band | Score | Veto | Pipeline | 今週の扱い | 次確認 |" in body
-        assert "| CASH_D | HIGH_CONVICTION_REVIEW | 87.25 | - | high_conviction_review | 高優先レビュー |" in body
-        assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in body
+        assert "今回は強い新規候補0件のため、パイプライン候補表は表示しません" in body
+        assert "Score/Veto: 深掘り候補0。強い新規候補なしのためfixture候補表は表示しません。" in body
         assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in body
         assert "## Shared Summary（v96）" in body
         assert "### Monthly Input Consistency（共有要約）" in body
@@ -174,12 +176,10 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in body
         assert "Sanitized Guardrail: 現金11.7%はminimum 15.0%未満" in body
         assert "Sanitized Parity: v97/v95整合 WARN" in body
-        assert "## 候補0件の理由メモ" in body
+        assert "## 候補0件の内訳" in body
         assert "| coverage不足 | 0件 |" in body
         assert "| score未達 | 該当候補なし |" in body
         assert "| veto | 0件 | vetoで除外されたのではなく" in body
-        assert "候補0件の主因: coverage不足 0件 / score未達 該当候補なし / veto 0件" in body
-        assert "次確認: 価格・出来高・期間・score内訳・veto理由" in body
         assert "vetoで除外されたのではなく、主にcoverage/score条件で候補化されていない" in body
         assert "## 整理・監視優先度スコア" in body
         assert "このスコアは売却指示ではなく、次に確認すべき整理・監視優先度です" in body
@@ -193,21 +193,13 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "高ボラリスク" in body
         assert "重複リスク" in body
         assert "5: 強い抑制・新規追加禁止寄り" in body
-        assert "## 今週の行動チェックリスト" in body
-        assert "### 今週やってよいこと" in body
-        assert "### 今週やらないこと" in body
-        assert "### 次に確認すること" in body
-        assert "候補0件の理由、coverage不足、score未達、veto理由を確認する" in body
-        assert "現金11.7%から最低15%、できれば20%方向へ戻す前提" in body
-        assert "個別株19.6%が10〜15%目安を上回る前提" in body
+        assert "## 次に確認すること" in body
+        assert "現金比率が15%未満で止まっていないか、20%回復ゾーンへ向かう余地があるか" in body
         assert "株式系67.8%と個別株19.6%に重複リスク" in body
-        assert "整理・監視優先度スコアが高い枠の根拠を確認する" in body
-        assert "整理・監視優先度が高い枠と同じリスクを新規に増やさない" in body
         assert "score 4以上の枠" in body
-        assert "候補0件はレポート失敗ではありません" in body
-        assert "## 今週のDo / Don't" in body
-        assert "候補0件の理由とcoverage不足を確認する" in body
-        assert "データ不足のまま個別株リスクを増やさない" in body
+        assert "今週やること:" in body
+        assert "今週やらないこと:" in body
+        assert "根拠不足の個別株・高ベータ銘柄を追加しない" in body
         assert "## ChatGPTレビュー依頼" in body
         assert "cleanup_priority" in body
         assert "今週やってよいこと / やらないこと / 次に確認すること" in body
