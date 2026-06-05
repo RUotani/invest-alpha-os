@@ -109,6 +109,11 @@ from invis_alpha_os.product.v1_operational_readiness import (
     format_v1_operational_readiness_json,
     render_v1_operational_readiness_markdown,
 )
+from invis_alpha_os.reporting.email_delivery import (
+    deliver_weekly_report_email,
+    format_weekly_email_delivery_json,
+    render_weekly_email_delivery_markdown,
+)
 from invis_alpha_os.product.ops_smoke_taxonomy import format_strict_taxonomy_stderr_line
 from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
     build_portfolio_exposure_by_signal_veto,
@@ -2151,6 +2156,31 @@ def weekly_report_user_summary_command(
         typer.echo(format_weekly_report_user_summary_json(summary))
     else:
         typer.echo(render_weekly_report_user_summary_markdown(summary))
+
+
+@app.command("weekly-report-email-send")
+def weekly_report_email_send_command(
+    report_date: str = typer.Option(..., "--report-date"),
+    report_root: str = typer.Option(..., "--report-root"),
+    send: bool = typer.Option(False, "--send", help="Send via SMTP when env is configured."),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Send weekly report email via SMTP (v1.1); dry-run unless --send."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("weekly-report-email-send: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    result = deliver_weekly_report_email(
+        report_root=Path(report_root),
+        report_date=report_date,
+        send=send,
+    )
+    if format == "json":
+        typer.echo(format_weekly_email_delivery_json(result))
+    else:
+        typer.echo(render_weekly_email_delivery_markdown(result))
+    if result.email_delivery_status in {"blocked", "failed"}:
+        raise typer.Exit(code=1)
 
 
 @app.command("weekly-artifact-local-verify")

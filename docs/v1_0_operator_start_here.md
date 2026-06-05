@@ -35,12 +35,21 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-use
 | ChatGPT one-page sample | [chatgpt_one_page_summary_sample.md](../reports-private/sample_outputs/chatgpt_one_page_summary_sample.md) |
 | プロジェクト目的 | [project_goal_candidate_discovery_os.md](./project_goal_candidate_discovery_os.md) |
 
+## v1.1 Gmail 自動送信（承認済み）
+
+| 項目 | 説明 |
+| --- | --- |
+| 機能 | `weekly-report-email-send`（SMTP / stdlib） |
+| セットアップ | [v1_1_gmail_auto_send_setup.md](./v1_1_gmail_auto_send_setup.md) |
+| 動作 | secrets 設定済みなら workflow 後に自動送信 |
+| fallback | 送信失敗時も latest README で閲覧可 |
+
 ## 別ブロッカー（初日運用は止めない）
 
 | ブロッカー | 状態 | 初日運用 |
 | --- | --- | --- |
 | GitHub scheduled run | `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` | **継続可**（manual pack 代替済み） |
-| Gmail 配信 | `NO_GO_NOT_SENT` | **継続可**（README + copy で閲覧） |
+| Gmail 配信 | v1.1: secrets 未設定時は `blocked`、設定後は自動送信 | README が fallback |
 | v1.0 core | **12/12** | **開始可** |
 
 実体パック: `reports-private/manual_issue/weekly_20260606/`（#501）
