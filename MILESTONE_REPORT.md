@@ -3,7 +3,7 @@
 ## Current Phase
 
 - **Phase:** v1.0 Candidate Discovery OS — operational readiness pack
-- **Latest main:** `c2bff64`（#497 merged; v1.0 Long-Run active）
+- **Latest main:** `6031cfc`（#498 merged; v1.0 Long-Run active）
 - **P0:** 2026-06-06 00:22 JST — v1.0 core 12/12 target; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
@@ -168,13 +168,14 @@
 - [x] T3 final consolidation（`cursor_auto_24h_final_summary.md` Post #494 更新）
 - [ ] Post 07:30 JST scheduled observation PR
 
-## v1.0 Operational Readiness（#498 予定）
+## v1.0 Operational Readiness（#498 merged）
 
-- [ ] CLI `v1-readiness-check`
-- [ ] `docs/v1_0_operational_readiness_dashboard.md`
-- [ ] `docs/v1_0_tomorrow_operational_checklist.md`
-- [ ] `docs/v1_0_weekly_10min_flow.md`
-- [ ] `weekly_artifact_local_verify_20260606.md`（dispatch 参考）
+- [x] CLI `v1-readiness-check`
+- [x] `docs/v1_0_operational_readiness_dashboard.md`
+- [x] `docs/v1_0_tomorrow_operational_checklist.md`
+- [x] `docs/v1_0_weekly_10min_flow.md`
+- [x] `weekly_artifact_local_verify_20260606.md`（dispatch 参考）
+- [ ] Post 07:30 JST scheduled observation + natural artifact re-verify
 
 ## Open Issues
 
