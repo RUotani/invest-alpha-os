@@ -12,6 +12,7 @@
 | `operator_dashboard_sample.md` | 上記 + progress dashboard 要約 |
 | `chatgpt_one_page_summary_sample.md` | 週次/品質/quarantine を1画面要約（ChatGPT貼付用） |
 | `cursor_auto_24h_final_summary.md` | 24h Serial Marathon 最終要約 |
+| `sample_outputs_review_for_user.md` | ユーザー向けサンプルレビュー要約 |
 
 各 `.md` 先頭に統一 disclaimer（blockquote）を付与しています。
 

@@ -1,9 +1,9 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
-版: v0.2 / 最終更新: 2026-06-04  
-基準 commit: `f08b79d50decc3d81eccade76f8cebb1a434820a`（main, #470）  
-直近: Marathon Epoch 4 — scheduled observation pending + final summary  
-#470–#472 merged（CLI: `portfolio-data-quality-review`, `sample-output-pack`）
+版: v0.3 / 最終更新: 2026-06-05  
+基準 commit: `a88f4d15a5172a0affc5e508fd4c7bae5572c69c`（main, #473）  
+直近: Post #473 — sample review pack + scheduled observation **pending**（2026-06-06 07:30 JST 以降）  
+#471–#473 merged / Actual Import Readiness **0% 維持**
 
 ## 使い方
 
@@ -152,6 +152,7 @@
 | #471 | disclaimer + UX wording + portfolio-data-quality-review CLI |
 | #472 | operator dashboard + sample-output-pack + full pytest |
 | #473 | scheduled observation pending + final summary |
+| #474（予定） | sample review for user + scheduled observation 2026-06-06 |
 
 進捗率が過去にブレた理由: 分母未定義・MVPと自動化の混同。本ダッシュボードは**固定項目数**で再計算する。
 
