@@ -59,6 +59,7 @@ from invis_alpha_os.product.weekly_email_shared_view_model_v96 import (
     build_weekly_shared_view_model_v96,
     render_weekly_shared_view_model_markdown_v96,
 )
+from invis_alpha_os.signals.coverage_reason_taxonomy_v112 import translate_user_facing_coverage_reason_to_ja
 
 CandidateBriefType = Literal[
     "top_pick",
@@ -110,38 +111,6 @@ PORTFOLIO_ACTION_BIAS_V81 = (
 )
 
 _TARGET_ALLOCATION_GAP_V82 = compute_target_allocation_gap_from_portfolio_context_v82(PORTFOLIO_CONTEXT_V81)
-
-NO_CANDIDATE_DEFAULT_REASON_V81 = (
-    "JP / US / ETF の横断候補が、データ品質・coverage・score条件を同時に満たしていません。"
-)
-
-_KNOWN_COVERAGE_REASON_EN_TO_JA: dict[str, str] = {
-    "JP candidates were unavailable due to insufficient JP cache quality": (
-        "日本株候補は、キャッシュ品質不足のため候補抽出できませんでした。"
-    ),
-    "US equity candidates were unavailable due to insufficient data quality": (
-        "米国株候補は、データ品質不足のため候補抽出できませんでした。"
-    ),
-    "ETF proxy candidates were unavailable due to insufficient data quality": (
-        "ETF proxy候補は、データ品質不足のため候補抽出できませんでした。"
-    ),
-}
-
-
-def translate_user_facing_coverage_reason_to_ja(raw: str) -> str:
-    """Convert internal English coverage notes to user-facing Japanese."""
-
-    parts = [part.strip() for part in raw.split("/") if part.strip()]
-    if not parts:
-        return NO_CANDIDATE_DEFAULT_REASON_V81
-    if all(part in _KNOWN_COVERAGE_REASON_EN_TO_JA for part in parts):
-        if any("JP candidates" in part for part in parts) and any("US equity" in part for part in parts):
-            return (
-                "日本株・米国株とも、候補判定に必要なデータ品質が不足していたため、"
-                "強い新規候補として採用しませんでした。"
-            )
-        return " / ".join(_KNOWN_COVERAGE_REASON_EN_TO_JA[part] for part in parts)
-    return " / ".join(_KNOWN_COVERAGE_REASON_EN_TO_JA.get(part, part) for part in parts)
 
 DO_ITEMS_V81: tuple[str, ...] = (
     "候補0件の理由とcoverage不足を確認する",
