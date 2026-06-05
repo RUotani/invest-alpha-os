@@ -180,6 +180,34 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
 
 
 def _extract_compact_weekly_conclusion(copy_body: str) -> CompactWeeklyConclusion | None:
+    if "今週は候補あり" in copy_body:
+        lines = [raw.strip() for raw in copy_body.splitlines()]
+        candidate_lines: list[str] = []
+        do_items: list[str] = []
+        mode: str | None = None
+        for line in lines:
+            if line == "今週やること:":
+                mode = "do"
+                continue
+            if line.startswith("## ") or line.startswith("<<<"):
+                mode = None
+                continue
+            if line.startswith("- 第1候補:") or line.startswith("- 深掘り候補:"):
+                candidate_lines.append(line.removeprefix("- ").strip())
+            elif line.startswith("- 監視候補:") or line.startswith("- 見送り候補:"):
+                candidate_lines.append(line.removeprefix("- ").strip())
+            elif line.startswith("- guardrail:"):
+                candidate_lines.append(line.removeprefix("- ").strip())
+            elif mode == "do" and line:
+                do_items.append(line.lstrip("0123456789. ").strip())
+        if not candidate_lines:
+            return None
+        return CompactWeeklyConclusion(
+            headline="今週は候補あり。guardrail優先で深掘り順に扱う。",
+            reasons=tuple(candidate_lines),
+            do_items=tuple(do_items),
+            dont_items=(),
+        )
     if "今週は新規買いを急がない" not in copy_body:
         return None
     lines = [raw.strip() for raw in copy_body.splitlines()]
@@ -475,7 +503,13 @@ def _build_rich_text_body(
         ]
     )
     if not candidates:
-        if compact_conclusion:
+        if compact_conclusion and compact_conclusion.headline.startswith("今週は候補あり"):
+            lines.extend([f"- {compact_conclusion.headline}"])
+            lines.extend(f"- {reason}" for reason in compact_conclusion.reasons)
+            if compact_conclusion.do_items:
+                lines.append("- 今週やること:")
+                lines.extend(f"  - {item}" for item in compact_conclusion.do_items)
+        elif compact_conclusion:
             lines.extend(
                 [
                     f"- {compact_conclusion.headline}",
@@ -490,11 +524,12 @@ def _build_rich_text_body(
                     "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
                 ]
             )
-    _extend_text_action_checklist(
-        lines,
-        zero_reason_notes=zero_reason_notes,
-        compact_conclusion=compact_conclusion,
-    )
+    if not (compact_conclusion and compact_conclusion.headline.startswith("今週は候補あり")):
+        _extend_text_action_checklist(
+            lines,
+            zero_reason_notes=zero_reason_notes,
+            compact_conclusion=compact_conclusion,
+        )
     _extend_text_cleanup_priority(lines)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
@@ -633,7 +668,18 @@ def _build_rich_html_body(
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
-        if compact_conclusion:
+        if compact_conclusion and compact_conclusion.headline.startswith("今週は候補あり"):
+            reason_html = "".join(f"<li>{escape(reason)}</li>" for reason in compact_conclusion.reasons)
+            parts.extend(
+                [
+                    "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                    f"<p style='margin:0 0 6px;'><strong>{escape(compact_conclusion.headline)}</strong></p>",
+                    f"<ul style='margin:0 0 8px 18px;padding:0;'>{reason_html}</ul>",
+                    "<p style='margin:0;'>これは売買指示ではありません。</p>",
+                    "</div>",
+                ]
+            )
+        elif compact_conclusion:
             parts.extend(
                 [
                     "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
@@ -652,11 +698,12 @@ def _build_rich_html_body(
                     "</div>",
                 ]
             )
-    _append_html_action_checklist(
-        parts,
-        zero_reason_notes=zero_reason_notes,
-        compact_conclusion=compact_conclusion,
-    )
+    if not (compact_conclusion and compact_conclusion.headline.startswith("今週は候補あり")):
+        _append_html_action_checklist(
+            parts,
+            zero_reason_notes=zero_reason_notes,
+            compact_conclusion=compact_conclusion,
+        )
     _append_html_cleanup_priority(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
