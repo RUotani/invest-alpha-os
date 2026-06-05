@@ -19,6 +19,14 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main sample-output-pac
 
 `sample-output-pack` は品質 + quarantine + cross-review を1本に連結します（ファイル自動書き込みなし）。
 
+契約確認:
+
+```bash
+env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main sample-output-regeneration-contract --format markdown
+```
+
+この契約CLIは再生成コマンドを実行せず、stdout-only / read-only の許可境界と禁止事項だけを表示します。
+
 ## ファイル反映例
 
 ```bash

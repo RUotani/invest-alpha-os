@@ -82,6 +82,13 @@
 - [x] hard gate marker coverage tests
 - [ ] STATE.md refresh（承認待ち）
 
+## Post #475 Continuous Main Queue（S3）
+
+- [x] CLI `sample-output-regeneration-contract`
+- [x] stdout-only/read-only regeneration command contract
+- [x] forbidden action boundary list
+- [x] sample regeneration docs update
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
