@@ -99,6 +99,11 @@ from invis_alpha_os.product.ops_smoke_report import (
     format_ops_smoke_json,
     format_ops_smoke_markdown,
 )
+from invis_alpha_os.product.operator_dashboard_summary import (
+    build_operator_dashboard_summary,
+    format_operator_dashboard_summary_json,
+    render_operator_dashboard_summary_markdown,
+)
 from invis_alpha_os.product.ops_smoke_taxonomy import format_strict_taxonomy_stderr_line
 from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
     build_portfolio_exposure_by_signal_veto,
@@ -1953,6 +1958,22 @@ def sample_output_pack_command(
         typer.echo("sample-output-pack: only markdown is supported", err=True)
         raise typer.Exit(code=2)
     typer.echo(render_sample_output_pack_markdown_v112())
+
+
+@app.command("operator-dashboard-summary")
+def operator_dashboard_summary_command(
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Emit source-only operator dashboard summary to stdout."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("operator-dashboard-summary: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    summary = build_operator_dashboard_summary()
+    if format == "json":
+        typer.echo(format_operator_dashboard_summary_json(summary))
+    else:
+        typer.echo(render_operator_dashboard_summary_markdown(summary))
 
 
 @app.command("weekly-artifact-local-verify")

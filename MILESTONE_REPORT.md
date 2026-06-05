@@ -58,6 +58,14 @@
 - [x] monthly decision sheet section/portfolio number regression
 - [x] weekly/monthly forbidden action wording regression
 
+## Post #475 Continuous Main Queue（P4）
+
+- [x] CLI `operator-dashboard-summary`
+- [x] primary queue status summary（P1/P2/P3/P4）
+- [x] hard gate status summary（live HTTP/cache/import/broker/raw/secret/workflow/trading）
+- [x] markdown/json stdout renderers
+- [x] operator dashboard focused tests
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）

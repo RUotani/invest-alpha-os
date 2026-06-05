@@ -16,14 +16,14 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 15 | 20 | 75% |
+| Report MVP | 20 | 16 | 20 | 80% |
 | Weekly / Monthly Ops | 15 | 12 | 15 | 80% |
 | Portfolio Data Quality | 15 | 13 | 15 | 87% |
 | Raw Input Quarantine | 15 | 13 | 15 | 87% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
 | UX / Sample Outputs | 10 | 10 | 10 | 100% |
 
-**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **76%**
+**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **79%**
 
 ## カテゴリ詳細チェックリスト
 
@@ -60,7 +60,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [ ] scheduled natural run 観測完了（2026-06-06 待ち）
 - [x] weekly JSON runner 生成（script; CI upload は workflow 待ち）
 - [ ] weekly JSON artifact CI upload（workflow 変更待ち）
-- [ ] operator dashboard 本番 CLI 統合
+- [x] operator dashboard 本番 CLI 統合
 - [ ] monthly + weekly 統合 index ページ
 - [ ] v86 observation **pass**
 - [x] sample weekly output（fixture）
