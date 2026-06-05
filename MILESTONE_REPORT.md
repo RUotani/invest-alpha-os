@@ -3,7 +3,7 @@
 ## Current Phase
 
 - **Phase:** Post #487 — Report MVP 85% + Candidate Discovery OS next tree
-- **Latest main:** `84edf0e`（#488 merged）
+- **Latest main:** `593a351`（#489 merged）
 - **P0:** 2026-06-05 22:07 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
@@ -147,7 +147,7 @@
 
 - [x] #487 squash merge（CI green）
 - [x] #488 MVP 85 readiness + scheduled observation 更新
-- [ ] #489 Candidate Discovery OS next 24h tree
+- [x] #489 Candidate Discovery OS next 24h tree
 - [ ] T1 scheduled re-observation（2026-06-06 07:30 JST 以降）
 
 ## Open Issues
