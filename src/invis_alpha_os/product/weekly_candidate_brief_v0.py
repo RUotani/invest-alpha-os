@@ -59,7 +59,10 @@ from invis_alpha_os.product.weekly_email_shared_view_model_v96 import (
     build_weekly_shared_view_model_v96,
     render_weekly_shared_view_model_markdown_v96,
 )
-from invis_alpha_os.signals.coverage_reason_taxonomy_v112 import translate_user_facing_coverage_reason_to_ja
+from invis_alpha_os.signals.coverage_reason_taxonomy_v112 import (
+    parse_coverage_reason_codes_from_english,
+    translate_user_facing_coverage_reason_to_ja,
+)
 
 CandidateBriefType = Literal[
     "top_pick",
@@ -1060,6 +1063,21 @@ def _resolve_score_veto_assessments(
     return None
 
 
+def _score_veto_pipeline_source(brief: WeeklyCandidateBriefV0) -> str:
+    if brief.score_veto_assessments:
+        return "explicit_assessments"
+    if _has_actionable_top_candidates(brief):
+        return "fixture_fallback_top_picks"
+    return "empty_no_top_picks"
+
+
+def _coverage_reason_codes_for_brief(brief: WeeklyCandidateBriefV0) -> tuple[str, ...]:
+    if not brief.coverage_note:
+        return ()
+    raw = brief.coverage_note.removeprefix("coverage_note: ").strip()
+    return tuple(code.value for code in parse_coverage_reason_codes_from_english(raw))
+
+
 def _no_candidate_reason(brief: WeeklyCandidateBriefV0, *, user_facing: bool = True) -> str:
     if brief.top_picks:
         return "上位候補はあります。反証と次確認を優先して深掘りしてください。"
@@ -1689,6 +1707,8 @@ def format_weekly_candidate_brief_v0_json(brief: WeeklyCandidateBriefV0) -> str:
             _integrated_assessment_to_dict(row)
             for row in (_resolve_score_veto_assessments(brief) or ())
         ],
+        "score_veto_pipeline_source": _score_veto_pipeline_source(brief),
+        "coverage_reason_codes": list(_coverage_reason_codes_for_brief(brief)),
         "discovery": brief.discovery_merge,
         "observation_only": True,
     }

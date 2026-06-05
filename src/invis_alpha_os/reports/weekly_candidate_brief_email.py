@@ -40,6 +40,14 @@ def build_weekly_candidate_brief_email_subject(report_date: str) -> str:
 
 
 @dataclass(frozen=True)
+class CompactWeeklyConclusion:
+    headline: str
+    reasons: tuple[str, ...]
+    do_items: tuple[str, ...]
+    dont_items: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class CandidateDigest:
     rank: int
     symbol: str
@@ -171,7 +179,48 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
     return out
 
 
+def _extract_compact_weekly_conclusion(copy_body: str) -> CompactWeeklyConclusion | None:
+    if "今週は新規買いを急がない" not in copy_body:
+        return None
+    lines = [raw.strip() for raw in copy_body.splitlines()]
+    reasons: list[str] = []
+    do_items: list[str] = []
+    dont_items: list[str] = []
+    mode: str | None = None
+    for line in lines:
+        if line == "理由:":
+            mode = "reasons"
+            continue
+        if line == "今週やること:":
+            mode = "do"
+            continue
+        if line == "今週やらないこと:":
+            mode = "dont"
+            continue
+        if line.startswith("## ") or line.startswith("<<<"):
+            mode = None
+            continue
+        if mode == "reasons" and line.startswith("- "):
+            reasons.append(line.removeprefix("- ").strip())
+        elif mode == "do" and line:
+            do_items.append(line.lstrip("0123456789. ").strip())
+        elif mode == "dont" and line.startswith("- "):
+            dont_items.append(line.removeprefix("- ").strip())
+    if not reasons and not do_items and not dont_items:
+        return None
+    return CompactWeeklyConclusion(
+        headline="今週は新規買いを急がない。",
+        reasons=tuple(reasons),
+        do_items=tuple(do_items),
+        dont_items=tuple(dont_items),
+    )
+
+
 def _extract_candidate_zero_reason_notes(copy_body: str) -> tuple[str, str] | None:
+    compact = _extract_compact_weekly_conclusion(copy_body)
+    if compact and compact.reasons:
+        reason_line = "候補0件の主因: " + " / ".join(compact.reasons[:3])
+        return reason_line, "次確認: 価格・出来高・期間・score内訳・veto理由"
     reason_line = ""
     next_line = ""
     for raw in copy_body.splitlines():
@@ -222,7 +271,34 @@ def _extract_sanitized_manual_summary_notes(copy_body: str) -> tuple[str, ...]:
     return model.sanitized_manual_input_summary_lines
 
 
-def _extend_text_action_checklist(lines: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
+def _extend_text_action_checklist(
+    lines: list[str],
+    *,
+    zero_reason_notes: tuple[str, str] | None,
+    compact_conclusion: CompactWeeklyConclusion | None,
+) -> None:
+    if compact_conclusion:
+        lines.extend(["", "## 今週の結論（短縮）", f"- {compact_conclusion.headline}"])
+        if compact_conclusion.reasons:
+            lines.append("- 理由:")
+            lines.extend(f"  - {reason}" for reason in compact_conclusion.reasons)
+        if compact_conclusion.do_items:
+            lines.append("- 今週やること:")
+            lines.extend(f"  - {item}" for item in compact_conclusion.do_items)
+        if compact_conclusion.dont_items:
+            lines.append("- 今週やらないこと:")
+            lines.extend(f"  - {item}" for item in compact_conclusion.dont_items)
+        lines.extend(
+            [
+                f"- ポートフォリオ前提: {EMAIL_PORTFOLIO_CONTEXT_V85}",
+                *[f"- {x}" for x in EMAIL_TARGET_ALLOCATION_GAP_3_LINES_V82],
+                "",
+            ]
+        )
+        if zero_reason_notes:
+            reason_line, next_line = zero_reason_notes
+            lines.extend([f"- {reason_line}", f"- {next_line}", ""])
+        return
     lines.extend(
         [
             "",
@@ -273,7 +349,34 @@ def _html_list(items: tuple[str, ...]) -> str:
     ) + "</ul>"
 
 
-def _append_html_action_checklist(parts: list[str], *, zero_reason_notes: tuple[str, str] | None) -> None:
+def _append_html_action_checklist(
+    parts: list[str],
+    *,
+    zero_reason_notes: tuple[str, str] | None,
+    compact_conclusion: CompactWeeklyConclusion | None,
+) -> None:
+    if compact_conclusion:
+        reason_html = "".join(f"<li>{escape(reason)}</li>" for reason in compact_conclusion.reasons)
+        do_html = "".join(f"<li>{escape(item)}</li>" for item in compact_conclusion.do_items)
+        dont_html = "".join(f"<li>{escape(item)}</li>" for item in compact_conclusion.dont_items)
+        parts.extend(
+            [
+                "<h2 style='margin:14px 0 8px;'>今週の結論（短縮）</h2>",
+                "<div style='display:block;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                f"<p style='margin:0 0 8px;'><strong>{escape(compact_conclusion.headline)}</strong></p>",
+            ]
+        )
+        if reason_html:
+            parts.append(f"<p style='margin:0 0 6px;'>理由:</p><ul style='margin:0 0 8px 18px;padding:0;'>{reason_html}</ul>")
+        if do_html:
+            parts.append(f"<p style='margin:0 0 6px;'>今週やること:</p><ul style='margin:0 0 8px 18px;padding:0;'>{do_html}</ul>")
+        if dont_html:
+            parts.append(f"<p style='margin:0 0 6px;'>今週やらないこと:</p><ul style='margin:0 0 8px 18px;padding:0;'>{dont_html}</ul>")
+        parts.append(
+            f"<p style='margin:0;'><strong>ポートフォリオ前提:</strong> {escape(EMAIL_PORTFOLIO_CONTEXT_V85)}</p>"
+        )
+        parts.append("</div>")
+        return
     short_note = ""
     if zero_reason_notes:
         reason_line, next_line = zero_reason_notes
@@ -331,6 +434,7 @@ def _build_rich_text_body(
     score_veto_notes: tuple[str, ...],
     monthly_input_notes: tuple[str, ...],
     sanitized_manual_notes: tuple[str, ...],
+    compact_conclusion: CompactWeeklyConclusion | None,
 ) -> str:
     lines: list[str] = [
         "テストメール",
@@ -371,14 +475,26 @@ def _build_rich_text_body(
         ]
     )
     if not candidates:
-        lines.extend(
-            [
-                "- 強い新規リスク候補: 0件",
-                "- 理由: データ品質・coverage・score条件を同時に満たす候補がありません。",
-                "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
-            ]
-        )
-    _extend_text_action_checklist(lines, zero_reason_notes=zero_reason_notes)
+        if compact_conclusion:
+            lines.extend(
+                [
+                    f"- {compact_conclusion.headline}",
+                    "- 候補0件は新規リスクを増やさない抑制シグナルとして扱います。",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "- 強い新規リスク候補: 0件",
+                    "- 理由: データ品質・coverage・score条件を同時に満たす候補がありません。",
+                    "- 判断方針: 現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。",
+                ]
+            )
+    _extend_text_action_checklist(
+        lines,
+        zero_reason_notes=zero_reason_notes,
+        compact_conclusion=compact_conclusion,
+    )
     _extend_text_cleanup_priority(lines)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
@@ -470,6 +586,7 @@ def _build_rich_html_body(
     score_veto_notes: tuple[str, ...],
     monthly_input_notes: tuple[str, ...],
     sanitized_manual_notes: tuple[str, ...],
+    compact_conclusion: CompactWeeklyConclusion | None,
 ) -> str:
     pipeline_list = ""
     if pipeline_trace_notes:
@@ -516,16 +633,30 @@ def _build_rich_html_body(
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
     ]
     if not candidates:
-        parts.extend(
-            [
-                "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
-                "<p style='margin:0 0 6px;'><strong>強い新規リスク候補: 0件</strong></p>",
-                "<p style='margin:0 0 6px;'>データ品質・coverage・score条件を同時に満たす候補がありません。</p>",
-                "<p style='margin:0;'>現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。</p>",
-                "</div>",
-            ]
-        )
-    _append_html_action_checklist(parts, zero_reason_notes=zero_reason_notes)
+        if compact_conclusion:
+            parts.extend(
+                [
+                    "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                    f"<p style='margin:0 0 6px;'><strong>{escape(compact_conclusion.headline)}</strong></p>",
+                    "<p style='margin:0;'>候補0件は新規リスクを増やさない抑制シグナルとして扱います。</p>",
+                    "</div>",
+                ]
+            )
+        else:
+            parts.extend(
+                [
+                    "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;'>",
+                    "<p style='margin:0 0 6px;'><strong>強い新規リスク候補: 0件</strong></p>",
+                    "<p style='margin:0 0 6px;'>データ品質・coverage・score条件を同時に満たす候補がありません。</p>",
+                    "<p style='margin:0;'>現金比率が低い前提で、新規リスク追加より監視・整理・現金回復を優先します。</p>",
+                    "</div>",
+                ]
+            )
+    _append_html_action_checklist(
+        parts,
+        zero_reason_notes=zero_reason_notes,
+        compact_conclusion=compact_conclusion,
+    )
     _append_html_cleanup_priority(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
@@ -589,6 +720,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     footer = "観測・深掘り候補の整理です。売買推奨・投資助言・発注指示ではありません。"
     candidates = _parse_top_candidates(body_core)
+    compact_conclusion = _extract_compact_weekly_conclusion(body_core)
     zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
     pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
     score_veto_notes = _extract_score_veto_summary_notes(body_core)
@@ -605,6 +737,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         score_veto_notes=score_veto_notes,
         monthly_input_notes=monthly_input_notes,
         sanitized_manual_notes=sanitized_manual_notes,
+        compact_conclusion=compact_conclusion,
     )
     if shared_compact_notes and all(note not in body for note in shared_compact_notes):
         body = body.rstrip() + "\n\n" + "\n".join(f"- {x}" for x in shared_compact_notes) + "\n"
@@ -620,6 +753,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
         score_veto_notes=score_veto_notes,
         monthly_input_notes=monthly_input_notes,
         sanitized_manual_notes=sanitized_manual_notes,
+        compact_conclusion=compact_conclusion,
     )
     return WeeklyCandidateBriefEmailDraft(
         subject=build_weekly_candidate_brief_email_subject(report_date),
