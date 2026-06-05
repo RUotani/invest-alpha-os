@@ -1094,20 +1094,48 @@ def _no_candidate_reason(brief: WeeklyCandidateBriefV0, *, user_facing: bool = T
     )
 
 
+def _format_candidate_positive_line(*, role: str, card: CandidateCard) -> str:
+    candidate = card.candidate
+    name = _copy_ready_name(candidate)
+    symbol = candidate.instrument_id
+    reason = _truncate(_strip_reason_prefix_for_copy(card.reason), max_len=56)
+    return f"- {role}: {symbol}（{name}）— {reason}"
+
+
+def _weekly_candidate_positive_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## 今週の結論",
+        "",
+        "今週は候補あり。ただし、現金比率・個別株比率のguardrailを優先し、即時買いではなく深掘り順に扱う。",
+        "",
+        "- guardrail: 現金11.7%（最低15%未満）/ 個別株19.6%（目安10〜15%超過）",
+    ]
+    for rank, card in enumerate(brief.top_picks[:3], start=1):
+        role = "第1候補" if rank == 1 else "深掘り候補"
+        lines.append(_format_candidate_positive_line(role=role, card=card))
+    if brief.rapid_movers:
+        lines.append(_format_candidate_positive_line(role="監視候補", card=brief.rapid_movers[0]))
+    if brief.avoid_list:
+        lines.append(_format_candidate_positive_line(role="見送り候補", card=brief.avoid_list[0]))
+    lines.extend(
+        [
+            "",
+            "今週やること:",
+            "1. 第1候補の決算・バリュエーション・需給を確認",
+            "2. ポートフォリオ制約に照らして買える余力を確認",
+            "3. veto条件を満たす候補は深掘り対象から外す",
+            "",
+            "これは売買指示ではありません。",
+            "",
+        ]
+    )
+    return lines
+
+
 def _weekly_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     top_count = len(brief.top_picks)
     if top_count:
-        total_count = _total_candidate_count(brief)
-        return [
-            "## 今週の結論",
-            "",
-            f"深掘り候補: {top_count}件。反証と次確認を先に見て、観測ベースで優先順位を確認します。",
-            f"- 候補総数: {total_count}件 / 上位候補: {top_count}件",
-            f"- 判断方針: {PORTFOLIO_ACTION_BIAS_V81}",
-            "- 候補銘柄は「買い指示」ではなく、調査・監視・整理候補として扱う。",
-            "- actual import / broker連携 / cache write は引き続き NO-GO。",
-            "",
-        ]
+        return _weekly_candidate_positive_conclusion_lines(brief)
     reason_ja = _no_candidate_reason(brief)
     return [
         "## 今週の結論",
@@ -1558,8 +1586,6 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
     lines.extend(_weekly_action_checklist_lines(brief))
-    if _has_actionable_top_candidates(brief):
-        lines.extend(_do_dont_lines())
     lines.extend(
         [
             "## 今週の深掘り候補 上位5件",
