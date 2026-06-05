@@ -28,7 +28,7 @@ def build_operator_dashboard_summary() -> OperatorDashboardSummary:
     return OperatorDashboardSummary(
         schema_version="operator_dashboard_summary.v1",
         source_mode="source_only_stdout_no_side_effects",
-        latest_verified_main_note="post #477 main includes P1/P2 local verification and P3 golden snapshots",
+        latest_verified_main_note="post #482 main includes P1-P4, S1-S4, and source-only report/operator guardrails",
         queue_items=(
             OperatorDashboardItem(
                 key="P1_scheduled_natural_run_observation",
@@ -52,7 +52,7 @@ def build_operator_dashboard_summary() -> OperatorDashboardSummary:
                 key="P4_operator_dashboard_cli_summary",
                 status="ready",
                 summary="このCLIでoperator向け要約をstdoutに出せる。",
-                next_check="Secondary queueのprogress/STATE consistency checkerへ接続する。",
+                next_check="T1/T2では文言契約とuser guideへ接続する。",
             ),
         ),
         hard_gate_status=(
@@ -84,7 +84,7 @@ def build_operator_dashboard_summary() -> OperatorDashboardSummary:
         recommended_next_actions=(
             "2026-06-06 07:30 JST以降、scheduled natural runをread-onlyで観測する。",
             "artifactが存在する場合はweekly-artifact-local-verifyでstatus.jsonと本文マーカーを検査する。",
-            "Secondary queueではprogress dashboardとSTATE.mdの整合性をsource-only checker化する。",
+            "T1/T2ではreport UX language contractとuser guideへ接続する。",
         ),
     )
 

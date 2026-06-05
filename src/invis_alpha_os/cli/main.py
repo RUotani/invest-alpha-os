@@ -137,6 +137,11 @@ from invis_alpha_os.product.raw_input_quarantine_review_v111 import (
     format_portfolio_quarantine_cross_review_json_v111,
     render_portfolio_quarantine_cross_review_markdown_v111,
 )
+from invis_alpha_os.product.report_ux_language_contract import (
+    build_report_ux_language_contract,
+    format_report_ux_language_contract_json,
+    render_report_ux_language_contract_markdown,
+)
 from invis_alpha_os.product.sample_output_pack_v112 import render_sample_output_pack_markdown_v112
 from invis_alpha_os.product.sample_output_regeneration_contract import (
     build_sample_output_regeneration_contract,
@@ -2012,6 +2017,22 @@ def monthly_review_pack_integration_command(
         typer.echo(render_monthly_review_pack_integration_markdown(result))
     if not result.ready:
         raise typer.Exit(code=1)
+
+
+@app.command("report-ux-language-contract")
+def report_ux_language_contract_command(
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Emit the user-facing report UX language contract."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("report-ux-language-contract: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    contract = build_report_ux_language_contract()
+    if format == "json":
+        typer.echo(format_report_ux_language_contract_json(contract))
+    else:
+        typer.echo(render_report_ux_language_contract_markdown(contract))
 
 
 @app.command("operator-dashboard-summary")
