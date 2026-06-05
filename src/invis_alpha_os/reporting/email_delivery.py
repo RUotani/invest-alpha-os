@@ -1,4 +1,4 @@
-"""Weekly report SMTP email delivery (stdlib only; v1.1 approved)."""
+"""Weekly report email delivery: SMTP (stdlib) or Gmail OAuth fallback (v1.1 approved)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import smtplib
 import ssl
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _REQUIRED_ENV_KEYS = (
@@ -26,6 +26,10 @@ _REQUIRED_ENV_KEYS = (
 
 class SmtpSender(Protocol):
     def __call__(self, *, message: EmailMessage, host: str, port: int, username: str, password: str) -> None: ...
+
+
+class GmailOAuthSender(Protocol):
+    def __call__(self, *, message: EmailMessage, recipient: str) -> dict[str, Any]: ...
 
 
 @dataclass(frozen=True)
@@ -46,6 +50,7 @@ class WeeklyEmailDeliveryResult:
     message_id: str | None
     reason: str | None
     missing: tuple[str, ...]
+    delivery_transport: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -67,7 +72,15 @@ def _truthy_env(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def missing_required_email_env() -> tuple[str, ...]:
+def weekly_send_gate_open() -> bool:
+    """SMTP path requires WEEKLY_REPORT_EMAIL_ENABLED; OAuth also accepts CONFIRM_GMAIL_SEND=YES."""
+
+    if _truthy_env("WEEKLY_REPORT_EMAIL_ENABLED"):
+        return True
+    return os.environ.get("CONFIRM_GMAIL_SEND", "").strip() == "YES"
+
+
+def missing_required_smtp_env() -> tuple[str, ...]:
     if not _truthy_env("WEEKLY_REPORT_EMAIL_ENABLED"):
         return ("WEEKLY_REPORT_EMAIL_ENABLED",)
     missing: list[str] = []
@@ -75,6 +88,82 @@ def missing_required_email_env() -> tuple[str, ...]:
         if not os.environ.get(key, "").strip():
             missing.append(key)
     return tuple(missing)
+
+
+def missing_required_email_env() -> tuple[str, ...]:
+    """Backward-compatible alias for SMTP-only missing env check."""
+
+    return missing_required_smtp_env()
+
+
+def resolve_weekly_recipient() -> str:
+    return (
+        os.environ.get("WEEKLY_REPORT_EMAIL_TO", "").strip()
+        or os.environ.get("GMAIL_REPORT_TO", "").strip()
+    )
+
+
+def resolve_weekly_sender(*, recipient: str) -> str:
+    from invis_alpha_os.reports.gmail_delivery import resolve_gmail_sender
+
+    explicit = (
+        os.environ.get("WEEKLY_REPORT_EMAIL_FROM", "").strip()
+        or os.environ.get("GMAIL_REPORT_FROM", "").strip()
+    )
+    if explicit:
+        return explicit
+    return resolve_gmail_sender(dry_run=False, recipient=recipient)
+
+
+def gmail_oauth_delivery_ready() -> tuple[bool, tuple[str, ...]]:
+    from invis_alpha_os.reports.gmail_delivery import credentials_configured
+
+    missing: list[str] = []
+    if not weekly_send_gate_open():
+        missing.append("WEEKLY_REPORT_EMAIL_ENABLED_or_CONFIRM_GMAIL_SEND")
+    recipient = resolve_weekly_recipient()
+    if not recipient:
+        missing.append("WEEKLY_REPORT_EMAIL_TO_or_GMAIL_REPORT_TO")
+    if not credentials_configured():
+        missing.append("GMAIL_OAUTH_CREDENTIALS")
+    return (not missing, tuple(missing))
+
+
+def default_weekly_email_env_files() -> tuple[Path, ...]:
+    config_root = Path.home() / ".config" / "invest-alpha-os"
+    return (
+        config_root / "weekly_report_email.env",
+        config_root / "daily_gmail.env",
+    )
+
+
+def load_env_file(path: Path, *, override: bool = False) -> None:
+    """Load KEY=VALUE lines into os.environ without logging values."""
+
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip().strip('"').strip("'")
+        if override or key not in os.environ:
+            os.environ[key] = value
+
+
+def bootstrap_weekly_email_env(*, env_file: Path | None = None, auto_env_file: bool = True) -> None:
+    if env_file is not None:
+        load_env_file(env_file, override=True)
+        return
+    if auto_env_file:
+        for candidate in default_weekly_email_env_files():
+            load_env_file(candidate)
 
 
 def load_weekly_email_content(*, report_root: Path, report_date: str) -> WeeklyEmailContent:
@@ -163,14 +252,27 @@ def _default_smtp_send(
         server.send_message(message)
 
 
+def _default_gmail_oauth_send(*, message: EmailMessage, recipient: str) -> dict[str, Any]:
+    from invis_alpha_os.reports.gmail_delivery import (
+        encode_message_raw,
+        send_gmail_message,
+        validate_gmail_send_gates,
+    )
+
+    validate_gmail_send_gates(recipient=recipient)
+    raw = encode_message_raw(message)
+    return send_gmail_message(raw, allow_interactive_oauth=False)
+
+
 def deliver_weekly_report_email(
     *,
     report_root: Path,
     report_date: str,
     send: bool,
     smtp_sender: SmtpSender | None = None,
+    gmail_oauth_sender: GmailOAuthSender | None = None,
 ) -> WeeklyEmailDeliveryResult:
-    """Dry-run by default; actual SMTP only when send=True and env is complete."""
+    """Dry-run by default; SMTP or Gmail OAuth when send=True and env is complete."""
 
     report_root = report_root.resolve()
     if not report_root.is_dir():
@@ -200,7 +302,7 @@ def deliver_weekly_report_email(
         )
 
     if not send:
-        to_preview = os.environ.get("WEEKLY_REPORT_EMAIL_TO", "").strip()
+        to_preview = resolve_weekly_recipient()
         return WeeklyEmailDeliveryResult(
             email_delivery_status="dry_run",
             report_root=str(report_root),
@@ -212,8 +314,9 @@ def deliver_weekly_report_email(
             missing=(),
         )
 
-    missing = missing_required_email_env()
-    if missing:
+    smtp_missing = missing_required_smtp_env()
+    oauth_ready, oauth_missing = gmail_oauth_delivery_ready()
+    if smtp_missing and not oauth_ready:
         return WeeklyEmailDeliveryResult(
             email_delivery_status="blocked",
             report_root=str(report_root),
@@ -222,19 +325,65 @@ def deliver_weekly_report_email(
             recipient_redacted=None,
             message_id=None,
             reason="MISSING_REQUIRED_EMAIL_ENV",
-            missing=missing,
+            missing=smtp_missing if smtp_missing else oauth_missing,
         )
 
-    from_addr = os.environ["WEEKLY_REPORT_EMAIL_FROM"].strip()
-    to_addr = os.environ["WEEKLY_REPORT_EMAIL_TO"].strip()
-    cc = os.environ.get("WEEKLY_REPORT_EMAIL_CC", "").strip() or None
-    bcc = os.environ.get("WEEKLY_REPORT_EMAIL_BCC", "").strip() or None
-    host = os.environ["SMTP_HOST"].strip()
-    port = int(os.environ["SMTP_PORT"].strip())
-    username = os.environ["SMTP_USERNAME"].strip()
-    password = os.environ["SMTP_PASSWORD"].strip()
+    if not smtp_missing:
+        from_addr = os.environ["WEEKLY_REPORT_EMAIL_FROM"].strip()
+        to_addr = os.environ["WEEKLY_REPORT_EMAIL_TO"].strip()
+        cc = os.environ.get("WEEKLY_REPORT_EMAIL_CC", "").strip() or None
+        bcc = os.environ.get("WEEKLY_REPORT_EMAIL_BCC", "").strip() or None
+        host = os.environ["SMTP_HOST"].strip()
+        port = int(os.environ["SMTP_PORT"].strip())
+        username = os.environ["SMTP_USERNAME"].strip()
+        password = os.environ["SMTP_PASSWORD"].strip()
 
-    if not _EMAIL_RE.match(from_addr) or not _EMAIL_RE.match(to_addr):
+        if not _EMAIL_RE.match(from_addr) or not _EMAIL_RE.match(to_addr):
+            return WeeklyEmailDeliveryResult(
+                email_delivery_status="blocked",
+                report_root=str(report_root),
+                report_date=report_date,
+                content_source=content.content_source,
+                recipient_redacted=redact_email_address(to_addr) if to_addr else None,
+                message_id=None,
+                reason="INVALID_EMAIL_ADDRESS",
+                missing=(),
+            )
+
+        message = build_email_message(content=content, from_addr=from_addr, to_addr=to_addr, cc=cc, bcc=bcc)
+        sender = smtp_sender or _default_smtp_send
+        try:
+            sender(message=message, host=host, port=port, username=username, password=password)
+        except Exception:
+            return WeeklyEmailDeliveryResult(
+                email_delivery_status="failed",
+                report_root=str(report_root),
+                report_date=report_date,
+                content_source=content.content_source,
+                recipient_redacted=redact_email_address(to_addr),
+                message_id=None,
+                reason="EMAIL_SEND_FAILED",
+                missing=(),
+                delivery_transport="smtp",
+            )
+
+        message_id = message.get("Message-ID")
+        return WeeklyEmailDeliveryResult(
+            email_delivery_status="sent",
+            report_root=str(report_root),
+            report_date=report_date,
+            content_source=content.content_source,
+            recipient_redacted=redact_email_address(to_addr),
+            message_id=message_id,
+            reason=None,
+            missing=(),
+            delivery_transport="smtp",
+        )
+
+    to_addr = resolve_weekly_recipient()
+    from_addr = resolve_weekly_sender(recipient=to_addr)
+    from_ok = from_addr == "me" or bool(_EMAIL_RE.match(from_addr)) if from_addr else False
+    if not from_addr or not from_ok or not _EMAIL_RE.match(to_addr):
         return WeeklyEmailDeliveryResult(
             email_delivery_status="blocked",
             report_root=str(report_root),
@@ -243,13 +392,14 @@ def deliver_weekly_report_email(
             recipient_redacted=redact_email_address(to_addr) if to_addr else None,
             message_id=None,
             reason="INVALID_EMAIL_ADDRESS",
-            missing=(),
+            missing=oauth_missing,
+            delivery_transport="gmail_oauth",
         )
 
-    message = build_email_message(content=content, from_addr=from_addr, to_addr=to_addr, cc=cc, bcc=bcc)
-    sender = smtp_sender or _default_smtp_send
+    message = build_email_message(content=content, from_addr=from_addr, to_addr=to_addr)
+    oauth = gmail_oauth_sender or _default_gmail_oauth_send
     try:
-        sender(message=message, host=host, port=port, username=username, password=password)
+        api_result = oauth(message=message, recipient=to_addr)
     except Exception:
         return WeeklyEmailDeliveryResult(
             email_delivery_status="failed",
@@ -260,18 +410,20 @@ def deliver_weekly_report_email(
             message_id=None,
             reason="EMAIL_SEND_FAILED",
             missing=(),
+            delivery_transport="gmail_oauth",
         )
 
-    message_id = message.get("Message-ID")
+    message_id = api_result.get("id") if isinstance(api_result, dict) else None
     return WeeklyEmailDeliveryResult(
         email_delivery_status="sent",
         report_root=str(report_root),
         report_date=report_date,
         content_source=content.content_source,
         recipient_redacted=redact_email_address(to_addr),
-        message_id=message_id,
+        message_id=str(message_id) if message_id else None,
         reason=None,
         missing=(),
+        delivery_transport="gmail_oauth",
     )
 
 
@@ -285,6 +437,7 @@ def format_weekly_email_delivery_json(result: WeeklyEmailDeliveryResult) -> str:
         "message_id": result.message_id,
         "reason": result.reason,
         "missing": list(result.missing),
+        "delivery_transport": result.delivery_transport,
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
@@ -300,6 +453,7 @@ def render_weekly_email_delivery_markdown(result: WeeklyEmailDeliveryResult) -> 
         f"- recipient_redacted: {result.recipient_redacted}",
         f"- message_id: {result.message_id}",
         f"- reason: {result.reason}",
+        f"- delivery_transport: {result.delivery_transport}",
     ]
     if result.missing:
         lines.append(f"- missing: {', '.join(result.missing)}")
