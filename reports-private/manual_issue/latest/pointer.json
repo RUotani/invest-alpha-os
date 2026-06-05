@@ -1,0 +1,10 @@
+{
+  "schema_version": "manual_issue_latest_pointer.v1",
+  "report_date": "2026-06-06",
+  "week_dir": "weekly_20260606",
+  "user_readme": "reports-private/manual_issue/latest/README_FOR_USER.md",
+  "full_pack_dir": "reports-private/manual_issue/weekly_20260606",
+  "generation_mode": "local_cli_cache_only",
+  "gmail_sent": false,
+  "scheduled_run_observed": false
+}

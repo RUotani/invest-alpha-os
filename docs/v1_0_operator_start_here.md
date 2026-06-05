@@ -1,9 +1,17 @@
 # v1.0 Operator Start Here — Candidate Discovery OS
 
-版: 2026-06-06  
+版: 2026-06-07（初日運用安定化）  
 目的: **明日から迷わず始める** 1ページ索引（自動売買ではない）
 
-## 明日まず実行する2コマンド
+## 今日読むファイル（1つに固定）
+
+```text
+reports-private/manual_issue/latest/README_FOR_USER.md
+```
+
+週次の結論・深掘り候補（285A / AAPL / QQQ）・guardrail・ブロッカーはすべてここから辿れます。
+
+## 明日まず実行する2コマンド（agent / 任意確認用）
 
 ```bash
 cd /Users/uotani/Projects/invest-alpha-os
@@ -17,6 +25,8 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-use
 
 | 用途 | パス |
 | --- | --- |
+| **今日読む週次レポート** | [latest/README_FOR_USER.md](../reports-private/manual_issue/latest/README_FOR_USER.md) |
+| manual issue 索引 | [manual_issue/README.md](../reports-private/manual_issue/README.md) |
 | 初日チェックリスト | [v1_0_tomorrow_operational_checklist.md](./v1_0_tomorrow_operational_checklist.md) |
 | 週次10分フロー | [v1_0_weekly_10min_flow.md](./v1_0_weekly_10min_flow.md) |
 | v1.0 readiness dashboard | [v1_0_operational_readiness_dashboard.md](./v1_0_operational_readiness_dashboard.md) |
@@ -25,19 +35,15 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-use
 | ChatGPT one-page sample | [chatgpt_one_page_summary_sample.md](../reports-private/sample_outputs/chatgpt_one_page_summary_sample.md) |
 | プロジェクト目的 | [project_goal_candidate_discovery_os.md](./project_goal_candidate_discovery_os.md) |
 
-## 今週のレポート（2026-06-06 · 手動発行）
+## 別ブロッカー（初日運用は止めない）
 
-natural scheduled run 未発火のため、ローカル CLI で生成済み:
+| ブロッカー | 状態 | 初日運用 |
+| --- | --- | --- |
+| GitHub scheduled run | `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` | **継続可**（manual pack 代替済み） |
+| Gmail 配信 | `NO_GO_NOT_SENT` | **継続可**（README + copy で閲覧） |
+| v1.0 core | **12/12** | **開始可** |
 
-**`reports-private/manual_issue/weekly_20260606/README_FOR_USER.md`**（まずここ）
-
-## Scheduled Observation 現状（2026-06-06 07:58 JST）
-
-| 項目 | 状態 |
-| --- | --- |
-| natural `event=schedule` | **未出現** — `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` |
-| natural artifact verify | **未実施** — `OBSERVATION_PENDING_ARTIFACT_NOT_FOUND` |
-| v1.0 core（明日実用） | **12/12** — 初日運用は fixture/sample で可 |
+実体パック: `reports-private/manual_issue/weekly_20260606/`（#501）
 
 ## NO-GO 一覧（実行しない）
 
