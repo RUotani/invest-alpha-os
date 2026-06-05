@@ -111,6 +111,14 @@
 - [x] email preview vs Gmail delivery wording
 - [x] hard-gate forbidden actions list
 
+## 2026-06-05 24h Long-Run Queue（T3）
+
+- [x] `docs/plans/2026-06-06_next_24h_development_tree.md`
+- [x] scheduled-run `NOT_YET_OBSERVABLE` / `OBSERVABILITY_MISS` branching policy
+- [x] hard-gate closed-state checklist
+- [x] next 24h recommended PR order and stop conditions
+- [x] ChatGPT/operator handoff summary
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
