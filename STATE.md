@@ -1,11 +1,11 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.5 / 最終更新: 2026-06-05（#474 + Main Dev 継続 — 正式承認待ち）
+版: v0.5 / 最終更新: 2026-06-05（Post #485 Long-Run — 正式承認待ち）
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `a88f4d15a5172a0affc5e508fd4c7bae5572c69c`（#473 merge）
-- **次の必須観測**: 2026-06-06 07:30 JST 以降 natural scheduled run（`scheduled_run_observation_20260606.md` — **pending**）
+- **latest verified main**: `7032629d37c6c68b94e7a2b174214a6265e0adb3`（#485 merge）
+- **次の必須観測**: 2026-06-06 07:30 JST 以降 natural scheduled run（**NOT_YET_OBSERVABLE** @ 2026-06-05 21:27 JST）
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
 
@@ -30,7 +30,9 @@
 - PR #472: Epoch 3 operator dashboard + `sample-output-pack` CLI
 - PR #473: Epoch 4 scheduled observation pending + 24h final summary
 - PR #474: sample review pack + scheduled observation pending
-- Main Dev 継続（#475 予定）: weekly JSON runner、Report MVP UX、Ruff 0
+- PR #475–#481: JSON runner、UX、Ruff 0、regression contracts
+- PR #482–#485: monthly integration、language pass、operator guide、next 24h tree
+- Post #485 Long-Run: observation contract、`weekly-report-user-summary`、workflow proposals
 
 ## §2. Weekly / Monthly 現在機能
 

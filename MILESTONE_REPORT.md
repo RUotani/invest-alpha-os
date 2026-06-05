@@ -2,8 +2,9 @@
 
 ## Current Phase
 
-- **Phase:** 24h Main Development Continuation（#475 予定）
-- **Latest main:** `bcac626`（#474 merged）
+- **Phase:** Post #485 Long-Run Max — Scheduled Observation + Real Report Eval
+- **Latest main:** `7032629`（#485 merged）
+- **P0:** 2026-06-05 21:27 JST — HEAD confirmed, worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -119,10 +120,21 @@
 - [x] next 24h recommended PR order and stop conditions
 - [x] ChatGPT/operator handoff summary
 
+## Post #485 Long-Run Max（#486 予定）
+
+- [x] P1 NOT_YET_OBSERVABLE 分類 + observation report 更新
+- [x] P2 weekly_artifact_missing_analysis（dispatch 参考）
+- [x] P3 workflow patch proposal（未適用）
+- [x] P4 real_or_pending_weekly_report_review
+- [x] S1 observation report contract tests
+- [x] S2 weekly_artifact_schema_contract
+- [x] S3 `weekly-report-user-summary` CLI
+- [x] T1–T3 proposals / readiness / next 24h tree
+
 ## Open Issues
 
-- v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
-- CI `weekly_candidate_brief.json` 未生成
+- v86 scheduled observation: **NOT_YET_OBSERVABLE**（2026-06-06 07:30 JST 以降）
+- CI JSON artifact upload: workflow 承認待ち
 
 ## 24h 理想目標トラッキング
 

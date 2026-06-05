@@ -1,9 +1,9 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
-版: v0.4 / 最終更新: 2026-06-05  
-基準 commit: `bcac626`（#474）→ #475 予定  
-直近: 24h Main Development — JSON runner + Report MVP UX + Ruff 0  
-scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
+版: v0.5 / 最終更新: 2026-06-05  
+基準 commit: `7032629`（#485）  
+直近: Post #485 Long-Run — scheduled observation **NOT_YET_OBSERVABLE** + artifact proposals  
+次: 2026-06-06 07:30 JST 以降 read-only 再観測
 
 ## 使い方
 
@@ -16,14 +16,14 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 14 | 18 | 78% |
-| Weekly / Monthly Ops | 15 | 11 | 14 | 79% |
+| Report MVP | 20 | 15 | 19 | 79% |
+| Weekly / Monthly Ops | 15 | 12 | 15 | 80% |
 | Portfolio Data Quality | 15 | 12 | 14 | 86% |
 | Raw Input Quarantine | 15 | 14 | 15 | 93% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
 | UX / Sample Outputs | 10 | 11 | 11 | 100% |
 
-**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **79%**
+**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **80%**
 
 ## カテゴリ詳細チェックリスト
 
@@ -45,7 +45,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [x] scheduled observation partial 記録（platform 制約）
 - [x] Hard Gates を STATE / decisions に明文化
 
-### Report MVP（14/18）
+### Report MVP（15/19）
 
 - [x] Weekly Candidate Brief copy-ready
 - [x] Weekly email preview txt/html
@@ -65,8 +65,9 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [ ] v86 observation **pass**
 - [x] sample weekly output（fixture）
 - [x] sample monthly output（fixture）
+- [x] Post #485 scheduled observation + weekly review pack
 
-### Weekly / Monthly Ops（11/14）
+### Weekly / Monthly Ops（12/15）
 
 - [x] `run_weekly_candidate_brief.sh`（JSON 出力含む）
 - [x] v104 status paths（reports + email preview）
@@ -82,6 +83,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [ ] scheduled artifact v101 checklist 全項目 CI 一致
 - [x] pre-v86 dispatch 参考 artifact 検証
 - [x] v105 facades 導入
+- [x] `weekly-report-user-summary` CLI
 
 ### Portfolio Data Quality（12/14）
 

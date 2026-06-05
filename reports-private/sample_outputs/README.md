@@ -14,6 +14,8 @@
 | `cursor_auto_24h_final_summary.md` | 24h Serial Marathon 最終要約 |
 | `sample_outputs_review_for_user.md` | ユーザー向けサンプルレビュー要約 |
 | `main_development_24h_continuation_summary.md` | Post #474 本開発24h継続サマリ |
+| `real_or_pending_weekly_report_review_20260606.md` | 実/ pending 週次レポートレビュー |
+| `report_mvp_80_readiness_review.md` | Report MVP 80% readiness |
 
 各 `.md` 先頭に統一 disclaimer（blockquote）を付与しています。
 

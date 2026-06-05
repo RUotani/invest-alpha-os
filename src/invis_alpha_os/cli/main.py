@@ -187,6 +187,11 @@ from invis_alpha_os.product.weekly_artifact_local_verification import (
     render_weekly_artifact_local_verification_markdown,
     verify_weekly_candidate_brief_local_artifacts,
 )
+from invis_alpha_os.product.weekly_report_user_summary import (
+    build_weekly_report_user_summary,
+    format_weekly_report_user_summary_json,
+    render_weekly_report_user_summary_markdown,
+)
 from invis_alpha_os.product.evidence_manifest import (
     build_evidence_manifest,
     write_evidence_manifest_report,
@@ -2093,6 +2098,31 @@ def state_consistency_check_command(
         typer.echo(render_state_consistency_markdown(result))
     if not result.ok:
         raise typer.Exit(code=1)
+
+
+@app.command("weekly-report-user-summary")
+def weekly_report_user_summary_command(
+    source: str = typer.Option("sample", "--source", help="sample or composed"),
+    report_date: str = typer.Option("2026-06-06", "--report-date"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Emit a user-facing weekly one-page summary from fixture/sample only."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("weekly-report-user-summary: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    if source not in {"sample", "composed"}:
+        typer.echo("weekly-report-user-summary: --source must be sample or composed", err=True)
+        raise typer.Exit(code=2)
+    try:
+        summary = build_weekly_report_user_summary(source=source, report_date=report_date)
+    except ValueError as exc:
+        typer.echo(f"weekly-report-user-summary: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    if format == "json":
+        typer.echo(format_weekly_report_user_summary_json(summary))
+    else:
+        typer.echo(render_weekly_report_user_summary_markdown(summary))
 
 
 @app.command("weekly-artifact-local-verify")
