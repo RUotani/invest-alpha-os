@@ -2,6 +2,8 @@
 
 版: v0.1 / 2026-06-04
 
+関連入口: `docs/operator_user_guide.md`
+
 ## 方針
 
 - **cache write ではない** — stdout または手動で `reports-private/sample_outputs/` に反映
