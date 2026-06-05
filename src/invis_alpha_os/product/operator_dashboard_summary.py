@@ -28,7 +28,7 @@ def build_operator_dashboard_summary() -> OperatorDashboardSummary:
     return OperatorDashboardSummary(
         schema_version="operator_dashboard_summary.v1",
         source_mode="source_only_stdout_no_side_effects",
-        latest_verified_main_note="post #482 main includes P1-P4, S1-S4, and source-only report/operator guardrails",
+        latest_verified_main_note="Post #497 — v1.0 operational readiness pack; Candidate Discovery OS core 12/12",
         queue_items=(
             OperatorDashboardItem(
                 key="P1_scheduled_natural_run_observation",
@@ -82,9 +82,10 @@ def build_operator_dashboard_summary() -> OperatorDashboardSummary:
             ),
         ),
         recommended_next_actions=(
+            "毎朝 v1-readiness-check --format markdown で core 12/12 を確認する。",
             "2026-06-06 07:30 JST以降、scheduled natural runをread-onlyで観測する。",
             "artifactが存在する場合はweekly-artifact-local-verifyでstatus.jsonと本文マーカーを検査する。",
-            "T1/T2ではreport UX language contractとuser guideへ接続する。",
+            "週次は docs/v1_0_weekly_10min_flow.md に従う。",
         ),
     )
 

@@ -4,7 +4,7 @@
 
 | 項目 | 結果 |
 | --- | --- |
-| observation time | 2026-06-06 00:10 JST（Post #495 merge 後・再観測） |
+| observation time | 2026-06-06 00:22 JST（v1.0 pack 前・再観測） |
 | workflow | `weekly-candidate-brief`（`.github/workflows/weekly_candidate_brief.yml`） |
 | event | **not observed** — `event=schedule` の run は一覧に未出現 |
 | conclusion | **NOT_YET_OBSERVABLE**（観測ウィンドウ 2026-06-06 07:30 JST 未到達） |

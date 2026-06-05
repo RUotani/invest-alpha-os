@@ -21,6 +21,7 @@ Version: 2026-06-05
 
 | Purpose | Command | Mode |
 | --- | --- | --- |
+| v1.0 operational readiness | `env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main v1-readiness-check --format markdown` | read-only |
 | Weekly artifact/status verification | `env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-artifact-local-verify --report-date 2026-06-06` | local read-only verification |
 | Operator dashboard summary | `env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main operator-dashboard-summary --format markdown` | stdout-only |
 | Progress dashboard consistency | `env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main progress-dashboard-check --format markdown` | read-only |
