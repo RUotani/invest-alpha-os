@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -107,7 +107,7 @@ def build_manual_csv_import_plan(
         "# Manual CSV Import Plan",
         "",
         "## メタ情報",
-        f"- provider: manual_csv",
+        "- provider: manual_csv",
         f"- validated: {str(payload['validated']).lower()}",
         f"- importable: {str(payload['importable']).lower()}",
         f"- rows_newer_than_cache_total: {total_new_rows}",

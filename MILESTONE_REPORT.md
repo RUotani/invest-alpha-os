@@ -2,8 +2,8 @@
 
 ## Current Phase
 
-- **Phase:** Post #473 — Sample Review + Scheduled Observation
-- **Latest main:** `a88f4d15a5172a0affc5e508fd4c7bae5572c69c`（#473 merged）
+- **Phase:** 24h Main Development Continuation（#475 予定）
+- **Latest main:** `bcac626`（#474 merged）
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -29,11 +29,18 @@
 - [x] `cursor_auto_24h_final_summary.md`
 - [x] STATE v0.5 更新（正式承認待ち）
 
-## Post #473（#474 予定）
+## Post #473（#474 merged）
 
 - [x] `sample_outputs_review_for_user.md`
-- [x] `scheduled_run_observation_20260606.md`（**pending** — 2026-06-06 07:30 JST 未到達）
-- [ ] natural scheduled run artifact 確認
+- [x] `scheduled_run_observation_20260606.md`（pending）
+
+## Main Dev 24h（#475 予定）
+
+- [x] weekly JSON runner fix + gap analysis docs
+- [x] Report MVP UX（週次/月次結論 + 安全メモ）
+- [x] Ruff 44 → 0
+- [x] full pytest 1833 passed
+- [ ] scheduled run 再観測（2026-06-06 07:30 JST 以降）
 
 ## Open Issues
 

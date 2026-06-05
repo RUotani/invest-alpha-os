@@ -20,13 +20,11 @@ from invis_alpha_os.reports.manual_data_actual_import_approval_package import (
 from invis_alpha_os.reports.manual_data_discovery import _location_label, _search_roots
 from invis_alpha_os.reports.manual_data_import_flow_dry_run import build_manual_data_import_flow_dry_run
 from invis_alpha_os.reports.manual_data_schema_guard import (
-    DEFAULT_TARGET_TICKERS_CSV,
     build_manual_data_schema_validation,
     detect_prohibited_headers,
     redacted_header_summary,
 )
 from invis_alpha_os.reports.stooq_manual_csv_ticker_inference import (
-    TickerInferenceResult,
     infer_ticker_from_filename,
     is_stooq_candidate_filename,
 )

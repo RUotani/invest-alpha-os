@@ -6,7 +6,6 @@ import json
 from datetime import date
 from pathlib import Path
 
-import pytest
 
 from invis_alpha_os.observation.service import ObservationService
 from invis_alpha_os.observation.us_signals_batch import (

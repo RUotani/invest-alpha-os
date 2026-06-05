@@ -213,7 +213,7 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "今週やってよいこと / やらないこと / 次に確認すること" in body
         assert "no_candidate_reason" in body
         assert "## 安全メモ" in body
-        assert "このレポートは売買指示ではありません" in body
+        assert "これは売買指示ではありません" in body
 
     assert copy_body.strip().startswith("<<< COPY FROM HERE >>>")
     assert copy_body.strip().endswith("<<< COPY TO HERE >>>")

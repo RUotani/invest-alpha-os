@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 
 from invis_alpha_os.reports.jquants_date_range import (
-    compute_requested_refresh_range,
     contract_dates_from_env,
     is_effective_refresh_range,
     parse_contract_date,

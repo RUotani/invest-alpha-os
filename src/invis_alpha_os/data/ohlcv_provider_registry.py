@@ -246,7 +246,6 @@ class ProviderPriorityPolicy:
 
 
 def build_default_ohlcv_provider_registry() -> MarketDataProviderRegistry:
-    no_gate = ProviderApprovalGate(False, False, None, "low")
     public_live_gate = ProviderApprovalGate(True, False, PUBLIC_OHLCV_APPROVAL_PHRASE, "medium")
     jquants_gate = ProviderApprovalGate(True, False, JQUANTS_APPROVAL_PHRASE, "medium")
     manual_gate = ProviderApprovalGate(False, True, MANUAL_IMPORT_APPROVAL_PHRASE, "medium")

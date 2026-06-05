@@ -204,7 +204,7 @@ def build_security_leakage_audit(
         "# Security Leakage Audit",
         "",
         f"- overall_status: {overall}",
-        f"- secrets_printed: false",
+        "- secrets_printed: false",
         f"- source_tracked_env_count: {len(source_scan['tracked_env_files'])}",
         f"- source_secret_hit_count: {len(source_scan['suspected_secret_hits'])}",
         f"- suppressed_false_positive_count: {source_scan.get('suppressed_false_positive_count', 0)}",

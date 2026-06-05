@@ -99,7 +99,7 @@ def _matches_candidate_name(name: str) -> bool:
 
 
 def _redacted_header_summary_for_path(path: Path) -> str:
-    pii_payload = _pii_guard_for_data_file(path)
+    _pii_guard_for_data_file(path)
     if path.suffix.lower() == ".xlsx":
         headers, _ = _read_xlsx_headers(path)
     elif path.suffix.lower() in {".csv", ".tsv", ".txt"}:

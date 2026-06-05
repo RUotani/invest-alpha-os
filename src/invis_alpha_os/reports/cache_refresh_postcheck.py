@@ -86,8 +86,6 @@ def build_cache_refresh_postcheck(
     for ticker in tickers:
         b = before_candidates.get(ticker, {})
         a = after_candidates.get(ticker, {})
-        b_stale = before_stale.get(ticker, {})
-        a_stale = after_stale.get(ticker, {})
         rows.append(
             {
                 "ticker": ticker,

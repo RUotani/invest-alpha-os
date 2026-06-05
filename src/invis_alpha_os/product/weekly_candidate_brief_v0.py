@@ -1075,10 +1075,13 @@ def _weekly_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return [
         "## 今週の結論",
         "",
+        "- 新規買いを急がず、現金比率と個別株比率のguardrailを優先確認する。",
         f"- {first}",
+        "- 候補銘柄は「買い指示」ではなく、調査・監視・整理候補として扱う。",
         f"- 候補総数: {total_count}件 / 上位候補: {top_count}件",
         f"- 理由: {_no_candidate_reason(brief)}",
         f"- 判断方針: {PORTFOLIO_ACTION_BIAS_V81}",
+        "- actual import / broker連携 / cache write は引き続き NO-GO。",
         "",
     ]
 
@@ -1470,8 +1473,9 @@ def _safety_action_note_lines() -> list[str]:
     return [
         "## 安全メモ",
         "",
-        "このレポートは売買指示ではありません。",
-        "現金比率が低い局面では、候補が出ないこと自体を「新規リスクを増やさない」シグナルとして扱います。",
+        "これは売買指示ではありません。",
+        "現金比率が低い局面では、候補が出ないこと自体を「新規リスクを増やさない」抑制シグナルとして扱います。",
+        "actual import / broker連携 / cache write / 実メール送信は実行していません。",
         "",
     ]
 

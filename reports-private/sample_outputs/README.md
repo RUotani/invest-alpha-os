@@ -13,6 +13,7 @@
 | `chatgpt_one_page_summary_sample.md` | 週次/品質/quarantine を1画面要約（ChatGPT貼付用） |
 | `cursor_auto_24h_final_summary.md` | 24h Serial Marathon 最終要約 |
 | `sample_outputs_review_for_user.md` | ユーザー向けサンプルレビュー要約 |
+| `main_development_24h_continuation_summary.md` | Post #474 本開発24h継続サマリ |
 
 各 `.md` 先頭に統一 disclaimer（blockquote）を付与しています。
 

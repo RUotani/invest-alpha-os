@@ -185,7 +185,7 @@ def build_jp_alternative_provider_readiness(
         "## メタ情報",
         f"- report_date: {report_date}",
         f"- generated_at: {payload['generated_at']}",
-        f"- target_market: JP",
+        "- target_market: JP",
         f"- targets: {', '.join(targets)}",
         f"- jquants_contract_limited: {str(contract_limited).lower()}",
         f"- recommended_provider: {payload['recommended_provider']}",

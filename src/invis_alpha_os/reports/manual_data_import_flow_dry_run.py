@@ -81,13 +81,13 @@ def build_manual_data_import_flow_dry_run(
         "# Manual Data Import Flow Dry Run",
         "",
         f"- dry_run_status: {dry_status}",
-        f"- execute_import: false",
-        f"- actual_import: false",
-        f"- cache_write: false",
+        "- execute_import: false",
+        "- actual_import: false",
+        "- cache_write: false",
         f"- overall_status: {flow.json_payload.get('overall_status')}",
         f"- importable: {flow.json_payload.get('importable')}",
         f"- rows_newer_than_cache_total: {flow.json_payload.get('rows_newer_than_cache_total')}",
-        f"- actual_import_gate_status: pending_user_approval",
+        "- actual_import_gate_status: pending_user_approval",
         "",
     ]
     return ManualDataImportFlowDryRunResult(markdown_text="\n".join(lines), json_payload=payload)

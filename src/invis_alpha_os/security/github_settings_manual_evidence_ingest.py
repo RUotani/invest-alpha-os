@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 from invis_alpha_os.security.github_settings_manual_check_ids import MANUAL_CHECK_IDS
 
