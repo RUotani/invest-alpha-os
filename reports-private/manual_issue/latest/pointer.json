@@ -5,6 +5,8 @@
   "user_readme": "reports-private/manual_issue/latest/README_FOR_USER.md",
   "full_pack_dir": "reports-private/manual_issue/weekly_20260606",
   "generation_mode": "local_cli_cache_only",
-  "gmail_sent": false,
+  "gmail_sent": true,
+  "gmail_delivery_transport": "gmail_oauth",
+  "gmail_message_id": "19e9a26b12d4a2eb",
   "scheduled_run_observed": false
 }

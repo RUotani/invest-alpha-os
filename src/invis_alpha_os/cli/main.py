@@ -110,6 +110,7 @@ from invis_alpha_os.product.v1_operational_readiness import (
     render_v1_operational_readiness_markdown,
 )
 from invis_alpha_os.reporting.email_delivery import (
+    bootstrap_weekly_email_env,
     deliver_weekly_report_email,
     format_weekly_email_delivery_json,
     render_weekly_email_delivery_markdown,
@@ -2162,14 +2163,24 @@ def weekly_report_user_summary_command(
 def weekly_report_email_send_command(
     report_date: str = typer.Option(..., "--report-date"),
     report_root: str = typer.Option(..., "--report-root"),
-    send: bool = typer.Option(False, "--send", help="Send via SMTP when env is configured."),
+    send: bool = typer.Option(False, "--send", help="Send via SMTP or Gmail OAuth when env is configured."),
+    env_file: Optional[str] = typer.Option(None, "--env-file", help="Optional env file (e.g. daily_gmail.env)."),
+    auto_env_file: bool = typer.Option(
+        True,
+        "--auto-env-file/--no-auto-env-file",
+        help="Load ~/.config/invest-alpha-os/{weekly_report_email,daily_gmail}.env when present.",
+    ),
     format: str = typer.Option("markdown", "--format"),
 ) -> None:
-    """Send weekly report email via SMTP (v1.1); dry-run unless --send."""
+    """Send weekly report email via SMTP or Gmail OAuth (v1.1); dry-run unless --send."""
 
     if format not in {"markdown", "json"}:
         typer.echo("weekly-report-email-send: --format must be markdown or json", err=True)
         raise typer.Exit(code=2)
+    bootstrap_weekly_email_env(
+        env_file=Path(env_file) if env_file else None,
+        auto_env_file=auto_env_file,
+    )
     result = deliver_weekly_report_email(
         report_root=Path(report_root),
         report_date=report_date,

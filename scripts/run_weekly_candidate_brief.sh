@@ -64,4 +64,23 @@ export CONFIRM_US_LIVE_HTTP=
   --email-html "${EMAIL_HTML}" \
   --email-eml "${EMAIL_EML}"
 
+if [[ -f "${HOME}/.config/invest-alpha-os/weekly_report_email.env" ]]; then
+  # shellcheck source=/dev/null
+  set -a && source "${HOME}/.config/invest-alpha-os/weekly_report_email.env" && set +a
+elif [[ -f "${HOME}/.config/invest-alpha-os/daily_gmail.env" ]]; then
+  # shellcheck source=/dev/null
+  set -a && source "${HOME}/.config/invest-alpha-os/daily_gmail.env" && set +a
+fi
+export WEEKLY_REPORT_EMAIL_ENABLED="${WEEKLY_REPORT_EMAIL_ENABLED:-true}"
+
+echo "=== weekly-report-email-send ${REPORT_DATE} ==="
+if ! "${PYTHON}" -m invis_alpha_os.cli.main weekly-report-email-send \
+  --report-date "${REPORT_DATE}" \
+  --report-root "${REPORT_DIR}" \
+  --send \
+  --no-auto-env-file \
+  --format markdown; then
+  echo "WARN: weekly report email send failed (artifacts remain in ${REPORT_DIR})"
+fi
+
 echo "OK: weekly candidate brief generated"

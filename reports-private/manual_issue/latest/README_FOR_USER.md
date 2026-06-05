@@ -43,7 +43,7 @@
 | ブロッカー | 状態 | 初日運用への影響 |
 | --- | --- | --- |
 | GitHub scheduled run | `OBSERVATION_PENDING_SCHEDULED_RUN_NOT_VISIBLE` | **なし** — 本 manual pack で代替済み |
-| Gmail 配信 | v1.1 承認済み — secrets 設定後は `weekly-report-email-send --send` | 未設定時は本 README + copy で閲覧可 |
+| Gmail 配信 | **送信済み** (2026-06-06 · gmail_oauth) | 受信トレイを確認。未着時は本 README + copy |
 | CI JSON artifact | workflow 承認待ち | **なし** — ローカル JSON は生成済み（週次dir） |
 
 初日運用（2026-06-07）は **v1_usable_tomorrow: true** のまま継続。

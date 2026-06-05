@@ -5,9 +5,9 @@
 
 ## 前提
 
-- Gmail で 2段階認証を有効化
-- Google アカウント → セキュリティ → アプリパスワード を発行
-- 送信は `weekly-report-email-send` CLI または scheduled workflow
+- **方式A (SMTP)**: Gmail 2段階認証 + アプリパスワード → GitHub secrets
+- **方式B (OAuth, ローカル推奨)**: 既存 `~/.config/invest-alpha-os/daily_gmail.env` + OAuth token があれば SMTP 未設定でも自動送信
+- 送信は `weekly-report-email-send` CLI、`run_weekly_candidate_brief.sh`、または scheduled workflow
 
 ## 1回だけ: GitHub secrets / variables
 
@@ -25,11 +25,23 @@ gh variable set WEEKLY_REPORT_EMAIL_ENABLED --body "true"
 
 `WEEKLY_REPORT_EMAIL_ENABLED=true` のとき、scheduled workflow がレポート生成後に自動送信を試行します。
 
-## ローカル即時送信（latest pack）
+## ローカル即時送信（latest pack · OAuth）
+
+`daily_gmail.env` が設定済みなら SMTP 不要。`--auto-env-file` が既定で env を読み込みます。
 
 ```bash
 cd /Users/uotani/Projects/invest-alpha-os
 
+env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-email-send \
+  --report-date 2026-06-06 \
+  --report-root reports-private/manual_issue/weekly_20260606 \
+  --send \
+  --format markdown
+```
+
+## ローカル即時送信（SMTP）
+
+```bash
 export WEEKLY_REPORT_EMAIL_ENABLED=true
 export SMTP_HOST=smtp.gmail.com
 export SMTP_PORT=587
@@ -42,6 +54,7 @@ env PYTHONPATH=src .venv/bin/python -m invis_alpha_os.cli.main weekly-report-ema
   --report-date 2026-06-06 \
   --report-root reports-private/manual_issue/weekly_20260606 \
   --send \
+  --no-auto-env-file \
   --format markdown
 ```
 

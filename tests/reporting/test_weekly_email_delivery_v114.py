@@ -75,7 +75,21 @@ def test_deliver_weekly_report_email_blocked_when_env_missing(tmp_path: Path, mo
     report_root.mkdir()
     (report_root / "email").mkdir()
     (report_root / "email" / "email_preview.txt").write_text("body", encoding="utf-8")
-    monkeypatch.delenv("WEEKLY_REPORT_EMAIL_ENABLED", raising=False)
+    for key in (
+        "WEEKLY_REPORT_EMAIL_ENABLED",
+        "CONFIRM_GMAIL_SEND",
+        "GMAIL_REPORT_TO",
+        "GMAIL_REPORT_FROM",
+        "GMAIL_CREDENTIALS_FILE",
+        "GMAIL_TOKEN_FILE",
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USERNAME",
+        "SMTP_PASSWORD",
+        "WEEKLY_REPORT_EMAIL_FROM",
+        "WEEKLY_REPORT_EMAIL_TO",
+    ):
+        monkeypatch.delenv(key, raising=False)
 
     result = deliver_weekly_report_email(
         report_root=report_root,
@@ -180,6 +194,39 @@ def test_weekly_report_email_send_cli_dry_run(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert payload["email_delivery_status"] == "dry_run"
+
+
+def test_deliver_weekly_report_email_gmail_oauth_fallback_without_smtp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    report_root = tmp_path / "pack"
+    report_root.mkdir()
+    (report_root / "email").mkdir()
+    (report_root / "email" / "email_preview.txt").write_text("body", encoding="utf-8")
+
+    monkeypatch.delenv("WEEKLY_REPORT_EMAIL_ENABLED", raising=False)
+    monkeypatch.setenv("CONFIRM_GMAIL_SEND", "YES")
+    monkeypatch.setenv("GMAIL_REPORT_TO", "recipient@gmail.com")
+    monkeypatch.setenv("GMAIL_REPORT_FROM", "sender@gmail.com")
+    monkeypatch.setenv("GMAIL_CREDENTIALS_FILE", str(tmp_path / "credentials.json"))
+    (tmp_path / "credentials.json").write_text("{}", encoding="utf-8")
+
+    def _oauth(*, message: EmailMessage, recipient: str) -> dict[str, str]:
+        assert recipient == "recipient@gmail.com"
+        assert message["Subject"] == "[invest-alpha-os] Weekly Report 2026-06-06"
+        return {"id": "gmail-msg-123"}
+
+    result = deliver_weekly_report_email(
+        report_root=report_root,
+        report_date="2026-06-06",
+        send=True,
+        gmail_oauth_sender=_oauth,
+    )
+
+    assert result.email_delivery_status == "sent"
+    assert result.delivery_transport == "gmail_oauth"
+    assert result.message_id == "gmail-msg-123"
+    assert result.recipient_redacted == "r***@gmail.com"
 
 
 def test_render_markdown_never_contains_password_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
