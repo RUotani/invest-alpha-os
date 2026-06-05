@@ -20,6 +20,9 @@ def test_v1_readiness_current_repo_core_items_ready() -> None:
 
     assert result.core_total == 12
     assert result.v1_usable_tomorrow is True
+    assert result.schedule_status == "pending"
+    assert result.delivery_mode == "local_markdown_or_artifact_preview"
+    assert result.gmail_sent is False
     assert result.core_ready == 12
     assert result.boundary_ready == 1
     assert result.observation_ready == 0
@@ -51,6 +54,12 @@ def test_v1_readiness_markdown_and_json_renderers() -> None:
     assert "scheduled_natural_run" in markdown
     assert payload["schema_version"] == "v1_operational_readiness.v1"
     assert payload["v1_usable_tomorrow"] is True
+    assert payload["schedule_status"] == "pending"
+    assert payload["delivery_mode"] == "local_markdown_or_artifact_preview"
+    assert payload["gmail_sent"] is False
+    assert "schedule_status: **pending**" in markdown
+    assert "delivery_mode: **local_markdown_or_artifact_preview**" in markdown
+    assert "gmail_sent: **false**" in markdown
 
 
 def test_v1_readiness_check_cli_passes_on_current_repo() -> None:
@@ -61,6 +70,9 @@ def test_v1_readiness_check_cli_passes_on_current_repo() -> None:
 
     assert result.exit_code == 0
     assert "v1_usable_tomorrow: **true**" in result.stdout
+    assert "schedule_status: **pending**" in result.stdout
+    assert "delivery_mode: **local_markdown_or_artifact_preview**" in result.stdout
+    assert "gmail_sent: **false**" in result.stdout
 
 
 def test_v1_readiness_check_cli_nonzero_when_core_incomplete(tmp_path: Path) -> None:
