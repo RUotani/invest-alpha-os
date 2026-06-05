@@ -74,6 +74,14 @@
 - [x] Actual Import Readiness 0% guard
 - [x] progress dashboard count normalization
 
+## Post #475 Continuous Main Queue（S2）
+
+- [x] CLI `state-consistency-check`
+- [x] read-only STATE.md safety marker checker
+- [x] latest verified main mismatch warning / strict mode
+- [x] hard gate marker coverage tests
+- [ ] STATE.md refresh（承認待ち）
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）

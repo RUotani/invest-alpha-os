@@ -119,6 +119,11 @@ from invis_alpha_os.product.progress_dashboard_consistency import (
     format_progress_dashboard_consistency_json,
     render_progress_dashboard_consistency_markdown,
 )
+from invis_alpha_os.product.state_consistency import (
+    check_state_consistency,
+    format_state_consistency_json,
+    render_state_consistency_markdown,
+)
 from invis_alpha_os.product.raw_input_quarantine_v110 import (
     QuarantineSourceKind,
     RawInputQuarantineManifestV110,
@@ -1996,6 +2001,31 @@ def progress_dashboard_check_command(
         typer.echo(format_progress_dashboard_consistency_json(result))
     else:
         typer.echo(render_progress_dashboard_consistency_markdown(result))
+    if not result.ok:
+        raise typer.Exit(code=1)
+
+
+@app.command("state-consistency-check")
+def state_consistency_check_command(
+    path: str = typer.Option(str(ROOT_DIR / "STATE.md"), "--path"),
+    expected_main: Optional[str] = typer.Option(None, "--expected-main"),
+    strict_latest_main: bool = typer.Option(False, "--strict-latest-main/--warn-latest-main"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Validate STATE.md safety and snapshot markers without modifying STATE.md."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("state-consistency-check: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    result = check_state_consistency(
+        Path(path),
+        expected_main=expected_main,
+        strict_latest_main=strict_latest_main,
+    )
+    if format == "json":
+        typer.echo(format_state_consistency_json(result))
+    else:
+        typer.echo(render_state_consistency_markdown(result))
     if not result.ok:
         raise typer.Exit(code=1)
 
