@@ -20,7 +20,7 @@ def test_progress_dashboard_current_file_is_consistent() -> None:
 
     assert result.ok is True
     assert result.weighted_reference_pct == result.computed_weighted_pct
-    assert result.computed_weighted_pct == 79
+    assert result.computed_weighted_pct == 80
     actual = {row.domain: row for row in result.domain_rows}["Actual Import Readiness"]
     assert actual.completed == 0
     assert actual.progress_pct == 0
@@ -28,7 +28,7 @@ def test_progress_dashboard_current_file_is_consistent() -> None:
 
 def test_progress_dashboard_checker_reports_section_mismatch(tmp_path: Path) -> None:
     source = (REPO / "docs" / "progress_dashboard.md").read_text(encoding="utf-8")
-    broken = source.replace("### Report MVP（14/18）", "### Report MVP（13/18）")
+    broken = source.replace("| Report MVP | 20 | 15 | 19 | 79% |", "| Report MVP | 20 | 13 | 19 | 68% |")
     path = tmp_path / "progress_dashboard.md"
     path.write_text(broken, encoding="utf-8")
 
@@ -56,13 +56,13 @@ def test_progress_dashboard_checker_json_renderer_is_machine_readable() -> None:
     payload = json.loads(format_progress_dashboard_consistency_json(result))
 
     assert payload["ok"] is True
-    assert payload["computed_weighted_pct"] == 79
+    assert payload["computed_weighted_pct"] == 80
     assert payload["issues"] == []
 
 
 def test_progress_dashboard_check_cli_returns_nonzero_for_broken_file(tmp_path: Path) -> None:
     source = (REPO / "docs" / "progress_dashboard.md").read_text(encoding="utf-8")
-    broken = source.replace("**79%**", "**70%**")
+    broken = source.replace("**80%**", "**70%**")
     path = tmp_path / "progress_dashboard.md"
     path.write_text(broken, encoding="utf-8")
 
