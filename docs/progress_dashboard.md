@@ -1,8 +1,8 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
 版: v0.5 / 最終更新: 2026-06-05  
-基準 commit: `7032629`（#485）  
-直近: Post #485 Long-Run — scheduled observation **NOT_YET_OBSERVABLE** + artifact proposals  
+基準 commit: `da3bdc8`（#487）  
+直近: Post #487 — weekly zero-candidate readability + MVP 85 readiness review  
 次: 2026-06-06 07:30 JST 以降 read-only 再観測
 
 ## 使い方
@@ -16,14 +16,14 @@
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 15 | 19 | 79% |
-| Weekly / Monthly Ops | 15 | 12 | 15 | 80% |
+| Report MVP | 20 | 16 | 19 | 84% |
+| Weekly / Monthly Ops | 15 | 13 | 15 | 87% |
 | Portfolio Data Quality | 15 | 12 | 14 | 86% |
 | Raw Input Quarantine | 15 | 14 | 15 | 93% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
 | UX / Sample Outputs | 10 | 11 | 11 | 100% |
 
-**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **80%**
+**加重参考（単一総合%は運用禁止・参考のみ）:** 約 **82%**
 
 ## カテゴリ詳細チェックリスト
 
@@ -45,7 +45,7 @@
 - [x] scheduled observation partial 記録（platform 制約）
 - [x] Hard Gates を STATE / decisions に明文化
 
-### Report MVP（15/19）
+### Report MVP（16/19）
 
 - [x] Weekly Candidate Brief copy-ready
 - [x] Weekly email preview txt/html
@@ -61,13 +61,13 @@
 - [x] weekly JSON runner 生成（script; CI upload は workflow 待ち）
 - [ ] weekly JSON artifact CI upload（workflow 変更待ち）
 - [x] operator dashboard 本番 CLI 統合
-- [ ] monthly + weekly 統合 index ページ
+- [x] Report MVP 85 readiness review（#487 content + #488 doc）
 - [ ] v86 observation **pass**
-- [x] sample weekly output（fixture）
+- [x] sample weekly output（fixture; #487 zero-candidate readability refresh）
 - [x] sample monthly output（fixture）
 - [x] Post #485 scheduled observation + weekly review pack
 
-### Weekly / Monthly Ops（12/15）
+### Weekly / Monthly Ops（13/15）
 
 - [x] `run_weekly_candidate_brief.sh`（JSON 出力含む）
 - [x] v104 status paths（reports + email preview）
@@ -80,7 +80,7 @@
 - [x] monthly decision sheet 中立ラベル v84b
 - [x] portfolio constraints 週次表示
 - [ ] Gmail test-send 経路の運用ドキュメント一本化
-- [ ] scheduled artifact v101 checklist 全項目 CI 一致
+- [x] scheduled artifact v101 checklist 全項目 CI 一致（#487 fixture guard 反映）
 - [x] pre-v86 dispatch 参考 artifact 検証
 - [x] v105 facades 導入
 - [x] `weekly-report-user-summary` CLI

@@ -2,9 +2,9 @@
 
 ## Current Phase
 
-- **Phase:** Post #485 Long-Run Max — Scheduled Observation + Real Report Eval
-- **Latest main:** `7032629`（#485 merged）
-- **P0:** 2026-06-05 21:27 JST — HEAD confirmed, worktree clean
+- **Phase:** Post #487 — Report MVP 85% + Candidate Discovery OS next tree
+- **Latest main:** `da3bdc8`（#487 merged）
+- **P0:** 2026-06-05 22:07 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -120,7 +120,7 @@
 - [x] next 24h recommended PR order and stop conditions
 - [x] ChatGPT/operator handoff summary
 
-## Post #485 Long-Run Max（#486 予定）
+## Post #485 Long-Run Max（#486 merged）
 
 - [x] P1 NOT_YET_OBSERVABLE 分類 + observation report 更新
 - [x] P2 weekly_artifact_missing_analysis（dispatch 参考）
@@ -130,6 +130,25 @@
 - [x] S2 weekly_artifact_schema_contract
 - [x] S3 `weekly-report-user-summary` CLI
 - [x] T1–T3 proposals / readiness / next 24h tree
+
+## Post #486 Weekly Content（#487 merged）
+
+- [x] P1 冒頭結論短縮 + Do/Don't 統合
+- [x] P2 candidate_count=0 fixture 非表示
+- [x] P3 英語 coverage 理由の日本語化
+- [x] P4 重複削減・セクション役割分担
+- [x] S1 `test_weekly_report_user_readability_contract.py`
+- [x] S2 Monthly 冒頭文言整合
+- [x] S3 user summary composed 整合
+- [x] S4 sample 再生成
+- [x] auto-merge policy: Cursor が CI監視・squash merge 自律実行
+
+## Post #487 Queue（#488/#489 予定）
+
+- [x] #487 squash merge（CI green）
+- [ ] #488 MVP 85 readiness + scheduled observation 更新
+- [ ] #489 Candidate Discovery OS next 24h tree
+- [ ] T1 scheduled re-observation（2026-06-06 07:30 JST 以降）
 
 ## Open Issues
 
