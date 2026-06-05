@@ -2,9 +2,9 @@
 
 ## Current Phase
 
-- **Phase:** Post #494 — Candidate Discovery OS D4 + scheduled observation pending
-- **Latest main:** `3215ef3`（#496 merged; Long-Run MAX active）
-- **P0:** 2026-06-06 00:10 JST — auto-merge policy active; worktree clean
+- **Phase:** v1.0 Candidate Discovery OS — operational readiness pack
+- **Latest main:** `c2bff64`（#497 merged; v1.0 Long-Run active）
+- **P0:** 2026-06-06 00:22 JST — v1.0 core 12/12 target; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
 ## Completed — Epoch 1（#470 merged）
@@ -167,6 +167,14 @@
 - [x] T2 next 24h candidate discovery longrun plan
 - [x] T3 final consolidation（`cursor_auto_24h_final_summary.md` Post #494 更新）
 - [ ] Post 07:30 JST scheduled observation PR
+
+## v1.0 Operational Readiness（#498 予定）
+
+- [ ] CLI `v1-readiness-check`
+- [ ] `docs/v1_0_operational_readiness_dashboard.md`
+- [ ] `docs/v1_0_tomorrow_operational_checklist.md`
+- [ ] `docs/v1_0_weekly_10min_flow.md`
+- [ ] `weekly_artifact_local_verify_20260606.md`（dispatch 参考）
 
 ## Open Issues
 

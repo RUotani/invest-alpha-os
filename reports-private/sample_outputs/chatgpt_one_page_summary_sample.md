@@ -44,7 +44,7 @@
 
 ## Next Actions
 
-1. `weekly_candidate_brief_sample.md` で週次文面を確認
-2. `portfolio-data-quality-review --format markdown` で品質レビューを再確認
-3. `docs/progress_dashboard.md` で固定分母進捗を追跡
-4. 2026-06-06 07:30 JST 以降の scheduled run を read-only 観測（Epoch 4）
+1. `v1-readiness-check --format markdown` で v1.0 core 12/12 を確認
+2. `weekly-report-user-summary --source composed` で one-page を取得
+3. `docs/v1_0_weekly_10min_flow.md` で週次10分レビュー
+4. 2026-06-06 07:30 JST 以降の scheduled run を read-only 観測

@@ -104,6 +104,11 @@ from invis_alpha_os.product.operator_dashboard_summary import (
     format_operator_dashboard_summary_json,
     render_operator_dashboard_summary_markdown,
 )
+from invis_alpha_os.product.v1_operational_readiness import (
+    build_v1_operational_readiness,
+    format_v1_operational_readiness_json,
+    render_v1_operational_readiness_markdown,
+)
 from invis_alpha_os.product.ops_smoke_taxonomy import format_strict_taxonomy_stderr_line
 from invis_alpha_os.product.portfolio_exposure_by_signal_veto import (
     build_portfolio_exposure_by_signal_veto,
@@ -2054,6 +2059,29 @@ def operator_dashboard_summary_command(
         typer.echo(format_operator_dashboard_summary_json(summary))
     else:
         typer.echo(render_operator_dashboard_summary_markdown(summary))
+
+
+@app.command("v1-readiness-check")
+def v1_readiness_check_command(
+    repo_root: str = typer.Option(str(ROOT_DIR), "--repo-root"),
+    target_use_date: str = typer.Option("2026-06-07", "--target-use-date"),
+    format: str = typer.Option("markdown", "--format"),
+) -> None:
+    """Emit v1.0 operational readiness dashboard for Candidate Discovery OS daily use."""
+
+    if format not in {"markdown", "json"}:
+        typer.echo("v1-readiness-check: --format must be markdown or json", err=True)
+        raise typer.Exit(code=2)
+    result = build_v1_operational_readiness(
+        repo_root=Path(repo_root),
+        target_use_date=target_use_date,
+    )
+    if format == "json":
+        typer.echo(format_v1_operational_readiness_json(result))
+    else:
+        typer.echo(render_v1_operational_readiness_markdown(result))
+    if not result.v1_usable_tomorrow:
+        raise typer.Exit(code=1)
 
 
 @app.command("progress-dashboard-check")
