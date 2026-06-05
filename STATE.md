@@ -1,6 +1,6 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.5 / 最終更新: 2026-06-05（Post #473 整合 — 正式承認待ち）
+版: v0.5 / 最終更新: 2026-06-05（#474 + Main Dev 継続 — 正式承認待ち）
 
 ## 3行サマリー
 - **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
@@ -29,7 +29,8 @@
 - PR #471: Epoch 2 disclaimer + `portfolio-data-quality-review` CLI
 - PR #472: Epoch 3 operator dashboard + `sample-output-pack` CLI
 - PR #473: Epoch 4 scheduled observation pending + 24h final summary
-- Post #473: `sample_outputs_review_for_user.md` + scheduled observation 2026-06-06（#474 予定）
+- PR #474: sample review pack + scheduled observation pending
+- Main Dev 継続（#475 予定）: weekly JSON runner、Report MVP UX、Ruff 0
 
 ## §2. Weekly / Monthly 現在機能
 

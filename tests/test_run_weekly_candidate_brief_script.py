@@ -27,8 +27,10 @@ def test_weekly_script_generates_markdown_and_copy_outputs() -> None:
     text = SCRIPT.read_text(encoding="utf-8")
     assert "--format markdown" in text
     assert "--format copy" in text
+    assert "--format json" in text
     assert "weekly_candidate_brief_v0_1.md" in text
     assert "weekly_candidate_brief_copy.md" in text
+    assert "weekly_candidate_brief.json" in text
     assert "weekly-candidate-brief-email" in text
 
 
@@ -39,6 +41,7 @@ def test_weekly_script_writes_v104_status_without_workflow_or_send_actions() -> 
     assert "--email-text" in text
     assert "--email-html" in text
     assert "--email-eml" in text
+    assert "--json-report" in text
     assert "GITHUB_EVENT_NAME" not in text
     assert "workflow_dispatch" not in text
     assert "--send-test" not in text

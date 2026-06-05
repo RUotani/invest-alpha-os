@@ -69,7 +69,7 @@ def build_dependency_security_audit() -> DependencySecurityAuditResult:
     lines = [
         "# Dependency Security Audit",
         "",
-        f"- overall_status: inventory_only",
+        "- overall_status: inventory_only",
         f"- python_version: {payload['python_version']}",
         f"- installed_package_count: {len(packages)}",
         f"- pip_audit_available: {str(pip_audit_available).lower()}",

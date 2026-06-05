@@ -1,9 +1,9 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
-版: v0.3 / 最終更新: 2026-06-05  
-基準 commit: `a88f4d15a5172a0affc5e508fd4c7bae5572c69c`（main, #473）  
-直近: Post #473 — sample review pack + scheduled observation **pending**（2026-06-06 07:30 JST 以降）  
-#471–#473 merged / Actual Import Readiness **0% 維持**
+版: v0.4 / 最終更新: 2026-06-05  
+基準 commit: `bcac626`（#474）→ #475 予定  
+直近: 24h Main Development — JSON runner + Report MVP UX + Ruff 0  
+scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 
 ## 使い方
 
@@ -16,8 +16,8 @@
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 14 | 20 | 70% |
-| Weekly / Monthly Ops | 15 | 11 | 15 | 73% |
+| Report MVP | 20 | 15 | 20 | 75% |
+| Weekly / Monthly Ops | 15 | 12 | 15 | 80% |
 | Portfolio Data Quality | 15 | 13 | 15 | 87% |
 | Raw Input Quarantine | 15 | 13 | 15 | 87% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
@@ -45,7 +45,7 @@
 - [x] scheduled observation partial 記録（platform 制約）
 - [x] Hard Gates を STATE / decisions に明文化
 
-### Report MVP（14/20）
+### Report MVP（15/20）
 
 - [x] Weekly Candidate Brief copy-ready
 - [x] Weekly email preview txt/html
@@ -58,16 +58,17 @@
 - [x] v110 quarantine review
 - [x] v111 cross-review
 - [ ] scheduled natural run 観測完了（2026-06-06 待ち）
-- [ ] weekly JSON artifact CI 生成（optional）
+- [x] weekly JSON runner 生成（script; CI upload は workflow 待ち）
+- [ ] weekly JSON artifact CI upload（workflow 変更待ち）
 - [ ] operator dashboard 本番 CLI 統合
 - [ ] monthly + weekly 統合 index ページ
 - [ ] v86 observation **pass**
 - [x] sample weekly output（fixture）
 - [x] sample monthly output（fixture）
 
-### Weekly / Monthly Ops（11/15）
+### Weekly / Monthly Ops（12/15）
 
-- [x] `run_weekly_candidate_brief.sh`
+- [x] `run_weekly_candidate_brief.sh`（JSON 出力含む）
 - [x] v104 status paths（reports + email preview）
 - [x] normal cron `0 22 * * 5`
 - [x] v102 temporary cron 削除（#461）

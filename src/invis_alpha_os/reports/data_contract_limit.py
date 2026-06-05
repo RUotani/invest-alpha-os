@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 from invis_alpha_os.reports.jquants_date_range import parse_contract_date

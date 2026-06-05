@@ -191,7 +191,6 @@ def build_investment_readiness_v31(
 ) -> InvestmentReadinessV31Result:
     latest = reports_latest_dir
     context = _load_json(latest / "chatgpt_invest_context_pack.json")
-    readiness = _load_json(latest / "cache_refresh_readiness.json")
     trap_doc = _load_json(latest / "trap_analysis.json")
     verification = _load_json(latest / "jquants_refresh_freshness_verification.json")
     dry_run = _load_json(latest / "manual_data_import_flow.json")
@@ -363,7 +362,7 @@ def build_investment_readiness_v31(
             f"- report_date: {report_date}",
             f"- verdict: {readiness_payload['investment_readiness_verdict']}",
             f"- v30r_refresh_reflected: {str(refresh_reflected).lower()}",
-            f"- manual_import_recommended: false",
+            "- manual_import_recommended: false",
             f"- rows_newer_than_cache: {import_rows_newer}",
             "",
             "## Freshness",

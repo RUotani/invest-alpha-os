@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from datetime import date, datetime
-from typing import Any
 
 from invis_alpha_os.config.jp_watchlist import normalize_jquants_equity_code
 

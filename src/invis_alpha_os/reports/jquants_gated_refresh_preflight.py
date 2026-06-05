@@ -140,7 +140,7 @@ def build_jquants_gated_refresh_preflight(
         f"- contract_limited_risk: {contract_risk}",
         f"- max_gap_days: {max_gap}",
         f"- credentials_available: {str(credentials_available).lower()}",
-        f"- requires_user_approval: true",
+        "- requires_user_approval: true",
         "",
         "| ticker | cache_latest | gap_days | contract_limited | may_extend |",
         "| --- | --- | ---: | --- | --- |",

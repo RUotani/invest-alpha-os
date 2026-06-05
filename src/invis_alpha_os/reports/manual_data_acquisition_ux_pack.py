@@ -21,7 +21,6 @@ from invis_alpha_os.reports.manual_data_freshness_pipeline import (
     ManualDataFreshnessPipelineResult,
     build_manual_data_freshness_pipeline,
     sync_manual_data_freshness_to_reports_repo,
-    write_manual_data_freshness_outputs,
 )
 from invis_alpha_os.reports.manual_data_paste_intake import build_manual_data_paste_intake_readiness
 from invis_alpha_os.reports.manual_data_recent_candidates import build_manual_data_recent_candidates_report

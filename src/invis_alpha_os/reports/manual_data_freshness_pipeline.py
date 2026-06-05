@@ -119,7 +119,6 @@ def build_manual_data_freshness_pipeline(
 
     manual_detected = bool(discovery.json_payload.get("manual_file_detected"))
     schema_valid = bool(schema_result and schema_result.json_payload.get("schema_valid"))
-    dry_pass = bool(dry_run_result and dry_run_result.json_payload.get("dry_run_status") == "pass")
 
     summary = {
         "report_date": report_date,

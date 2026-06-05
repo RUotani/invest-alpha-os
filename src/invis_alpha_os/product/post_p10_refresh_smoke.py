@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from invis_alpha_os.config.paths import CONFIG_DIR, OUTPUTS_DIR, ROOT_DIR
+from invis_alpha_os.config.paths import OUTPUTS_DIR, ROOT_DIR
 from invis_alpha_os.product.ops_smoke_report import build_ops_smoke_report
 from invis_alpha_os.product.ops_smoke_taxonomy import classify_ops_smoke_strict
 from invis_alpha_os.product.peer_sync_forward_validation import compute_peer_sync_forward_join

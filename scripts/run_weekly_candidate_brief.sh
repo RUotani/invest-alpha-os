@@ -20,6 +20,7 @@ LOG_FILE="${LOG_DIR}/run_0700.log"
 STATUS_FILE="${LOG_DIR}/status.json"
 FULL_MD="${REPORT_DIR}/weekly_candidate_brief_v0_1.md"
 COPY_MD="${REPORT_DIR}/weekly_candidate_brief_copy.md"
+JSON_FILE="${REPORT_DIR}/weekly_candidate_brief.json"
 EMAIL_TXT="${REPORT_DIR}/email/email_preview.txt"
 EMAIL_HTML="${REPORT_DIR}/email/email_preview.html"
 EMAIL_EML="${REPORT_DIR}/email/email_preview.eml"
@@ -42,6 +43,11 @@ export CONFIRM_US_LIVE_HTTP=
   --report-date "${REPORT_DATE}" \
   --out "${COPY_MD}"
 
+"${PYTHON}" -m invis_alpha_os.cli.main weekly-candidate-brief \
+  --format json \
+  --report-date "${REPORT_DATE}" \
+  --out "${JSON_FILE}"
+
 "${PYTHON}" -m invis_alpha_os.cli.main weekly-candidate-brief-email \
   --report-date "${REPORT_DATE}" \
   --report-dir "${REPORT_DIR}" \
@@ -53,6 +59,7 @@ export CONFIRM_US_LIVE_HTTP=
   --report-date "${REPORT_DATE}" \
   --full-report "${FULL_MD}" \
   --copy-report "${COPY_MD}" \
+  --json-report "${JSON_FILE}" \
   --email-text "${EMAIL_TXT}" \
   --email-html "${EMAIL_HTML}" \
   --email-eml "${EMAIL_EML}"

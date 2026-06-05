@@ -221,7 +221,7 @@ def build_security_dashboard(
         "# Security Dashboard",
         "",
         f"- overall_grade: {grade}",
-        f"- secrets_printed: false",
+        "- secrets_printed: false",
         f"- leakage_status: {leakage.json_payload.get('overall_status')}",
         f"- actions_status: {actions.json_payload.get('overall_status')}",
         f"- tracked_reports_count: {tracked_reports_count}",

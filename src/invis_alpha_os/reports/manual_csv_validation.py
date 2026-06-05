@@ -186,7 +186,7 @@ def validate_manual_csv_file(
         "# Manual CSV Validation",
         "",
         "## メタ情報",
-        f"- provider: manual_csv",
+        "- provider: manual_csv",
         f"- validated: {str(payload['validated']).lower()}",
         f"- row_count: {payload['row_count']}",
         f"- date_min: {payload['date_min']}",

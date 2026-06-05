@@ -109,6 +109,23 @@ def test_v104_validator_reports_invalid_schema_and_gmail_send_state() -> None:
     assert "email_preview.gmail_send_attempted" in issues
 
 
+def test_v104_records_json_report_path_when_provided() -> None:
+    status = _build_status(
+        json_report="reports/2026-06-06/weekly_candidate_brief.json",
+        existing_paths=(
+            "reports/2026-06-06/weekly_candidate_brief_v0_1.md",
+            "reports/2026-06-06/weekly_candidate_brief_copy.md",
+            "reports/2026-06-06/weekly_candidate_brief.json",
+            "reports/2026-06-06/email/email_preview.txt",
+            "reports/2026-06-06/email/email_preview.html",
+            "reports/2026-06-06/email/email_preview.eml",
+        ),
+    )
+
+    assert status["reports"]["json_report"] == "reports/2026-06-06/weekly_candidate_brief.json"  # type: ignore[index]
+    assert validate_weekly_artifact_status_v104(status) == ()
+
+
 def test_v104_status_writer_round_trips_json(tmp_path) -> None:
     status = _build_status()
     output = tmp_path / "status.json"

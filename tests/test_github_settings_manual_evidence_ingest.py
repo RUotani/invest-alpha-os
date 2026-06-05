@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from invis_alpha_os.security.github_settings_manual_evidence_ingest import (
     ingest_github_settings_manual_evidence,
