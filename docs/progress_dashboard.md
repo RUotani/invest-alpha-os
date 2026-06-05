@@ -16,12 +16,12 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 16 | 20 | 80% |
-| Weekly / Monthly Ops | 15 | 12 | 15 | 80% |
-| Portfolio Data Quality | 15 | 13 | 15 | 87% |
-| Raw Input Quarantine | 15 | 13 | 15 | 87% |
+| Report MVP | 20 | 14 | 18 | 78% |
+| Weekly / Monthly Ops | 15 | 11 | 14 | 79% |
+| Portfolio Data Quality | 15 | 12 | 14 | 86% |
+| Raw Input Quarantine | 15 | 14 | 15 | 93% |
 | Actual Import Readiness | 10 | 0 | 10 | 0% |
-| UX / Sample Outputs | 10 | 10 | 10 | 100% |
+| UX / Sample Outputs | 10 | 11 | 11 | 100% |
 
 **加重参考（単一総合%は運用禁止・参考のみ）:** 約 **79%**
 
@@ -45,7 +45,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [x] scheduled observation partial 記録（platform 制約）
 - [x] Hard Gates を STATE / decisions に明文化
 
-### Report MVP（15/20）
+### Report MVP（14/18）
 
 - [x] Weekly Candidate Brief copy-ready
 - [x] Weekly email preview txt/html
@@ -66,7 +66,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [x] sample weekly output（fixture）
 - [x] sample monthly output（fixture）
 
-### Weekly / Monthly Ops（12/15）
+### Weekly / Monthly Ops（11/14）
 
 - [x] `run_weekly_candidate_brief.sh`（JSON 出力含む）
 - [x] v104 status paths（reports + email preview）
@@ -83,7 +83,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [x] pre-v86 dispatch 参考 artifact 検証
 - [x] v105 facades 導入
 
-### Portfolio Data Quality（12/15）
+### Portfolio Data Quality（12/14）
 
 - [x] v109 review module
 - [x] guardrail 横断
@@ -100,7 +100,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [x] 売買指示でない safety wording
 - [x] sample markdown 生成
 
-### Raw Input Quarantine（13/15）
+### Raw Input Quarantine（14/15）
 
 - [x] v110 manifest contract
 - [x] v110 CLI `raw-input-quarantine-review`
@@ -131,7 +131,7 @@ scheduled observation: **pending**（2026-06-06 07:30 JST 以降）
 - [ ] v110→import ゲート自動化（意図的に未接続）
 - [ ] production import 実行
 
-### UX / Sample Outputs（10/10）
+### UX / Sample Outputs（11/11）
 
 - [x] progress_dashboard.md（本ファイル）
 - [x] MILESTONE_REPORT.md

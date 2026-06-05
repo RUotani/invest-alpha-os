@@ -66,6 +66,14 @@
 - [x] markdown/json stdout renderers
 - [x] operator dashboard focused tests
 
+## Post #475 Continuous Main Queue（S1）
+
+- [x] CLI `progress-dashboard-check`
+- [x] table/header/checklist count consistency checker
+- [x] weighted reference recalculation checker
+- [x] Actual Import Readiness 0% guard
+- [x] progress dashboard count normalization
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
