@@ -74,7 +74,7 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 description_ja="ChatGPT貼り付け用copy本文。週次判断の最短確認に使う。",
                 must_contain=(
                     "Score / Veto",
-                    "Pipeline",
+                    "候補パイプライン",
                     "Sanitized / Manual Input",
                     "これは売買指示ではなく",
                 ),

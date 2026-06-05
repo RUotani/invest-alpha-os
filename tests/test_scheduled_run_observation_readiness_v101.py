@@ -48,7 +48,7 @@ def test_v101_fixture_texts_validate_weekly_copy_email_and_status() -> None:
     assert result.issues == ()
     assert "weekly_candidate_brief_copy.md" in result.checked_paths
     assert "Score / Veto" in texts["weekly_candidate_brief_copy.md"]
-    assert "Pipeline" in texts["weekly_candidate_brief_copy.md"]
+    assert "候補パイプライン" in texts["weekly_candidate_brief_copy.md"]
     assert "Sanitized / Manual Input" in texts["weekly_candidate_brief_copy.md"]
     assert "現金11.7%" in texts["email/email_preview.txt"]
     assert "個別株19.6%" in texts["email/email_preview.html"]

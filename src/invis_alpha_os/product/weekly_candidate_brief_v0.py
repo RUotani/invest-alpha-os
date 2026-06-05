@@ -115,6 +115,34 @@ NO_CANDIDATE_DEFAULT_REASON_V81 = (
     "JP / US / ETF の横断候補が、データ品質・coverage・score条件を同時に満たしていません。"
 )
 
+_KNOWN_COVERAGE_REASON_EN_TO_JA: dict[str, str] = {
+    "JP candidates were unavailable due to insufficient JP cache quality": (
+        "日本株候補は、キャッシュ品質不足のため候補抽出できませんでした。"
+    ),
+    "US equity candidates were unavailable due to insufficient data quality": (
+        "米国株候補は、データ品質不足のため候補抽出できませんでした。"
+    ),
+    "ETF proxy candidates were unavailable due to insufficient data quality": (
+        "ETF proxy候補は、データ品質不足のため候補抽出できませんでした。"
+    ),
+}
+
+
+def translate_user_facing_coverage_reason_to_ja(raw: str) -> str:
+    """Convert internal English coverage notes to user-facing Japanese."""
+
+    parts = [part.strip() for part in raw.split("/") if part.strip()]
+    if not parts:
+        return NO_CANDIDATE_DEFAULT_REASON_V81
+    if all(part in _KNOWN_COVERAGE_REASON_EN_TO_JA for part in parts):
+        if any("JP candidates" in part for part in parts) and any("US equity" in part for part in parts):
+            return (
+                "日本株・米国株とも、候補判定に必要なデータ品質が不足していたため、"
+                "強い新規候補として採用しませんでした。"
+            )
+        return " / ".join(_KNOWN_COVERAGE_REASON_EN_TO_JA[part] for part in parts)
+    return " / ".join(_KNOWN_COVERAGE_REASON_EN_TO_JA.get(part, part) for part in parts)
+
 DO_ITEMS_V81: tuple[str, ...] = (
     "候補0件の理由とcoverage不足を確認する",
     "現金比率が低い前提で、新規リスク追加を抑制する",
@@ -1049,13 +1077,27 @@ def _total_candidate_count(brief: WeeklyCandidateBriefV0) -> int:
     return len(seen)
 
 
-def _no_candidate_reason(brief: WeeklyCandidateBriefV0) -> str:
+def _has_actionable_top_candidates(brief: WeeklyCandidateBriefV0) -> bool:
+    return bool(brief.top_picks)
+
+
+def _resolve_score_veto_assessments(
+    brief: WeeklyCandidateBriefV0,
+) -> tuple[CandidateIntegratedAssessment, ...] | None:
+    if brief.score_veto_assessments:
+        return brief.score_veto_assessments
+    if _has_actionable_top_candidates(brief):
+        return build_fixture_integrated_candidate_assessments_v93()
+    return None
+
+
+def _no_candidate_reason(brief: WeeklyCandidateBriefV0, *, user_facing: bool = True) -> str:
     if brief.top_picks:
         return "上位候補はあります。反証と次確認を優先して深掘りしてください。"
     if brief.coverage_note:
         note = brief.coverage_note.removeprefix("coverage_note: ").strip()
         if note:
-            return note
+            return translate_user_facing_coverage_reason_to_ja(note) if user_facing else note
     coverage_count = len(brief.insufficient_list)
     veto_count = len(brief.avoid_list)
     score_state = "該当候補なし" if coverage_count == 0 and veto_count == 0 else "coverage/veto確認を優先"
@@ -1067,21 +1109,40 @@ def _no_candidate_reason(brief: WeeklyCandidateBriefV0) -> str:
 
 def _weekly_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     top_count = len(brief.top_picks)
-    total_count = _total_candidate_count(brief)
     if top_count:
-        first = f"深掘り候補: {top_count}件。反証と次確認を先に見て、観測ベースで優先順位を確認します。"
-    else:
-        first = "強い新規リスク候補: 0件。候補ゼロを正常な抑制シグナルとして扱います。"
+        total_count = _total_candidate_count(brief)
+        return [
+            "## 今週の結論",
+            "",
+            f"深掘り候補: {top_count}件。反証と次確認を先に見て、観測ベースで優先順位を確認します。",
+            f"- 候補総数: {total_count}件 / 上位候補: {top_count}件",
+            f"- 判断方針: {PORTFOLIO_ACTION_BIAS_V81}",
+            "- 候補銘柄は「買い指示」ではなく、調査・監視・整理候補として扱う。",
+            "- actual import / broker連携 / cache write は引き続き NO-GO。",
+            "",
+        ]
+    reason_ja = _no_candidate_reason(brief)
     return [
         "## 今週の結論",
         "",
-        "- 新規買いを急がず、現金比率と個別株比率のguardrailを優先確認する。",
-        f"- {first}",
-        "- 候補銘柄は「買い指示」ではなく、調査・監視・整理候補として扱う。",
-        f"- 候補総数: {total_count}件 / 上位候補: {top_count}件",
-        f"- 理由: {_no_candidate_reason(brief)}",
-        f"- 判断方針: {PORTFOLIO_ACTION_BIAS_V81}",
-        "- actual import / broker連携 / cache write は引き続き NO-GO。",
+        "今週は新規買いを急がない。",
+        "",
+        "理由:",
+        "- 現金比率が11.7%で、最低目安15%を下回っている",
+        "- 個別株比率が19.6%で、目安10〜15%を上回っている",
+        f"- {reason_ja}",
+        "",
+        "候補0件は「問題なし」ではなく、新規リスクを増やさない抑制シグナルです。",
+        "",
+        "今週やること:",
+        "1. 新規リスク追加ではなく、現金回復と個別株比率の整理候補を確認",
+        "2. データ不足の原因を確認",
+        "3. 次回runで候補抽出が改善するかを見る",
+        "",
+        "今週やらないこと:",
+        "- 根拠不足の個別株・高ベータ銘柄を追加しない",
+        "- 候補0件を「問題なし」と解釈しない",
+        "- actual import / broker連携 / cache write は引き続き NO-GO",
         "",
     ]
 
@@ -1182,24 +1243,14 @@ def _candidate_zero_reason_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         return []
     rows = _candidate_zero_reason_rows(brief)
     lines = [
-        "## 候補0件の理由メモ",
-        "",
-        "候補0件は失敗ではありません。今回は、強い新規リスク候補として扱える根拠が不足しているため、",
-        "追加リスクを抑制する判断材料として扱います。",
+        "## 候補0件の内訳",
         "",
         "| 理由カテゴリ | 件数/状態 | 説明 | 次に確認すること |",
         "|---|---|---|---|",
     ]
     for category, count_or_state, description, next_check in rows:
         lines.append(f"| {category} | {count_or_state} | {description} | {next_check} |")
-    lines.extend(
-        [
-            "",
-            f"- 候補0件の主因: {rows[0][0]} {rows[0][1]} / {rows[1][0]} {rows[1][1]} / {rows[2][0]} {rows[2][1]}",
-            "- 次確認: 価格・出来高・期間・score内訳・veto理由",
-            "",
-        ]
-    )
+    lines.append("")
     return lines
 
 
@@ -1289,7 +1340,15 @@ def _pipeline_trace_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
 
 
 def _score_veto_integration_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
-    assessments = brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93()
+    assessments = _resolve_score_veto_assessments(brief)
+    if not assessments:
+        return [
+            "## Score / Veto 統合サマリー",
+            "",
+            "今回は強い新規候補0件のため、パイプライン候補表は表示しません。",
+            "coverage / score / veto 条件の確認を優先してください。",
+            "",
+        ]
     return render_integrated_candidate_assessment_markdown(assessments).splitlines() + [""]
 
 
@@ -1306,8 +1365,14 @@ def _monthly_input_summary_lines_v95() -> tuple[str, ...]:
 
 
 def _shared_view_model_lines_v96(brief: WeeklyCandidateBriefV0) -> list[str]:
-    assessments = brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93()
-    score_veto_summary = render_integrated_candidate_assessment_summary_lines(assessments)
+    assessments = _resolve_score_veto_assessments(brief)
+    if assessments:
+        score_veto_summary = render_integrated_candidate_assessment_summary_lines(assessments)
+    else:
+        score_veto_summary = (
+            "Score/Veto: 深掘り候補0。強い新規候補なしのためfixture候補表は表示しません。",
+            "これは実行指示ではなく、根拠補完と安全確認の分類です。",
+        )
     t = brief.pipeline_trace
     if t is None:
         pipeline_summary = ("候補パイプライン: 集計情報なし",)
@@ -1431,7 +1496,13 @@ def _cleanup_priority_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     return lines
 
 
-def _weekly_action_checklist_lines() -> list[str]:
+def _weekly_action_checklist_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    if not _has_actionable_top_candidates(brief):
+        lines = ["## 次に確認すること", ""]
+        lines.extend(f"- {item}" for item in NEXT_CHECK_ITEMS_V85)
+        lines.append("- score 4以上の枠が、個別株・高ボラ枠・重複リスクのどれに集中しているか")
+        lines.append("")
+        return lines
     lines = ["## 今週の行動チェックリスト", "", "### 今週やってよいこと"]
     lines.extend(f"- {item}" for item in ALLOWED_ACTION_ITEMS_V85)
     lines.append("- 整理・監視優先度スコアが高い枠の根拠を確認する")
@@ -1441,15 +1512,7 @@ def _weekly_action_checklist_lines() -> list[str]:
     lines.extend(["", "### 次に確認すること"])
     lines.extend(f"- {item}" for item in NEXT_CHECK_ITEMS_V85)
     lines.append("- score 4以上の枠が、個別株・高ボラ枠・重複リスクのどれに集中しているか")
-    lines.extend(
-        [
-            "",
-            "### 候補0件の意味",
-            "- 候補0件はレポート失敗ではありません。",
-            "- 現金不足・データ不足・条件未達のため、新規リスクを増やさない判断材料です。",
-            "",
-        ]
-    )
+    lines.append("")
     return lines
 
 
@@ -1495,8 +1558,9 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
     lines.extend(_shared_view_model_lines_v96(brief))
     lines.extend(_candidate_zero_reason_lines(brief))
     lines.extend(_cleanup_priority_lines(brief))
-    lines.extend(_weekly_action_checklist_lines())
-    lines.extend(_do_dont_lines())
+    lines.extend(_weekly_action_checklist_lines(brief))
+    if _has_actionable_top_candidates(brief):
+        lines.extend(_do_dont_lines())
     lines.extend(
         [
             "## 今週の深掘り候補 上位5件",
@@ -1509,7 +1573,7 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         lines.append(_format_copy_ready_brief_table_row(rank=rank, card=card))
     if not brief.top_picks:
         lines.append("| — | — | — | — | — | — |")
-    if brief.coverage_note:
+    if brief.coverage_note and _has_actionable_top_candidates(brief):
         lines.extend(["", f"- coverage: {_no_candidate_reason(brief)}"])
 
     lines.extend(
@@ -1599,7 +1663,8 @@ def format_weekly_candidate_brief_v0_markdown(brief: WeeklyCandidateBriefV0) -> 
     )
     lines.extend(_format_cards_section("今週の候補 Top 5（横断）", brief.top_picks))
     if brief.coverage_note:
-        lines.append("- " + brief.coverage_note)
+        raw_note = brief.coverage_note.removeprefix("coverage_note: ").strip()
+        lines.append(f"- coverage補足: {translate_user_facing_coverage_reason_to_ja(raw_note)}")
         lines.append("")
     lines.extend(_format_cards_section("急騰候補 Top 3", brief.rapid_movers))
     lines.extend(_format_cards_section("押し目候補 Top 3", brief.pullbacks))
@@ -1653,7 +1718,7 @@ def format_weekly_candidate_brief_v0_json(brief: WeeklyCandidateBriefV0) -> str:
         },
         "score_veto_pipeline": [
             _integrated_assessment_to_dict(row)
-            for row in (brief.score_veto_assessments or build_fixture_integrated_candidate_assessments_v93())
+            for row in (_resolve_score_veto_assessments(brief) or ())
         ],
         "discovery": brief.discovery_merge,
         "observation_only": True,
