@@ -1,8 +1,8 @@
 # Progress Dashboard — invest-alpha-os（固定分母）
 
-版: v0.5 / 最終更新: 2026-06-05  
-基準 commit: `da3bdc8`（#487）  
-直近: Post #487 — weekly zero-candidate readability + MVP 85 readiness review  
+版: v0.6 / 最終更新: 2026-06-06  
+基準 commit: `af6543a`（#495）  
+直近: Post #494 — D4 candidate-positive conclusion + Candidate Discovery OS goal  
 次: 2026-06-06 07:30 JST 以降 read-only 再観測
 
 ## 使い方
@@ -16,7 +16,7 @@
 | Domain | 重み | 完了 | 固定項目数 | 進捗 |
 | --- | ---: | ---: | ---: | ---: |
 | Safety / Hard Gates | 15 | 15 | 15 | 100% |
-| Report MVP | 20 | 16 | 19 | 84% |
+| Report MVP | 20 | 17 | 20 | 85% |
 | Weekly / Monthly Ops | 15 | 13 | 15 | 87% |
 | Portfolio Data Quality | 15 | 12 | 14 | 86% |
 | Raw Input Quarantine | 15 | 14 | 15 | 93% |
@@ -45,7 +45,7 @@
 - [x] scheduled observation partial 記録（platform 制約）
 - [x] Hard Gates を STATE / decisions に明文化
 
-### Report MVP（16/19）
+### Report MVP（17/20）
 
 - [x] Weekly Candidate Brief copy-ready
 - [x] Weekly email preview txt/html
@@ -66,6 +66,7 @@
 - [x] sample weekly output（fixture; #487 zero-candidate readability refresh）
 - [x] sample monthly output（fixture）
 - [x] Post #485 scheduled observation + weekly review pack
+- [x] candidate-positive weekly conclusion template（#495 D4）
 
 ### Weekly / Monthly Ops（13/15）
 
@@ -163,9 +164,24 @@
 
 - signals 本番観察3ファイル未完了: **3件**（`momentum.py` / `peer_sync.py` / `veto_rules.py` 運用観察）
 
+## 参考ドメイン（加重外）
+
+### Candidate Discovery OS（7/10）
+
+- [x] D1 coverage reason taxonomy（#491）
+- [x] D2 JSON pipeline source / coverage codes（#492）
+- [x] D3 discovery merge 1行要約（#493）
+- [x] D4 候補あり週結論テンプレ（#495）
+- [x] project goal 明文化（`docs/project_goal_candidate_discovery_os.md`）
+- [x] next 24h discovery tree / longrun plan
+- [x] email renderer 候補あり週整合（#495）
+- [ ] global asset radar skeleton（fixture-only）
+- [ ] theme/segment ranking contract
+- [ ] candidate queue schema（cross-market）
+
 ## 次（Epoch 3–4）
 
-1. operator dashboard カード風 polish
-2. full pytest + ruff
-3. 2026-06-06 07:30 JST scheduled run read-only 観測（Epoch 4）
-4. `cursor_auto_24h_final_summary.md`
+1. 2026-06-06 07:30 JST scheduled run read-only 観測（Epoch 4）
+2. workflow JSON upload 承認後 artifact contract 再検証
+3. global asset radar skeleton（D5）
+4. `cursor_auto_24h_final_summary.md` 更新（T3）

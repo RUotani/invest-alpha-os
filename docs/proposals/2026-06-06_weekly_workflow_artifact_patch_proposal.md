@@ -59,3 +59,14 @@
 ## Why not applied automatically
 
 Cursor Long-Run Max 方針: workflow 直接変更禁止。copy-ready proposal のみ作成。
+
+## Status（2026-06-06 Post #494）
+
+| 項目 | 状態 |
+| --- | --- |
+| patch 適用 | **未適用** |
+| 承認 | **APPROVAL_REQUIRED**（Hard Gate） |
+| natural schedule 観測 | **NOT_YET_OBSERVABLE**（07:30 JST 未到達） |
+| 次アクション | 人間承認後に workflow upload path 1行追加のみ |
+
+Post #494 Long-Run: proposal 更新のみ実施。workflow ファイルは変更していない。

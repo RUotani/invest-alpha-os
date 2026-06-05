@@ -1,11 +1,11 @@
-# Report MVP 85% Readiness Review — 2026-06-05 (Post #487)
+# Report MVP 85% Readiness Review — 2026-06-06 (Post #495)
 
-基準 main: `da3bdc88aaf71036e780038f19619c80e0aec905`（#487 merged）
+基準 main: `af6543a4f0976fe49b9a69f520443f9198194811`（#495 merged）
 
 ## 結論
 
-Weekly Candidate Brief の **ユーザー向け可読性** は #487 により実用域から **毎週読む前提の判断補助** に近づいた。  
-Report MVP 進捗は **16/19（84%）** と評価可能。残りは **natural scheduled run 観測** と **CI JSON artifact upload（workflow 承認待ち）** が主因。
+Weekly Candidate Brief の **ユーザー向け可読性** は #487（候補0件）と #495（候補あり週）で **毎週読む前提の判断補助** に到達。  
+Report MVP 進捗は **17/20（85%）** と評価可能。残りは **natural scheduled run 観測** と **CI JSON artifact upload（workflow 承認待ち）** が主因。
 
 ## #487 改善確認（P1–P4）
 
@@ -19,6 +19,16 @@ Report MVP 進捗は **16/19（84%）** と評価可能。残りは **natural sc
 | User summary 整合 | **PASS** | `weekly_report_user_summary.py` composed モード更新 |
 | 安全メモ維持 | **PASS** | `これは売買指示ではありません` 維持 |
 | Score/Veto JSON（候補0件） | **PASS** | `score_veto_pipeline: []`（明示 assessments 時のみ fixture 表示） |
+
+## #495 改善確認（D4）
+
+| 項目 | 状態 | 根拠 |
+| --- | --- | --- |
+| candidate_count>0 時の結論短縮 | **PASS** | `今週は候補あり` + 第1/深掘り/監視/見送り |
+| guardrail 優先の明示 | **PASS** | 現金比率・個別株比率 guardrail 文言 |
+| 非売買指示 disclaimer | **PASS** | `これは売買指示ではありません` |
+| email compact 整合 | **PASS** | `test_weekly_candidate_brief_email_renderer_alignment_v112.py` |
+| fixture ラベル（結論内） | **PASS** | `test_weekly_candidate_positive_conclusion_v113.py` |
 
 ## まだ usable でないもの
 
