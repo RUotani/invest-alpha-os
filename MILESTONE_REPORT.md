@@ -3,7 +3,7 @@
 ## Current Phase
 
 - **Phase:** Post #487 — Report MVP 85% + Candidate Discovery OS next tree
-- **Latest main:** `593a351`（#489 merged）
+- **Latest main:** `880c4b3`（#492 merged; Long-Run MAX active）
 - **P0:** 2026-06-05 22:07 JST — auto-merge policy active; worktree clean
 - **Worktree:** `handoff/` untracked のみ許容
 
@@ -149,6 +149,12 @@
 - [x] #488 MVP 85 readiness + scheduled observation 更新
 - [x] #489 Candidate Discovery OS next 24h tree
 - [ ] T1 scheduled re-observation（2026-06-06 07:30 JST 以降）
+
+## Long-Run MAX（#491–#493）
+
+- [x] #491 D1 coverage reason taxonomy（signals）
+- [x] #492 D2 JSON schema + R1 email renderer alignment
+- [ ] #493 D3 discovery summary + observation refresh
 
 ## Open Issues
 

@@ -1351,6 +1351,14 @@ def _monthly_input_summary_lines_v95() -> tuple[str, ...]:
     )
 
 
+def _discovery_merge_summary_line(brief: WeeklyCandidateBriefV0) -> str | None:
+    merge = brief.discovery_merge
+    if not merge:
+        return None
+    schema = str(merge.get("schema_version", "unknown"))
+    return f"Discovery merge: schema={schema} / cache-only cross-market payload（観測用）"
+
+
 def _shared_view_model_lines_v96(brief: WeeklyCandidateBriefV0) -> list[str]:
     assessments = _resolve_score_veto_assessments(brief)
     if assessments:
@@ -1374,7 +1382,11 @@ def _shared_view_model_lines_v96(brief: WeeklyCandidateBriefV0) -> list[str]:
         monthly_input_summary_lines=_monthly_input_summary_lines_v95(),
         sanitized_manual_input_summary_lines=build_sanitized_manual_input_summary_lines_v99(),
     )
-    return render_weekly_shared_view_model_markdown_v96(model)
+    lines = render_weekly_shared_view_model_markdown_v96(model)
+    discovery_line = _discovery_merge_summary_line(brief)
+    if discovery_line:
+        lines.extend(["", "### Discovery merge（共有要約）", f"- {discovery_line}", ""])
+    return lines
 
 
 def _do_dont_lines() -> list[str]:
