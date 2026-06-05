@@ -16,7 +16,7 @@
 | #470 | Marathon Epoch 1 samples/dashboard | merged |
 | #471 | Epoch 2 UX + portfolio-data-quality-review CLI | merged |
 | #472 | Epoch 3 dashboard + sample-output-pack | merged |
-| #473 | Epoch 4 observation + final consolidation | （本 PR） |
+| #473 | Epoch 4 observation + final consolidation | merged |
 
 ## Sample Outputs
 
