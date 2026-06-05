@@ -1,56 +1,71 @@
-# Cursor Auto 24h Final Summary — Serial Marathon Epoch 2→4
+# Cursor Auto 24h Final Summary — Post #494 Long-Run MAX
 
 > source-only / fixture-only 成果の要約。売買指示ではありません。
 
-## 24hでできたこと
+基準 main: `3215ef3`（#496 merged）
 
-- Epoch 1（#470）: progress dashboard + 6種 sample outputs
-- Epoch 2（#471）: disclaimer 統一、`portfolio-data-quality-review` CLI、ChatGPT one-page sample
-- Epoch 3（#472）: operator dashboard カード化、`sample-output-pack` CLI、再生成ドキュメント
-- Epoch 4: scheduled observation **pending** 記録（2026-06-06 07:30 JST 以降）
+## 結論
 
-## Merged PRs
+Post #494 Long-Run MAX で **#495（D4）** と **#496（observation + discovery docs）** を連続 merge。  
+Report MVP **17/20（85%）**、Candidate Discovery OS 参考ドメイン **7/10（70%）**。  
+scheduled natural run は **NOT_YET_OBSERVABLE**（2026-06-06 07:30 JST 以降に再観測）。
+
+## Merged PRs（本ロングラン）
 
 | PR | Title | Status |
 | ---: | --- | --- |
-| #470 | Marathon Epoch 1 samples/dashboard | merged |
-| #471 | Epoch 2 UX + portfolio-data-quality-review CLI | merged |
-| #472 | Epoch 3 dashboard + sample-output-pack | merged |
-| #473 | Epoch 4 observation + final consolidation | merged |
+| #491 | D1 coverage reason taxonomy | merged |
+| #492 | D2 JSON pipeline + email alignment | merged |
+| #493 | D3 discovery merge summary | merged |
+| #494 | MILESTONE #493 | merged |
+| #495 | D4 candidate-positive weekly conclusion | merged |
+| #496 | scheduled observation + discovery OS docs | merged |
 
-## Sample Outputs
+## Product 完了
 
-| File | Status |
+- D1–D4 Candidate Discovery OS キュー完了
+- #487 zero-candidate + #495 candidate-positive 週次結論テンプレ
+- `docs/project_goal_candidate_discovery_os.md` 明文化
+- workflow JSON upload proposal — **APPROVAL_REQUIRED**（未適用）
+
+## Scheduled Observation
+
+| 項目 | 結果 |
 | --- | --- |
-| `weekly_candidate_brief_sample.md` | disclaimer 統一 |
-| `monthly_decision_sheet_sample.md` | disclaimer 統一 |
-| `portfolio_data_quality_review_sample.md` | CLI 同期 + disclaimer |
-| `raw_input_quarantine_review_sample.md` | disclaimer 統一 |
-| `portfolio_quarantine_cross_review_sample.md` | disclaimer 統一 |
-| `operator_dashboard_sample.md` | カード風 polish |
-| `chatgpt_one_page_summary_sample.md` | 新規 |
-| `cursor_auto_24h_final_summary.md` | 本ファイル |
+| 観測時刻 | 2026-06-06 00:10 JST |
+| 分類 | **NOT_YET_OBSERVABLE** |
+| event=schedule | 未出現（dispatch のみ 2026-06-01〜02） |
+| 次アクション | 07:30 JST 以降 `gh run list` 再観測 |
 
-## CLI / UX
+## Progress（ドメイン別）
 
-- `portfolio-data-quality-review`（markdown/json）
-- `sample-output-pack`（markdown stdout）
-- `docs/sample_output_regeneration.md`
+| Domain | 進捗 | Notes |
+| --- | ---: | --- |
+| Report MVP | 85% | 17/20 |
+| Weekly / Monthly Ops | 87% | scheduled success 待ち |
+| Candidate Discovery OS | 70% | 参考ドメイン（加重外） |
+| Actual Import | 0% | 意図的 NO-GO |
 
 ## Tests / CI
 
-- Epoch 2 focused: 32 passed（local）
-- Epoch 3 full pytest: **1832 passed**（local + CI #472）
+- D4 focused: 8 passed（local）
+- #495 / #496 CI: green
 - Hard gate violation: **none**
+
+## Safety（未実行）
+
+- workflow_dispatch / workflow 変更
+- live HTTP / cache write / actual import
+- broker API / raw Excel / real email / trading action
 
 ## Remaining Work
 
-- 2026-06-06 natural scheduled run 観測（`reports-private/scheduled_observation/`）
-- CI `weekly_candidate_brief.json` artifact（v101 checklist）
-- Actual Import Readiness（意図的 0% — 人間承認待ち）
+1. 2026-06-06 07:30 JST 以降 scheduled observation（P1/P2/P3）
+2. workflow JSON upload 人間承認
+3. global asset radar skeleton（D5 next）
 
 ## Next Recommendation
 
-1. 2026-06-06 07:30 JST 以降に scheduled observation を read-only 完了
-2. v86 observation を pass に更新
-3. P3 forward monitoring gate は time-dependent のまま継続
+1. 07:30 JST 以降 read-only `gh run list/view/download`
+2. success 時 `weekly-artifact-local-verify` → observation PR
+3. D5 global asset radar skeleton（fixture-only）
