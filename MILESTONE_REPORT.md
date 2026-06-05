@@ -50,6 +50,14 @@
 - [x] v104 status / local artifact marker validation tests
 - [ ] scheduled run 再観測（2026-06-06 07:30 JST 以降）
 
+## Post #475 Continuous Main Queue（P3）
+
+- [x] weekly markdown golden snapshot regression
+- [x] weekly copy-ready boundary/action checklist regression
+- [x] weekly JSON score/veto pipeline contract regression
+- [x] monthly decision sheet section/portfolio number regression
+- [x] weekly/monthly forbidden action wording regression
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
