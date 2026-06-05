@@ -96,6 +96,13 @@
 - [x] fixture-only markdown/json renderers
 - [x] monthly integration focused tests
 
+## 2026-06-05 24h Long-Run Queue（T1）
+
+- [x] CLI `report-ux-language-contract`
+- [x] not-trade-instruction / high-priority-review / severity / email-preview / hard-gate language rules
+- [x] forbidden direct action wording validator
+- [x] operator dashboard current-state wording refresh
+
 ## Open Issues
 
 - v86 scheduled observation: **pending**（2026-06-06 07:30 JST 以降に再観測）
