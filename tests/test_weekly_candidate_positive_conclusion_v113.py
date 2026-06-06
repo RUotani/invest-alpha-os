@@ -29,6 +29,20 @@ def _candidate(*, symbol: str = "285A", name: str = "キオクシア") -> Unifie
 
 
 def _positive_brief() -> WeeklyCandidateBriefV0:
+    msft_card = CandidateCard(
+        brief_type="top_pick",
+        candidate=_candidate(symbol="MSFT", name="Microsoft"),
+        reason="注目理由: クラウド需要は堅いが金利感応度を確認。",
+        counter_evidence=("バリュエーション",),
+        next_checks=("決算確認",),
+    )
+    kioxia_overheat = CandidateCard(
+        brief_type="avoid",
+        candidate=_candidate(symbol="285A", name="キオクシア"),
+        reason="過熱: 追いかけ禁止。",
+        counter_evidence=("割高感",),
+        next_checks=("周辺候補",),
+    )
     return WeeklyCandidateBriefV0(
         report_date="2026-06-06",
         generated_at_jp="t1",
@@ -36,22 +50,9 @@ def _positive_brief() -> WeeklyCandidateBriefV0:
         jp_scope="jp",
         us_scope="us",
         macro_summary="macro",
-        top_picks=[
-            CandidateCard(
-                brief_type="top_pick",
-                candidate=_candidate(symbol="285A", name="キオクシア"),
-                reason="注目理由: NAND市況改善と出来高増。",
-                counter_evidence=("割高感",),
-                next_checks=("決算確認",),
-            ),
-            CandidateCard(
-                brief_type="top_pick",
-                candidate=_candidate(symbol="MSFT", name="Microsoft"),
-                reason="注目理由: クラウド需要は堅いが金利感応度を確認。",
-                counter_evidence=("バリュエーション",),
-                next_checks=("決算確認",),
-            ),
-        ],
+        top_picks=[msft_card],
+        early_discovery_picks=[msft_card],
+        overheated_leaders=[kioxia_overheat],
         rapid_movers=[
             CandidateCard(
                 brief_type="rapid_mover",
@@ -79,8 +80,9 @@ def test_candidate_positive_copy_has_concise_conclusion() -> None:
     assert "## 今週の結論" in body
     assert "今週は候補あり" in body
     assert "guardrail" in body
-    assert "第1候補: 285A（キオクシア）" in body
-    assert "深掘り候補: MSFT（Microsoft）" in body
+    assert "初動候補: MSFT（Microsoft）" in body
+    assert "テーマ代表（追いかけ禁止）: 285A（キオクシア）" in body
+    assert "第1候補: 285A（キオクシア）" not in body
     assert "監視候補: NVDA（NVIDIA）" in body
     assert "見送り候補: HYPE_E（Hype ETF）" in body
     assert "今週やること:" in body

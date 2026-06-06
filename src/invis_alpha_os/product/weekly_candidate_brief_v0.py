@@ -25,6 +25,12 @@ from invis_alpha_os.discovery.jp_universe_scanner import (
     format_jp_discovery_json,
     scan_jp_universe,
 )
+from invis_alpha_os.discovery.candidate_classifier import (
+    PortfolioGateContext,
+    classify_unified_candidate_fields,
+)
+from invis_alpha_os.discovery.candidate_roles import THEME_PROXY_ROLES, role_label_ja
+from invis_alpha_os.discovery.theme_dictionary import lookup_theme_labels, lookup_ticker_themes
 from invis_alpha_os.discovery.us_universe_scanner import (
     UsDiscoveryScanResult,
     format_us_discovery_json,
@@ -174,9 +180,20 @@ IF_THEN_RULES_V12: tuple[tuple[str, str], ...] = (
     ("現金比率が15%未満", "新規個別株は原則小さくする"),
     ("候補が20日で50%以上急騰", "追いかけ買い禁止。押し目か材料確認まで待つ"),
     ("決算前で不確実性が高い", "決算跨ぎの新規追加は避ける"),
-    ("vetoが残っている", "原則見送り"),
+    ("追いかけ禁止条件が残っている", "原則見送り"),
     ("反証が解消した", "深掘り候補として再評価"),
 )
+
+BEGINNER_DEFINITION_ROWS_V14: tuple[tuple[str, str, str], ...] = (
+    ("初動候補", "まだ上がり切っていない調査候補", "テーマ・需給・反証を確認"),
+    ("深掘り候補", "買う前に詳しく調べる候補", "決算・割高感・リスクを見る"),
+    ("監視候補", "条件が整うまで待つ候補", "価格・ニュース・決算を待つ"),
+    ("テーマ代表", "テーマの温度計・周辺探索の起点", "追いかけず周辺候補を探す"),
+    ("追いかけ禁止", "急騰後など新規追加を避ける条件", "押し目か材料確認まで待つ"),
+    ("guardrail", "資産配分上の制限", "現金・個別株比率を優先"),
+)
+
+DEFAULT_PORTFOLIO_GATE_V14 = PortfolioGateContext(cash_ratio=0.117, single_stock_ratio=0.196)
 
 
 @dataclass(frozen=True)
@@ -242,6 +259,8 @@ class WeeklyCandidateBriefV0:
     discovery_merge: dict[str, Any] = field(default_factory=dict)
     pipeline_trace: CandidatePipelineTraceSummary | None = None
     score_veto_assessments: tuple[CandidateIntegratedAssessment, ...] = field(default_factory=tuple)
+    early_discovery_picks: list[CandidateCard] = field(default_factory=list)
+    overheated_leaders: list[CandidateCard] = field(default_factory=list)
 
 
 def _sort_key(c: UnifiedCandidate) -> tuple[int, float, str]:
@@ -866,11 +885,15 @@ def build_weekly_candidate_brief_v0(
     all_ranked = sorted(jp_ranked + us_ranked, key=_sort_key)
     all_insuf = jp_insuf + us_insuf
 
+    early_ranked, overheated_ranked = _partition_ranked_by_v14_classification(all_ranked)
+    early_ids = {f"{c.market}:{c.instrument_id}" for c in early_ranked}
     top_picks, coverage_note = select_diversified_top_picks(
-        jp_ranked=jp_ranked,
-        us_ranked=us_ranked,
-        all_ranked=all_ranked,
+        jp_ranked=[c for c in jp_ranked if f"{c.market}:{c.instrument_id}" in early_ids],
+        us_ranked=[c for c in us_ranked if f"{c.market}:{c.instrument_id}" in early_ids],
+        all_ranked=early_ranked,
     )
+    early_discovery_picks = list(top_picks)
+    overheated_leaders = [_make_card(c, "avoid") for c in overheated_ranked[:TOP_PICK_COUNT]]
 
     rapid_src = [c for c in all_ranked if "rapid_mover" in c.categories]
     pullback_src = [c for c in all_ranked if is_pullback_candidate(c)]
@@ -904,6 +927,8 @@ def build_weekly_candidate_brief_v0(
         report_date=run_date,
         generated_at_jp=jp_result.generated_at,
         generated_at_us=us_result.generated_at,
+        early_discovery_picks=early_discovery_picks,
+        overheated_leaders=overheated_leaders,
         jp_scope=jp_result.universe_scope,
         us_scope=us_result.universe_scope,
         macro_summary=_macro_summary(us_ranked),
@@ -1166,9 +1191,174 @@ def _candidate_returns_summary(card: CandidateCard) -> str:
     return f"5日 {format_pct(c.return_5d)} / 20日 {format_pct(c.return_20d)} / 60日 {format_pct(c.return_60d)}"
 
 
+def _partition_ranked_by_v14_classification(
+    ranked: Sequence[UnifiedCandidate],
+    *,
+    portfolio: PortfolioGateContext = DEFAULT_PORTFOLIO_GATE_V14,
+) -> tuple[list[UnifiedCandidate], list[UnifiedCandidate]]:
+    early: list[UnifiedCandidate] = []
+    overheated: list[UnifiedCandidate] = []
+    for c in ranked:
+        cls = classify_unified_candidate_fields(
+            instrument_id=c.instrument_id,
+            return_20d=c.return_20d,
+            return_60d=c.return_60d,
+            categories=c.categories,
+            labels=c.labels,
+            portfolio=portfolio,
+        )
+        if cls.early_discovery:
+            early.append(c)
+        elif cls.role in THEME_PROXY_ROLES:
+            overheated.append(c)
+    return early, overheated
+
+
+def _primary_display_picks_v14(brief: WeeklyCandidateBriefV0) -> list[CandidateCard]:
+    return brief.early_discovery_picks or brief.top_picks
+
+
+def _v14_three_line_conclusion(brief: WeeklyCandidateBriefV0) -> list[str]:
+    picks = _primary_display_picks_v14(brief)
+    overheat_count = len(brief.overheated_leaders)
+    if picks:
+        lead = (
+            "今週は初動・出遅れ候補があります。ただし現金比率が低いため、追いかけではなく条件確認を優先します。"
+        )
+    else:
+        lead = (
+            "今週は投資妙味のある初動候補は未抽出です。過熱代表は追いかけ禁止として分離し、guardrailを優先します。"
+        )
+    return [
+        "## 今週の結論（3行）",
+        "",
+        lead,
+        f"- Early Discovery: {len(picks)}件 / Overheated Leaders: {overheat_count}件",
+        "- これは売買指示ではありません。",
+        "",
+    ]
+
+
+def _v14_market_regime_summary_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    return [
+        "## Market Regime Summary",
+        "",
+        brief.macro_summary or "（マクロ要約なし）",
+        "",
+    ]
+
+
+def _v14_theme_rotation_table_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## Theme Rotation Table",
+        "",
+        "| テーマ | 代表銘柄 | 扱い |",
+        "|---|---|---|",
+    ]
+    seen: set[str] = set()
+    for card in brief.overheated_leaders + brief.theme_highlights:
+        c = card.candidate
+        theme_ids = lookup_ticker_themes(c.instrument_id)
+        if theme_ids:
+            theme_label = lookup_theme_labels(theme_ids)[0]
+        elif c.themes:
+            theme_label = str(c.themes[0])
+        else:
+            continue
+        if theme_label in seen:
+            continue
+        seen.add(theme_label)
+        cls = classify_unified_candidate_fields(
+            instrument_id=c.instrument_id,
+            return_20d=c.return_20d,
+            return_60d=c.return_60d,
+            categories=c.categories,
+            labels=c.labels,
+        )
+        lines.append(
+            f"| {theme_label} | {_candidate_display_title(card)} | {role_label_ja(cls.role)} |"
+        )
+    if len(lines) == 4:
+        lines.append("| — | — | 該当なし |")
+    lines.append("")
+    return lines
+
+
+def _v14_early_discovery_section_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    picks = _primary_display_picks_v14(brief)
+    lines = [
+        "## Early Discovery Candidates",
+        "",
+        "まだ上がり切っていない初動・出遅れ・周辺候補（売買指示ではない）。",
+        "",
+        "| 優先 | 銘柄 | 深掘り優先度 | 今週の扱い |",
+        "|---:|---|---|---|",
+    ]
+    if not picks:
+        lines.append("| — | 該当なし | — | 無理に過熱銘柄で埋めない |")
+        lines.append("")
+        return lines
+    for rank, card in enumerate(picks[:TOP_PICK_COUNT], start=1):
+        status, treatment = _candidate_weekly_status(card)
+        lines.append(
+            f"| {rank} | {_candidate_display_title(card)} | 調査優先 | {status} / {treatment} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _v14_overheated_leaders_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## Overheated Leaders / Do Not Chase",
+        "",
+        "急騰済みテーマ代表。追いかけ禁止・周辺候補探索の起点。",
+        "",
+        "| 銘柄 | テーマ | 20日 | 扱い | 次の一手 |",
+        "|---|---|---:|---|---|",
+    ]
+    cards = brief.overheated_leaders or [c for c in brief.avoid_list if "overheat" in c.reason.lower()]
+    if not cards:
+        lines.append("| — | — | — | — | — |")
+        lines.append("")
+        return lines
+    for card in cards[:TOP_PICK_COUNT]:
+        c = card.candidate
+        themes = lookup_theme_labels(lookup_ticker_themes(c.instrument_id))
+        theme_cell = themes[0] if themes else _candidate_segment_ja(card)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _candidate_display_title(card),
+                    theme_cell,
+                    format_pct(c.return_20d),
+                    "追いかけ禁止",
+                    "周辺・出遅れ候補を探す",
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    return lines
+
+
+def _beginner_definition_lines_v14() -> list[str]:
+    lines = [
+        "## 用語の簡単な意味",
+        "",
+        "| 用語 | 簡単な意味 | 実際の行動 |",
+        "|---|---|---|",
+    ]
+    for term, meaning, action in BEGINNER_DEFINITION_ROWS_V14:
+        lines.append(f"| {term} | {meaning} | {action} |")
+    lines.append("")
+    return lines
+
+
 def _executive_summary_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
-    has_candidates = bool(brief.top_picks)
-    top_name = _candidate_display_title(brief.top_picks[0]) if has_candidates else "該当なし"
+    picks = _primary_display_picks_v14(brief)
+    has_candidates = bool(picks)
+    top_name = _candidate_display_title(picks[0]) if has_candidates else "該当なし"
     basic_policy = "即時行動ではなく深掘り" if has_candidates else "監視 / 見送り"
     max_risk = "現金不足 / 個別株多め / 急騰後の過熱"
     next_action = "調査・監視・見送り条件確認" if has_candidates else "データ不足とguardrail確認"
@@ -1220,17 +1410,18 @@ def _portfolio_guardrail_table_lines_v12() -> list[str]:
 
 
 def _candidate_comparison_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    picks = _primary_display_picks_v14(brief)
     lines = [
         "## Candidate Comparison",
         "",
         "| 優先 | 銘柄 | 分類 | なぜ候補か | 注意点 | 今週の扱い |",
         "|---:|---|---|---|---|---|",
     ]
-    if not brief.top_picks:
-        lines.append("| — | — | — | この項目はデータ不足のため未評価 | 次回データ追加対象 | NO ACTION / 情報のみ |")
+    if not picks:
+        lines.append("| — | — | — | 初動候補なし（過熱代表は下段参照） | 追いかけ禁止 | NO ACTION / 情報のみ |")
         lines.append("")
         return lines
-    for rank, card in enumerate(brief.top_picks[:TOP_PICK_COUNT], start=1):
+    for rank, card in enumerate(picks[:TOP_PICK_COUNT], start=1):
         status, treatment = _candidate_weekly_status(card)
         lines.append(
             "| "
@@ -1251,16 +1442,17 @@ def _candidate_comparison_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
 
 
 def _deep_dive_card_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    picks = _primary_display_picks_v14(brief)
     lines = ["## Top 5 Deep Dive Cards", ""]
-    if not brief.top_picks:
+    if not picks:
         lines.extend(
             [
-                "この項目はデータ不足のため未評価。次回データ追加対象。",
+                "初動深掘りカードなし。過熱代表は Overheated Leaders セクションを参照。",
                 "",
             ]
         )
         return lines
-    for rank, card in enumerate(brief.top_picks[:TOP_PICK_COUNT], start=1):
+    for rank, card in enumerate(picks[:TOP_PICK_COUNT], start=1):
         c = card.candidate
         status, treatment = _candidate_weekly_status(card)
         one_liner = f"{_candidate_segment_ja(card)}として、{_strip_reason_prefix_for_copy(card.reason)}"
@@ -1280,7 +1472,7 @@ def _deep_dive_card_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
                 f"| 反証 | {_escape_md_table_cell(_candidate_counter_summary(card), max_len=92)} |",
                 f"| 確認する数字 | {_candidate_returns_summary(card)}。PER/PSR・決算・信用残はデータ不足のため未評価。 |",
                 f"| 買い検討条件 | {overheat_rule} |",
-                "| 見送り条件 | 急騰継続、悪材料、テーマ剥落、veto継続 |",
+                "| 見送り条件 | 急騰継続、悪材料、テーマ剥落、追いかけ禁止条件継続 |",
                 "| ポートフォリオ適合 | 現金不足・個別株多めなので、小さく扱う前提でしか検討できない |",
                 f"| 今週の結論 | {treatment} |",
                 "",
@@ -1329,6 +1521,7 @@ def _format_candidate_positive_line(*, role: str, card: CandidateCard) -> str:
 
 
 def _weekly_candidate_positive_conclusion_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    picks = _primary_display_picks_v14(brief)
     lines = [
         "## 今週の結論",
         "",
@@ -1336,9 +1529,13 @@ def _weekly_candidate_positive_conclusion_lines(brief: WeeklyCandidateBriefV0) -
         "",
         "- guardrail: 現金11.7%（最低15%未満）/ 個別株19.6%（目安10〜15%超過）",
     ]
-    for rank, card in enumerate(brief.top_picks[:3], start=1):
-        role = "第1候補" if rank == 1 else "深掘り候補"
+    for rank, card in enumerate(picks[:3], start=1):
+        role = "初動候補" if rank == 1 else "深掘り候補"
         lines.append(_format_candidate_positive_line(role=role, card=card))
+    for card in brief.overheated_leaders[:2]:
+        lines.append(
+            _format_candidate_positive_line(role="テーマ代表（追いかけ禁止）", card=card)
+        )
     if brief.rapid_movers:
         lines.append(_format_candidate_positive_line(role="監視候補", card=brief.rapid_movers[0]))
     if brief.avoid_list:
@@ -1802,13 +1999,18 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         f"# 週次候補ブリーフ — {brief.report_date}",
         "",
     ]
-    lines.extend(_executive_summary_lines_v12(brief))
-    lines.extend(_beginner_definition_lines_v12())
+    lines.extend(_v14_three_line_conclusion(brief))
+    lines.extend(_v14_market_regime_summary_lines(brief))
+    lines.extend(_v14_theme_rotation_table_lines(brief))
+    lines.extend(_v14_early_discovery_section_lines(brief))
+    lines.extend(_v14_overheated_leaders_lines(brief))
     lines.extend(_portfolio_guardrail_table_lines_v12())
+    lines.extend(_if_then_decision_rule_lines_v12())
+    lines.extend(_executive_summary_lines_v12(brief))
+    lines.extend(_beginner_definition_lines_v14())
     lines.extend(_candidate_comparison_lines_v12(brief))
     lines.extend(_deep_dive_card_lines_v12(brief))
     lines.extend(_action_matrix_lines_v12(brief))
-    lines.extend(_if_then_decision_rule_lines_v12())
     lines.extend(_weekly_conclusion_lines(brief))
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_target_allocation_gap_short_lines())
