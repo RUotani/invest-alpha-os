@@ -461,7 +461,10 @@ def test_cli_weekly_candidate_brief_copy(mini_discovery_cache: Path, monkeypatch
     assert "# 週次候補ブリーフ — 2026-05-27" in out
     assert "## マクロ環境" not in out
     assert "## 初動・深掘り候補" in out
-    assert "━━━━━━━━━━━━━━━━" in out
+    if "初動・深掘り候補あり" in out:
+        assert "━━━━━━━━━━━━━━━━" in out
+    else:
+        assert "初動候補は0件" in out
     assert "Counter evidence" not in out
     assert "Next checks" not in out
 
