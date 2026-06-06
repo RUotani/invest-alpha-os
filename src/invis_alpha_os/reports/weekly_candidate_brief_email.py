@@ -79,6 +79,28 @@ EMAIL_NEXT_CHECKS_V85: tuple[str, ...] = (
     "次回weekly runで候補0件の理由が改善しているか",
 )
 
+EMAIL_GUARDRAIL_ROWS_V12: tuple[tuple[str, str, str, str, str], ...] = (
+    ("現金比率", "11.7%", "15%以上 / 目標30%", "RED / 不足", "新規リスク追加より現金回復を優先"),
+    ("個別株比率", "19.6%", "10〜15%", "YELLOW / 多め", "個別株追加は慎重"),
+    ("株式系合計", "67.8%", "49%目安", "YELLOW / 高め", "リスク資産に寄っている"),
+)
+
+EMAIL_DEFINITION_ROWS_V12: tuple[tuple[str, str, str], ...] = (
+    ("深掘り候補", "買う前に詳しく調べる候補", "決算・割高感・リスクを見る"),
+    ("監視候補", "条件が整うまで待つ候補", "価格・ニュース・決算を待つ"),
+    ("見送り", "今は新規追加しない候補", "理由が消えるまで触らない"),
+    ("veto", "強い注意サイン", "原則、新規リスク追加しない"),
+    ("guardrail", "資産配分上の制限", "現金・個別株比率を優先"),
+)
+
+EMAIL_IF_THEN_RULES_V12: tuple[tuple[str, str], ...] = (
+    ("現金比率が15%未満", "新規個別株は原則小さくする"),
+    ("候補が20日で50%以上急騰", "追いかけ買い禁止。押し目か材料確認まで待つ"),
+    ("決算前で不確実性が高い", "決算跨ぎの新規追加は避ける"),
+    ("vetoが残っている", "原則見送り"),
+    ("反証が解消した", "深掘り候補として再評価"),
+)
+
 EMAIL_CLEANUP_PRIORITY_NOTE_V83 = "このスコアは売却指示ではなく、次に確認すべき整理・監視優先度です。"
 
 EMAIL_CLEANUP_PRIORITY_ROWS_V83: tuple[tuple[str, int, str, str], ...] = (
@@ -377,6 +399,112 @@ def _html_list(items: tuple[str, ...]) -> str:
     ) + "</ul>"
 
 
+def _status_badge_html(status: str) -> str:
+    style_by_status = {
+        "DEEP DIVE": "background:#dcfce7;color:#166534;border:1px solid #86efac;",
+        "WATCH": "background:#fef9c3;color:#854d0e;border:1px solid #fde68a;",
+        "VETO": "background:#fee2e2;color:#991b1b;border:1px solid #fecaca;",
+        "NO ACTION": "background:#f3f4f6;color:#374151;border:1px solid #d1d5db;",
+        "RED": "background:#fee2e2;color:#991b1b;border:1px solid #fecaca;",
+        "YELLOW": "background:#fef9c3;color:#854d0e;border:1px solid #fde68a;",
+    }
+    style = style_by_status.get(status, style_by_status["NO ACTION"])
+    return (
+        f"<span style='display:inline-block;{style}border-radius:6px;"
+        "padding:2px 7px;font-size:12px;font-weight:700;line-height:1.4;'>"
+        f"{escape(status)}</span>"
+    )
+
+
+def _html_table(headers: tuple[str, ...], rows: tuple[tuple[str, ...], ...]) -> str:
+    head = "".join(
+        "<th style='border:1px solid #d1d5db;background:#f9fafb;padding:7px;text-align:left;'>"
+        f"{escape(h)}</th>"
+        for h in headers
+    )
+    body_rows: list[str] = []
+    for row in rows:
+        cells = "".join(
+            f"<td style='border:1px solid #d1d5db;padding:7px;vertical-align:top;'>{cell}</td>"
+            for cell in row
+        )
+        body_rows.append(f"<tr>{cells}</tr>")
+    return (
+        "<table style='border-collapse:collapse;width:100%;font-size:14px;margin:8px 0 12px;'>"
+        f"<thead><tr>{head}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+    )
+
+
+def _candidate_status_for_email(candidate: CandidateDigest) -> str:
+    if "過熱" in candidate.counter_evidence or "追いかけ" in candidate.short_reason:
+        return "WATCH"
+    if candidate.kind in ("データ不足", "NO ACTION"):
+        return "NO ACTION"
+    if candidate.market == "ETF":
+        return "WATCH"
+    return "DEEP DIVE"
+
+
+def _append_text_v12_overview(lines: list[str], *, candidates: list[CandidateDigest]) -> None:
+    top = f"{candidates[0].symbol} {candidates[0].name}" if candidates else "該当なし"
+    lines.extend(
+        [
+            "",
+            "## Executive Summary",
+            f"- 今週の状態: {'候補あり' if candidates else '候補なし'}",
+            f"- 基本方針: {'即時行動ではなく深掘り' if candidates else '監視 / 見送り'}",
+            f"- 最重要候補: {top}",
+            "- 最大リスク: 現金不足 / 個別株多め / 急騰後の過熱",
+            "- 今週やること: 調査・監視・見送り条件確認",
+            "",
+            "## 用語の簡単な意味",
+        ]
+    )
+    lines.extend(f"- {term}: {meaning}。{action}。" for term, meaning, action in EMAIL_DEFINITION_ROWS_V12)
+    lines.extend(["", "## Portfolio Guardrails"])
+    lines.extend(f"- {item}: 現在{current} / 目安{guide} / {status} — {meaning}" for item, current, guide, status, meaning in EMAIL_GUARDRAIL_ROWS_V12)
+    lines.extend(["", "## If / Then Decision Rules"])
+    lines.extend(f"- {condition}: {decision}" for condition, decision in EMAIL_IF_THEN_RULES_V12)
+    lines.append("")
+
+
+def _append_html_v12_overview(parts: list[str], *, candidates: list[CandidateDigest]) -> None:
+    top = f"{candidates[0].symbol} {candidates[0].name}" if candidates else "該当なし"
+    summary_rows = (
+        ("今週の状態", "候補あり" if candidates else "候補なし"),
+        ("基本方針", "即時行動ではなく深掘り" if candidates else "監視 / 見送り"),
+        ("最重要候補", escape(top)),
+        ("最大リスク", "現金不足 / 個別株多め / 急騰後の過熱"),
+        ("今週やること", "調査・監視・見送り条件確認"),
+    )
+    definition_rows = tuple(
+        (escape(term), escape(meaning), escape(action)) for term, meaning, action in EMAIL_DEFINITION_ROWS_V12
+    )
+    guardrail_rows = tuple(
+        (
+            escape(item),
+            escape(current),
+            escape(guide),
+            _status_badge_html(status.split(" / ", 1)[0]) + " " + escape(status),
+            escape(meaning),
+        )
+        for item, current, guide, status, meaning in EMAIL_GUARDRAIL_ROWS_V12
+    )
+    decision_rows = tuple((escape(condition), escape(decision)) for condition, decision in EMAIL_IF_THEN_RULES_V12)
+    parts.extend(
+        [
+            "<h2 style='margin:14px 0 8px;'>Executive Summary</h2>",
+            _html_table(("判定", "内容"), summary_rows),
+            "<h2 style='margin:14px 0 8px;'>用語の簡単な意味</h2>",
+            _html_table(("用語", "簡単な意味", "実際の行動"), definition_rows),
+            "<h2 style='margin:14px 0 8px;'>Portfolio Guardrails</h2>",
+            _html_table(("項目", "現在", "目安", "判定", "意味"), guardrail_rows),
+            "<h2 style='margin:14px 0 8px;'>If / Then Decision Rules</h2>",
+            _html_table(("条件", "判断"), decision_rows),
+        ]
+    )
+
+
 def _append_html_action_checklist(
     parts: list[str],
     *,
@@ -474,9 +602,9 @@ def _build_rich_text_body(
         f"- 注目候補数: {len(candidates)}",
         "- 主目的: 次の調査候補を絞り込むための観測",
         "- 安全方針: 観測のみ（実行指示なし）",
-        "",
-        "## 候補パイプライン（短縮）",
     ]
+    _append_text_v12_overview(lines, candidates=candidates)
+    lines.extend(["## 候補パイプライン（短縮）"])
     if pipeline_trace_notes:
         lines.extend([f"- {pipeline_trace_notes[0]}", f"- {pipeline_trace_notes[1]}"])
     else:
@@ -593,7 +721,7 @@ def _build_rich_text_body(
                 "",
                 "#### 情報ソース",
                 f"- 市場データソース: {qm.source}",
-                "- シグナルソース: weekly candidate brief score + momentum labels",
+                "- シグナルソース: 週次候補スコアとモメンタム観測ラベル",
                 f"- レポート日: {report_date}",
                 f"- 生成日時: {generated_at}",
                 f"- データ不足理由: {qm.missing_reason or 'なし'}",
@@ -657,6 +785,9 @@ def _build_rich_html_body(
         "</div>",
         "<h2 style='margin:10px 0 6px;'>要約</h2>",
         f"<p style='margin:0 0 10px;'>注目候補数: {len(candidates)} / 観測ベースの候補抽出</p>",
+    ]
+    _append_html_v12_overview(parts, candidates=candidates)
+    parts.extend([
         "<h2 style='margin:14px 0 8px;'>候補パイプライン（短縮）</h2>",
         pipeline_list or "<p style='margin:0 0 10px;'>候補パイプライン要約: copy-ready側のtrace sectionを確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>Score / Veto（短縮）</h2>",
@@ -666,7 +797,7 @@ def _build_rich_html_body(
         "<h2 style='margin:14px 0 8px;'>Sanitized / Manual Input（短縮）</h2>",
         sanitized_manual_list or "<p style='margin:0 0 10px;'>Sanitized Input: copy-ready側の共有要約を確認してください。</p>",
         "<h2 style='margin:14px 0 8px;'>注目候補</h2>",
-    ]
+    ])
     if not candidates:
         if compact_conclusion and compact_conclusion.headline.startswith("今週は候補あり"):
             reason_html = "".join(f"<li>{escape(reason)}</li>" for reason in compact_conclusion.reasons)
@@ -707,11 +838,12 @@ def _build_rich_html_body(
     _append_html_cleanup_priority(parts)
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
+        status = _candidate_status_for_email(c)
         parts.extend(
             [
                 "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:10px 0;'>",
                 f"<h3 style='margin:0 0 6px;'>{c.rank}. {escape(c.symbol)} - {escape(c.name)}</h3>",
-                f"<p style='margin:0 0 8px;'><strong>市場:</strong> {escape(c.market)} / <strong>種別:</strong> {escape(c.kind)}</p>",
+                f"<p style='margin:0 0 8px;'>{_status_badge_html(status)} <strong>市場:</strong> {escape(c.market)} / <strong>種別:</strong> {escape(c.kind)}</p>",
                 f"<p style='margin:0 0 8px;'><strong>短期理由:</strong> {escape(c.short_reason)}</p>",
                 "<h4 style='margin:8px 0 4px;'>移動平均線の位置づけ</h4>",
                 f"<ul style='margin:0 0 8px 18px;padding:0;'><li>25D移動平均線: {escape(fmt_num(qm.ma_25))}（乖離 {escape(fmt_pct(qm.dist_ma_25_pct))}）</li><li>75D移動平均線: {escape(fmt_num(qm.ma_75))}（乖離 {escape(fmt_pct(qm.dist_ma_75_pct))}）</li><li>200D移動平均線: {escape(fmt_num(qm.ma_200))}（乖離 {escape(fmt_pct(qm.dist_ma_200_pct))}）</li><li>解釈: キャッシュ由来のため、データ鮮度と合わせて確認してください</li></ul>",
@@ -724,7 +856,7 @@ def _build_rich_html_body(
                 "<h4 style='margin:8px 0 4px;'>次に確認すること</h4>",
                 f"<ul style='margin:0 0 8px 18px;padding:0;'><li>{escape(c.next_checks)}</li><li>深掘り前に直近データ鮮度を再確認</li></ul>",
                 "<h4 style='margin:8px 0 4px;'>情報ソース</h4>",
-                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>市場データソース: {escape(qm.source)}</li><li>シグナルソース: weekly candidate brief score + momentum labels</li><li>レポート日: {escape(report_date)}</li><li>生成日時: {escape(generated_at)}</li><li>データ不足理由: {escape(qm.missing_reason or 'なし')}</li></ul>",
+                f"<ul style='margin:0 0 8px 18px;padding:0;'><li>市場データソース: {escape(qm.source)}</li><li>シグナルソース: 週次候補スコアとモメンタム観測ラベル</li><li>レポート日: {escape(report_date)}</li><li>生成日時: {escape(generated_at)}</li><li>データ不足理由: {escape(qm.missing_reason or 'なし')}</li></ul>",
                 "</div>",
             ]
         )

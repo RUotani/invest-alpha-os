@@ -14,6 +14,13 @@ from invis_alpha_os.product.portfolio_data_quality_review_v109 import (
 
 _DEFAULT_SAMPLE = ROOT_DIR / "reports-private" / "sample_outputs" / "chatgpt_one_page_summary_sample.md"
 
+SUGGESTED_CHATGPT_QUESTIONS_V12: tuple[str, ...] = (
+    "285Aは過熱後でも深掘り価値がありますか？",
+    "現金比率11.7%で新規個別株を買うべきですか？",
+    "AAPL/QQQは既存INDEXと重複しすぎですか？",
+    "今週は買うべきか、調査だけにすべきですか？",
+)
+
 
 @dataclass(frozen=True)
 class WeeklyReportUserSummary:
@@ -40,30 +47,47 @@ def build_weekly_report_user_summary(
         )
         body = "\n".join(
             [
-                f"# Weekly Report User Summary — {report_date}",
+                "# Weekly Report One-Page Summary",
                 "",
-                "## 今週の結論（fixture）",
+                "## 1. 今週の結論",
                 "",
-                "今週は新規買いを急がない。",
+                "今週は候補確認とポートフォリオ制約の点検を優先します。これは売買指示ではありません。",
                 "",
-                "理由:",
-                "- 現金比率が11.7%で、最低目安15%を下回っている",
-                "- 個別株比率が19.6%で、目安10〜15%を上回っている",
-                "- データ品質不足下では、強い新規候補として扱えない",
+                "## 2. 候補上位",
                 "",
-                "今週やること:",
-                "1. 現金回復と個別株比率の整理候補を確認",
-                "2. データ不足の原因を確認",
-                "3. 次回runで候補抽出が改善するかを見る",
+                "| 優先 | 候補 | 扱い | 理由 |",
+                "|---:|---|---|---|",
+                "| 1 | 285A キオクシア | 深掘り / 追いかけ禁止 | 半導体・メモリ市況とモメンタムを確認 |",
+                "| 2 | AAPL | 材料確認 | 大型株として既存INDEXとの重複を確認 |",
+                "| 3 | QQQ | 指数環境確認 | Nasdaq全体のリスクオン確認 |",
                 "",
-                "今週やらないこと:",
-                "- 根拠不足の個別株・高ベータ銘柄を追加しない",
-                "- 候補0件を「問題なし」と解釈しない",
-                "- actual import / broker連携 / cache write は引き続き NO-GO",
+                "## 3. ポートフォリオ制約",
                 "",
-                "## Portfolio / Quality",
+                "- 現金比率11.7%は最低目安15%未満。新規個別株より現金回復を優先。",
+                "- 個別株比率19.6%は目安10〜15%より多め。個別株追加は慎重。",
+                "- 株式系合計67.8%はリスク資産寄り。AAPL/QQQは既存INDEXとの重複確認が必要。",
+                "",
+                "## 4. 深掘りしたい論点",
+                "",
+                "- 285Aの急騰が業績・需給で説明できるか。",
+                "- AAPL/QQQが既存保有と重複しすぎていないか。",
+                "- 候補の反証（過熱、決算前、veto）が消えているか。",
+                "",
+                "## 5. 見送り条件",
+                "",
+                "- 20日で50%以上の急騰が続き、押し目や材料確認がない。",
+                "- 決算前で不確実性が高い。",
+                "- vetoやデータ不足が残っている。",
+                "- 現金比率が15%未満のまま個別株を増やす必要がある。",
+                "",
+                "## 6. ChatGPTに聞きたい質問",
+                "",
+                *[f"- {question}" for question in SUGGESTED_CHATGPT_QUESTIONS_V12],
+                "",
+                "## Portfolio / Quality 補足",
                 *[f"- {line}" for line in quality_lines],
                 "",
+                f"report_date: {report_date}",
             ]
         )
     else:

@@ -19,8 +19,12 @@ def test_weekly_report_user_summary_reads_sample_file() -> None:
 
 def test_weekly_report_user_summary_composed_fixture_mode() -> None:
     summary = build_weekly_report_user_summary(source="composed", report_date="2026-06-06")
-    assert "今週は新規買いを急がない" in summary.body_markdown
-    assert "今週やること:" in summary.body_markdown
+    assert "# Weekly Report One-Page Summary" in summary.body_markdown
+    assert "## 1. 今週の結論" in summary.body_markdown
+    assert "## 2. 候補上位" in summary.body_markdown
+    assert "## 3. ポートフォリオ制約" in summary.body_markdown
+    assert "## 6. ChatGPTに聞きたい質問" in summary.body_markdown
+    assert "285Aは過熱後でも深掘り価値がありますか？" in summary.body_markdown
     payload = json.loads(format_weekly_report_user_summary_json(summary))
     assert payload["source"] == "composed"
 

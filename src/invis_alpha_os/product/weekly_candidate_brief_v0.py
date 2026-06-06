@@ -11,7 +11,6 @@ from typing import Any, Literal, Sequence
 from invis_alpha_os.config.loader import load_yaml
 from invis_alpha_os.config.paths import CONFIG_DIR, ROOT_DIR
 from invis_alpha_os.discovery.cross_market_contract import (
-    DISCOVERY_SCORE_DISCLAIMER,
     MARKET_JP,
     MARKET_US,
     OBSERVATION_DISCLAIMER,
@@ -91,7 +90,7 @@ MACRO_PROXY_SYMBOLS: tuple[str, ...] = ETF_PROXY_SYMBOLS
 
 BRIEF_DISCLAIMER_JA = (
     "観測のみ — 売買推奨・自動売買・注文は行いません。"
-    " discovery_score はリサーチ優先度の目安です。"
+    " 候補スコアはリサーチ優先度の目安です。"
 )
 
 PORTFOLIO_CONTEXT_V81: dict[str, str] = {
@@ -156,6 +155,28 @@ CLEANUP_SCORE_SCALE_V83: tuple[str, ...] = (
     "5: 強い抑制・新規追加禁止寄り",
 )
 PIPELINE_SCORE_THRESHOLD_V90 = 1.0
+
+GUARDRAIL_ROWS_V12: tuple[tuple[str, str, str, str, str], ...] = (
+    ("現金比率", "11.7%", "15%以上 / 目標30%", "RED / 不足", "新規リスク追加より現金回復を優先"),
+    ("個別株比率", "19.6%", "10〜15%", "YELLOW / 多め", "個別株追加は慎重に扱う"),
+    ("株式系合計", "67.8%", "49%目安", "YELLOW / 高め", "リスク資産に寄っているため追いかけない"),
+)
+
+BEGINNER_DEFINITION_ROWS_V12: tuple[tuple[str, str, str], ...] = (
+    ("深掘り候補", "買う前に詳しく調べる候補", "決算・割高感・リスクを見る"),
+    ("監視候補", "条件が整うまで待つ候補", "価格・ニュース・決算を待つ"),
+    ("見送り", "今は新規追加しない候補", "理由が消えるまで触らない"),
+    ("veto", "強い注意サイン", "原則、新規リスク追加しない"),
+    ("guardrail", "資産配分上の制限", "現金・個別株比率を優先"),
+)
+
+IF_THEN_RULES_V12: tuple[tuple[str, str], ...] = (
+    ("現金比率が15%未満", "新規個別株は原則小さくする"),
+    ("候補が20日で50%以上急騰", "追いかけ買い禁止。押し目か材料確認まで待つ"),
+    ("決算前で不確実性が高い", "決算跨ぎの新規追加は避ける"),
+    ("vetoが残っている", "原則見送り"),
+    ("反証が解消した", "深掘り候補として再評価"),
+)
 
 
 @dataclass(frozen=True)
@@ -871,7 +892,7 @@ def build_weekly_candidate_brief_v0(
         f"- JP スキャン: `{jp_result.universe_scope}` · {jp_result.symbol_count} 銘柄",
         f"- US スキャン: `{us_result.universe_scope}` · {us_result.symbol_count} 銘柄",
         "- インフラ診断（P3 / observation_log）は `weekly-observation-report-v1` を参照",
-        f"- {DISCOVERY_SCORE_DISCLAIMER}",
+        "- 候補スコアは、後続リサーチの優先順位を並べるための目安です。",
     )
 
     discovery_merge = merge_cross_market_json_payloads(
@@ -912,7 +933,7 @@ def _format_card_md(index: int, card: CandidateCard) -> list[str]:
     }.get(card.brief_type, card.brief_type)
     market_ja = "日本" if c.market == MARKET_JP else "米国"
     lines = [
-        f"### {index}. {c.display_name}（{market_ja} · score {c.discovery_score}）",
+        f"### {index}. {c.display_name}（{market_ja} · 候補スコア {c.discovery_score}）",
         "",
         f"- **種別**: {type_ja}",
         f"- **理由**: {card.reason}",
@@ -1092,6 +1113,211 @@ def _no_candidate_reason(brief: WeeklyCandidateBriefV0, *, user_facing: bool = T
         f"候補0件の主因: coverage不足 {coverage_count}件 / "
         f"score未達 {score_state} / veto {veto_count}件。"
     )
+
+
+def _candidate_display_title(card: CandidateCard) -> str:
+    c = card.candidate
+    name = _copy_ready_name(c)
+    return c.instrument_id if name == c.instrument_id else f"{c.instrument_id} {name}"
+
+
+def _candidate_segment_ja(card: CandidateCard) -> str:
+    c = card.candidate
+    if candidate_group(c) == "etf_proxy":
+        return "ETF/指数"
+    themes = set(c.themes)
+    if {"memory", "semiconductors"} & themes:
+        return "半導体/メモリ"
+    if {"ai_infra", "communications", "cables", "digital"} & themes:
+        return "AIインフラ/通信"
+    if {"energy", "automotive_wire"} & themes:
+        return "電力/電装"
+    if c.market == MARKET_US:
+        return "米国大型株"
+    return "個別株"
+
+
+def _candidate_weekly_status(card: CandidateCard) -> tuple[str, str]:
+    c = card.candidate
+    overheat = "overheated_caution" in c.categories or "overheat_caution" in c.labels
+    if card.brief_type == "avoid" or overheat:
+        return "WATCH", "監視。追いかけず、反証と材料確認を優先"
+    if card.brief_type == "insufficient" or c.data_quality != "ok":
+        return "NO ACTION", "データ不足のため未評価。次回データ追加対象"
+    if candidate_group(c) == "etf_proxy":
+        return "WATCH", "指数環境の確認。個別株追加判断とは分ける"
+    return "DEEP DIVE", "深掘り。ただし即時行動ではない"
+
+
+def _candidate_counter_summary(card: CandidateCard) -> str:
+    if not card.counter_evidence:
+        return "この項目はデータ不足のため未評価。次回データ追加対象。"
+    return _truncate(card.counter_evidence[0], max_len=64)
+
+
+def _candidate_next_check_summary(card: CandidateCard) -> str:
+    if not card.next_checks:
+        return "この項目はデータ不足のため未評価。次回データ追加対象。"
+    return " / ".join(card.next_checks[:2])
+
+
+def _candidate_returns_summary(card: CandidateCard) -> str:
+    c = card.candidate
+    return f"5日 {format_pct(c.return_5d)} / 20日 {format_pct(c.return_20d)} / 60日 {format_pct(c.return_60d)}"
+
+
+def _executive_summary_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    has_candidates = bool(brief.top_picks)
+    top_name = _candidate_display_title(brief.top_picks[0]) if has_candidates else "該当なし"
+    basic_policy = "即時行動ではなく深掘り" if has_candidates else "監視 / 見送り"
+    max_risk = "現金不足 / 個別株多め / 急騰後の過熱"
+    next_action = "調査・監視・見送り条件確認" if has_candidates else "データ不足とguardrail確認"
+    plain_line = (
+        "今週は「調査する価値のある候補」はあります。ただし現金比率が低いため、すぐ動くより条件確認を優先します。"
+        if has_candidates
+        else "今週は強い深掘り候補がありません。現金比率が低いため、新規リスク追加よりもデータ確認と現金回復を優先します。"
+    )
+    return [
+        "## Executive Summary",
+        "",
+        plain_line,
+        "",
+        "| 判定 | 内容 |",
+        "|---|---|",
+        f"| 今週の状態 | {'候補あり' if has_candidates else '候補なし'} |",
+        f"| 基本方針 | {basic_policy} |",
+        f"| 最重要候補 | {top_name} |",
+        f"| 最大リスク | {max_risk} |",
+        f"| 今週やること | {next_action} |",
+        "",
+    ]
+
+
+def _beginner_definition_lines_v12() -> list[str]:
+    lines = [
+        "## 用語の簡単な意味",
+        "",
+        "| 用語 | 簡単な意味 | 実際の行動 |",
+        "|---|---|---|",
+    ]
+    for term, meaning, action in BEGINNER_DEFINITION_ROWS_V12:
+        lines.append(f"| {term} | {meaning} | {action} |")
+    lines.append("")
+    return lines
+
+
+def _portfolio_guardrail_table_lines_v12() -> list[str]:
+    lines = [
+        "## Portfolio Guardrails",
+        "",
+        "| 項目 | 現在 | 目安 | 判定 | 意味 |",
+        "|---|---:|---:|---|---|",
+    ]
+    for item, current, guide, status, meaning in GUARDRAIL_ROWS_V12:
+        lines.append(f"| {item} | {current} | {guide} | {status} | {meaning} |")
+    lines.append("")
+    return lines
+
+
+def _candidate_comparison_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        "## Candidate Comparison",
+        "",
+        "| 優先 | 銘柄 | 分類 | なぜ候補か | 注意点 | 今週の扱い |",
+        "|---:|---|---|---|---|---|",
+    ]
+    if not brief.top_picks:
+        lines.append("| — | — | — | この項目はデータ不足のため未評価 | 次回データ追加対象 | NO ACTION / 情報のみ |")
+        lines.append("")
+        return lines
+    for rank, card in enumerate(brief.top_picks[:TOP_PICK_COUNT], start=1):
+        status, treatment = _candidate_weekly_status(card)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(rank),
+                    _escape_md_table_cell(_candidate_display_title(card), max_len=36),
+                    _candidate_segment_ja(card),
+                    _escape_md_table_cell(_strip_reason_prefix_for_copy(card.reason), max_len=64),
+                    _escape_md_table_cell(_candidate_counter_summary(card), max_len=58),
+                    f"{status} / {treatment}",
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    return lines
+
+
+def _deep_dive_card_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = ["## Top 5 Deep Dive Cards", ""]
+    if not brief.top_picks:
+        lines.extend(
+            [
+                "この項目はデータ不足のため未評価。次回データ追加対象。",
+                "",
+            ]
+        )
+        return lines
+    for rank, card in enumerate(brief.top_picks[:TOP_PICK_COUNT], start=1):
+        c = card.candidate
+        status, treatment = _candidate_weekly_status(card)
+        one_liner = f"{_candidate_segment_ja(card)}として、{_strip_reason_prefix_for_copy(card.reason)}"
+        overheat_rule = (
+            "過熱が冷え、決算/需給が崩れていない"
+            if status == "WATCH"
+            else "反証を確認し、決算/需給が崩れていない"
+        )
+        lines.extend(
+            [
+                f"### {rank}. {_candidate_display_title(card)}",
+                "",
+                "| 項目 | 内容 |",
+                "|---|---|",
+                f"| 一言でいうと | {_escape_md_table_cell(one_liner, max_len=88)} |",
+                f"| なぜ候補か | {_escape_md_table_cell(_strip_reason_prefix_for_copy(card.reason), max_len=92)} |",
+                f"| 反証 | {_escape_md_table_cell(_candidate_counter_summary(card), max_len=92)} |",
+                f"| 確認する数字 | {_candidate_returns_summary(card)}。PER/PSR・決算・信用残はデータ不足のため未評価。 |",
+                f"| 買い検討条件 | {overheat_rule} |",
+                "| 見送り条件 | 急騰継続、悪材料、テーマ剥落、veto継続 |",
+                "| ポートフォリオ適合 | 現金不足・個別株多めなので、小さく扱う前提でしか検討できない |",
+                f"| 今週の結論 | {treatment} |",
+                "",
+            ]
+        )
+        if c.data_quality != "ok":
+            lines.extend(["この項目はデータ不足のため未評価。次回データ追加対象。", ""])
+    return lines
+
+
+def _action_matrix_lines_v12(brief: WeeklyCandidateBriefV0) -> list[str]:
+    deep_targets = " / ".join(_candidate_display_title(c) for c in brief.top_picks[:3]) or "該当なし"
+    watch_targets = " / ".join(_candidate_display_title(c) for c in brief.avoid_list[:3]) or "過熱候補"
+    return [
+        "## Action Matrix",
+        "",
+        "| 行動 | 対象 | 理由 |",
+        "|---|---|---|",
+        f"| 深掘りする | {deep_targets} | 候補としては有望だが確認不足 |",
+        f"| 監視する | {watch_targets} | 追いかけ買い防止 |",
+        "| 見送る | veto継続候補 | リスクが消えていない |",
+        "| 追加投資を抑える | 個別株全般 | 現金比率11.7%のため |",
+        "",
+    ]
+
+
+def _if_then_decision_rule_lines_v12() -> list[str]:
+    lines = [
+        "## If / Then Decision Rules",
+        "",
+        "| 条件 | 判断 |",
+        "|---|---|",
+    ]
+    for condition, decision in IF_THEN_RULES_V12:
+        lines.append(f"| {condition} | {decision} |")
+    lines.append("")
+    return lines
 
 
 def _format_candidate_positive_line(*, role: str, card: CandidateCard) -> str:
@@ -1576,6 +1802,13 @@ def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
         f"# 週次候補ブリーフ — {brief.report_date}",
         "",
     ]
+    lines.extend(_executive_summary_lines_v12(brief))
+    lines.extend(_beginner_definition_lines_v12())
+    lines.extend(_portfolio_guardrail_table_lines_v12())
+    lines.extend(_candidate_comparison_lines_v12(brief))
+    lines.extend(_deep_dive_card_lines_v12(brief))
+    lines.extend(_action_matrix_lines_v12(brief))
+    lines.extend(_if_then_decision_rule_lines_v12())
     lines.extend(_weekly_conclusion_lines(brief))
     lines.extend(_portfolio_constraint_lines())
     lines.extend(_target_allocation_gap_short_lines())
