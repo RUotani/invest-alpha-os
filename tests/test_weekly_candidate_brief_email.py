@@ -88,7 +88,7 @@ def test_weekly_candidate_brief_email_draft_uses_copy_body() -> None:
 def test_weekly_candidate_brief_email_parses_japanese_copy_ready_table() -> None:
     draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=SAMPLE_COPY_JA_TABLE)
 
-    assert "注目候補数: 1" in draft.text_body
+    assert "投資妙味候補数: 1" in draft.text_body
     assert "285A" in draft.text_body
     assert "キオクシア" in draft.text_body
     assert "NAND/DRAM市況" in draft.text_body
@@ -165,7 +165,7 @@ def test_weekly_candidate_brief_email_no_candidate_is_not_empty_report() -> None
 """
     draft = build_weekly_candidate_brief_email_draft(report_date="2026-06-02", copy_body=copy_body)
 
-    assert "注目候補数: 0" in draft.text_body
+    assert "投資妙味候補数: 0" in draft.text_body
     assert "強い新規リスク候補: 0件" in draft.text_body
     assert "## 今週の行動チェックリスト" in draft.text_body
     assert "ポートフォリオ前提: 現金11.7% / 個別株19.6% / 株式系67.8%" in draft.text_body

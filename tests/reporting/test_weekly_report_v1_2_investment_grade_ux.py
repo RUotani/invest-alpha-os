@@ -118,8 +118,10 @@ def test_weekly_report_v1_2_one_page_summary_is_chatgpt_ready() -> None:
     for required in (
         "# Weekly Report One-Page Summary",
         "## 1. 今週の結論",
-        "## 2. 候補上位",
+        "## 2. 候補の扱い",
         "## 3. ポートフォリオ制約",
         "## 4. 深掘りしたい論点",
+        "初動候補は0件",
+        "過熱代表",
     ):
         assert required in summary

@@ -91,6 +91,9 @@ _V16_CARD_BLOCK_RE = re.compile(
     re.MULTILINE,
 )
 
+_V16_INVESTABLE_KINDS = frozenset({"初動候補", "深掘り候補"})
+_V16_OVERHEAT_KIND = "テーマ代表（追いかけ禁止）"
+
 EMAIL_DEFINITION_ROWS_V12: tuple[tuple[str, str, str], ...] = (
     ("深掘り候補", "買う前に詳しく調べる候補", "決算・割高感・リスクを見る"),
     ("監視候補", "条件が整うまで待つ候補", "価格・ニュース・決算を待つ"),
@@ -166,9 +169,92 @@ def _parse_v16_candidate_cards(copy_body: str) -> list[CandidateDigest]:
     return out
 
 
+def _is_v16_copy_body(copy_body: str) -> bool:
+    return "## 初動・深掘り候補" in copy_body and "## 今週の結論（3行）" in copy_body
+
+
+def _parse_v16_investable_candidates(copy_body: str) -> list[CandidateDigest]:
+    return [card for card in _parse_v16_candidate_cards(copy_body) if card.kind in _V16_INVESTABLE_KINDS]
+
+
+def _parse_v16_overheat_candidates(copy_body: str) -> list[CandidateDigest]:
+    return [card for card in _parse_v16_candidate_cards(copy_body) if card.kind == _V16_OVERHEAT_KIND]
+
+
+def _parse_v16_conclusion_bullets(copy_body: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if "## 今週の結論（3行）" not in copy_body:
+        return out
+    section = copy_body.split("## 今週の結論（3行）", maxsplit=1)[1].split("## ", maxsplit=1)[0]
+    for raw in section.splitlines():
+        line = raw.strip()
+        if line.startswith("- 状態:"):
+            out["state"] = line.removeprefix("- 状態:").strip()
+        elif line.startswith("- 最大リスク:"):
+            out["max_risk"] = line.removeprefix("- 最大リスク:").strip()
+        elif line.startswith("- 今週やる/やらない:"):
+            out["do_dont"] = line.removeprefix("- 今週やる/やらない:").strip()
+        elif line.startswith("- 集計:"):
+            out["aggregate"] = line.removeprefix("- 集計:").strip()
+    return out
+
+
+def _overheat_leader_label(card: CandidateDigest) -> str:
+    if card.name.startswith(card.symbol):
+        return card.name
+    return f"{card.symbol} {card.name}"
+
+
+def _v161_summary_rows(
+    *,
+    investable: list[CandidateDigest],
+    overheated: list[CandidateDigest],
+    conclusion: dict[str, str],
+) -> tuple[tuple[str, str], ...]:
+    state = conclusion.get(
+        "state",
+        "初動・深掘り候補あり。現金比率が低いため追いかけではなく条件確認を優先。"
+        if investable
+        else "初動候補は0件。過熱銘柄で無理に埋めません。",
+    )
+    max_risk = conclusion.get("max_risk", "現金不足 / 個別株多め / 急騰後の過熱")
+    do_dont = conclusion.get("do_dont", "")
+    if not do_dont and overheated and not investable:
+        leader = overheated[0]
+        do_dont = (
+            f"{leader.symbol}は追いかけ禁止。"
+            "テーマ代表として観測し、周辺・出遅れ候補を探す。"
+        )
+    elif not do_dont:
+        do_dont = (
+            "やる: 第1候補の反証・決算確認 / やらない: 過熱銘柄の追いかけ"
+            if investable
+            else "やる: guardrailとデータ鮮度確認 / やらない: 根拠不足の新規追加"
+        )
+    investable_label = f"{len(investable)}件"
+    overheat_label = (
+        f"{_overheat_leader_label(overheated[0])}（追いかけ禁止）"
+        if overheated
+        else "該当なし"
+    )
+    rows: list[tuple[str, str]] = [
+        ("今週の状態", state),
+        ("投資妙味候補", investable_label),
+        ("過熱代表", overheat_label),
+        ("最大リスク", max_risk),
+        ("今週やる/やらない", do_dont),
+    ]
+    aggregate = conclusion.get("aggregate")
+    if aggregate:
+        rows.append(("集計", aggregate))
+    return tuple(rows)
+
+
 def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
+    if _is_v16_copy_body(copy_body):
+        return _parse_v16_investable_candidates(copy_body)
     if "## 初動・深掘り候補" in copy_body:
-        v16_cards = _parse_v16_candidate_cards(copy_body)
+        v16_cards = _parse_v16_investable_candidates(copy_body)
         if v16_cards:
             return v16_cards
     lines = [x.rstrip() for x in copy_body.splitlines()]
@@ -506,6 +592,35 @@ def _candidate_status_for_email(candidate: CandidateDigest) -> str:
     return "DEEP DIVE"
 
 
+def _append_text_v161_overview(
+    lines: list[str],
+    *,
+    copy_body: str,
+    investable: list[CandidateDigest],
+    overheated: list[CandidateDigest],
+) -> None:
+    conclusion = _parse_v16_conclusion_bullets(copy_body)
+    summary_rows = _v161_summary_rows(
+        investable=investable,
+        overheated=overheated,
+        conclusion=conclusion,
+    )
+    lines.extend(["", "## 今週の結論（上部要約）"])
+    lines.extend(f"- {label}: {value}" for label, value in summary_rows)
+    lines.extend(
+        [
+            "",
+            "## 用語の簡単な意味",
+        ]
+    )
+    lines.extend(f"- {term}: {meaning}。{action}。" for term, meaning, action in EMAIL_DEFINITION_ROWS_V12)
+    lines.extend(["", "## Portfolio Guardrails"])
+    lines.extend(f"- {item}: 現在{current} / 目安{guide} / {status} — {meaning}" for item, current, guide, status, meaning in EMAIL_GUARDRAIL_ROWS_V12)
+    lines.extend(["", "## If / Then Decision Rules"])
+    lines.extend(f"- {condition}: {decision}" for condition, decision in EMAIL_IF_THEN_RULES_V12)
+    lines.append("")
+
+
 def _append_text_v12_overview(lines: list[str], *, candidates: list[CandidateDigest]) -> None:
     top = f"{candidates[0].symbol} {candidates[0].name}" if candidates else "該当なし"
     lines.extend(
@@ -527,6 +642,50 @@ def _append_text_v12_overview(lines: list[str], *, candidates: list[CandidateDig
     lines.extend(["", "## If / Then Decision Rules"])
     lines.extend(f"- {condition}: {decision}" for condition, decision in EMAIL_IF_THEN_RULES_V12)
     lines.append("")
+
+
+def _append_html_v161_overview(
+    parts: list[str],
+    *,
+    copy_body: str,
+    investable: list[CandidateDigest],
+    overheated: list[CandidateDigest],
+) -> None:
+    conclusion = _parse_v16_conclusion_bullets(copy_body)
+    summary_rows = tuple(
+        (label, escape(value))
+        for label, value in _v161_summary_rows(
+            investable=investable,
+            overheated=overheated,
+            conclusion=conclusion,
+        )
+    )
+    definition_rows = tuple(
+        (escape(term), escape(meaning), escape(action)) for term, meaning, action in EMAIL_DEFINITION_ROWS_V12
+    )
+    guardrail_rows = tuple(
+        (
+            escape(item),
+            escape(current),
+            escape(guide),
+            _status_badge_html(status.split(" / ", 1)[0]) + " " + escape(status),
+            escape(meaning),
+        )
+        for item, current, guide, status, meaning in EMAIL_GUARDRAIL_ROWS_V12
+    )
+    decision_rows = tuple((escape(condition), escape(decision)) for condition, decision in EMAIL_IF_THEN_RULES_V12)
+    parts.extend(
+        [
+            "<h2 style='margin:14px 0 8px;'>今週の結論（上部要約）</h2>",
+            _html_table(("判定", "内容"), summary_rows),
+            "<h2 style='margin:14px 0 8px;'>用語の簡単な意味</h2>",
+            _html_table(("用語", "簡単な意味", "実際の行動"), definition_rows),
+            "<h2 style='margin:14px 0 8px;'>Portfolio Guardrails</h2>",
+            _html_table(("項目", "現在", "目安", "判定", "意味"), guardrail_rows),
+            "<h2 style='margin:14px 0 8px;'>If / Then Decision Rules</h2>",
+            _html_table(("条件", "判断"), decision_rows),
+        ]
+    )
 
 
 def _append_html_v12_overview(parts: list[str], *, candidates: list[CandidateDigest]) -> None:
@@ -645,7 +804,9 @@ def _build_rich_text_body(
     *,
     report_date: str,
     generated_at: str,
+    copy_body: str,
     candidates: list[CandidateDigest],
+    overheated: list[CandidateDigest],
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
     score_veto_notes: tuple[str, ...],
@@ -653,6 +814,7 @@ def _build_rich_text_body(
     sanitized_manual_notes: tuple[str, ...],
     compact_conclusion: CompactWeeklyConclusion | None,
 ) -> str:
+    display_candidates = candidates + overheated
     lines: list[str] = [
         "テストメール",
         f"レポート日: {report_date}",
@@ -660,11 +822,20 @@ def _build_rich_text_body(
         "注意書き: 投資助言ではなく、観測・検証用の情報です。",
         "",
         "## 要約",
-        f"- 注目候補数: {len(candidates)}",
+        f"- 投資妙味候補数: {len(candidates)}",
+        f"- 過熱代表数: {len(overheated)}",
         "- 主目的: 次の調査候補を絞り込むための観測",
         "- 安全方針: 観測のみ（実行指示なし）",
     ]
-    _append_text_v12_overview(lines, candidates=candidates)
+    if _is_v16_copy_body(copy_body):
+        _append_text_v161_overview(
+            lines,
+            copy_body=copy_body,
+            investable=candidates,
+            overheated=overheated,
+        )
+    else:
+        _append_text_v12_overview(lines, candidates=candidates)
     lines.extend(["## 候補パイプライン（短縮）"])
     if pipeline_trace_notes:
         lines.extend([f"- {pipeline_trace_notes[0]}", f"- {pipeline_trace_notes[1]}"])
@@ -720,7 +891,7 @@ def _build_rich_text_body(
             compact_conclusion=compact_conclusion,
         )
     _extend_text_cleanup_priority(lines)
-    for c in candidates:
+    for c in display_candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         momentum_q: list[str] = []
         counter_q: list[str] = []
@@ -803,7 +974,9 @@ def _build_rich_html_body(
     *,
     report_date: str,
     generated_at: str,
+    copy_body: str,
     candidates: list[CandidateDigest],
+    overheated: list[CandidateDigest],
     footer: str,
     zero_reason_notes: tuple[str, str] | None,
     pipeline_trace_notes: tuple[str, str] | None,
@@ -812,6 +985,7 @@ def _build_rich_html_body(
     sanitized_manual_notes: tuple[str, ...],
     compact_conclusion: CompactWeeklyConclusion | None,
 ) -> str:
+    display_candidates = candidates + overheated
     pipeline_list = ""
     if pipeline_trace_notes:
         pipeline_list = (
@@ -845,9 +1019,20 @@ def _build_rich_html_body(
         "注意書き: 投資助言ではなく、観測・検証用の情報です。",
         "</div>",
         "<h2 style='margin:10px 0 6px;'>要約</h2>",
-        f"<p style='margin:0 0 10px;'>注目候補数: {len(candidates)} / 観測ベースの候補抽出</p>",
+        (
+            f"<p style='margin:0 0 10px;'>投資妙味候補数: {len(candidates)} / "
+            f"過熱代表数: {len(overheated)} / 観測ベースの候補抽出</p>"
+        ),
     ]
-    _append_html_v12_overview(parts, candidates=candidates)
+    if _is_v16_copy_body(copy_body):
+        _append_html_v161_overview(
+            parts,
+            copy_body=copy_body,
+            investable=candidates,
+            overheated=overheated,
+        )
+    else:
+        _append_html_v12_overview(parts, candidates=candidates)
     parts.extend([
         "<h2 style='margin:14px 0 8px;'>候補パイプライン（短縮）</h2>",
         pipeline_list or "<p style='margin:0 0 10px;'>候補パイプライン要約: copy-ready側のtrace sectionを確認してください。</p>",
@@ -897,7 +1082,7 @@ def _build_rich_html_body(
             compact_conclusion=compact_conclusion,
         )
     _append_html_cleanup_priority(parts)
-    for c in candidates:
+    for c in display_candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         status = _candidate_status_for_email(c)
         is_v16_card = c.kind in {"初動候補", "深掘り候補", "テーマ代表（追いかけ禁止）"}
@@ -974,6 +1159,7 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     footer = "観測・深掘り候補の整理です。売買推奨・投資助言・発注指示ではありません。"
     candidates = _parse_top_candidates(body_core)
+    overheated = _parse_v16_overheat_candidates(body_core) if _is_v16_copy_body(body_core) else []
     compact_conclusion = _extract_compact_weekly_conclusion(body_core)
     zero_reason_notes = _extract_candidate_zero_reason_notes(body_core)
     pipeline_trace_notes = _extract_pipeline_trace_notes(body_core)
@@ -985,7 +1171,9 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     body = _build_rich_text_body(
         report_date=report_date,
         generated_at=generated_at,
+        copy_body=body_core,
         candidates=candidates,
+        overheated=overheated,
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
         score_veto_notes=score_veto_notes,
@@ -1000,7 +1188,9 @@ def build_weekly_candidate_brief_email_draft(*, report_date: str, copy_body: str
     html_body = _build_rich_html_body(
         report_date=report_date,
         generated_at=generated_at,
+        copy_body=body_core,
         candidates=candidates,
+        overheated=overheated,
         footer=footer,
         zero_reason_notes=zero_reason_notes,
         pipeline_trace_notes=pipeline_trace_notes,
