@@ -1,11 +1,13 @@
 # STATE.md — invest-alpha-os 現状スナップショット
 
-版: v0.5 / 最終更新: 2026-06-05（Post #485 Long-Run — 正式承認待ち）
+版: v0.6 / 最終更新: 2026-06-06（Post #506 / v1.3 trial send）
 
 ## 3行サマリー
-- **週次主系統**: Weekly Candidate Brief — `scripts/run_weekly_candidate_brief.sh`
-- **latest verified main**: `7032629d37c6c68b94e7a2b174214a6265e0adb3`（#485 merge）
-- **次の必須観測**: 2026-06-06 07:30 JST 以降 natural scheduled run（**NOT_YET_OBSERVABLE** @ 2026-06-05 21:27 JST）
+- **週次主系統**: Weekly Candidate Brief v1.2 UX — `scripts/run_weekly_candidate_brief.sh` + Gmail OAuth send
+- **latest verified main**: `756ce5b`（#506 merge）— v1.3 trial send PR pending
+- **ユーザー入口**: `reports-private/manual_issue/latest/README_FOR_USER.md`
+- **v1.2 sample**: `reports-private/sample_outputs/weekly_report_v1_2_sample.md`
+- **v1.3 trial**: `reports-private/trial_send/weekly_v1_2_2026-06-06/README_FOR_USER.md`
 - P3 live forward usable は **time-dependent monitoring gate**（`matched_normal=1/10` · need 9）— 短期 KPI から外す
 - 旧 Weekly Observation Report v1 は主出力ではなく、過去比較/診断/付録として扱う
 
@@ -33,11 +35,19 @@
 - PR #475–#481: JSON runner、UX、Ruff 0、regression contracts
 - PR #482–#485: monthly integration、language pass、operator guide、next 24h tree
 - Post #485 Long-Run: observation contract、`weekly-report-user-summary`、workflow proposals
+- PR #503: schedule non-fire RCA / delivery expectation hardening
+- PR #504: v1.1 SMTP weekly report email delivery foundation
+- PR #505: Gmail OAuth actual weekly report delivery（message id `19e9a26b12d4a2eb` @ 2026-06-06 manual pack）
+- PR #506: v1.2 weekly report investment-grade UX（guardrail表・候補比較・深掘りカード）
 
 ## §2. Weekly / Monthly 現在機能
 
-### Weekly Candidate Brief（v81-v87）
+### Weekly Candidate Brief（v81-v87 + v1.2 UX #506）
 
+- v1.1 Gmail: OAuth 実送信承認済み（`weekly-report-email-send` · `daily_gmail.env`）
+- v1.2 UX: guardrail表・候補比較・深掘りカード・用語定義・email renderer 改善
+- v1.3 trial: `reports-private/trial_send/weekly_v1_2_2026-06-06/` · Gmail sent `19e9a953c07c3a4a`
+- Agent playbook: `.agent/cursor_knowledge_longrun_playbook_20260606.md`
 - 今週の結論
 - ポートフォリオ制約
 - 行動分類
