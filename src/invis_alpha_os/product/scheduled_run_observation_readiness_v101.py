@@ -64,8 +64,8 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 must_contain=(
                     "Score / Veto",
                     "候補パイプライン",
-                    "Sanitized / Manual Input",
-                    "これは売買指示ではなく",
+                    "Sanitized Input",
+                    "これは売買指示ではありません",
                 ),
             ),
             ScheduledArtifactExpectationV101(
@@ -75,8 +75,8 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 must_contain=(
                     "Score / Veto",
                     "候補パイプライン",
-                    "Sanitized / Manual Input",
-                    "これは売買指示ではなく",
+                    "Sanitized Input",
+                    "これは売買指示ではありません",
                 ),
             ),
             ScheduledArtifactExpectationV101(
@@ -91,7 +91,7 @@ def build_weekly_candidate_brief_scheduled_observation_checklist_v101() -> Sched
                 description_ja="送信前確認用のテキスト版email preview。実メール送信ではない。",
                 must_contain=(
                     "Score / Veto",
-                    "Sanitized / Manual Input",
+                    "Sanitized Input",
                     "これは実行指示ではなく",
                 ),
             ),

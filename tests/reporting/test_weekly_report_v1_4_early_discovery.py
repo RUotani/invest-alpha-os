@@ -76,21 +76,21 @@ def test_v14_report_sections_separate_early_and_overheat() -> None:
         overheated_leaders=[overheat_card],
     )
     body = format_weekly_candidate_brief_v0_copy(brief)
-    assert "## Early Discovery Candidates" in body
-    assert "## Overheated Leaders / Do Not Chase" in body
+    assert "## 初動・深掘り候補" in body
+    assert "## 過熱代表 / Do Not Chase" in body
     assert "285A" in body
-    early_idx = body.index("## Early Discovery Candidates")
-    overheat_idx = body.index("## Overheated Leaders / Do Not Chase")
+    early_idx = body.index("## 初動・深掘り候補")
+    overheat_idx = body.index("## 過熱代表 / Do Not Chase")
     assert early_idx < overheat_idx
-    # 285A must not be ranked #1 in Early Discovery table
     early_section = body[early_idx:overheat_idx]
-    assert "| 1 |" in early_section
-    assert "285A" not in early_section.split("| 1 |")[1].split("\n")[0] if "| 1 |" in early_section else True
+    assert "AAPL" in early_section
+    assert "285A" not in early_section
+    assert "━━━━━━━━━━━━━━━━" in early_section
 
 
 def test_v14_top_section_avoids_internal_score_terms() -> None:
     brief = build_weekly_candidate_brief_v0(report_date="2026-06-06", scan_limit=5)
     body = format_weekly_candidate_brief_v0_copy(brief)
-    top = body.split("## Deep Dive Appendix")[0] if "## Deep Dive Appendix" in body else body[:4000]
+    top = body.split("## 開発者向け集計")[0]
     for forbidden in ("discovery_score", "score_veto_pipeline_source", "Sanitized Input", "Manual Input"):
         assert forbidden not in top

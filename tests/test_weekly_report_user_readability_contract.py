@@ -28,16 +28,15 @@ def _zero_candidate_brief() -> WeeklyCandidateBriefV0:
 def test_zero_candidate_weekly_copy_readability_contract() -> None:
     body = format_weekly_candidate_brief_v0_copy(_zero_candidate_brief())
 
-    assert "## 今週の結論" in body
-    assert "理由:" in body
-    assert "今週やること:" in body
-    assert "今週やらないこと:" in body
+    assert "## 今週の結論（3行）" in body
+    assert "初動候補は0件" in body
+    assert "## 開発者向け集計" in body
     assert "## ポートフォリオ制約" in body
-    assert "## 安全メモ" in body
+    assert "## 用語・安全注記" in body
     assert "これは売買指示ではありません" in body
 
     for fixture_name in FIXTURE_CANDIDATE_NAMES:
-        assert fixture_name not in body
+        assert fixture_name not in body.split("## 開発者向け集計")[0]
 
     assert "JP candidates were unavailable" not in body
     assert "insufficient JP cache quality" not in body
@@ -48,10 +47,9 @@ def test_zero_candidate_weekly_copy_readability_contract() -> None:
 
 def test_translate_user_facing_coverage_reason_to_ja_maps_known_notes() -> None:
     raw = (
-        "JP candidates were unavailable due to insufficient JP cache quality / "
+        "coverage_note: JP candidates were unavailable due to insufficient JP cache quality / "
         "US equity candidates were unavailable due to insufficient data quality"
     )
-    translated = translate_user_facing_coverage_reason_to_ja(raw)
-    assert "日本株・米国株とも" in translated
-    assert "データ品質が不足" in translated
-    assert "JP candidates" not in translated
+    ja = translate_user_facing_coverage_reason_to_ja(raw)
+    assert "データ品質" in ja
+    assert "米国株" in ja

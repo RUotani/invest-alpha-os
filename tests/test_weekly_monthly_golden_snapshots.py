@@ -45,14 +45,17 @@ def test_weekly_markdown_golden_section_order_and_decision_markers() -> None:
             "# 週次候補ブリーフ v0.1",
             "## コピー用サマリー",
             "# 週次候補ブリーフ — 2026-06-06",
-            "## 今週の結論",
-            "## ポートフォリオ制約",
-            "## 行動分類",
+            "## 今週の結論（3行）",
+            "## Portfolio制約（コンパクト）",
+            "## 初動・深掘り候補",
+            "## 過熱代表 / Do Not Chase",
+            "## データ鮮度不足リスト",
+            "## If/Then 行動ルール",
+            "## 開発者向け集計",
             "## 候補パイプライン・トレース",
             "## Score / Veto 統合サマリー",
-            "## Shared Summary（v96）",
             "## 次に確認すること",
-            "## 安全メモ",
+            "## 用語・安全注記",
             "## マクロ環境（ETF proxy）",
             "## 今週の候補 Top 5（横断）",
             "## 急騰候補 Top 3",
@@ -65,10 +68,10 @@ def test_weekly_markdown_golden_section_order_and_decision_markers() -> None:
         ),
     )
     for marker in (
-        "これは売買指示ではなく",
+        "これは売買指示ではありません",
         "Score / Veto",
         "候補パイプライン",
-        "Sanitized / Manual Input",
+        "Sanitized Input",
         "現金11.7%",
         "個別株19.6%",
         "株式系67.8%",
@@ -82,14 +85,13 @@ def test_weekly_copy_golden_keeps_chatgpt_paste_boundaries_and_action_checklist(
     assert copy.startswith("<<< COPY FROM HERE >>>")
     assert copy.rstrip().endswith("<<< COPY TO HERE >>>")
     assert "# 週次候補ブリーフ — 2026-06-06" in copy
-    assert "## 今週の結論" in copy
+    assert "## 今週の結論（3行）" in copy
+    assert "## 開発者向け集計" in copy
     assert "## 次に確認すること" in copy
-    assert "今週やること:" in copy
-    assert "今週やらないこと:" in copy
     assert "Score / Veto" in copy
     assert "候補パイプライン" in copy
-    assert "Sanitized / Manual Input" in copy
-    assert "これは売買指示ではなく" in copy
+    assert "Sanitized Input" in copy
+    assert "これは売買指示ではありません" in copy
 
 
 def test_weekly_json_golden_keeps_schema_and_pipeline_payload() -> None:

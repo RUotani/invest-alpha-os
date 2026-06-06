@@ -63,7 +63,7 @@ def test_v94_score_veto_markdown_json_and_email_are_consistent_with_explicit_ass
     assert "HARD: missing_evidence, portfolio_constraint_breach +6" in copy_body
     assert "- Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in copy_body
     assert "- これは実行指示ではなく、根拠補完と安全確認の分類です。" in copy_body
-    assert "## Shared Summary（v96）" in copy_body
+    assert "## 開発者向け集計" in copy_body
 
     assert "## Score / Veto（短縮）" in draft.text_body
     assert "Score/Veto: 深掘り候補0 / 監視2 / veto確認2 / score補完0 / 高優先レビュー1。" in draft.text_body
