@@ -50,6 +50,14 @@ fixture-only分類から、read-only price/volume validationへ進むための�
 - secret / env exposureの兆候
 - cache write、broker、trading、importが必要になる場合
 
+## Adapter Interface（#511 以降）
+
+- `V15OhlcvSourceAdapter` — read-only interface（cache write 禁止）
+- `FixtureV15OhlcvSourceAdapter` — 既定 adapter（network なし）
+- `evaluate_v15_readonly_gate()` — live fetch は phrase 必須
+- `build_early_discovery_inputs_from_series()` — OHLCV → `EarlyDiscoveryInputs`
+- decision: `docs/decisions/2026-06-06_v1_5_readonly_ohlcv_approval_gate.md`
+
 ## 承認文
 
 `承認: v1.5 read-only price/volume MVP validationのみ YES / cache write・broker・trading・import・secret表示 NO`
