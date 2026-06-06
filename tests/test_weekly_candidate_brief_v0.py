@@ -83,14 +83,15 @@ def test_format_markdown_has_candidate_sections() -> None:
         us_scope="us",
         macro_summary="テスト macro",
         top_picks=[card],
+        early_discovery_picks=[card],
     )
     md = format_weekly_candidate_brief_v0_markdown(brief)
     assert "# 週次候補ブリーフ v0.1" in md
     assert "## コピー用サマリー" in md
     assert "<<< COPY FROM HERE >>>" in md
-    assert "## 今週の深掘り候補 上位5件" in md
-    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in md
-    assert "| 1 | MSFT |" in md
+    assert "## 初動・深掘り候補" in md
+    assert "MSFT" in md
+    assert "━━━━━━━━━━━━━━━━" in md
     assert "## 今週の候補 Top 5" in md
     assert "**反証**" in md
     assert "**次に確認**" in md
@@ -136,9 +137,8 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
     copy_body = format_weekly_candidate_brief_v0_copy(brief)
 
     for body in (md, copy_body):
-        assert "## 今週の結論" in body
-        assert "今週は新規買いを急がない" in body
-        assert "候補0件は「問題なし」ではなく、新規リスクを増やさない抑制シグナルです" in body
+        assert "## 今週の結論（3行）" in body
+        assert "初動候補は0件" in body
         assert "日本株・米国株とも、候補判定に必要なデータ品質が不足していたため" in body
         for fixture_name in ("GRID_A", "ROBO_B", "MAT_C", "CASH_D", "HYPE_E"):
             assert fixture_name not in body
@@ -166,13 +166,11 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "主因: coverage不足。次確認: 価格・出来高・期間・score内訳・veto理由。" in body
         assert "## Score / Veto 統合サマリー" in body
         assert "今回は強い新規候補0件のため、パイプライン候補表は表示しません" in body
-        assert "Score/Veto: 深掘り候補0。強い新規候補なしのためfixture候補表は表示しません。" in body
+        assert "Score/Veto: 深掘り候補0件（render modelと整合）" in body
         assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in body
-        assert "## Shared Summary（v96）" in body
-        assert "### Monthly Input Consistency（共有要約）" in body
+        assert "### Monthly Input / Sanitized（開発者向け）" in body
         assert "Monthly Input: 判定 WARN / 対象月 2026-05" in body
         assert "Monthly Guardrail: 現金11.7% / 個別株19.6%" in body
-        assert "### Sanitized / Manual Input（共有要約）" in body
         assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in body
         assert "Sanitized Guardrail: 現金11.7%はminimum 15.0%未満" in body
         assert "Sanitized Parity: v97/v95整合 WARN" in body
@@ -197,14 +195,12 @@ def test_v81_no_candidate_ux_blocks_are_rendered() -> None:
         assert "現金比率が15%未満で止まっていないか、20%回復ゾーンへ向かう余地があるか" in body
         assert "株式系67.8%と個別株19.6%に重複リスク" in body
         assert "score 4以上の枠" in body
-        assert "今週やること:" in body
-        assert "今週やらないこと:" in body
-        assert "根拠不足の個別株・高ベータ銘柄を追加しない" in body
+        assert "## 次に確認すること" in body
         assert "## ChatGPTレビュー依頼" in body
         assert "cleanup_priority" in body
         assert "今週やってよいこと / やらないこと / 次に確認すること" in body
         assert "no_candidate_reason" in body
-        assert "## 安全メモ" in body
+        assert "## 用語・安全注記" in body
         assert "これは売買指示ではありません" in body
 
     assert copy_body.strip().startswith("<<< COPY FROM HERE >>>")
@@ -425,15 +421,15 @@ def test_format_copy_only_block() -> None:
         us_scope="us",
         macro_summary="macro",
         top_picks=[card],
+        early_discovery_picks=[card],
     )
     body = format_weekly_candidate_brief_v0_copy(brief)
     assert body.strip().startswith("<<< COPY FROM HERE >>>")
     assert body.strip().endswith("<<< COPY TO HERE >>>")
-    assert "## 今週の深掘り候補 上位5件" in body
-    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in body
-    assert "## 候補別メモ" in body
-    assert "- 反証: 反証1" in body
-    assert "- 次確認: 確認1" in body
+    assert "## 初動・深掘り候補" in body
+    assert "なぜ注目:" in body
+    assert "今のリスク:" in body
+    assert "次に見ること:" in body
     assert "Counter evidence" not in body
     assert "Next checks" not in body
     for forbidden in (
@@ -464,8 +460,11 @@ def test_cli_weekly_candidate_brief_copy(mini_discovery_cache: Path, monkeypatch
     assert "<<< COPY TO HERE >>>" in out
     assert "# 週次候補ブリーフ — 2026-05-27" in out
     assert "## マクロ環境" not in out
-    assert "## 候補別メモ" in out
-    assert "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |" in out
+    assert "## 初動・深掘り候補" in out
+    if "初動・深掘り候補あり" in out:
+        assert "━━━━━━━━━━━━━━━━" in out
+    else:
+        assert "初動候補は0件" in out
     assert "Counter evidence" not in out
     assert "Next checks" not in out
 

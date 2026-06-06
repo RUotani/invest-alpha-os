@@ -8,6 +8,7 @@ from math import isfinite
 EARLY_DISCOVERY_SCORE_THRESHOLD = 0.55
 HARD_OVERHEAT_R20 = 0.70
 HARD_OVERHEAT_R60 = 1.50
+REPORT_UI_OVERHEAT_R20 = 0.50
 V15_CASH_RATIO_GATE = 0.15
 V15_SINGLE_STOCK_RATIO_GATE = 0.15
 V15_HARD_OVERHEAT_RECENT_RETURN = 0.70
@@ -68,6 +69,24 @@ def is_hard_overheat(*, ret_20d: float | None, ret_60d: float | None) -> bool:
     if ret_20d is not None and ret_20d >= HARD_OVERHEAT_R20:
         return True
     if ret_60d is not None and ret_60d >= HARD_OVERHEAT_R60:
+        return True
+    return False
+
+
+def is_report_ui_overheat(
+    *,
+    ret_20d: float | None,
+    ret_60d: float | None,
+    categories: tuple[str, ...] = (),
+    labels: tuple[str, ...] = (),
+) -> bool:
+    """Report-facing overheat routing (+50% UI threshold, labels, hard overheat)."""
+
+    if is_hard_overheat(ret_20d=ret_20d, ret_60d=ret_60d):
+        return True
+    if ret_20d is not None and ret_20d >= REPORT_UI_OVERHEAT_R20:
+        return True
+    if "overheated_caution" in categories or "overheat_caution" in labels:
         return True
     return False
 

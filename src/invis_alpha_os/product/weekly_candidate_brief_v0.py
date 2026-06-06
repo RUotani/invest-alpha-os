@@ -29,7 +29,20 @@ from invis_alpha_os.discovery.candidate_classifier import (
     PortfolioGateContext,
     classify_unified_candidate_fields,
 )
-from invis_alpha_os.discovery.candidate_roles import THEME_PROXY_ROLES, role_label_ja
+from invis_alpha_os.discovery.candidate_roles import role_label_ja
+from invis_alpha_os.discovery.freshness import freshness_display_label, freshness_info_for_latest_date
+from invis_alpha_os.product.weekly_report_render_model import (
+    COMMON_DATA_WARNING,
+    DEVELOPER_APPENDIX_SECTION_TITLE,
+    FRESHNESS_PENDING_SECTION_TITLE,
+    INVESTABLE_SECTION_TITLE,
+    OVERHEAT_SECTION_TITLE,
+    CandidateRenderItem,
+    WeeklyReportRenderModel,
+    build_weekly_report_render_model,
+    candidate_card_title,
+    partition_ranked_candidates_v16,
+)
 from invis_alpha_os.discovery.theme_dictionary import lookup_theme_labels, lookup_ticker_themes
 from invis_alpha_os.discovery.us_universe_scanner import (
     UsDiscoveryScanResult,
@@ -163,9 +176,9 @@ CLEANUP_SCORE_SCALE_V83: tuple[str, ...] = (
 PIPELINE_SCORE_THRESHOLD_V90 = 1.0
 
 GUARDRAIL_ROWS_V12: tuple[tuple[str, str, str, str, str], ...] = (
-    ("現金比率", "11.7%", "15%以上 / 目標30%", "RED / 不足", "新規リスク追加より現金回復を優先"),
-    ("個別株比率", "19.6%", "10〜15%", "YELLOW / 多め", "個別株追加は慎重に扱う"),
-    ("株式系合計", "67.8%", "49%目安", "YELLOW / 高め", "リスク資産に寄っているため追いかけない"),
+    ("現金比率", "11.7%", "15%以上 / 目標30%", "不足", "新規リスク追加より現金回復を優先"),
+    ("個別株比率", "19.6%", "10〜15%", "多め", "個別株追加は慎重に扱う"),
+    ("株式系合計", "67.8%", "49%目安", "高め", "リスク資産に寄っているため追いかけない"),
 )
 
 BEGINNER_DEFINITION_ROWS_V12: tuple[tuple[str, str, str], ...] = (
@@ -261,6 +274,7 @@ class WeeklyCandidateBriefV0:
     score_veto_assessments: tuple[CandidateIntegratedAssessment, ...] = field(default_factory=tuple)
     early_discovery_picks: list[CandidateCard] = field(default_factory=list)
     overheated_leaders: list[CandidateCard] = field(default_factory=list)
+    freshness_pending_picks: list[CandidateCard] = field(default_factory=list)
 
 
 def _sort_key(c: UnifiedCandidate) -> tuple[int, float, str]:
@@ -885,7 +899,10 @@ def build_weekly_candidate_brief_v0(
     all_ranked = sorted(jp_ranked + us_ranked, key=_sort_key)
     all_insuf = jp_insuf + us_insuf
 
-    early_ranked, overheated_ranked = _partition_ranked_by_v14_classification(all_ranked)
+    early_ranked, overheated_ranked, freshness_pending_ranked = _partition_ranked_by_v16_classification(
+        all_ranked,
+        report_date=run_date,
+    )
     early_ids = {f"{c.market}:{c.instrument_id}" for c in early_ranked}
     top_picks, coverage_note = select_diversified_top_picks(
         jp_ranked=[c for c in jp_ranked if f"{c.market}:{c.instrument_id}" in early_ids],
@@ -894,6 +911,7 @@ def build_weekly_candidate_brief_v0(
     )
     early_discovery_picks = list(top_picks)
     overheated_leaders = [_make_card(c, "avoid") for c in overheated_ranked[:TOP_PICK_COUNT]]
+    freshness_pending_picks = [_make_card(c, "insufficient") for c in freshness_pending_ranked[:TOP_PICK_COUNT]]
 
     rapid_src = [c for c in all_ranked if "rapid_mover" in c.categories]
     pullback_src = [c for c in all_ranked if is_pullback_candidate(c)]
@@ -929,6 +947,7 @@ def build_weekly_candidate_brief_v0(
         generated_at_us=us_result.generated_at,
         early_discovery_picks=early_discovery_picks,
         overheated_leaders=overheated_leaders,
+        freshness_pending_picks=freshness_pending_picks,
         jp_scope=jp_result.universe_scope,
         us_scope=us_result.universe_scope,
         macro_summary=_macro_summary(us_ranked),
@@ -1162,16 +1181,24 @@ def _candidate_segment_ja(card: CandidateCard) -> str:
     return "個別株"
 
 
-def _candidate_weekly_status(card: CandidateCard) -> tuple[str, str]:
+def _candidate_weekly_status(
+    card: CandidateCard,
+    *,
+    report_date: str | None = None,
+) -> tuple[str, str]:
     c = card.candidate
+    if report_date:
+        freshness = freshness_info_for_latest_date(c.latest_date, report_date)
+        if not freshness.can_promote:
+            return "データ更新待ち", "鮮度不足のため深掘り・監視候補から除外"
     overheat = "overheated_caution" in c.categories or "overheat_caution" in c.labels
     if card.brief_type == "avoid" or overheat:
-        return "WATCH", "監視。追いかけず、反証と材料確認を優先"
+        return "監視候補", "監視。追いかけず、反証と材料確認を優先"
     if card.brief_type == "insufficient" or c.data_quality != "ok":
-        return "NO ACTION", "データ不足のため未評価。次回データ追加対象"
+        return "未評価", "データ不足のため未評価。次回データ追加対象"
     if candidate_group(c) == "etf_proxy":
-        return "WATCH", "指数環境の確認。個別株追加判断とは分ける"
-    return "DEEP DIVE", "深掘り。ただし即時行動ではない"
+        return "監視候補", "指数環境の確認。個別株追加判断とは分ける"
+    return "深掘り候補", "深掘り。ただし即時行動ではない"
 
 
 def _candidate_counter_summary(card: CandidateCard) -> str:
@@ -1195,23 +1222,28 @@ def _partition_ranked_by_v14_classification(
     ranked: Sequence[UnifiedCandidate],
     *,
     portfolio: PortfolioGateContext = DEFAULT_PORTFOLIO_GATE_V14,
+    report_date: str | None = None,
 ) -> tuple[list[UnifiedCandidate], list[UnifiedCandidate]]:
-    early: list[UnifiedCandidate] = []
-    overheated: list[UnifiedCandidate] = []
-    for c in ranked:
-        cls = classify_unified_candidate_fields(
-            instrument_id=c.instrument_id,
-            return_20d=c.return_20d,
-            return_60d=c.return_60d,
-            categories=c.categories,
-            labels=c.labels,
-            portfolio=portfolio,
-        )
-        if cls.early_discovery:
-            early.append(c)
-        elif cls.role in THEME_PROXY_ROLES:
-            overheated.append(c)
+    run_date = report_date or date.today().isoformat()
+    early, overheated, _pending = partition_ranked_candidates_v16(
+        list(ranked),
+        report_date=run_date,
+        portfolio=portfolio,
+    )
     return early, overheated
+
+
+def _partition_ranked_by_v16_classification(
+    ranked: Sequence[UnifiedCandidate],
+    *,
+    report_date: str,
+    portfolio: PortfolioGateContext = DEFAULT_PORTFOLIO_GATE_V14,
+) -> tuple[list[UnifiedCandidate], list[UnifiedCandidate], list[UnifiedCandidate]]:
+    return partition_ranked_candidates_v16(
+        list(ranked),
+        report_date=report_date,
+        portfolio=portfolio,
+    )
 
 
 def _primary_display_picks_v14(brief: WeeklyCandidateBriefV0) -> list[CandidateCard]:
@@ -1993,78 +2025,227 @@ def _safety_action_note_lines() -> list[str]:
     ]
 
 
+def _v16_mobile_candidate_card_lines(
+    item: CandidateRenderItem,
+    *,
+    report_date: str,
+    treatment: str | None = None,
+) -> list[str]:
+    card = item.card
+    c = card.candidate
+    reason = _truncate(_strip_reason_prefix_for_copy(card.reason), max_len=120)
+    risk = _candidate_counter_summary(card)
+    next_check = _candidate_next_check_summary(card)
+    lines = [
+        "━━━━━━━━━━━━━━━━",
+        f"[{item.role_label}] {candidate_card_title(card)}",
+        f"鮮度: {freshness_display_label(item.freshness)}",
+        "━━━━━━━━━━━━━━━━",
+        f"なぜ注目: {reason}",
+        f"今のリスク: {risk}",
+        f"次に見ること: {next_check}",
+        "主要数値:",
+        f"- 終値: {c.close if c.close is not None else '—'}",
+        f"- 20日騰落: {format_pct(c.return_20d)}",
+        f"- 出来高倍率: {c.volume_ratio_25d if c.volume_ratio_25d is not None else '—'}",
+    ]
+    if treatment:
+        lines.append(f"扱い: {treatment}")
+    lines.append("")
+    return lines
+
+
+def _v16_three_line_conclusion(model: WeeklyReportRenderModel, brief: WeeklyCandidateBriefV0) -> list[str]:
+    has_investable = model.investable_count > 0
+    if has_investable:
+        state = "初動・深掘り候補あり。現金比率が低いため追いかけではなく条件確認を優先。"
+        do_dont = "やる: 第1候補の反証・決算確認 / やらない: 過熱銘柄の追いかけ"
+    else:
+        state = "初動候補は0件。過熱銘柄で無理に埋めません。"
+        do_dont = "やる: guardrailとデータ鮮度確認 / やらない: 根拠不足の新規追加"
+    return [
+        "## 今週の結論（3行）",
+        "",
+        f"- 状態: {state}",
+        "- 最大リスク: 現金不足 / 個別株多め / 急騰後の過熱",
+        f"- 今週やる/やらない: {do_dont}",
+        (
+            f"- 集計: 初動・深掘り {model.investable_count}件 / "
+            f"過熱代表 {model.overheat_count}件 / "
+            f"鮮度不足 {model.freshness_pending_count}件 / "
+            f"深掘り優先度カウント {model.score_veto_deep_dive_count}件"
+        ),
+        "- これは売買指示ではありません。",
+        "",
+    ]
+
+
+def _v16_portfolio_compact_lines() -> list[str]:
+    return [
+        "## Portfolio制約（コンパクト）",
+        "",
+        "- 現金: 11.7%（不足）",
+        "- 個別株: 19.6%（多め）",
+        "- 今週の追加許容: 抑制",
+        "",
+    ]
+
+
+def _v16_investable_section_lines(model: WeeklyReportRenderModel, brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        INVESTABLE_SECTION_TITLE,
+        "",
+        "fresh / stale_warning かつ過熱でない候補のみ（売買指示ではない）。",
+        "",
+    ]
+    if not model.investable:
+        lines.extend(
+            [
+                "初動候補は0件。過熱銘柄で無理に埋めません。",
+                "",
+            ]
+        )
+        return lines
+    for item in model.investable:
+        status, treatment = _candidate_weekly_status(item.card, report_date=brief.report_date)
+        lines.extend(
+            _v16_mobile_candidate_card_lines(
+                item,
+                report_date=brief.report_date,
+                treatment=f"{status} / {treatment}",
+            )
+        )
+    return lines
+
+
+def _v16_overheated_section_lines(model: WeeklyReportRenderModel, brief: WeeklyCandidateBriefV0) -> list[str]:
+    lines = [
+        OVERHEAT_SECTION_TITLE,
+        "",
+        "急騰済みテーマ代表。追いかけ禁止・周辺候補探索の起点。",
+        "テーマ代表として観測。実候補は周辺・出遅れから探す。",
+        "",
+    ]
+    if not model.overheated:
+        lines.extend(["- 該当なし", ""])
+        return lines
+    for item in model.overheated:
+        lines.extend(
+            _v16_mobile_candidate_card_lines(
+                item,
+                report_date=brief.report_date,
+                treatment="追いかけ禁止 / 周辺・出遅れ候補を探す",
+            )
+        )
+    return lines
+
+
+def _v16_freshness_pending_section_lines(model: WeeklyReportRenderModel) -> list[str]:
+    lines = [
+        FRESHNESS_PENDING_SECTION_TITLE,
+        "",
+        "期限切れデータの候補。深掘り・監視候補には昇格させません。",
+        "",
+    ]
+    if not model.freshness_pending:
+        lines.extend(["- 該当なし", ""])
+        return lines
+    for item in model.freshness_pending:
+        title = candidate_card_title(item.card)
+        label = freshness_display_label(item.freshness)
+        lines.append(f"- {title} — {label}: データ更新待ち")
+    lines.append("")
+    return lines
+
+
+def _v16_if_then_lines() -> list[str]:
+    lines = [
+        "## If/Then 行動ルール",
+        "",
+    ]
+    for condition, decision in IF_THEN_RULES_V12:
+        lines.append(f"- もし {condition} → {decision}")
+    lines.append("")
+    return lines
+
+
+def _v16_monthly_sanitized_appendix_lines() -> list[str]:
+    lines = [
+        "### Monthly Input / Sanitized（開発者向け）",
+        "",
+    ]
+    for line in _monthly_input_summary_lines_v95():
+        lines.append(line if line.startswith("- ") else f"- {line}")
+    for line in build_sanitized_manual_input_summary_lines_v99():
+        lines.append(line if line.startswith("- ") else f"- {line}")
+    lines.append("")
+    return lines
+
+
+def _v16_developer_appendix_lines(brief: WeeklyCandidateBriefV0, model: WeeklyReportRenderModel) -> list[str]:
+    lines = [
+        DEVELOPER_APPENDIX_SECTION_TITLE,
+        "",
+        f"- 深掘り優先度カウント（render model）: {model.score_veto_deep_dive_count}",
+        f"- Score/Veto: 深掘り候補{model.score_veto_deep_dive_count}件（render modelと整合）",
+        "- これは実行指示ではなく、根拠補完と安全確認の分類です。",
+        "",
+    ]
+    lines.extend(_pipeline_trace_lines(brief))
+    lines.extend(_score_veto_integration_lines(brief))
+    assessments = _resolve_score_veto_assessments(brief)
+    if assessments:
+        for line in render_integrated_candidate_assessment_summary_lines(assessments):
+            lines.append(line if line.startswith("- ") else f"- {line}")
+        lines.append("")
+    lines.extend(_v16_monthly_sanitized_appendix_lines())
+    discovery_line = _discovery_merge_summary_line(brief)
+    if discovery_line:
+        lines.extend(["### Discovery merge（共有要約）", f"- {discovery_line}", ""])
+    lines.extend(_portfolio_constraint_lines())
+    lines.extend(_target_allocation_gap_short_lines())
+    lines.extend(_action_classification_lines(brief))
+    lines.extend(_candidate_zero_reason_lines(brief))
+    lines.extend(_cleanup_priority_lines(brief))
+    lines.extend(_weekly_action_checklist_lines(brief))
+    lines.extend(_chatgpt_review_lines(brief))
+    return lines
+
+
+def _v16_terms_and_safety_lines() -> list[str]:
+    lines = [
+        "## 用語・安全注記",
+        "",
+    ]
+    lines.extend(_beginner_definition_lines_v14())
+    lines.extend(_safety_action_note_lines())
+    lines.append(COMMON_DATA_WARNING)
+    lines.append("")
+    return lines
+
+
+def _top_section_slice(body: str) -> str:
+    marker = DEVELOPER_APPENDIX_SECTION_TITLE
+    if marker in body:
+        return body.split(marker, maxsplit=1)[0]
+    return body
+
+
 def _format_copy_ready_block_lines(brief: WeeklyCandidateBriefV0) -> list[str]:
+    model = build_weekly_report_render_model(brief)
     lines = [
         COPY_READY_MARKER_FROM,
         f"# 週次候補ブリーフ — {brief.report_date}",
         "",
     ]
-    lines.extend(_v14_three_line_conclusion(brief))
-    lines.extend(_v14_market_regime_summary_lines(brief))
-    lines.extend(_v14_theme_rotation_table_lines(brief))
-    lines.extend(_v14_early_discovery_section_lines(brief))
-    lines.extend(_v14_overheated_leaders_lines(brief))
-    lines.extend(_portfolio_guardrail_table_lines_v12())
-    lines.extend(_if_then_decision_rule_lines_v12())
-    lines.extend(_executive_summary_lines_v12(brief))
-    lines.extend(_beginner_definition_lines_v14())
-    lines.extend(_candidate_comparison_lines_v12(brief))
-    lines.extend(_deep_dive_card_lines_v12(brief))
-    lines.extend(_action_matrix_lines_v12(brief))
-    lines.extend(_weekly_conclusion_lines(brief))
-    lines.extend(_portfolio_constraint_lines())
-    lines.extend(_target_allocation_gap_short_lines())
-    lines.extend(_action_classification_lines(brief))
-    lines.extend(_pipeline_trace_lines(brief))
-    lines.extend(_score_veto_integration_lines(brief))
-    lines.extend(_shared_view_model_lines_v96(brief))
-    lines.extend(_candidate_zero_reason_lines(brief))
-    lines.extend(_cleanup_priority_lines(brief))
-    lines.extend(_weekly_action_checklist_lines(brief))
-    lines.extend(
-        [
-            "## 今週の深掘り候補 上位5件",
-            "",
-            "| 順位 | 銘柄 | 名称 | 市場 | 区分 | 短期理由 |",
-            "|---|---|---|---|---|---|",
-        ]
-    )
-    for rank, card in enumerate(brief.top_picks, start=1):
-        lines.append(_format_copy_ready_brief_table_row(rank=rank, card=card))
-    if not brief.top_picks:
-        lines.append("| — | — | — | — | — | — |")
-    if brief.coverage_note and _has_actionable_top_candidates(brief):
-        lines.extend(["", f"- coverage: {_no_candidate_reason(brief)}"])
-
-    lines.extend(
-        [
-            "",
-            "## 候補別メモ",
-            "",
-        ]
-    )
-    if brief.top_picks:
-        for rank, card in enumerate(brief.top_picks, start=1):
-            lines.extend(_format_copy_ready_candidate_memo(rank=rank, card=card))
-    else:
-        lines.extend(
-            [
-                "- （該当なし）",
-                "",
-            ]
-        )
-    lines.extend(
-        [
-            "",
-            "## 見方",
-            "- これは観測・深掘り候補の整理であり、売買推奨ではありません。",
-            "- 上位5件は JP / US / ETF の横断性を優先します。",
-            "- 反証と次確認を見て、深掘りする候補を選びます。",
-            "",
-        ]
-    )
-    lines.extend(_chatgpt_review_lines(brief))
-    lines.extend(_safety_action_note_lines())
+    lines.extend(_v16_three_line_conclusion(model, brief))
+    lines.extend(_v16_portfolio_compact_lines())
+    lines.extend(_v16_investable_section_lines(model, brief))
+    lines.extend(_v16_overheated_section_lines(model, brief))
+    lines.extend(_v16_freshness_pending_section_lines(model))
+    lines.extend(_v16_if_then_lines())
+    lines.extend(_v16_developer_appendix_lines(brief, model))
+    lines.extend(_v16_terms_and_safety_lines())
     lines.append(COPY_READY_MARKER_TO)
     return lines
 

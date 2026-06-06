@@ -26,7 +26,7 @@ def test_v99_weekly_and_email_render_sanitized_summary_consistently() -> None:
         macro_summary="macro",
     )
     copy_body = format_weekly_candidate_brief_v0_copy(brief)
-    assert "### Sanitized / Manual Input（共有要約）" in copy_body
+    assert "### Monthly Input / Sanitized（開発者向け）" in copy_body
     assert "Sanitized Input: 判定 WARN / 2026-05 / JPY / man_yen" in copy_body
     assert "これは実行指示ではなく、根拠補完と安全確認の分類です。" in copy_body
 

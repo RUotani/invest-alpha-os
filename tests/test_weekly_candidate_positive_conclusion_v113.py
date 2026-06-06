@@ -77,19 +77,20 @@ def _positive_brief() -> WeeklyCandidateBriefV0:
 def test_candidate_positive_copy_has_concise_conclusion() -> None:
     body = format_weekly_candidate_brief_v0_copy(_positive_brief())
 
-    assert "## 今週の結論" in body
-    assert "今週は候補あり" in body
-    assert "guardrail" in body
-    assert "初動候補: MSFT（Microsoft）" in body
-    assert "テーマ代表（追いかけ禁止）: 285A（キオクシア）" in body
+    assert "## 今週の結論（3行）" in body
+    assert "初動・深掘り候補あり" in body
+    assert "MSFT" in body
+    assert "285A" in body
     assert "第1候補: 285A（キオクシア）" not in body
-    assert "監視候補: NVDA（NVIDIA）" in body
-    assert "見送り候補: HYPE_E（Hype ETF）" in body
-    assert "今週やること:" in body
+    investable = body.split("## 初動・深掘り候補", maxsplit=1)[1].split("## ", maxsplit=1)[0]
+    overheat = body.split("## 過熱代表 / Do Not Chase", maxsplit=1)[1].split("## ", maxsplit=1)[0]
+    assert "MSFT" in investable
+    assert "285A" not in investable
+    assert "285A" in overheat
     assert "これは売買指示ではありません" in body
     assert "深掘り候補: 2件。反証と次確認" not in body
 
-    conclusion_start = body.index("## 今週の結論")
+    conclusion_start = body.index("## 今週の結論（3行）")
     next_section = body.find("\n## ", conclusion_start + 1)
     conclusion = body[conclusion_start:next_section] if next_section != -1 else body[conclusion_start:]
     for fixture_name in ("GRID_A", "ROBO_B", "MAT_C", "CASH_D"):

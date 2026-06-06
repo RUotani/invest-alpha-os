@@ -80,9 +80,15 @@ EMAIL_NEXT_CHECKS_V85: tuple[str, ...] = (
 )
 
 EMAIL_GUARDRAIL_ROWS_V12: tuple[tuple[str, str, str, str, str], ...] = (
-    ("現金比率", "11.7%", "15%以上 / 目標30%", "RED / 不足", "新規リスク追加より現金回復を優先"),
-    ("個別株比率", "19.6%", "10〜15%", "YELLOW / 多め", "個別株追加は慎重"),
-    ("株式系合計", "67.8%", "49%目安", "YELLOW / 高め", "リスク資産に寄っている"),
+    ("現金比率", "11.7%", "15%以上 / 目標30%", "不足", "新規リスク追加より現金回復を優先"),
+    ("個別株比率", "19.6%", "10〜15%", "多め", "個別株追加は慎重"),
+    ("株式系合計", "67.8%", "49%目安", "高め", "リスク資産に寄っている"),
+)
+
+_V16_CARD_BLOCK_RE = re.compile(
+    r"━━━━━━━━━━━━━━━━\n\[(?P<role>[^\]]+)\]\s+(?P<title>[^\n]+)\n鮮度:\s+(?P<freshness>[^\n]+)\n━━━━━━━━━━━━━━━━\n"
+    r"なぜ注目:\s+(?P<reason>[^\n]+)\n今のリスク:\s+(?P<risk>[^\n]+)\n次に見ること:\s+(?P<next>[^\n]+)",
+    re.MULTILINE,
 )
 
 EMAIL_DEFINITION_ROWS_V12: tuple[tuple[str, str, str], ...] = (
@@ -136,7 +142,35 @@ EMAIL_TARGET_ALLOCATION_GAP_3_LINES_V82: tuple[str, str, str] = format_target_al
 )
 
 
+def _parse_v16_candidate_cards(copy_body: str) -> list[CandidateDigest]:
+    out: list[CandidateDigest] = []
+    for rank, match in enumerate(_V16_CARD_BLOCK_RE.finditer(copy_body), start=1):
+        title = match.group("title").strip()
+        symbol_match = re.match(r"^([A-Za-z0-9._-]+)（", title)
+        symbol = symbol_match.group(1) if symbol_match else title.split()[0]
+        name_match = re.match(r"^[^(]+（([^）]+)）", title)
+        name = name_match.group(1) if name_match else symbol
+        market = title.rsplit(" ", maxsplit=1)[-1] if " " in title else ""
+        out.append(
+            CandidateDigest(
+                rank=rank,
+                symbol=symbol,
+                name=name,
+                market=market,
+                kind=match.group("role").strip(),
+                short_reason=match.group("reason").strip(),
+                counter_evidence=match.group("risk").strip(),
+                next_checks=match.group("next").strip(),
+            )
+        )
+    return out
+
+
 def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
+    if "## 初動・深掘り候補" in copy_body:
+        v16_cards = _parse_v16_candidate_cards(copy_body)
+        if v16_cards:
+            return v16_cards
     lines = [x.rstrip() for x in copy_body.splitlines()]
     by_rank: dict[int, dict[str, str]] = {}
     in_table = False
@@ -202,6 +236,17 @@ def _parse_top_candidates(copy_body: str) -> list[CandidateDigest]:
 
 
 def _extract_compact_weekly_conclusion(copy_body: str) -> CompactWeeklyConclusion | None:
+    if "初動・深掘り候補あり" in copy_body:
+        return CompactWeeklyConclusion(
+            headline="初動・深掘り候補あり。guardrail優先で条件確認を進める。",
+            reasons=tuple(
+                line.removeprefix("- ").strip()
+                for line in copy_body.splitlines()
+                if line.strip().startswith("- 状態:")
+            ),
+            do_items=(),
+            dont_items=(),
+        )
     if "今週は候補あり" in copy_body:
         lines = [raw.strip() for raw in copy_body.splitlines()]
         candidate_lines: list[str] = []
@@ -230,7 +275,7 @@ def _extract_compact_weekly_conclusion(copy_body: str) -> CompactWeeklyConclusio
             do_items=tuple(do_items),
             dont_items=(),
         )
-    if "今週は新規買いを急がない" not in copy_body:
+    if "初動候補は0件" not in copy_body and "今週は新規買いを急がない" not in copy_body:
         return None
     lines = [raw.strip() for raw in copy_body.splitlines()]
     reasons: list[str] = []
@@ -257,9 +302,25 @@ def _extract_compact_weekly_conclusion(copy_body: str) -> CompactWeeklyConclusio
         elif mode == "dont" and line.startswith("- "):
             dont_items.append(line.removeprefix("- ").strip())
     if not reasons and not do_items and not dont_items:
+        if "初動候補は0件" in copy_body:
+            return CompactWeeklyConclusion(
+                headline="初動候補は0件。guardrailとデータ鮮度を優先。",
+                reasons=tuple(
+                    line.removeprefix("- ").strip()
+                    for line in copy_body.splitlines()
+                    if line.strip().startswith("- 状態:")
+                ),
+                do_items=tuple(do_items),
+                dont_items=tuple(dont_items),
+            )
         return None
+    headline = (
+        "初動候補は0件。guardrailとデータ鮮度を優先。"
+        if "初動候補は0件" in copy_body
+        else "今週は新規買いを急がない。"
+    )
     return CompactWeeklyConclusion(
-        headline="今週は新規買いを急がない。",
+        headline=headline,
         reasons=tuple(reasons),
         do_items=tuple(do_items),
         dont_items=tuple(dont_items),
@@ -839,6 +900,20 @@ def _build_rich_html_body(
     for c in candidates:
         qm = compute_candidate_quant_metrics(symbol=c.symbol, market=c.market, report_date=report_date)
         status = _candidate_status_for_email(c)
+        is_v16_card = c.kind in {"初動候補", "深掘り候補", "テーマ代表（追いかけ禁止）"}
+        if is_v16_card:
+            parts.extend(
+                [
+                    "<div class='candidate-card' style='border:1px solid #ddd;border-radius:8px;padding:12px;margin:10px 0;background:#ffffff;'>",
+                    f"<div style='margin:0 0 6px;'><strong>[{escape(c.kind)}] {escape(c.symbol)}（{escape(c.name)}） {escape(c.market)}</strong></div>",
+                    f"<div style='margin:0 0 6px;'>鮮度: {escape(qm.freshness_label)}</div>",
+                    f"<div style='margin:0 0 6px;'><strong>なぜ注目:</strong> {escape(c.short_reason)}</div>",
+                    f"<div style='margin:0 0 6px;'><strong>今のリスク:</strong> {escape(c.counter_evidence)}</div>",
+                    f"<div style='margin:0 0 6px;'><strong>次に見ること:</strong> {escape(c.next_checks)}</div>",
+                    "</div>",
+                ]
+            )
+            continue
         parts.extend(
             [
                 "<div style='background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin:10px 0;'>",

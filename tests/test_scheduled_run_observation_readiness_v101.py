@@ -31,7 +31,7 @@ def test_v101_expected_artifacts_are_listed_with_required_markers() -> None:
         "status.json",
     }
     assert "Score / Veto" in by_path["weekly_candidate_brief_copy.md"].must_contain
-    assert "Sanitized / Manual Input" in by_path["weekly_candidate_brief_copy.md"].must_contain
+    assert "Sanitized Input" in by_path["weekly_candidate_brief_copy.md"].must_contain
     assert "現金11.7%" not in by_path["email/email_preview.txt"].must_contain
     assert "個別株19.6%" not in by_path["email/email_preview.html"].must_contain
     assert by_path["weekly_candidate_brief.json"].required is False
@@ -49,7 +49,7 @@ def test_v101_fixture_texts_validate_weekly_copy_email_and_status() -> None:
     assert "weekly_candidate_brief_copy.md" in result.checked_paths
     assert "Score / Veto" in texts["weekly_candidate_brief_copy.md"]
     assert "候補パイプライン" in texts["weekly_candidate_brief_copy.md"]
-    assert "Sanitized / Manual Input" in texts["weekly_candidate_brief_copy.md"]
+    assert "Sanitized Input" in texts["weekly_candidate_brief_copy.md"]
     assert "現金11.7%" in texts["email/email_preview.txt"]
     assert "個別株19.6%" in texts["email/email_preview.html"]
     assert '"schema_version": "v104"' in texts["status.json"]
@@ -59,7 +59,7 @@ def test_v101_fixture_texts_validate_weekly_copy_email_and_status() -> None:
 def test_v101_validation_reports_missing_required_text() -> None:
     texts = build_fixture_artifact_texts_for_scheduled_observation_v101()
     texts["weekly_candidate_brief_copy.md"] = texts["weekly_candidate_brief_copy.md"].replace(
-        "Sanitized / Manual Input",
+        "Sanitized Input",
         "Sanitized Manual Input",
     )
 
@@ -67,7 +67,7 @@ def test_v101_validation_reports_missing_required_text() -> None:
 
     assert result.is_ready is False
     assert any(
-        issue.path == "weekly_candidate_brief_copy.md" and issue.missing_text == "Sanitized / Manual Input"
+        issue.path == "weekly_candidate_brief_copy.md" and issue.missing_text == "Sanitized Input"
         for issue in result.issues
     )
 

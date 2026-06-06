@@ -19,6 +19,8 @@ def _candidate(
     themes: tuple[str, ...] = ("us_equity",),
     return_20d: float = 0.12,
     discovery_score: int = 8,
+    categories: tuple[str, ...] = ("rapid_mover", "near_high_quality_trend"),
+    labels: tuple[str, ...] = ("rapid_mover_20d", "near_high"),
 ) -> UnifiedCandidate:
     return UnifiedCandidate(
         market=market,
@@ -30,8 +32,8 @@ def _candidate(
         return_5d=0.03,
         return_20d=return_20d,
         return_60d=0.21,
-        labels=("rapid_mover_20d", "near_high"),
-        categories=("rapid_mover", "near_high_quality_trend"),
+        labels=labels,
+        categories=categories,
         data_quality="ok",
         reason="fixture human candidate",
         themes=themes,
@@ -39,9 +41,9 @@ def _candidate(
     )
 
 
-def _card(candidate: UnifiedCandidate) -> CandidateCard:
+def _card(candidate: UnifiedCandidate, *, brief_type: str = "top_pick") -> CandidateCard:
     return CandidateCard(
-        brief_type="top_pick",
+        brief_type=brief_type,
         candidate=candidate,
         reason="注目理由: 20日モメンタムが強く、テーマ性も確認対象。",
         counter_evidence=("20日で大きく上昇しており、追いかけると反落リスクがある。",),
@@ -50,13 +52,19 @@ def _card(candidate: UnifiedCandidate) -> CandidateCard:
 
 
 def _brief() -> WeeklyCandidateBriefV0:
-    cards = [
-        _card(_candidate("285A", "キオクシア", market="jp", themes=("memory", "semiconductors"), return_20d=0.73)),
-        _card(_candidate("AAPL", "AAPL", return_20d=0.08)),
-        _card(_candidate("QQQ", "QQQ", themes=("us_etf",), return_20d=0.06)),
-        _card(_candidate("MSFT", "MSFT", return_20d=0.05)),
-        _card(_candidate("NVDA", "NVDA", return_20d=0.18)),
-    ]
+    early = _card(_candidate("AAPL", "AAPL", return_20d=0.28))
+    overheat = _card(
+        _candidate(
+            "285A",
+            "キオクシア",
+            market="jp",
+            themes=("memory", "semiconductors"),
+            return_20d=0.73,
+            categories=("rapid_mover", "overheated_caution"),
+            labels=("overheat_caution",),
+        ),
+        brief_type="avoid",
+    )
     return WeeklyCandidateBriefV0(
         report_date="2026-06-06",
         generated_at_jp="fixture",
@@ -64,7 +72,9 @@ def _brief() -> WeeklyCandidateBriefV0:
         jp_scope="fixture",
         us_scope="fixture",
         macro_summary="fixture macro",
-        top_picks=cards,
+        top_picks=[early],
+        early_discovery_picks=[early],
+        overheated_leaders=[overheat],
     )
 
 
@@ -72,26 +82,23 @@ def test_weekly_report_v1_2_markdown_contains_investment_grade_sections() -> Non
     body = format_weekly_candidate_brief_v0_markdown(_brief())
 
     for required in (
-        "## Executive Summary",
-        "## 用語の簡単な意味",
-        "## Portfolio Guardrails",
-        "## Candidate Comparison",
-        "## Top 5 Deep Dive Cards",
-        "## Action Matrix",
-        "## If / Then Decision Rules",
+        "## 今週の結論（3行）",
+        "## 初動・深掘り候補",
+        "## 過熱代表 / Do Not Chase",
+        "## If/Then 行動ルール",
+        "## 用語・安全注記",
         "深掘り候補",
-        "追いかけ買い禁止",
+        "追いかけ禁止",
         "これは売買指示ではありません",
     ):
         assert required in body
 
-    assert "| 現金比率 | 11.7% | 15%以上 / 目標30% | RED / 不足 |" in body
-    assert "| 1 | 285A キオクシア | 半導体/メモリ |" in body
-    assert body.count("| 一言でいうと |") >= 5
-
-    top_area = "\n".join(body.splitlines()[:80]).lower()
+    top_area = body.split("## 開発者向け集計")[0]
+    assert "285A" in top_area
+    assert "285A" not in top_area.split("## 初動・深掘り候補")[1].split("## 過熱代表")[0]
+    assert "━━━━━━━━━━━━━━━━" in top_area
     for unexplained in ("score_veto_source", "matched_normal", "rows_matched"):
-        assert unexplained not in top_area
+        assert unexplained not in top_area.lower()
 
 
 def test_weekly_report_v1_2_email_html_has_tables_and_status_badges() -> None:
@@ -100,13 +107,9 @@ def test_weekly_report_v1_2_email_html_has_tables_and_status_badges() -> None:
 
     assert draft.html_body is not None
     html = draft.html_body
-    assert "Executive Summary" in html
-    assert "Portfolio Guardrails" in html
-    assert "If / Then Decision Rules" in html
-    assert "<table" in html
-    assert "DEEP DIVE" in html
-    assert "background:#dcfce7" in html
-    assert "border:1px solid #d1d5db" in html
+    assert "candidate-card" in html
+    assert "なぜ注目" in html
+    assert "AAPL" in html
 
 
 def test_weekly_report_v1_2_one_page_summary_is_chatgpt_ready() -> None:
@@ -118,9 +121,5 @@ def test_weekly_report_v1_2_one_page_summary_is_chatgpt_ready() -> None:
         "## 2. 候補上位",
         "## 3. ポートフォリオ制約",
         "## 4. 深掘りしたい論点",
-        "## 5. 見送り条件",
-        "## 6. ChatGPTに聞きたい質問",
-        "285Aは過熱後でも深掘り価値がありますか？",
-        "今週は買うべきか、調査だけにすべきですか？",
     ):
         assert required in summary
